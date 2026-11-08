@@ -31,6 +31,7 @@
 #include "panel_state.inc"  // each palette panel's own pick, tools, brush, player, mirrors, Isometric or Rectangle and tiles
 #include "path_overlay.inc"
 #include "map_input.inc"
+#include "map_mod_mark.inc"  // the mark next to the mouse on the map while a modifier key changes what the tool does
 #include "views_rail.inc"
 #include "views_minimap.inc"
 #include "views_tabs.inc"
@@ -61,8 +62,9 @@
 #include "data_pictures.inc"  // the Data pictures' model: the game's images, the image player, the timeline, the portraits
 #include "pathing_layer.inc"  // View > Overlays > Pathing, Scenario > Check pathing (the game's regions, the nooks and crannies)
 #include "terrain_flags_layer.inc"  // View > Overlays > Terrain flags (walkable, height, blocks view, buildable)
-#include "creep_layer.inc"  // View > Layers > Creep: the start creep of the map's Zerg buildings
-#include "protected_layer.inc"  // Protected terrain: the menu, View > Layers > Protected terrain, kept in the project
+#include "creep_layer.inc"  // View > Modes > Creep: the start creep of the map's Zerg buildings
+#include "map_layers.inc"  // Map layers (a prototype): the active layer, flattening, the map's mouse
+#include "protected_layer.inc"  // Protected terrain: the menu, View > Modes > Protected terrain, kept in the project
 #include "map_scene.inc"
 #include "resource_zones.inc"  // View > Overlays > Invalid resource depot, Invalid resource node (GitHub feedback #181)
 #include "fog_layer.inc"  // View > Overlays > Fog of war of the selected player (roadmap R32)  // the map's scene: the grid, the sprites, the units and their animations, the locations, the selection, the ghosts (buildScene)
@@ -78,6 +80,7 @@
 #include "sound_lists.inc"
 #include "media_model.inc"  // the project's music tracks and dot images (the Assets workspace), with their undo steps
 #include "views_files.inc"
+#include "views_layers.inc"  // The Layers panel (a prototype)
 #include "views_data_refs.inc"
 #include "views_data_list.inc"
 #include "data_table.inc"  // the Data workspace's Table view: the columns, the cells, the selected cells, the clipboard and CSV text
@@ -112,6 +115,7 @@
 #include "views_location_props.inc"
 #include "views_revealers_dialog.inc"  // Tools > Place map revealers: the players' dialog (Discord feedback #125)
 #include "views_text_prompt.inc"
+#include "views_number_prompt.inc"  // the number form: numbers with their ranges and units, OK and Cancel (shellAskNumbers)
 #include "views_map_menu.inc"
 #include "views_quick_pick.inc"
 #include "views_campaign.inc"  // File > Campaign: the campaign's maps (roadmap R25)

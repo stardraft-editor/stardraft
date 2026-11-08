@@ -68,7 +68,7 @@ public:
             for (size_t k = 0; k < tabs.size(); ++k) {
                 const draw::Rect t{x, top, x + scale(14) + icon + scale(8) + c.measure(tabs[k].name) + scale(14), headH};
                 const bool on = cur == int(k), hot = hot_ == int(k);
-                if (on || hot) c.fill(t, on ? kSel : kRowHot);
+                if (hot && !on) c.fill(t, kRowHot);  // (the chosen tab: its line only, as the Data workspace's and the Options tabs)
                 if (on) c.fill({t.left, t.bottom - scale(2), t.right, t.bottom}, kAccent);
                 const draw::Color col = on ? kAccent : hot ? kText : kDim;
                 c.icon({t.left + scale(14), t.top, t.left + scale(14) + icon, t.bottom}, int(tabs[k].icon), col, icon);

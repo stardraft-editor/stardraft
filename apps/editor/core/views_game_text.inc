@@ -339,7 +339,7 @@ public:
         // The align buttons (Preview: the caret's line's alignment on)
         if (spec_.align && spec_.multiline) {
             const int now = rawMode_ ? -1 : caretAlign();
-            static const wchar_t* glyphs[3] = {L"\xE8E4", L"\xE8E3", L"\xE8E2"};
+            static const kitpaint::Ico glyphs[3] = {UiIcon::AlignLeft, UiIcon::AlignCenter, UiIcon::AlignRight};
             static const wchar_t* tips[3] = {L"Align left", L"Center the line (code 13)", L"Align right (code 12)"};
             for (int k = 0; k < 3; ++k) {
                 const bool over = hot(tools_.align[k]), on = k == now;

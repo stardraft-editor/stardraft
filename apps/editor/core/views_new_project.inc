@@ -32,24 +32,15 @@ struct NewProjectChoice {
 
 // The folder sketch under the fields: what the project's folder holds, with the name typed (or <name>). `output`:
 // an output file is typed.
-inline std::wstring newProjectSketch(const std::wstring& name, bool output) {
+// The project's folder: its files, each with what it is (the dialog's list, under the fields).
+constexpr int kSketchRows = 5;
+inline std::array<std::pair<std::wstring, std::wstring>, kSketchRows> newProjectFiles(const std::wstring& name, bool output) {
     const std::wstring n = name.empty() ? L"<name>" : name;
-    // The folder sketch: names padded to one column, whatever the project is called.
-    const std::pair<std::wstring, std::wstring> rows[] = {
-        {L"project.stardraft", L"the project file"},
-        {n + L".scx", L"the map you edit here (Brood War format)"},
-        {n + L".eds", L"euddraft's build file: Build writes it"},
-        {n + L"_EUD.scx", output ? L"the built map: Build (Ctrl+B) writes it to the Output file" : L"the built map: Build (Ctrl+B) writes it"},
-        {L"scripts\\main.eps", L"your code (epScript). To add more, use File > Project > Add a script."},
-    };
-    size_t col = 0;
-    for (const auto& r : rows) col = std::max(col, r.first.size());
-    std::wstring sketch;
-    for (const auto& r : rows) sketch += L"  " + r.first + std::wstring(col + 3 - r.first.size(), L' ') + r.second + L"\r\n";
-    return L"The project goes into the new folder " + n + L"\\ in the location above:\r\n\r\n" + sketch + L"\r\n"
-           L"The first build downloads euddraft from GitHub into its own folder.\r\n"
-           L"Other copies of euddraft on this computer do not change. A map that you open\r\n"
-           L"stays a regular map. Only a project can be built.";
+    return {{{L"project.stardraft", L"The project file"},
+             {n + L".scx", L"The map you edit here (Brood War format)"},
+             {n + L".eds", L"euddraft's build file: Build writes it"},
+             {n + L"_EUD.scx", output ? L"The built map: Build (Ctrl+B) writes it to the Output file" : L"The built map: Build (Ctrl+B) writes it"},
+             {L"scripts\\main.eps", L"Your code (epScript). To add more, use File > Project > Add a script."}}};
 }
 
 // The dialog's content: the labels, the fields, the Browse buttons, the start dropdown and the sketch.
@@ -87,10 +78,14 @@ public:
         start_.setValue(0);
         start_.enterOpens = false;  // (Enter in a closed list is Create, as in a dialog's combo box)
         add(start_, {0, 0, 0, 0});
-        info_.setTone(LabelTone::Dim);
-        info_.setWrap(true);
-        info_.setFont({draw::Face::Mono});  // the folder sketch lines up
-        add(info_, {0, 0, 0, 0});
+        // The folder: a line, its files in two columns (the name, then what it is), then the note on euddraft.
+        intro_.setTone(LabelTone::Dim);
+        add(intro_, {0, 0, 0, 0});
+        for (int i = 0; i < kSketchRows; ++i) files_[i].setTone(LabelTone::Dim), add(fileNames_[i], {0, 0, 0, 0}), add(files_[i], {0, 0, 0, 0});
+        note_.setTone(LabelTone::Dim), note_.setWrap(true);
+        note_.setText(L"The first build downloads euddraft from GitHub into its own folder. Other copies of euddraft on this computer do "
+                      L"not change. A map that you open stays a regular map. Only a project can be built.");
+        add(note_, {0, 0, 0, 0});
         refreshSketch();
     }
 
@@ -116,7 +111,6 @@ public:
     void create() {
         if (dlg_) dlg_->close(kNewProjectCreate);
     }
-    const std::wstring& sketch() const { return info_.text(); }
 
     void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, kBg); }
 
@@ -130,11 +124,22 @@ public:
         output_.setFrame(r(kLabelW, 2 * kRowStep, kBoxW - kBrowseW - kGap, kFieldH));
         browseOut_.setFrame(r(kLabelW + kBoxW - kBrowseW, 2 * kRowStep, kBrowseW, kFieldH));
         start_.setFrame(r(kLabelW, 3 * kRowStep, kBoxW, kComboH));
-        info_.setFrame(r(0, 4 * kRowStep, kContentW, kInfoH));
+        const int y0 = 4 * kRowStep + 4, rowH = 20, nameW = 216;  // (the names' column: a project name of about 24 letters)
+        intro_.setFrame(r(0, y0, kContentW, rowH));
+        for (int i = 0; i < kSketchRows; ++i) {
+            fileNames_[i].setFrame(r(16, y0 + 26 + i * rowH, nameW - 24, rowH));
+            files_[i].setFrame(r(nameW, y0 + 26 + i * rowH, kContentW - nameW, rowH));
+        }
+        note_.setFrame(r(0, y0 + 26 + kSketchRows * rowH + 10, kContentW, kInfoH - (26 + kSketchRows * rowH + 14)));
     }
 
 private:
-    void refreshSketch() { info_.setText(newProjectSketch(name_.text(), !output_.text().empty())); }
+    void refreshSketch() {
+        const std::wstring n = name_.text().empty() ? L"<name>" : name_.text();
+        intro_.setText(L"The project goes into the new folder " + n + L"\\ in the location above:");
+        const auto rows = newProjectFiles(name_.text(), !output_.text().empty());
+        for (int i = 0; i < kSketchRows; ++i) fileNames_[i].setText(rows[size_t(i)].first), files_[i].setText(rows[size_t(i)].second);
+    }
 
     stardraft::kit::Dialog* dlg_ = nullptr;
     bool haveMap_ = false;
@@ -142,7 +147,7 @@ private:
     stardraft::kit::TextField name_, location_, output_;
     stardraft::kit::Button browse_, browseOut_;
     stardraft::kit::Dropdown start_;
-    stardraft::kit::Label info_;
+    stardraft::kit::Label intro_, fileNames_[kSketchRows], files_[kSketchRows], note_;
 };
 
 // Runs the dialog from `from` (the program's anchor view). True when Create closed it (`out` holds the choice).

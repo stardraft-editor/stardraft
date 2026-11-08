@@ -97,6 +97,13 @@ void pathingCheckCommand();
 void showUnitsList();   // View > Units list: the Unit properties window with the list (core/units_list.inc)
 
 void toggleCreep();  // View > Layers > Creep (core/creep_layer.inc)
+void mapLayersNew();  // (core/map_layers.inc)
+void mapLayersCurrentHide();
+void mapLayersSelectAll();
+void mapLayersCurrentLock();
+void mapLayersCurrentMergeDown();
+void mapLayersSelectStep(int step);
+void mapLayersMoveStep(int step);
 void toggleProtectedLayer();  // View > Layers > Protected terrain (core/protected_layer.inc)
 void protectedTerrainSync();  // (core/protected_layer.inc)
 
@@ -122,11 +129,13 @@ void zoomAt(float factor, int sx, int sy) {
     app.dirty = true;
 }
 
+void mapPrefsIntoMap(Editor& ed, const fs::path& savedAs);  // (core/map_prefs.inc)
 // The save of the open map (File > Save and Save as): the Editor writes the file, then the title, the recent list and
 // the message follow. False, with the error text in err, when the file could not be written.
 bool saveMapFile(const fs::path& path, std::string& err) {
     AppState& app = shellState();
     if (!app.ed) return err = "No map is open.", false;
+    mapPrefsIntoMap(*app.ed, path);
     if (!app.ed->save(path, err)) return false;
     protectedTerrainSync();  // (the protected terrain of the saved map: core/protected_layer.inc)
     updateTitle();
@@ -141,8 +150,9 @@ bool saveMapFileOf(const Editor* asked, const fs::path& path, std::string& err) 
     return saveMapFile(path, err);
 }
 
-// The start locations question before a save (shell_sdl.inc): 0 Place them, 1 Save anyway, 2 Cancel.
-int shellAskStartLocations(const std::wstring& text);
+// The start locations question before a save (shell_sdl.inc): 0 Place them, 1 Save anyway, 2 Cancel; noMore: Do not ask
+// again.
+int shellAskStartLocations(const std::wstring& text, bool* noMore);
 // The start locations question's text: the problems (startLocationProblems), and the offer.
 std::wstring startLocationsQuestion(const std::vector<std::string>& problems) {
     std::wstring text = std::wstring(tr(L"StarCraft will not start this map:")) + L"\r\n\r\n";
@@ -168,15 +178,20 @@ bool confirmTriggerComments() {
 }
 bool confirmStartLocations() {
     if (!confirmTriggerComments()) return false;
-    if (bool ask = true; prefs::flag(L"AskStartLocations", ask) && !ask) return true;  // (Program options > Saving maps: off)
     AppState& app = shellState();
     for (;;) {
+        if (bool ask = true; prefs::flag(L"AskStartLocations", ask) && !ask) return true;  // (Program options > Saving maps: off)
         if (!app.ed || !app.ed->isOpen()) return true;
         const std::vector<std::string> problems = app.ed->startLocationProblems();
         if (problems.empty()) return true;
-        const int r = shellAskStartLocations(startLocationsQuestion(problems));
+        bool noMore = false;
+        const int r = shellAskStartLocations(startLocationsQuestion(problems), &noMore);
         if (r == 2) return false;
-        if (r != 0) return true;  // Save anyway
+        if (noMore) prefs::setNumber(L"AskStartLocations", 0);  // (Program options > Saving maps turns it on again)
+        if (r != 0) {  // Save anyway
+            if (noMore) setMessage(L"A save does not ask about missing start locations. To ask again: Program options > Saving maps");
+            return true;
+        }
         const int n = app.ed->placeStartLocations();
         app.dirty = true;
         setMessage(n ? L"Placed " + std::to_wstring(n) + L" start locations" : std::wstring(tr(L"No start location fits the map")));
@@ -259,6 +274,16 @@ void registerMapCommands() {
     addCommand(ID_MODE_DOODADS, "mode.doodads", L"&Doodads", "Mode", L"D", [] { setMode(Mode::Doodads); });
     addCommand(ID_MODE_SPRITES, "mode.sprites", L"&Sprites", "Mode", L"S", [] { setMode(Mode::Sprites); });
     addCommand(ID_MODE_LOCATIONS, "mode.locations", L"&Locations", "Mode", L"L", [] { setMode(Mode::Locations); });
+    addCommand(ID_MODE_LAYERS, "mode.layers", L"&Map layers", "Mode", L"Y", [] { setMode(Mode::Layers); });
+    addCommand(ID_LAYER_CMD, "layer.new", L"&New layer", "Mode/Layer", L"Ctrl+Alt+N", [] { mapLayersNew(); });
+    addCommand(ID_LAYER_CMD + 1, "layer.hide", L"&Hide or show", "Mode/Layer", L"Ctrl+Alt+H", [] { mapLayersCurrentHide(); });
+    addCommand(ID_LAYER_CMD + 2, "layer.lock", L"&Lock or unlock", "Mode/Layer", L"Ctrl+Alt+L", [] { mapLayersCurrentLock(); });
+    addCommand(ID_LAYER_CMD + 3, "layer.merge", L"&Merge down", "Mode/Layer", L"Ctrl+Alt+E", [] { mapLayersCurrentMergeDown(); });
+    addCommand(ID_LAYER_CMD + 8, "layer.selectall", L"&Select all layers", "Mode/Layer", L"Ctrl+Alt+A", [] { mapLayersSelectAll(); });
+    addCommand(ID_LAYER_CMD + 4, "layer.up", L"The layer &above", "Mode/Layer", L"Alt+PgUp", [] { mapLayersSelectStep(1); });
+    addCommand(ID_LAYER_CMD + 5, "layer.down", L"The layer &below", "Mode/Layer", L"Alt+PgDn", [] { mapLayersSelectStep(-1); });
+    addCommand(ID_LAYER_CMD + 6, "layer.moveup", L"Move &up", "Mode/Layer", L"Alt+Shift+PgUp", [] { mapLayersMoveStep(1); });
+    addCommand(ID_LAYER_CMD + 7, "layer.movedown", L"Move &down", "Mode/Layer", L"Alt+Shift+PgDn", [] { mapLayersMoveStep(-1); });
     // Mode > Terrain tools: the Terrain tool strip's choices, each with its key (Terrain mode first), and the next one
     // (Ctrl+Alt+T: kProgramKeys runs it, as before)
     static const struct {

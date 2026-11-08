@@ -27,6 +27,33 @@ fs::path mapPrefsFile(const fs::path& map) {
     std::snprintf(hex, sizeof hex, "%08x", h);
     return settings.parent_path() / "Maps" / (stem + "-" + hex) / "map.json";
 }
+// The settings go with the map: a save puts them into its archive (a file that is no edit: a panel that moves does not
+// change the map), and a map with no settings here (it moved, or came from another computer) gets them from there.
+void mapPrefsIntoMap(Editor& ed, const fs::path& savedAs) {
+    const fs::path from = mapPrefsFile(ed.path());
+    std::error_code ec;
+    if (from.empty() || !fs::exists(from, ec)) return;
+    std::ifstream in(from, std::ios::binary);
+    Bytes data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    if (!in.is_open() || in.bad()) return;  // (it cannot be read now: the map keeps what it has)
+    ed.setQuietArchiveFile(kMapSettingsFile, data);
+    const fs::path to = mapPrefsFile(savedAs);
+    if (to.empty() || to == from || fs::exists(to, ec)) return;
+    fs::create_directories(to.parent_path(), ec);
+    std::ofstream(to, std::ios::binary).write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+}
+// False: the map's files are still being read (ask again later).
+bool mapPrefsFromMap(const Editor& ed) {
+    const fs::path to = mapPrefsFile(ed.path());
+    std::error_code ec;
+    if (to.empty() || fs::exists(to, ec)) return true;
+    if (!ed.filesRead()) return false;
+    const ArchiveFile* f = ed.archiveFile(kMapSettingsFile);
+    if (!f) return true;
+    fs::create_directories(to.parent_path(), ec);
+    std::ofstream(to, std::ios::binary).write(reinterpret_cast<const char*>(f->data.data()), std::streamsize(f->data.size()));
+    return true;
+}
 // The active tab's map's file ("": none).
 fs::path activeMapPrefsFile() {
     AppState& app = shellState();

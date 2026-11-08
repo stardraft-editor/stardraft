@@ -363,11 +363,11 @@ Hallucinated	Alucinado
 Invincible	Invencible
 Owner	Propietario
  (neutral)	 (neutral)
-Hit points %	Puntos de vida %
+Hit points (%)	Puntos de vida (%)
 Resources	Recursos
-Shields %	Escudos %
+Shields (%)	Escudos (%)
 Hangar	Hangar
-Energy %	Energía %
+Energy (%)	Energía (%)
 X (pixels)	X (píxeles)
 Y (pixels)	Y (píxeles)
 Edit unit type in Data (	Editar tipo de unidad en Datos (
@@ -2419,8 +2419,8 @@ Lifted	Elevada
 Link selected units	Enlazar las unidades seleccionadas
 Jump to linked unit	Ir a la unidad enlazada
  locations	 ubicaciones
-Turns	Giros
-Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Giros: las copias giran alrededor del centro de simetría a pasos iguales. 1: ninguno, 2: media vuelta, 4: cuartos de vuelta, de 1 a 8. Haz clic para escribir un número. Las flechas y la rueda del ratón lo cambian. En terreno isométrico, una copia va al rombo más cercano salvo que el giro conserve los rombos (2, y 4 en un mapa el doble de ancho que de alto).
+Brushes	Pinceles
+Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Pinceles: los pinceles giran alrededor del centro de simetría a pasos iguales. 1: un pincel, 2: dos (media vuelta), 4: cuatro (cuartos de vuelta), de 1 a 8. Haz clic para escribir un número. Las flechas y la rueda del ratón lo cambian. En terreno isométrico, una copia va al rombo más cercano salvo que el giro conserve los rombos (2, y 4 en un mapa el doble de ancho que de alto).
 Start locations	Posiciones de inicio
 &Place them	&Colocarlas
 &Save anyway	&Guardar de todos modos
@@ -2983,3 +2983,234 @@ This import is experimental	Esta importación es experimental
 The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, tell us.	La importación no cambia el proyecto antiguo. Solo lo lee. Antes de usar el proyecto nuevo, examínelo: las partes que lista el resumen, una compilación y una prueba del mapa en el juego. Si una parte no se importa correctamente, díganoslo.
 The import is experimental. Some parts can be imported incorrectly.	La importación es experimental. Algunas partes pueden importarse de forma incorrecta.
 Report feedback…	Enviar comentarios…
+ file	 archivo
+ files	 archivos
+ files of the archive have no name that can be read, or could not be read. A save leaves them out.	 archivos del paquete no tienen un nombre legible, o no se pudieron leer. Al guardar se omiten.
+ layers	 capas
+ left out (Assets > All files)	 omitidos (Recursos > Todos los archivos)
+ of them: 	 de ellos:
+ replaced)	 reemplazados)
+ tile	 tile
+ tiles	 tiles
+&Hide or show	&Ocultar o mostrar
+&Layer list	&Lista de capas
+&Lock or unlock	Bl&oquear o desbloquear
+&Map Layers	Capas del &mapa
+&Merge down	&Fusionar hacia abajo
+&Modes	M&odos
+&New layer	&Nueva capa
+&Select all layers	&Seleccionar todas las capas
+, and more	 y más
+. It has no changed values: it does not show while Changed is on	. No tiene valores cambiados: no se muestra mientras Cambiado está activado
+. Shift adds. Ctrl removes.	. Shift añade. Ctrl quita.
+. The map uses 	. El mapa usa
+1 file of the archive has no name that can be read, or could not be read. A save leaves it out.	1 archivo del paquete no tiene un nombre legible, o no se pudo leer. Al guardar se omite.
+: the Sounds tab imports only sounds (WAV, OGG). The All files tab takes any file.	: la pestaña Sonidos importa solo sonidos (WAV, OGG). La pestaña Todos los archivos acepta cualquier archivo.
+: the game uses that name	: el juego usa ese nombre
+: the layers are flattened	: las capas se aplanan
+: this layer is hidden (View > Modes), so you cannot edit it. Show the layer?	: esta capa está oculta (Ver > Modos), así que no se puede editar. ¿Mostrar la capa?
+: this layer is hidden. View > Modes shows it again (then you can edit it).	: esta capa está oculta. Ver > Modos la muestra de nuevo (entonces se puede editar).
+A bridge or a ramp needs its ground in the same layer: paint the terrain in this layer, or select the layer that has it	Un puente o una rampa necesita su suelo en la misma capa: pinte el terreno en esta capa o seleccione la capa que lo tiene
+A locked layer cannot be deleted	Una capa bloqueada no se puede eliminar
+A locked layer cannot be merged	Una capa bloqueada no se puede fusionar
+Add files…	Añadir archivos…
+Add symmetry &anchor here	Añadir un &ancla de simetría aquí
+Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it	Se añadió un ancla de simetría. Herramienta Seleccionar: arrástrela para moverla, haga doble clic para quitarla
+All files	Todos los archivos
+All layers that show become one map, and the layer data stays out of it.	Todas las capas visibles se convierten en un solo mapa, y los datos de las capas no se incluyen.
+All the files of the map: add, extract, replace, rename, remove, and what File > Export keeps	Todos los archivos del mapa: añadir, extraer, reemplazar, cambiar nombre, quitar, y lo que conserva Archivo > Exportar
+Another program changed this map's terrain after its last save here. The layers do not have those changes: the next edit makes the terrain from the layers again.	Otro programa cambió el terreno de este mapa después de su último guardado aquí. Las capas no tienen esos cambios: la próxima edición vuelve a crear el terreno a partir de las capas.
+Any files. They go into the map with their names; a file of that name is replaced.	Cualquier archivo. Entran en el mapa con sus nombres; un archivo con ese nombre se reemplaza.
+Background	Fondo
+Could not export the map: 	No se pudo exportar el mapa:
+Could not read the file: 	No se pudo leer el archivo:
+Could not save 	No se pudo guardar
+Creep is hidden (View > Modes shows it again)	El creep está oculto (Ver > Modos lo muestra de nuevo)
+Cut the terrain: what is under the layer shows in its place (one undo step)	Terreno cortado: lo que hay bajo la capa se muestra en su lugar (un paso de deshacer)
+Delete the selected layers (Del in Map Layers)	Eliminar las capas seleccionadas (Del en Capas del mapa)
+Did not add 	No se añadió
+Drag to move the layer in the list	Arrastre para mover la capa en la lista
+E&xport map…	E&xportar mapa…
+Establishing shot	Plano general
+Export settings	Ajustes de exportación
+Exported 	Exportado:
+Extract…	Extraer…
+File > Export keeps this file in the exported map	Archivo > Exportar conserva este archivo en el mapa exportado
+File > Export never keeps this file: the exported map has no layers	Archivo > Exportar nunca conserva este archivo: el mapa exportado no tiene capas
+Flatten	Aplanar
+Flattened the layers into the Background	Capas aplanadas en el Fondo
+How layers get into the map that you play	Cómo entran las capas en el mapa que se juega
+Keep in export	Conservar al exportar
+La&yer	Ca&pa
+Lasso	Lazo
+Lasso: draw round the tiles to select. Shift adds, Ctrl removes. Then Ctrl+C copies, and Move moves them.	Lazo: dibuje alrededor de los tiles para seleccionarlos. Shift añade, Ctrl quita. Luego Ctrl+C copia y Mover los mueve.
+Layer list	Lista de capas
+Layers	Capas
+Layers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. 	Las capas permanecen en este archivo de mapa mientras trabaja en ellas.\n\nPara crear el mapa que se juega en StarCraft, use Archivo > Exportar mapa.
+Lock	Bloquear
+Lock or unlock: a locked layer does not change (Ctrl+Alt+L)	Bloquear o desbloquear: una capa bloqueada no cambia (Ctrl+Alt+L)
+Map Layers	Capas del mapa
+Map settings	Ajustes del mapa
+Merge down	Fusionar hacia abajo
+Merge the selected layers	Fusionar las capas seleccionadas
+Merged the layers	Capas fusionadas
+Merged the layers into the Background	Capas fusionadas en el Fondo
+Move	Mover
+Move Layer	Mover capa
+Move Layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.	Mover capa: arrastrar en el mapa mueve las capas seleccionadas. Las herramientas de los demás modos cambian la capa seleccionada.
+Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.	Mover: arrastre el terreno seleccionado a otro lugar. Isométrico: con sus bordes ajustados allí, y el terreno bajo él sigue siendo válido. Los demás tipos: sus tiles tal cual, con tiles nulos donde estaban. En una capa, lo que hay bajo la capa se muestra donde estaba.
+Moved the layers back to the side bar	Capas devueltas a la barra lateral
+Moved the layers to their own window	Capas movidas a su propia ventana
+Moved the terrain (one undo step)	Terreno movido (un paso de deshacer)
+New layer	Nueva capa
+New layer (Ctrl+Alt+N)	Nueva capa (Ctrl+Alt+N)
+New layer: the tools now change this layer	Nueva capa: las herramientas ahora cambian esta capa
+No file has the search text	Ningún archivo contiene el texto de búsqueda
+Not available: no terrain is selected.	No disponible: no hay terreno seleccionado.
+Notes	Notas
+Notes for the mappers. Not in the game. File > Export leaves them out.	Notas para los creadores de mapas. No están en el juego. Archivo > Exportar las omite.
+Nothing to move there: make the selection larger	No hay nada que mover ahí: amplíe la selección
+Nothing to move there: this layer has no terrain in the selection	No hay nada que mover ahí: esta capa no tiene terreno en la selección
+Open a map first: the files go into the map	Abra primero un mapa: los archivos entran en el mapa
+Paste on the layer: click to place it, and then drag to move it. R turns it, M mirrors it. Right-click or Esc stops.	Pegar en la capa: haga clic para colocarlo y luego arrastre para moverlo. R lo gira, M lo refleja. Clic derecho o Esc lo cancela.
+Pasted on the layer. Drag to move it. Ctrl+V pastes again.	Pegado en la capa. Arrastre para moverlo. Ctrl+V vuelve a pegar.
+Protected terrain is hidden (View > Modes shows it again)	El terreno protegido está oculto (Ver > Modos lo muestra de nuevo)
+Put the layers back in the side bar	Devolver las capas a la barra lateral
+Remove this symmetry anchor	Quitar esta ancla de simetría
+Removed the file	Archivo quitado
+Removed the symmetry anchor	Ancla de simetría quitada
+Rename the file	Cambiar el nombre del archivo
+Rename the layer	Cambiar el nombre de la capa
+Rename…	Cambiar nombre…
+Replace…	Reemplazar…
+Replaced the data of 	Datos reemplazados de
+Save a copy of the file on the computer	Guardar una copia del archivo en la computadora
+Search map files	Buscar archivos del mapa
+Select a layer first	Seleccione primero una capa
+Select another file: an export over the open map would remove its layers	Seleccione otro archivo: exportar sobre el mapa abierto quitaría sus capas
+Select terrain first, with Select, the Lasso or the Magic wand	Seleccione primero el terreno, con Seleccionar, el Lazo o la Varita mágica
+Selected all 	Seleccionado todo:
+Show or hide (Ctrl+Alt+H). With nothing showing, the map is black	Mostrar u ocultar (Ctrl+Alt+H). Si no se muestra nada, el mapa se ve negro
+Sort by name	Ordenar por nombre
+That belongs to a locked layer, or the active layer is locked: nothing changed	Eso pertenece a una capa bloqueada, o la capa activa está bloqueada: no cambió nada
+The Background does not move. Select a layer in the list	El Fondo no se mueve. Seleccione una capa de la lista
+The Background is hidden: nothing changed	El Fondo está oculto: no cambió nada
+The game or StarDraft uses that name: select another name	El juego o StarDraft usa ese nombre: seleccione otro nombre
+The layer &above	La capa de &arriba
+The layer &below	La capa de a&bajo
+The layer is hidden: nothing changed	La capa está oculta: no cambió nada
+The layer is locked	La capa está bloqueada
+The layer is locked: nothing changed	La capa está bloqueada: no cambió nada
+The layer list shows in its own window	La lista de capas se muestra en su propia ventana
+The map changed while you selected the file: nothing changed	El mapa cambió mientras seleccionaba el archivo: no cambió nada
+The map changed while you selected the files: nothing was added	El mapa cambió mientras seleccionaba los archivos: no se añadió nada
+The map changed while you selected the place: nothing was saved	El mapa cambió mientras seleccionaba el lugar: no se guardó nada
+The map has no files other than its terrain and triggers. Add files puts files into it.	El mapa no tiene archivos aparte de su terreno y sus disparadores. Añadir archivos los pone en él.
+The map has no isometric terrain data: use Rectangle or Tile	El mapa no tiene datos de terreno isométrico: use Rectángulo o Tile
+The map has no layers: nothing to select	El mapa no tiene capas: no hay nada que seleccionar
+The map uses this file: without it, the exported map cannot play it	El mapa usa este archivo: sin él, el mapa exportado no puede reproducirlo
+The map's files are still being read	Los archivos del mapa aún se están leyendo
+The map's size or tileset changed: the layers are flattened. Undo brings them back	Cambió el tamaño o el tileset del mapa: las capas se aplanan. Deshacer las recupera
+The map's text names this file	El texto del mapa nombra este archivo
+The map's tileset changed: the layers are flattened. Undo brings them back	Cambió el tileset del mapa: las capas se aplanan. Deshacer las recupera
+Unlock	Desbloquear
+Use a file of the computer as this file's data. The name stays.	Use un archivo de la computadora como datos de este archivo. El nombre se mantiene.
+View	Ver
+\nClick: select the column\nDrag a selected column: move it\nDouble-click: sort by it (ascending, descending, then the default order)\nDrag the right edge: change the width (of all the selected columns)\nDouble-click the right edge: fit the width to the text\nRight-click: hide it	\nClic: seleccionar la columna\nArrastrar una columna seleccionada: moverla\nDoble clic: ordenar por ella (ascendente, descendente y luego el orden predeterminado)\nArrastrar el borde derecho: cambiar el ancho (de todas las columnas seleccionadas)\nDoble clic en el borde derecho: ajustar el ancho al texto\nClic derecho: ocultarla
+hidden	oculta
+locked	bloqueada
+Re&center this anchor	Re&centrar esta ancla
+Recentered the symmetry anchor	Ancla de simetría recentrada
+Add symmetry &anchor	Añadir un &ancla de simetría
+Merged the symmetry anchors	Anclas de simetría unidas
+Moved the symmetry anchor. Double-click it to remove it	Ancla de simetría movida. Haga doble clic para quitarla
+Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	Centro de simetría: arrástrelo para moverlo, haga doble clic para ponerlo en el medio, clic derecho para más
+Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	Ancla de simetría: arrástrela para moverla, haga doble clic para quitarla, clic derecho para más
+Clear the terrain mas&k	Quitar la más&cara del terreno
+Do not &ask again	No volver a pregunt&ar
+A save does not ask about missing start locations. To ask again: Program options > Saving maps	Al guardar no se pregunta por las ubicaciones de inicio que faltan. Para volver a preguntar: Opciones del programa > Guardar mapas
+D&rag objects to move them	A&rrastrar objetos para moverlos
+A drag moves units, doodads, sprites and locations	Arrastrar mueve unidades, doodads, sprites y ubicaciones
+A drag does not move units, doodads, sprites or locations	Arrastrar no mueve unidades, doodads, sprites ni ubicaciones
+A drag does not move objects. To move them: Options > Drag objects to move them	Arrastrar no mueve objetos. Para moverlos: Opciones > Arrastrar objetos para moverlos
+Painting terrain	Pintar terreno
+Detailed tiles	Casillas detalladas
+How often Isometric and Rectangle painting places a detailed tile. StarCraft: 5%.	Con qué frecuencia la pintura isométrica y rectangular coloca una casilla detallada. StarCraft: 5%.
+Terrain pie palette: the terrains in a circle; click one to paint with it (on the map: hold Space)	Paleta circular de terreno: los terrenos en un círculo; haga clic en uno para pintar con él (en el mapa: mantenga Espacio)
+Sort the custom terrain: by name or by date	Ordenar el terreno personalizado: por nombre o por fecha
+Date: &newest first	Fecha: más &nuevo primero
+Rename folder…	Cambiar nombre de carpeta…
+Delete folder	Eliminar carpeta
+New folder…	Nueva carpeta…
+New folder in this folder…	Nueva carpeta en esta carpeta…
+Rename folder	Cambiar nombre de carpeta
+Move custom terrain	Mover terreno personalizado
+A folder with this name is already there.	Ya hay una carpeta con este nombre.
+The folder has custom terrain: drag it out of the folder first, or delete it	La carpeta tiene terreno personalizado: sáquelo de la carpeta primero, o elimínelo
+The folder has other files: it stays	La carpeta tiene otros archivos: se queda
+Add to &favorites	&Agregar a favoritos
+Remove from &favorites	&Quitar de favoritos
+&Show the favorites	&Mostrar los favoritos
+Make f&loating	&Hacer flotante
+Clear the mas&k	Quitar la más&cara del terreno
+Add to the &mask	Añadir a la &máscara
+Remove from the &mask	Quitar de la &máscara
+Mask: 	Máscara: 
+Cleared the masks: painting changes all terrains and tiles	Máscaras quitadas: pintar cambia todos los terrenos y casillas
+Cleared the tile mask: painting changes all tiles	Máscara de casillas quitada: pintar cambia todas las casillas
+Cleared the terrain mask: painting changes all terrains	Máscara de terreno quitada: pintar cambia todos los terrenos
+Clear the mask	Quitar la máscara
+&Diamond	&Rombo
+&Square	&Cuadrado
+&Circle	&Círculo
+&Left	&Izquierda
+&Right	&Derecha
+X offset	Desplazamiento X
+Y offset	Desplazamiento Y
+seconds	segundos
+Map size	Tamaño del mapa
+Custom grid	Cuadrícula personalizada
+ to 	 a 
+More	Más
+Hide the less used values	Ocultar los valores menos usados
+Show the less used values: Detailed tiles	Mostrar los valores menos usados: Casillas detalladas
+Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.	Casillas detalladas: con qué frecuencia la pintura isométrica y rectangular coloca una casilla detallada, de 0 a 100%. StarCraft: 5%. Haga clic para escribir un número. Las flechas y la rueda del ratón lo cambian.
+Units, doodads and sprites stay on the map: only a layer's terrain goes outside of it	Las unidades, doodads y sprites se quedan en el mapa: solo el terreno de una capa sale de él
+&Hide what is outside of the map	&Ocultar lo que está fuera del mapa
+Settings of the layers	Ajustes de las capas
+Layers: what is outside of the map is hidden	Capas: lo que está fuera del mapa está oculto
+Layers: what is outside of the map shows	Capas: lo que está fuera del mapa se muestra
+Map layers	Capas del mapa
+&Map layers	Capas del &mapa
+Move layer	Mover capa
+Search terrains	Buscar terrenos
+Search doodads	Buscar doodads
+Search locations	Buscar ubicaciones
+Search sprites	Buscar sprites
+Search layers	Buscar capas
+Search tiles	Buscar casillas
+Search custom terrain	Buscar terreno personalizado
+Search tiles by their group number, terrain or doodad	Buscar casillas por su número de grupo, terreno o doodad
+StarDraft Discord server	Servidor de Discord de StarDraft
+Only	Solo
+Edit unit type in Data	Editar el tipo de unidad en Datos
+Edit unit type in Map data	Editar el tipo de unidad en Datos del mapa
+Projects	Proyectos
+ item	 elemento
+ items	 elementos
+List (Ctrl+L)	Lista (Ctrl+L)
+Grid (Ctrl+G)	Cuadrícula (Ctrl+G)
+Size: small (Ctrl+wheel changes it)	Tamaño: pequeño (Ctrl+rueda lo cambia)
+Size: medium (Ctrl+wheel changes it)	Tamaño: mediano (Ctrl+rueda lo cambia)
+Size: large (Ctrl+wheel changes it)	Tamaño: grande (Ctrl+rueda lo cambia)
+Serial 	Serie 
+Exclude	Excluir
+Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)	Direct3D 12 en tarjetas gráficas nuevas, Vulkan en las antiguas. Si la tarjeta no puede usarlo: el otro, luego dibujo por software (predeterminado)
+Vulkan. If the video card cannot use it: Direct3D 12, then software drawing	Vulkan. Si la tarjeta gráfica no puede usarlo: Direct3D 12, luego dibujo por software
+Graphics: Vulkan after a restart	Gráficos: Vulkan tras reiniciar
+Search upgrades	Buscar mejoras
+Search technologies	Buscar tecnologías
+&Show terrain outside of map boundaries	&Mostrar el terreno fuera de los límites del mapa
+Map layers: terrain outside of map boundaries shows	Capas del mapa: se muestra el terreno fuera de los límites del mapa
+Map layers: terrain outside of map boundaries is hidden	Capas del mapa: el terreno fuera de los límites del mapa está oculto
+Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	El terreno solo se puede editar en el mapa. Para tener terreno fuera de él, píntelo en una capa y luego saque la capa (Capas del mapa > Mover capa)

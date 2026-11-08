@@ -363,11 +363,11 @@ Hallucinated	Halluciné
 Invincible	Invincible
 Owner	Propriétaire
  (neutral)	 (neutre)
-Hit points %	Points de vie %
+Hit points (%)	Points de vie (%)
 Resources	Ressources
-Shields %	Boucliers %
+Shields (%)	Boucliers (%)
 Hangar	Hangar
-Energy %	Énergie %
+Energy (%)	Énergie (%)
 X (pixels)	X (pixels)
 Y (pixels)	Y (pixels)
 Edit unit type in Data (	Modifier le type d'unité dans Données (
@@ -2419,8 +2419,8 @@ Lifted	Décollé
 Link selected units	Lier les unités sélectionnées
 Jump to linked unit	Aller à l'unité liée
  locations	 emplacements
-Turns	Rotations
-Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Rotations : les copies tournent autour du centre de symétrie à pas égaux. 1 : aucune, 2 : un demi-tour, 4 : des quarts de tour, de 1 à 8. Cliquez pour saisir un nombre. Les flèches et la molette le changent. Sur le terrain isométrique, une copie va au losange le plus proche sauf si la rotation conserve les losanges (2, et 4 sur une carte deux fois plus large que haute).
+Brushes	Pinceaux
+Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Pinceaux : les pinceaux tournent autour du centre de symétrie à pas égaux. 1 : un pinceau, 2 : deux (un demi-tour), 4 : quatre (des quarts de tour), de 1 à 8. Cliquez pour saisir un nombre. Les flèches et la molette le changent. Sur le terrain isométrique, une copie va au losange le plus proche sauf si la rotation conserve les losanges (2, et 4 sur une carte deux fois plus large que haute).
 Start locations	Positions de départ
 &Place them	&Les placer
 &Save anyway	&Enregistrer quand même
@@ -2983,3 +2983,234 @@ This import is experimental	Cette importation est expérimentale
 The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, tell us.	L'importation ne modifie pas l'ancien projet. Elle le lit seulement. Avant d'utiliser le nouveau projet, examinez-le : les parties que le résumé liste, une compilation et un test de la carte dans le jeu. Si une partie n'est pas importée correctement, dites-le-nous.
 The import is experimental. Some parts can be imported incorrectly.	L'importation est expérimentale. Certaines parties peuvent être importées de façon incorrecte.
 Report feedback…	Envoyer un commentaire…
+ file	 fichier
+ files	 fichiers
+ files of the archive have no name that can be read, or could not be read. A save leaves them out.	 fichiers de l'archive n'ont pas de nom lisible, ou n'ont pas pu être lus. Un enregistrement les omet.
+ layers	 calques
+ left out (Assets > All files)	 omis (Ressources > Tous les fichiers)
+ of them: 	 parmi eux:
+ replaced)	 remplacés)
+ tile	 tuile
+ tiles	 tuiles
+&Hide or show	&Masquer ou afficher
+&Layer list	&Liste des calques
+&Lock or unlock	Ver&rouiller ou déverrouiller
+&Map Layers	Calques de la &carte
+&Merge down	&Fusionner vers le bas
+&Modes	M&odes
+&New layer	&Nouveau calque
+&Select all layers	&Sélectionner tous les calques
+, and more	 et d'autres
+. It has no changed values: it does not show while Changed is on	. Il n'a aucune valeur modifiée: il ne s'affiche pas quand Modifié est activé
+. Shift adds. Ctrl removes.	. Shift ajoute. Ctrl retire.
+. The map uses 	. La carte utilise
+1 file of the archive has no name that can be read, or could not be read. A save leaves it out.	1 fichier de l'archive n'a pas de nom lisible, ou n'a pas pu être lu. Un enregistrement l'omet.
+: the Sounds tab imports only sounds (WAV, OGG). The All files tab takes any file.	: l'onglet Sons importe uniquement des sons (WAV, OGG). L'onglet Tous les fichiers accepte n'importe quel fichier.
+: the game uses that name	: le jeu utilise ce nom
+: the layers are flattened	: les calques sont aplatis
+: this layer is hidden (View > Modes), so you cannot edit it. Show the layer?	: ce calque est masqué (Affichage > Modes), donc vous ne pouvez pas le modifier. Afficher le calque?
+: this layer is hidden. View > Modes shows it again (then you can edit it).	: ce calque est masqué. Affichage > Modes l'affiche de nouveau (vous pouvez alors le modifier).
+A bridge or a ramp needs its ground in the same layer: paint the terrain in this layer, or select the layer that has it	Un pont ou une rampe a besoin de son sol dans le même calque: peignez le terrain dans ce calque, ou sélectionnez le calque qui l'a
+A locked layer cannot be deleted	Un calque verrouillé ne peut pas être supprimé
+A locked layer cannot be merged	Un calque verrouillé ne peut pas être fusionné
+Add files…	Ajouter des fichiers…
+Add symmetry &anchor here	Ajouter un &ancrage de symétrie ici
+Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it	Ancrage de symétrie ajouté. Outil Sélectionner: faites-le glisser pour le déplacer, double-cliquez dessus pour le retirer
+All files	Tous les fichiers
+All layers that show become one map, and the layer data stays out of it.	Tous les calques affichés forment une seule carte, et les données des calques n'y figurent pas.
+All the files of the map: add, extract, replace, rename, remove, and what File > Export keeps	Tous les fichiers de la carte: ajouter, extraire, remplacer, renommer, retirer, et ce que conserve Fichier > Exporter
+Another program changed this map's terrain after its last save here. The layers do not have those changes: the next edit makes the terrain from the layers again.	Un autre programme a modifié le terrain de cette carte après son dernier enregistrement ici. Les calques n'ont pas ces modifications: la prochaine modification recrée le terrain à partir des calques.
+Any files. They go into the map with their names; a file of that name is replaced.	Tous types de fichiers. Ils entrent dans la carte avec leur nom; un fichier de ce nom est remplacé.
+Background	Arrière-plan
+Could not export the map: 	Impossible d'exporter la carte:
+Could not read the file: 	Impossible de lire le fichier:
+Could not save 	Impossible d'enregistrer
+Creep is hidden (View > Modes shows it again)	Le creep est masqué (Affichage > Modes l'affiche de nouveau)
+Cut the terrain: what is under the layer shows in its place (one undo step)	Terrain coupé: ce qui est sous le calque s'affiche à sa place (une seule étape d'annulation)
+Delete the selected layers (Del in Map Layers)	Supprimer les calques sélectionnés (Del dans Calques de la carte)
+Did not add 	Non ajouté:
+Drag to move the layer in the list	Faites glisser pour déplacer le calque dans la liste
+E&xport map…	E&xporter la carte…
+Establishing shot	Plan d'ensemble
+Export settings	Paramètres d'exportation
+Exported 	Exporté:
+Extract…	Extraire…
+File > Export keeps this file in the exported map	Fichier > Exporter conserve ce fichier dans la carte exportée
+File > Export never keeps this file: the exported map has no layers	Fichier > Exporter ne conserve jamais ce fichier: la carte exportée n'a pas de calques
+Flatten	Aplatir
+Flattened the layers into the Background	Calques aplatis dans l'Arrière-plan
+How layers get into the map that you play	Comment les calques entrent dans la carte que vous jouez
+Keep in export	Conserver à l'export
+La&yer	Ca&lque
+Lasso	Lasso
+Lasso: draw round the tiles to select. Shift adds, Ctrl removes. Then Ctrl+C copies, and Move moves them.	Lasso: tracez autour des tuiles pour les sélectionner. Shift ajoute, Ctrl retire. Ensuite Ctrl+C copie, et Déplacer les déplace.
+Layer list	Liste des calques
+Layers	Calques
+Layers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. 	Les calques restent dans ce fichier de carte pendant que vous travaillez dessus.\n\nPour créer la carte que vous jouez dans StarCraft, utilisez Fichier > Exporter la carte.
+Lock	Verrouiller
+Lock or unlock: a locked layer does not change (Ctrl+Alt+L)	Verrouiller ou déverrouiller: un calque verrouillé ne change pas (Ctrl+Alt+L)
+Map Layers	Calques de la carte
+Map settings	Paramètres de la carte
+Merge down	Fusionner vers le bas
+Merge the selected layers	Fusionner les calques sélectionnés
+Merged the layers	Calques fusionnés
+Merged the layers into the Background	Calques fusionnés dans l'Arrière-plan
+Move	Déplacer
+Move Layer	Déplacer le calque
+Move Layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.	Déplacer le calque: un glissement sur la carte déplace les calques sélectionnés. Les outils des autres modes modifient le calque sélectionné.
+Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.	Déplacer: faites glisser le terrain sélectionné ailleurs. Isométrique: avec ses bords ajustés à cet endroit, et le terrain dessous reste valide. Les autres types: leurs tuiles telles quelles, avec des tuiles nulles à leur ancienne place. Sur un calque, ce qui est sous le calque s'affiche là où il était.
+Moved the layers back to the side bar	Calques remis dans la barre latérale
+Moved the layers to their own window	Calques déplacés dans leur propre fenêtre
+Moved the terrain (one undo step)	Terrain déplacé (une seule étape d'annulation)
+New layer	Nouveau calque
+New layer (Ctrl+Alt+N)	Nouveau calque (Ctrl+Alt+N)
+New layer: the tools now change this layer	Nouveau calque: les outils modifient maintenant ce calque
+No file has the search text	Aucun fichier ne contient le texte recherché
+Not available: no terrain is selected.	Indisponible: aucun terrain n'est sélectionné.
+Notes	Notes
+Notes for the mappers. Not in the game. File > Export leaves them out.	Notes pour les créateurs de cartes. Pas dans le jeu. Fichier > Exporter les omet.
+Nothing to move there: make the selection larger	Rien à déplacer là: agrandissez la sélection
+Nothing to move there: this layer has no terrain in the selection	Rien à déplacer là: ce calque n'a pas de terrain dans la sélection
+Open a map first: the files go into the map	Ouvrez d'abord une carte: les fichiers entrent dans la carte
+Paste on the layer: click to place it, and then drag to move it. R turns it, M mirrors it. Right-click or Esc stops.	Coller sur le calque: cliquez pour le placer, puis faites glisser pour le déplacer. R le tourne, M le met en miroir. Clic droit ou Esc l'arrête.
+Pasted on the layer. Drag to move it. Ctrl+V pastes again.	Collé sur le calque. Faites glisser pour le déplacer. Ctrl+V colle de nouveau.
+Protected terrain is hidden (View > Modes shows it again)	Le terrain protégé est masqué (Affichage > Modes l'affiche de nouveau)
+Put the layers back in the side bar	Remettre les calques dans la barre latérale
+Remove this symmetry anchor	Retirer cet ancrage de symétrie
+Removed the file	Fichier retiré
+Removed the symmetry anchor	Ancrage de symétrie retiré
+Rename the file	Renommer le fichier
+Rename the layer	Renommer le calque
+Rename…	Renommer…
+Replace…	Remplacer…
+Replaced the data of 	Données remplacées de
+Save a copy of the file on the computer	Enregistrer une copie du fichier sur l'ordinateur
+Search map files	Rechercher les fichiers de la carte
+Select a layer first	Sélectionnez d'abord un calque
+Select another file: an export over the open map would remove its layers	Sélectionnez un autre fichier: un export sur la carte ouverte supprimerait ses calques
+Select terrain first, with Select, the Lasso or the Magic wand	Sélectionnez d'abord du terrain, avec Sélectionner, le Lasso ou la Baguette magique
+Selected all 	Tout sélectionné:
+Show or hide (Ctrl+Alt+H). With nothing showing, the map is black	Afficher ou masquer (Ctrl+Alt+H). Sans rien d'affiché, la carte est noire
+Sort by name	Trier par nom
+That belongs to a locked layer, or the active layer is locked: nothing changed	Cela appartient à un calque verrouillé, ou le calque actif est verrouillé: rien n'a changé
+The Background does not move. Select a layer in the list	L'Arrière-plan ne bouge pas. Sélectionnez un calque dans la liste
+The Background is hidden: nothing changed	L'Arrière-plan est masqué: rien n'a changé
+The game or StarDraft uses that name: select another name	Le jeu ou StarDraft utilise ce nom: sélectionnez un autre nom
+The layer &above	Le calque du &dessus
+The layer &below	Le calque du des&sous
+The layer is hidden: nothing changed	Le calque est masqué: rien n'a changé
+The layer is locked	Le calque est verrouillé
+The layer is locked: nothing changed	Le calque est verrouillé: rien n'a changé
+The layer list shows in its own window	La liste des calques s'affiche dans sa propre fenêtre
+The map changed while you selected the file: nothing changed	La carte a changé pendant que vous sélectionniez le fichier: rien n'a changé
+The map changed while you selected the files: nothing was added	La carte a changé pendant que vous sélectionniez les fichiers: rien n'a été ajouté
+The map changed while you selected the place: nothing was saved	La carte a changé pendant que vous sélectionniez l'emplacement: rien n'a été enregistré
+The map has no files other than its terrain and triggers. Add files puts files into it.	La carte n'a pas d'autres fichiers que son terrain et ses déclencheurs. Ajouter des fichiers en met dans la carte.
+The map has no isometric terrain data: use Rectangle or Tile	La carte n'a pas de données de terrain isométrique: utilisez Rectangle ou Tuile
+The map has no layers: nothing to select	La carte n'a pas de calques: rien à sélectionner
+The map uses this file: without it, the exported map cannot play it	La carte utilise ce fichier: sans lui, la carte exportée ne peut pas le lire
+The map's files are still being read	Les fichiers de la carte sont encore en cours de lecture
+The map's size or tileset changed: the layers are flattened. Undo brings them back	La taille ou le jeu de tuiles de la carte a changé: les calques sont aplatis. Annuler les rétablit
+The map's text names this file	Le texte de la carte nomme ce fichier
+The map's tileset changed: the layers are flattened. Undo brings them back	Le jeu de tuiles de la carte a changé: les calques sont aplatis. Annuler les rétablit
+Unlock	Déverrouiller
+Use a file of the computer as this file's data. The name stays.	Utiliser un fichier de l'ordinateur comme données de ce fichier. Le nom reste.
+View	Affichage
+\nClick: select the column\nDrag a selected column: move it\nDouble-click: sort by it (ascending, descending, then the default order)\nDrag the right edge: change the width (of all the selected columns)\nDouble-click the right edge: fit the width to the text\nRight-click: hide it	\nClic: sélectionner la colonne\nGlisser une colonne sélectionnée: la déplacer\nDouble-clic: trier selon elle (croissant, décroissant, puis l'ordre par défaut)\nGlisser le bord droit: changer la largeur (de toutes les colonnes sélectionnées)\nDouble-clic sur le bord droit: ajuster la largeur au texte\nClic droit: la masquer
+hidden	masqué
+locked	verrouillé
+Re&center this anchor	Re&centrer cet ancrage
+Recentered the symmetry anchor	Ancrage de symétrie recentré
+Add symmetry &anchor	Ajouter un &ancrage de symétrie
+Merged the symmetry anchors	Ancrages de symétrie fusionnés
+Moved the symmetry anchor. Double-click it to remove it	Ancrage de symétrie déplacé. Double-cliquez dessus pour le retirer
+Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	Centre de symétrie : faites-le glisser pour le déplacer, double-cliquez pour le mettre au milieu, clic droit pour plus
+Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	Ancrage de symétrie : faites-le glisser pour le déplacer, double-cliquez pour le retirer, clic droit pour plus
+Clear the terrain mas&k	Effacer le mas&que de terrain
+Do not &ask again	Ne plus dem&ander
+A save does not ask about missing start locations. To ask again: Program options > Saving maps	L'enregistrement ne demande plus pour les positions de départ manquantes. Pour le réactiver : Options du programme > Enregistrement des cartes
+D&rag objects to move them	Faire &glisser les objets pour les déplacer
+A drag moves units, doodads, sprites and locations	Un glisser déplace les unités, doodads, sprites et emplacements
+A drag does not move units, doodads, sprites or locations	Un glisser ne déplace pas les unités, doodads, sprites ni emplacements
+A drag does not move objects. To move them: Options > Drag objects to move them	Un glisser ne déplace pas les objets. Pour les déplacer : Options > Faire glisser les objets pour les déplacer
+Painting terrain	Peindre le terrain
+Detailed tiles	Tuiles détaillées
+How often Isometric and Rectangle painting places a detailed tile. StarCraft: 5%.	La fréquence à laquelle la peinture isométrique et rectangulaire place une tuile détaillée. StarCraft : 5 %.
+Terrain pie palette: the terrains in a circle; click one to paint with it (on the map: hold Space)	Palette circulaire de terrain : les terrains en cercle ; cliquez sur l'un pour peindre avec (sur la carte : maintenez Espace)
+Sort the custom terrain: by name or by date	Trier le terrain personnalisé : par nom ou par date
+Date: &newest first	Date : le plus &récent d'abord
+Rename folder…	Renommer le dossier…
+Delete folder	Supprimer le dossier
+New folder…	Nouveau dossier…
+New folder in this folder…	Nouveau dossier dans ce dossier…
+Rename folder	Renommer le dossier
+Move custom terrain	Déplacer le terrain personnalisé
+A folder with this name is already there.	Un dossier de ce nom existe déjà.
+The folder has custom terrain: drag it out of the folder first, or delete it	Le dossier contient du terrain personnalisé : sortez-le du dossier d'abord, ou supprimez-le
+The folder has other files: it stays	Le dossier contient d'autres fichiers : il reste
+Add to &favorites	&Ajouter aux favoris
+Remove from &favorites	&Retirer des favoris
+&Show the favorites	&Afficher les favoris
+Make f&loating	&Rendre flottant
+Clear the mas&k	Effacer le mas&que de terrain
+Add to the &mask	Ajouter au &masque
+Remove from the &mask	Retirer du &masque
+Mask: 	Masque : 
+Cleared the masks: painting changes all terrains and tiles	Masques effacés : la peinture change tous les terrains et toutes les tuiles
+Cleared the tile mask: painting changes all tiles	Masque de tuiles effacé : la peinture change toutes les tuiles
+Cleared the terrain mask: painting changes all terrains	Masque de terrain effacé : la peinture change tous les terrains
+Clear the mask	Effacer le masque
+&Diamond	&Losange
+&Square	&Carré
+&Circle	&Cercle
+&Left	&Gauche
+&Right	&Droite
+X offset	Décalage X
+Y offset	Décalage Y
+seconds	secondes
+Map size	Taille de la carte
+Custom grid	Grille personnalisée
+ to 	 à 
+More	Plus
+Hide the less used values	Masquer les valeurs moins utilisées
+Show the less used values: Detailed tiles	Afficher les valeurs moins utilisées : Tuiles détaillées
+Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.	Tuiles détaillées : la fréquence à laquelle la peinture isométrique et rectangulaire place une tuile détaillée, de 0 à 100 %. StarCraft : 5 %. Cliquez pour taper un nombre. Les flèches et la molette le changent.
+Units, doodads and sprites stay on the map: only a layer's terrain goes outside of it	Les unités, doodads et sprites restent sur la carte : seul le terrain d'un calque en sort
+&Hide what is outside of the map	&Masquer ce qui est hors de la carte
+Settings of the layers	Réglages des calques
+Layers: what is outside of the map is hidden	Calques : ce qui est hors de la carte est masqué
+Layers: what is outside of the map shows	Calques : ce qui est hors de la carte s'affiche
+Map layers	Calques de la carte
+&Map layers	Calques de la &carte
+Move layer	Déplacer le calque
+Search terrains	Rechercher des terrains
+Search doodads	Rechercher des doodads
+Search locations	Rechercher des emplacements
+Search sprites	Rechercher des sprites
+Search layers	Rechercher des calques
+Search tiles	Rechercher des tuiles
+Search custom terrain	Rechercher du terrain personnalisé
+Search tiles by their group number, terrain or doodad	Rechercher des tuiles par numéro de groupe, terrain ou doodad
+StarDraft Discord server	Serveur Discord de StarDraft
+Only	Seulement
+Edit unit type in Data	Modifier le type d'unité dans Données
+Edit unit type in Map data	Modifier le type d'unité dans Données de la carte
+Projects	Projets
+ item	 élément
+ items	 éléments
+List (Ctrl+L)	Liste (Ctrl+L)
+Grid (Ctrl+G)	Grille (Ctrl+G)
+Size: small (Ctrl+wheel changes it)	Taille : petite (Ctrl+molette la change)
+Size: medium (Ctrl+wheel changes it)	Taille : moyenne (Ctrl+molette la change)
+Size: large (Ctrl+wheel changes it)	Taille : grande (Ctrl+molette la change)
+Serial 	N° de série 
+Exclude	Exclure
+Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)	Direct3D 12 sur les cartes graphiques récentes, Vulkan sur les anciennes. Si la carte ne peut pas l'utiliser : l'autre, puis le dessin logiciel (par défaut)
+Vulkan. If the video card cannot use it: Direct3D 12, then software drawing	Vulkan. Si la carte graphique ne peut pas l'utiliser : Direct3D 12, puis le dessin logiciel
+Graphics: Vulkan after a restart	Graphismes : Vulkan après un redémarrage
+Search upgrades	Rechercher des améliorations
+Search technologies	Rechercher des technologies
+&Show terrain outside of map boundaries	&Afficher le terrain hors des limites de la carte
+Map layers: terrain outside of map boundaries shows	Calques de la carte : le terrain hors des limites de la carte s'affiche
+Map layers: terrain outside of map boundaries is hidden	Calques de la carte : le terrain hors des limites de la carte est masqué
+Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	Le terrain ne se modifie que sur la carte. Pour avoir du terrain hors de la carte, peignez-le sur un calque, puis sortez le calque (Calques de la carte > Déplacer le calque)

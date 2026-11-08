@@ -11,15 +11,37 @@ struct PaletteArt {
     int era = -1, mode = -1;
     int rulesRev = 0;  // (gTerrainRulesRev of the pictures: terrain rules loaded again draw the terrains again)
     std::vector<Sprite> hdIcons;  // HD2 (or Carbot) command icons, for the mode
-    HdTiles hdTiles;              // HD2 (or Carbot) megatiles, for terrain and doodad pictures
+    std::future<std::vector<Sprite>> hdIconsReading;  // (read on a worker: a map's first frame does not wait for them)
+    std::shared_ptr<const HdTiles> hdTiles;  // HD2 (or Carbot) megatiles, for terrain and doodad pictures (sharedHdTiles)
     bool hdTilesLoaded = false;
     int hdTilesEra = -1, hdTilesMode = -1;  // (the era and mode of hdTiles: another map of that tileset uses them too)
     std::map<std::tuple<int, int, int, bool>, std::unique_ptr<draw::Bitmap>> bitmaps;  // (mode of the row, value, owner, sprite)
     std::map<std::pair<uint16_t, int>, std::unique_ptr<draw::Bitmap>> pieBitmaps;  // the pie palette's terrains (pieBitmap)
+    std::set<const draw::Bitmap*> blanks;  // the pictures that are the game's placeholder icon (drawPaletteArt: a neutral icon)
+    // The HD pictures of units with no command icon (hdUnitPicture: 5 to 15 ms each), made on workers while a palette
+    // paints; by the key of `bitmaps`.
+    std::map<std::tuple<int, int, int, bool>, std::future<Sprite>> unitPictures;
+    void waitUnitPictures() {
+        for (auto& [k, f] : unitPictures)
+            if (f.valid()) f.wait();
+        unitPictures.clear();
+    }
 };
 PaletteArt gPaletteArt;
 // The pictures' textures go before the GPU device does (main_sdl.cpp's shutdown); a later release would use a freed device.
-void releasePaletteArt() { gPaletteArt = PaletteArt{}; }
+void releasePaletteArt() { gPaletteArt.waitUnitPictures(), gPaletteArt = PaletteArt{}; }
+// No map is open: the HD icons and tiles go (the pictures' textures stay until the next map's: the GPU may still draw
+// them this frame). The next map loads them again.
+void releasePaletteArtData() {
+    gPaletteArt.ed = nullptr, gPaletteArt.data = nullptr, gPaletteArt.mode = -1;
+    gPaletteArt.waitUnitPictures();  // (they read the game data: before it goes)
+    if (gPaletteArt.hdIconsReading.valid()) gPaletteArt.hdIconsReading.wait();
+    gPaletteArt.hdIconsReading = {};
+    gPaletteArt.hdIcons.clear(), gPaletteArt.hdIcons.shrink_to_fit();
+    gPaletteArt.hdTiles.reset(), gPaletteArt.hdTilesLoaded = false, gPaletteArt.hdTilesEra = gPaletteArt.hdTilesMode = -1;
+    gTilesArt.hdByData.clear();
+    releaseSharedHdTiles();
+}
 
 // The terrain that terrain `value` stands on ("X (Y)": Y; a mod terrain's ground), or 0: the palette's picture shows it
 // as a square at its bottom right, the pie palette as the end of the slice.
@@ -36,6 +58,12 @@ uint16_t terrainGround(const Editor& ed, uint16_t value) {
     return 0;
 }
 
+// A palette's paint makes at most kPaletteArtBudgetMs of new pictures (a map's first frame had all of them: 190 ms);
+// the others come in the next frames (the view paints again; the snapshots' frames wait for them, as for the sprites).
+constexpr double kPaletteArtBudgetMs = 8;
+std::chrono::steady_clock::time_point gPaletteArtDeadline{};  // (set only while a palette paints)
+int gPaletteArtLeft = 0;                                       // pictures left for a next frame
+
 // The picture of one item (value) of a palette mode, or nullptr when it has none (the Win32 palette's blank case: the
 // game's "BLANK" icon). Terrains and doodads: their tiles; units: the command icon (HD in the HD modes); sprites: their
 // image (SD art, as the Win32 palette's sprites when the HD art is not there).
@@ -47,36 +75,57 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
     const int mode = gState.carbot ? 2 : gState.quality == GraphicsQuality::SD ? 0 : 1;
     const bool unitKind = what == Mode::Units && !iconFrame;
     if (gPaletteArt.ed != &ed || gPaletteArt.era != int(ed.era()) || gPaletteArt.mode != mode || gPaletteArt.rulesRev != gTerrainRulesRev) {
-        gPaletteArt.bitmaps.clear(), gPaletteArt.pieBitmaps.clear(), gPaletteArt.rulesRev = gTerrainRulesRev;
+        gPaletteArt.waitUnitPictures();  // (of the map before, or another mode)
+        gPaletteArt.bitmaps.clear(), gPaletteArt.pieBitmaps.clear(), gPaletteArt.blanks.clear(), gPaletteArt.rulesRev = gTerrainRulesRev;
         if (gPaletteArt.mode != mode || gPaletteArt.data != &ed.gameData()) {
+            if (gPaletteArt.hdIconsReading.valid()) gPaletteArt.hdIconsReading.wait();
+            gPaletteArt.hdIconsReading = {};
             gPaletteArt.hdIcons.clear();
             gPaletteArt.data = &ed.gameData();
-            std::string err;
-            if (mode) loadHdCommandIcons(ed.gameData(), mode == 2, gPaletteArt.hdIcons, err);
-            if (mode == 1)  // the HD icons take the SD icon's color (ticon.pcx), scaled by their gray
+            // the HD icons take the SD icon's color (ticon.pcx), scaled by their gray (HD; Carbot's keep theirs)
+            bool tinted = false;
+            uint8_t tint[3] = {255, 255, 255};
+            if (mode == 1)
                 if (const Sprite* sd = ed.unitSprites().commandIcon(0)) {
-                    uint8_t tint[3] = {255, 255, 255};
                     int best = -1;
+                    tinted = true;
                     for (size_t i = 0; i + 3 < sd->rgba.size(); i += 4)
                         if (sd->rgba[i + 3] && sd->rgba[i] + sd->rgba[i + 1] + sd->rgba[i + 2] > best)
                             best = sd->rgba[i] + sd->rgba[i + 1] + sd->rgba[i + 2], std::copy_n(&sd->rgba[i], 3, tint);
-                    for (Sprite& icon : gPaletteArt.hdIcons)
-                        for (size_t i = 0; i + 3 < icon.rgba.size(); i += 4) {
-                            const int gray = std::max({icon.rgba[i], icon.rgba[i + 1], icon.rgba[i + 2]});
-                            for (int k = 0; k < 3; ++k) icon.rgba[i + k] = uint8_t(tint[k] * gray / 255);
-                        }
                 }
+            if (mode)  // (read on a worker through the game data's handle for workers)
+                gPaletteArt.hdIconsReading = std::async(std::launch::async, [data = &ed.gameData(), carbot = mode == 2, tinted, t0 = tint[0], t1 = tint[1], t2 = tint[2]] {
+                    std::vector<Sprite> icons;
+                    std::string err;
+                    loadHdCommandIcons(*data, carbot, icons, err, true);
+                    const uint8_t tint[3] = {t0, t1, t2};
+                    if (tinted)
+                        for (Sprite& icon : icons)
+                            for (size_t i = 0; i + 3 < icon.rgba.size(); i += 4) {
+                                const int gray = std::max({icon.rgba[i], icon.rgba[i + 1], icon.rgba[i + 2]});
+                                for (int k = 0; k < 3; ++k) icon.rgba[i + k] = uint8_t(tint[k] * gray / 255);
+                            }
+                    return icons;
+                });
         }
         // (the HD tiles come from the game data by the era and mode only: a tab of another map of the same tileset keeps them)
         if (gPaletteArt.hdTilesEra != int(ed.era()) || gPaletteArt.hdTilesMode != mode) gPaletteArt.hdTilesLoaded = false;
         gPaletteArt.ed = &ed, gPaletteArt.era = int(ed.era()), gPaletteArt.mode = mode;
     }
     if (!unitKind) sprite = false;
+    if (gPaletteArt.hdIconsReading.valid()) {  // (the HD icons: there now, or a next frame's)
+        const bool inPalette = gPaletteArtDeadline != std::chrono::steady_clock::time_point{};  // (another view: it waits for them)
+        if (!inPalette || gPaletteArt.hdIconsReading.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+            gPaletteArt.hdIcons = gPaletteArt.hdIconsReading.get();
+        else if (iconFrame || (unitKind && !sprite)) return ++gPaletteArtLeft, nullptr;
+    }
     // (a unit's picture is its player's color: the key has it, so a color changed on the Players page shows; players 1
     // to 8: the colors kept for the map's revision, core/map_scene.inc playerRgba)
     const uint32_t ownerRgb = !unitKind ? 0 : owner >= 0 && owner < 8 ? playerRgba(owner, 0) >> 8 : ed.playerRgb(owner);
     const auto key = std::make_tuple(iconFrame ? 100 : int(what), value, unitKind ? int(owner) << 24 | int(ownerRgb & 0xFFFFFF) : 0, sprite);
     if (auto it = gPaletteArt.bitmaps.find(key); it != gPaletteArt.bitmaps.end()) return it->second.get();
+    if (gPaletteArtDeadline != std::chrono::steady_clock::time_point{} && std::chrono::steady_clock::now() > gPaletteArtDeadline)
+        return ++gPaletteArtLeft, nullptr;  // (the paint's time for new pictures is over: a next frame)
 
     // The picture: a sprite of the game data (straight alpha), cropped to its opaque pixels below.
     Sprite art;
@@ -87,11 +136,13 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
     } else if (!unitKind) {
         if (mode && !gPaletteArt.hdTilesLoaded) {
             std::string err;
+            bool busy = false;  // (the renderer's worker reads them now: this picture in a next frame, no wait)
+            auto tiles = sharedHdTiles(ed.gameData(), ed.era(), GraphicsQuality::HD2, mode == 2, &err, &busy);
+            if (busy) return ++gPaletteArtLeft, nullptr;
             gPaletteArt.hdTilesLoaded = true, gPaletteArt.hdTilesEra = int(ed.era()), gPaletteArt.hdTilesMode = mode;
-            if (!loadHdTiles(ed.gameData(), ed.era(), GraphicsQuality::HD2, gPaletteArt.hdTiles, err, mode == 2))
-                gPaletteArt.hdTiles = {};
+            gPaletteArt.hdTiles = std::move(tiles);
         }
-        const HdTiles* hd = mode && !gPaletteArt.hdTiles.tiles.empty() ? &gPaletteArt.hdTiles : nullptr;
+        const HdTiles* hd = mode && gPaletteArt.hdTiles && !gPaletteArt.hdTiles->tiles.empty() ? gPaletteArt.hdTiles.get() : nullptr;
         if (what == Mode::Terrain) {
             art = terrainPicture(ed.tileset(), uint16_t(value), hd);
             // The terrain it stands on ("X (Y)": Y) as a small square at the bottom right, half the picture's height.
@@ -120,13 +171,30 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
         } else if (const DoodadType* d = ed.doodadTypes().find(uint16_t(value))) art = doodadPicture(*d, ed.tileset(), ed.unitSprites(), hd);
         if (art.width) s = &art;
     } else {
-        if (!sprite) {  // the command icon (a sprite view: the unit's picture below)
+        if (!sprite && !ed.unitSprites().hasBlankIcon(uint16_t(value))) {  // the command icon (a sprite view, or the game's placeholder: the unit's picture below)
             if (!mode) s = ed.unitSprites().commandIcon(uint16_t(value));
             else if (value < int(gPaletteArt.hdIcons.size()) && gPaletteArt.hdIcons[size_t(value)].width) s = &gPaletteArt.hdIcons[size_t(value)];
         }
-        if (!s && mode) {  // no icon: the unit's picture of the HD art
-            std::string err;
-            if (hdUnitPicture(ed.gameData(), ed.unitSprites(), uint16_t(value), ed.playerRgb(owner), mode == 2, art, err) && art.width) s = &art;
+        if (!s && mode) {  // no icon: the unit's picture of the HD art (a palette's paint: made on a worker, shown a next frame)
+            const bool inPalette = gPaletteArtDeadline != std::chrono::steady_clock::time_point{};
+            auto it = gPaletteArt.unitPictures.find(key);
+            if (it == gPaletteArt.unitPictures.end()) {
+                // (4 workers at most: the pictures still being made; made ones wait for their next paint, as a scroll leaves them)
+                int busy = 0;
+                for (auto& [k, f] : gPaletteArt.unitPictures) busy += f.wait_for(std::chrono::seconds(0)) != std::future_status::ready;
+                if (inPalette && busy >= 4) return ++gPaletteArtLeft, nullptr;
+                const HdUnitPictureJob job = hdUnitPictureJob(ed.unitSprites(), uint16_t(value));  // (the sprites: here, on this thread)
+                it = gPaletteArt.unitPictures.emplace(key, std::async(std::launch::async, [data = &ed.gameData(), job, rgb = ed.playerRgb(owner), carbot = mode == 2] {
+                    Sprite out;
+                    std::string err;
+                    if (!hdUnitPictureFrom(*data, job, rgb, carbot, out, err, true)) out = {};
+                    return out;
+                })).first;
+            }
+            if (inPalette && it->second.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return ++gPaletteArtLeft, nullptr;
+            art = it->second.get();  // (another view waits for it)
+            gPaletteArt.unitPictures.erase(it);
+            if (art.width) s = &art;
         }
         if (!s) s = ed.unitSprites().unitSprite(uint16_t(value), uint8_t(owner), ed.tileset());
     }
@@ -139,7 +207,8 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
                 if (p->rgba[(size_t(y) * p->width + x) * 4 + 3]) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
         return x1 - x0 >= 3 && y1 - y0 >= 3;
     };
-    if (unitKind && !visible(s)) s = ed.unitSprites().blankIcon();
+    bool blank = false;
+    if (unitKind && !visible(s)) s = ed.unitSprites().blankIcon(), blank = true;
     // Nothing to draw: that is cached too (an empty entry), so the row does not build the picture again on every paint.
     if (!s) return gPaletteArt.bitmaps.emplace(key, nullptr), nullptr;
 
@@ -159,6 +228,7 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
             px[size_t(y) * b->width() + x] = r | (g << 8) | (bl << 16) | (a << 24);
         }
     b->changed();
+    if (blank) gPaletteArt.blanks.insert(b.get());
     return (gPaletteArt.bitmaps[key] = std::move(b)).get();
 }
 
@@ -187,6 +257,8 @@ draw::Bitmap* pieBitmap(uint16_t terrain, int tiles) {
 // Draws a palette picture centered in `box`, shrunk to fit (enlarged at most to the display's scale), as the Win32
 // palette's drawFitted.
 void drawPaletteArt(draw::Canvas& c, draw::Bitmap& b, draw::Rect box) {
+    // (a unit with no picture of its own, the game's yellow "BLANK": a neutral icon of the set, dim)
+    if (gPaletteArt.blanks.count(&b)) return c.icon(box, int(UiIcon::Units), kFaint, std::min(scale(32), std::max(scale(16), std::min(box.width(), box.height()) * 2 / 3)));
     const int bw = box.width(), bh = box.height();
     if (bw <= 0 || bh <= 0 || b.width() <= 0 || b.height() <= 0) return;
     const float k = std::min({float(bw) / b.width(), float(bh) / b.height(), float(gDpi) / 96.0f});

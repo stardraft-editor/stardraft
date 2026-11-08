@@ -4,13 +4,14 @@
 
 // --- Drops in the Assets workspace ---------------------------------------------------------------------------------------
 
-std::vector<fs::path> gAssetDrops;  // the sounds of one drop (SDL gives each file as an event): one import, one undo step
+std::vector<fs::path> gAssetDrops;  // the files of one drop (SDL gives each file as an event): one import, one undo step
 
 void sdlFlushAssetDrops() {
     if (gAssetDrops.empty()) return;
     std::vector<fs::path> files;
     files.swap(gAssetDrops);
-    importSoundFilesSdl(files, gState.ed.get());  // (sdl_files.inc: the status bar says what came in)
+    if (gFilesPage.allFiles()) addMapFilesSdl(files, gState.ed.get());  // (any files: the All files tab)
+    else importSoundFilesSdl(files, gState.ed.get());  // (sdl_files.inc: the status bar says what came in)
 }
 
 // A file dropped while the Assets workspace shows: a sound (WAV, OGG) goes into the map with the other files of the
@@ -21,12 +22,12 @@ bool sdlAssetsDrop(const fs::path& f) {
     std::transform(ext.begin(), ext.end(), ext.begin(), ::towlower);
     std::error_code ec;
     if (ext == L".scm" || ext == L".scx" || ext == L".chk" || ext == L".stardraft" || ext == L".eds" || fs::is_directory(f, ec)) return false;
-    if (ext == L".wav" || ext == L".ogg") {
+    if (ext == L".wav" || ext == L".ogg" || gFilesPage.allFiles()) {
         if (gAssetDrops.empty()) shellPost(sdlFlushAssetDrops);  // (after the drop's other files)
         gAssetDrops.push_back(f);
         return true;
     }
-    setMessage(L"Did not import " + f.filename().wstring() + L": the Assets workspace imports only sounds (WAV, OGG)");
+    setMessage(L"Did not import " + f.filename().wstring() + L": the Sounds tab imports only sounds (WAV, OGG). The All files tab takes any file.");
     return true;
 }
 

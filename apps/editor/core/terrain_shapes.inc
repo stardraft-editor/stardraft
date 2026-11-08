@@ -87,6 +87,8 @@ std::pair<int, int> shapeSquare(std::pair<int, int> a, std::pair<int, int> p, in
 Editor& shapeCopy(const GameData& data) {
     static std::unique_ptr<Editor> copy;
     static const GameData* of = nullptr;
+    static const bool released = (mapCacheReleases().push_back(+[] { copy.reset(), of = nullptr; }), true);
+    (void)released;
     if (!copy || of != &data) copy = std::make_unique<Editor>(data), of = &data;
     return *copy;
 }

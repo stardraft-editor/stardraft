@@ -92,7 +92,7 @@ bool stringsMoved(const Parts& before, const Parts& after) {
     return a == b;
 }
 
-Editor::StepName nameOf(const Parts& before, const Parts& after, bool files) {
+Editor::StepName nameOf(const Parts& before, const Parts& after, bool files, bool layers = false) {
     auto changed = [&](SectionName n) { return !sameData(partOf(before, n), partOf(after, n)); };
     auto anyChanged = [&](std::initializer_list<SectionName> names) {
         return std::any_of(names.begin(), names.end(), [&](SectionName n) { return changed(n); });
@@ -131,6 +131,7 @@ Editor::StepName nameOf(const Parts& before, const Parts& after, bool files) {
     if (anyChanged({"TECS", "TECx", "PTEC", "PTEx"})) return {"Change the technology settings", -1};
     if (anyChanged({"UPRP", "UPUS"})) return {"Change the unit properties of the triggers", -1};
     if (changed("SWNM")) return {"Change the switch names", -1};
+    if (layers) return {"Change the layers", -1};  // (only the layers' files: stardraft/layers.h)
     if (changed("WAV ") || files) return {"Change the sound files", -1};
     if (changed("SPRP")) return {"Change the scenario name and description", -1};
     if (changed("MASK")) return {"Change the fog of war", -1};
@@ -162,6 +163,11 @@ static Parts partsOfChk(const Chk& chk) {
     return p;
 }
 
+// A step whose files are only the layers'.
+static bool layerFilesOnly(const auto& files) {
+    return !files.empty() && std::all_of(files.begin(), files.end(), [](const auto& f) { return f.name == kLayersFile || f.name == kLayersBaseFile; });
+}
+
 Editor::StepName Editor::undoStepName(size_t k) const {
     const size_t n = undo_.size();
     if (k >= n) return {};
@@ -171,7 +177,7 @@ Editor::StepName Editor::undoStepName(size_t k) const {
         return p;
     };
     const Snapshot& from = undo_[n - 1 - k];
-    return protectName(nameOf(parts(from), k == 0 ? partsOfChk(chk_) : parts(undo_[n - k]), !from.files.empty()), from.protect.get(),
+    return protectName(nameOf(parts(from), k == 0 ? partsOfChk(chk_) : parts(undo_[n - k]), !from.files.empty(), layerFilesOnly(from.files)), from.protect.get(),
                        k == 0 ? &protected_ : undo_[n - k].protect.get());
 }
 
@@ -184,7 +190,7 @@ Editor::StepName Editor::redoStepName(size_t k) const {
         return p;
     };
     const Snapshot& to = redo_[m - 1 - k];
-    return protectName(nameOf(k == 0 ? partsOfChk(chk_) : parts(redo_[m - k]), parts(to), !to.files.empty()),
+    return protectName(nameOf(k == 0 ? partsOfChk(chk_) : parts(redo_[m - k]), parts(to), !to.files.empty(), layerFilesOnly(to.files)),
                        k == 0 ? &protected_ : redo_[m - k].protect.get(), to.protect.get());
 }
 

@@ -1,4 +1,5 @@
 #include "stardraft/editor.h"
+#include "stardraft/isom_core.h"
 
 #include <climits>
 #include <cstdlib>
@@ -19,6 +20,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <map>
 #include <map>
 #include <set>
 
@@ -91,11 +93,13 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     chk_ = std::move(chk);
     files_.clear();
     filesError_.clear();
+    unreadable_.clear();
+    pendingUnreadable_ = std::make_shared<std::vector<std::string>>();
     if (archive)
-        pendingFiles_ = std::async(std::launch::async, [path] {
+        pendingFiles_ = std::async(std::launch::async, [path, unreadable = pendingUnreadable_] {
             std::vector<ArchiveFile> files;
             std::string err;
-            if (!readMapFiles(path, files, err)) throw std::runtime_error(err);
+            if (!readMapFiles(path, files, err, {}, unreadable.get())) throw std::runtime_error(err);
             return files;
         });
     asArchive_ = archive;
@@ -116,6 +120,7 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     open_ = true;
     modified_ = false;
     state_ = savedState_ = nextRevision();
+    loadMark_ = nextRevision();
     return true;
 }
 
@@ -148,6 +153,7 @@ bool Editor::openChk(const Chk& chk, std::string& error) {
     open_ = true;
     modified_ = false;
     state_ = savedState_ = nextRevision();
+    loadMark_ = nextRevision();
     return true;
 }
 
@@ -170,6 +176,7 @@ void Editor::finishFiles() const {
     if (!pendingFiles_.valid()) return;
     try {
         files_ = pendingFiles_.get();
+        if (pendingUnreadable_) unreadable_ = *pendingUnreadable_;
         // The archive holds the scenario too: the editor has its own.
         files_.erase(std::remove_if(files_.begin(), files_.end(), [](const ArchiveFile& f) { return lower(f.name) == lower(kChkArchivePath); }), files_.end());
     } catch (const std::exception& e) {
@@ -206,6 +213,7 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
     error.clear();
     modified_ = false;
     state_ = savedState_ = nextRevision();
+    loadMark_ = nextRevision();
     if (!open_) {
         error = "could not load tileset " + std::string(tilesetName(era_));
         if (!tilesetError_.empty()) error += ": " + tilesetError_;
@@ -314,12 +322,16 @@ bool Editor::save(const std::filesystem::path& path, std::string& error) {
     const Bytes raw = savedChk();
     const Bytes slots = gameSlots();
     bool archive = lower(path.extension().string()) != ".chk";
+    finishFiles();
+    if (archive && !filesError_.empty()) {
+        error = filesError_ + " (saving would lose them)";
+        return false;
+    }
+    if (filesError_.empty() && archiveFile(kLayersFile)) {  // (what the layers made: another editor's save differs)
+        const std::string check = terrainCheck();
+        setQuietArchiveFile(kLayersCheckFile, Bytes(check.begin(), check.end()));
+    }
     if (archive) {
-        finishFiles();
-        if (!filesError_.empty()) {
-            error = filesError_ + " (saving would lose them)";
-            return false;
-        }
         if (!writeMap(path, raw, files_, error)) return false;
     } else if (!writeFile(path, std::string_view(reinterpret_cast<const char*>(raw.data()), raw.size()), error)) {
         return false;
@@ -732,6 +744,7 @@ void Editor::undo(size_t steps) {
     const std::vector<Unit> before = units_;
     for (size_t i = 0; i < steps && !undo_.empty(); ++i) undoOne();
     reload();
+    loadMark_ = nextRevision();
     selection_ = selectionAfterRestore(before);
     modified_ = state_ != savedState_;
 }
@@ -756,6 +769,7 @@ void Editor::redo(size_t steps) {
     const std::vector<Unit> before = units_;
     for (size_t i = 0; i < steps && !redo_.empty(); ++i) redoOne();
     reload();
+    loadMark_ = nextRevision();
     selection_ = selectionAfterRestore(before);
     modified_ = state_ != savedState_;
 }
@@ -859,10 +873,79 @@ void Editor::endStroke() { endStrokeStep(); }
 
 // --- Symmetry ------------------------------------------------------------------------------------
 
+std::pair<int, int> Editor::anchorOnGrid(int px, int py) const {
+    return {std::clamp(int(std::lround(px / 64.0)), 0, width_ / 2) * 64,  // (an odd width: its last grid point inside)
+            std::clamp(int(std::lround(py / 32.0)), 0, int(height_)) * 32};
+}
+
 void Editor::setSymmetryCenter(int px, int py) {
     if (px < 0 || py < 0) return void(symmetryX_ = symmetryY_ = -1);
-    symmetryX_ = std::clamp(int(std::lround(px / 64.0)), 0, width_ / 2) * 64;  // (an odd width: its last grid point inside)
-    symmetryY_ = std::clamp(int(std::lround(py / 32.0)), 0, int(height_)) * 32;
+    std::tie(symmetryX_, symmetryY_) = anchorOnGrid(px, py);
+}
+
+std::vector<std::pair<int, int>> Editor::symmetryAnchors() const {
+    std::vector<std::pair<int, int>> out{symmetryCenter()};
+    const int W = width_ * 32, H = height_ * 32;
+    for (const auto& a : moreAnchors_)  // (another map's size: those outside do nothing)
+        if (a.first <= W && a.second <= H) out.push_back(a);
+    return out;
+}
+
+int Editor::addSymmetryAnchor(int px, int py) {
+    const auto at = anchorOnGrid(px, py);
+    const auto now = symmetryAnchors();
+    if (int(now.size()) >= kMaxSymmetryAnchors || std::find(now.begin(), now.end(), at) != now.end()) return -1;
+    moreAnchors_.push_back(at);
+    return int(moreAnchors_.size());
+}
+
+// The place in moreAnchors_ of symmetryAnchors()'s index (those on this map), or -1.
+int Editor::moreAnchorOf(int index) const {
+    const int W = width_ * 32, H = height_ * 32;
+    for (int i = 0, on = 0; i < int(moreAnchors_.size()); ++i)
+        if (moreAnchors_[size_t(i)].first <= W && moreAnchors_[size_t(i)].second <= H && ++on == index) return i;
+    return -1;
+}
+
+void Editor::setSymmetryAnchor(int index, int px, int py) {
+    if (index == 0) return setSymmetryCenter(px, py);
+    if (const int at = moreAnchorOf(index); at >= 0) moreAnchors_[size_t(at)] = anchorOnGrid(px, py);
+}
+
+void Editor::removeSymmetryAnchor(int index) {
+    const int at = moreAnchorOf(index == 0 ? 1 : index);
+    if (index < 0 || at < 0) return;
+    if (index == 0) std::tie(symmetryX_, symmetryY_) = moreAnchors_[size_t(at)];  // (the next one is the center now)
+    moreAnchors_.erase(moreAnchors_.begin() + at);
+}
+
+// The map's middle for the anchor: the center's as symmetryCenter gives it, another one's on the grid.
+std::pair<int, int> Editor::anchorMiddle(int index) const {
+    return index == 0 ? std::pair(width_ * 16, height_ * 16) : anchorOnGrid(width_ * 16, height_ * 16);
+}
+
+bool Editor::canCenterSymmetryAnchor(int index) const {
+    const auto now = symmetryAnchors();
+    return index >= 0 && index < int(now.size()) && now[size_t(index)] != anchorMiddle(index);
+}
+
+bool Editor::centerSymmetryAnchor(int index) {
+    if (!canCenterSymmetryAnchor(index)) return false;
+    if (index == 0) symmetryX_ = symmetryY_ = -1;
+    else moreAnchors_[size_t(moreAnchorOf(index))] = anchorMiddle(index);
+    mergeSymmetryAnchors();
+    return true;
+}
+
+int Editor::mergeSymmetryAnchors() {
+    std::vector<std::pair<int, int>> seen{symmetryCenter()};
+    const size_t before = moreAnchors_.size();
+    std::erase_if(moreAnchors_, [&](const std::pair<int, int>& a) {
+        if (std::find(seen.begin(), seen.end(), a) != seen.end()) return true;
+        seen.push_back(a);
+        return false;
+    });
+    return int(before - moreAnchors_.size());
 }
 
 std::pair<int, int> Editor::symmetryCenter() const {
@@ -871,9 +954,9 @@ std::pair<int, int> Editor::symmetryCenter() const {
     return {symmetryX_, symmetryY_};
 }
 
-std::pair<int, int> Editor::mirror(int px, int py, int which) const {
+std::pair<int, int> Editor::mirror(int px, int py, int which, std::pair<int, int> center) const {
     const double W = width_ * 32.0, H = height_ * 32.0;
-    const auto [cx, cy] = symmetryCenter();
+    const auto [cx, cy] = center;
     const double u = (px - cx) / W, v = (py - cy) / H;  // (the diagonals: in the map's proportions)
     switch (which) {
     case 0: return {2 * cx - px, py};  // left/right
@@ -884,11 +967,11 @@ std::pair<int, int> Editor::mirror(int px, int py, int which) const {
     return {px, py};
 }
 
-std::pair<int, int> Editor::turnPoint(int px, int py, int k) const {
+std::pair<int, int> Editor::turnPoint(int px, int py, int k, std::pair<int, int> center) const {
     constexpr double kTau = 6.283185307179586;
     const double W = width_ * 32.0, H = height_ * 32.0;
     const double a = kTau * k / turns_, c = std::cos(a), s = std::sin(a);
-    const auto [cx, cy] = symmetryCenter();
+    const auto [cx, cy] = center;
     const double u = (px - cx) / W, v = (py - cy) / H;  // from the center, in the map's proportions
     return {int(std::lround(cx + (u * c - v * s) * W)), int(std::lround(cy + (u * s + v * c) * H))};
 }
@@ -927,25 +1010,37 @@ std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py, int 
             if (std::abs(p.x - x) <= 1 && std::abs(p.y - y) <= 1) return;
         out.push_back({x, y, fx, fy});
     };
-    // The turns: the point turned k steps, each from the point itself (so the copies do not drift apart). A half turn
-    // flips a pasted copy both ways.
-    for (int k = 1; k < turns_; ++k) {
-        const auto [x, y] = turnPoint(px, py, k);
-        add(x, y, 2 * k == turns_, 2 * k == turns_);
-    }
-    // The mirrors: each place mirrored across the chosen axes, and the mirror images in turn, until no place is new.
-    // How each flips a pasted copy.
+    // How each mirror flips a pasted copy.
     static const struct {
         int flag, which;
         bool fx, fy;
     } mirrorsOf[] = {{Mirror::LeftRight, 0, true, false}, {Mirror::TopBottom, 1, false, true}, {Mirror::Diagonal, 3, false, false},
                      {Mirror::AntiDiagonal, 4, false, false}};
-    for (size_t k = 0; k < out.size(); ++k)
-        for (const auto& m : mirrorsOf) {
-            if (!(mirrors_ & m.flag)) continue;
-            const auto [x, y] = mirror(out[k].x, out[k].y, m.which);
-            add(x, y, out[k].flipX != m.fx, out[k].flipY != m.fy);
+    // Each anchor on its own: the point's images round it, not the images round the other anchors.
+    for (const auto& center : symmetryAnchors()) {
+        std::vector<SymmetricPlace> own{{px, py, false, false}};
+        auto addOwn = [&](int x, int y, bool fx, bool fy) {
+            if (own.size() >= kMaxSymmetricPlaces) return;
+            for (const SymmetricPlace& p : own)
+                if (std::abs(p.x - x) <= 1 && std::abs(p.y - y) <= 1) return;
+            own.push_back({x, y, fx, fy});
+            add(x, y, fx, fy);
+        };
+        // The turns: the point turned k steps, each from the point itself (so the copies do not drift apart). A half
+        // turn flips a pasted copy both ways.
+        for (int k = 1; k < turns_; ++k) {
+            const auto [x, y] = turnPoint(px, py, k, center);
+            addOwn(x, y, 2 * k == turns_, 2 * k == turns_);
         }
+        // The mirrors: each place mirrored across the chosen axes, and the mirror images in turn, until no place is new.
+        for (size_t k = 0; k < own.size(); ++k)
+            for (const auto& m : mirrorsOf) {
+                if (!(mirrors_ & m.flag)) continue;
+                const SymmetricPlace from = own[k];
+                const auto [x, y] = mirror(from.x, from.y, m.which, center);
+                addOwn(x, y, from.flipX != m.fx, from.flipY != m.fy);
+            }
+    }
     return out;
 }
 
@@ -1236,9 +1331,18 @@ bool Editor::moveSprite(int index, int x, int y) {
     return true;
 }
 
+namespace {
+// A doodad was just placed where its overlay sprite was removed before: placeDoodad's sprite (the last one) goes again.
+void dropPlacedOverlay(Chk& chk) {
+    std::vector<MapSprite> sprites = readSprites(chk);
+    if (!sprites.empty()) sprites.pop_back();
+    writeSprites(chk, sprites);
+}
+}  // namespace
+
 bool Editor::moveDoodad(int index, int x, int y, bool checkTerrain, std::string* reason) {
     if (index < 0 || index >= int(doodads_.size())) return false;
-    const Doodad d = doodads_[size_t(index)];
+    const Doodad d = layerDoodads()[size_t(index)];
     const DoodadType* t = doodadTypes_.find(d.id);
     if (!t) return false;
     const Chk before = chk_;
@@ -1255,6 +1359,7 @@ bool Editor::moveDoodad(int index, int x, int y, bool checkTerrain, std::string*
         if (reason) *reason = why;
         return false;
     }
+    if (d.noOverlay) dropPlacedOverlay(chk_);
     pushUndo(before);
     doodads_ = readDoodads(chk_);
     sprites_ = readSprites(chk_);
@@ -1296,7 +1401,8 @@ bool Editor::moveDoodadsBy(const std::vector<int>& indices, const std::function<
         if (i >= 0 && i < int(doodads_.size())) idx.push_back(i);
     if (idx.empty()) return false;
     std::vector<Doodad> moving;
-    for (int i : idx) moving.push_back(doodads_[size_t(i)]);
+    const std::vector<Doodad> withFlags = layerDoodads();
+    for (int i : idx) moving.push_back(withFlags[size_t(i)]);
     const Chk before = chk_;
     const std::vector<Doodad> doodadsBefore = doodads_;
     const std::vector<MapSprite> spritesBefore = sprites_;
@@ -1311,6 +1417,7 @@ bool Editor::moveDoodadsBy(const std::vector<int>& indices, const std::function<
         if (doodadOverlaps(*t, tx, ty)) why = "overlaps another doodad";
         else if (!stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, d.owner, checkTerrain, &why) && why.empty()) why = "does not fit here";
         if (!why.empty()) break;
+        if (d.noOverlay) dropPlacedOverlay(chk_);
         doodads_ = readDoodads(chk_);
     }
     if (!why.empty()) {  // all or none: back as it was
@@ -1398,7 +1505,8 @@ int Editor::replaceDoodads(const std::vector<int>& indices, uint16_t id, bool ch
         if (i >= 0 && i < int(doodads_.size()) && doodads_[size_t(i)].id != id) idx.push_back(i);
     if (idx.empty()) return 0;
     std::vector<Doodad> old;
-    for (int i : idx) old.push_back(doodads_[size_t(i)]);
+    const std::vector<Doodad> withFlags = layerDoodads();
+    for (int i : idx) old.push_back(withFlags[size_t(i)]);
     const Chk before = chk_;
     removeDoodads(idx);
     int n = 0;
@@ -1409,7 +1517,7 @@ int Editor::replaceDoodads(const std::vector<int>& indices, uint16_t id, bool ch
             ++n;
         } else if (const DoodadType* ot = doodadTypes_.find(d.id)) {  // the new one does not fit: the old one again
             const int ox = (int(d.x) - ot->width * 16) / 32, oy = (int(d.y) - ot->height * 16) / 32;
-            stardraft::placeDoodad(chk_, *ot, tileset_, ox, oy, d.owner, false);
+            if (stardraft::placeDoodad(chk_, *ot, tileset_, ox, oy, d.owner, false) && d.noOverlay) dropPlacedOverlay(chk_);
         }
         doodads_ = readDoodads(chk_);
     }
@@ -1762,6 +1870,7 @@ bool Editor::applyTerrain(const std::vector<CornerValue>& asked, bool overPlaced
     std::vector<CornerValue> corners = asked;
     maskCorners(corners);
     if (corners.empty()) return false;
+    noteCorners(corners);
     if (const int kept = pinProtected(corners, kProtectMargin); kept >= 0) {
         if (!kept) return false;
         int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
@@ -1959,6 +2068,7 @@ bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
         for (const auto& c : corners) x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
         nearProtected = protectedNear(x0, y0, x1, y1, kProtectMargin);
     }
+    if (useCore() && brush.starEdit() && !nearProtected && terrainMask_.empty()) noteCorners(corners);
     if (useCore() && brush.starEdit() && !nearProtected && terrainMask_.empty()) ok = applyCoreBrush(px, py, terrain, int(brush.size));
     else ok = applyTerrain(corners, true);
     if (own) endTerrainStroke();
@@ -2022,12 +2132,12 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         if (!g || !terrainGroup(tile.tiles[at]) || !terrainGroup(mtxm.tiles[at]) || (mod && mtxm.tiles[at] != tile.tiles[at])) continue;
         if (!isom_.tileFromIsom(chk_, tile, rx * 2, top)) continue;                       // and placed tiles theirs
         // (the new variant as the brush picks one (IsomTerrain's getRandomSubtile, as StarEdit): a common one (before the
-        // group's first empty megatile) most of the time, a rare one (after it) 1 time in 20; not the one there now. Each
+        // group's first empty megatile) most of the time, a rare one (after it) as detailedTileRoll picks; not the one there now. Each
         // pass over the same ground draws again: an even pick of all of them filled the ground with the rare ones)
         int common = 0, rare = 0;
         while (common < 16 && g->megatiles[size_t(common)]) ++common;
         while (common + rare + 1 < 16 && g->megatiles[size_t(common + rare + 1)]) ++rare;
-        const bool pickRare = rare > 0 && rng() % 20 == 0;
+        const bool pickRare = rare > 0 && detailedTileRoll(uint32_t(rng()));
         const int from = pickRare ? common + 1 : 0, to = pickRare ? common + 1 + rare : common;
         std::vector<int> subs;
         const int cur = tile.tiles[size_t(top) * w + rx * 2] & 15;
@@ -2383,6 +2493,7 @@ int Editor::applyDabs(const std::vector<std::vector<CornerValue>>& dabs) {
     for (std::vector<CornerValue> dab : dabs) {
         maskCorners(dab);
         if (dab.empty()) continue;
+        noteCorners(dab);
         bool same = true;
         for (const auto& c : dab) same = same && isom_.terrainAt(c.x, c.y) == c.terrain;
         if (same) continue;
@@ -2532,6 +2643,7 @@ bool Editor::copyTerrain(const Rect& area, bool withUnits, bool withDoodads, Sel
     int ox = cs.front().first, oy = cs.front().second;
     for (auto [x, y] : cs)
         if (y < oy || (y == oy && x < ox)) ox = x, oy = y;
+    terrainCopyOrigin_ = {ox, oy};
     TerrainClip clip;
     for (auto [x, y] : cs) clip.corners.push_back({x - ox, y - oy, isom_.terrainAt(x, y)});
     clip.width = r.right - r.left, clip.height = r.bottom - r.top;
@@ -2641,6 +2753,7 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
         if (!inStroke_) dropLastUndo();  // nothing changed (a stroke keeps its step)
         return false;
     }
+    noteCorners(corners);
     std::string err;
     isom_.store(chk_, err);
     restoreProtected(kept);
@@ -4562,6 +4675,475 @@ const ArchiveFile* Editor::archiveFile(const std::string& name) const {
     return nullptr;
 }
 
+bool Editor::composeLayers(const Bytes& base, LayerStack& stack, std::vector<std::pair<int, int>>* fitted, bool hold, const std::vector<uint16_t>* keepTiles, int activeLayer) {
+    std::vector<std::pair<std::string, Bytes>> sections;
+    if (!unpackLayerBase(base, sections)) return false;
+    // (the map as it is: where the corners stay, the tiles stay, so that the terrain's random tiles do not change with
+    // each edit. TILE: without the doodads' tiles.)
+    const IsomGrid lastGrid = layerHeld_ ? layerHeld_->first : isom_;
+    const bool hadGrid = isomOk_;
+    const TerrainLayer lastTiles = layerHeld_ ? layerHeld_->second : layerTileSection();
+    if (hold) layerHeld_ = {lastGrid, lastTiles};
+    else layerHeld_.reset();
+    const std::optional<ProtectedBefore> kept = protectedBefore();
+    for (auto& [name, data] : sections) chk_.set(layerSectionName(name), std::move(data));
+    chk_.set("UNIT", {}), chk_.set("DD2 ", {}), chk_.set("THG2", {});
+    const std::vector<int> selectedUnits = selection_;
+    reload();
+    const TerrainLayer baseTiles = readTerrain(chk_, "MTXM");
+    const int w = int(width_) * 32, h = int(height_) * 32;
+    std::map<std::pair<int, int>, uint16_t> asked;
+    const IsomGrid under = isom_;  // (the Background's: the corners that no layer has keep their terrain, but for the edges)
+    if (isomOk_) {
+        const TerrainLayer before = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+        for (const MapLayer& l : stack.layers) {
+            if (!l.visible) continue;
+            // (each terrain in turn, fitted to the ones before: two terrains that cannot touch are never both locked)
+            std::map<uint16_t, std::vector<CornerValue>> byTerrain;
+            for (const auto& [at, terrain] : l.corners)
+                if (isom_.isCorner(at.first, at.second)) {
+                    byTerrain[terrain].push_back({at.first, at.second, terrain});
+                    asked[at] = terrain;
+                }
+            for (const auto& [terrain, corners] : byTerrain) isom_.apply(corners);
+        }
+        std::string err;
+        isom_.store(chk_, err);
+        if (!tileset_.groupTerrains.empty()) sprinkleModTiles(before);
+    }
+    // A tile of both tile sections.
+    const auto setTile = [&](int tx, int ty, uint16_t tile) {
+        const size_t at = (size_t(ty) * width_ + size_t(tx)) * 2;
+        for (const SectionName name : {SectionName("MTXM"), SectionName("TILE")})
+            if (Section* s = chk_.find(name); s && at + 1 < s->data.size()) s->data[at] = uint8_t(tile), s->data[at + 1] = uint8_t(tile >> 8);
+    };
+    for (const MapLayer& l : stack.layers)  // (also a hidden layer's: they are not the terrain's)
+        for (const auto& [at, tile] : l.tiles) layerPlaced_.insert(at);
+    if (hadGrid && isomOk_ && lastTiles.tiles.size() == baseTiles.tiles.size())
+        for (int ry = 0; ry < int(height_); ++ry)
+            for (int rx = 0; rx * 2 < int(width_); ++rx) {
+                bool same = true, background = true;
+                // (the rect's corners and those around them: an edge's tiles depend on them too)
+                for (int cy = ry - 1; same && cy <= ry + 2; ++cy)
+                    for (int cx = rx - 1; same && cx <= rx + 2; ++cx) {
+                        same = lastGrid.terrainAt(cx, cy) == isom_.terrainAt(cx, cy);
+                        background = background && under.terrainAt(cx, cy) == isom_.terrainAt(cx, cy);
+                    }
+                if (!same || background) continue;  // (where the Background shows: its own tiles)
+                for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_); ++tx) {
+                    const uint16_t last = lastTiles.tiles[size_t(ry) * width_ + size_t(tx)];
+                    if (last && !layerPlaced_.count({tx, ry})) setTile(tx, ry, last);  // (not a null tile: a cut's goes away)
+                }
+            }
+    if (keepTiles && isomOk_ && keepTiles->size() == baseTiles.tiles.size()) {
+        // The other layers' tiles as they were, while a rect keeps its shape. A cliff is a stack of rects with one variant:
+        // from the top down, a rect takes the tile that fits under the rect above as it is now; when no tile of its shape
+        // does, the stack is the new tiles, all of it. (The new tiles fit together: IsomGrid::store.)
+        const TerrainLayer now = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+        const IsomTiles* tiles = IsomTiles::forTileset(tileset_);
+        const std::map<std::pair<int, int>, uint16_t>* own = activeLayer >= 0 && activeLayer < int(stack.layers.size()) ? &stack.layers[size_t(activeLayer)].corners : nullptr;
+        if (tiles && now.tiles.size() == keepTiles->size()) {
+            const int tw = int(width_), th = int(height_);
+            const auto sameShape = [&](uint16_t a, uint16_t b) {
+                if (a == b) return true;
+                if (a >= tileset_.groups.size() || b >= tileset_.groups.size()) return false;
+                for (const IsomTiles::Rect& x : tiles->rectsOf(a))
+                    for (const IsomTiles::Rect& y : tiles->rectsOf(b))
+                        if (x.parity == y.parity && x.left == y.left && x.right == y.right) return true;
+                return false;
+            };
+            const auto hasVariant = [&](uint16_t g, uint16_t sub) { return g < tileset_.groups.size() && tileset_.groups[g].megatiles[sub & 15]; };
+            std::vector<uint16_t> result = now.tiles;       // left tiles and right tiles
+            std::vector<uint8_t> changedHere(result.size(), 0);  // not the new tile
+            const auto at = [&](int tx, int ty) { return size_t(ty) * size_t(tw) + size_t(tx); };
+            const auto setRect = [&](int rx, int ry, uint16_t left, uint16_t right) {
+                const size_t a = at(rx * 2, ry);
+                result[a] = left, changedHere[a] = left != now.tiles[a];
+                if (rx * 2 + 1 < tw) result[a + 1] = right, changedHere[a + 1] = right != now.tiles[a + 1];
+            };
+            // Back to the new tiles: this rect and the rects above it in its stack.
+            const auto stackBack = [&](int rx, int ry) {
+                for (int y = ry; y >= 0; --y) {
+                    const size_t a = at(rx * 2, y);
+                    const bool was = changedHere[a] != 0;
+                    setRect(rx, y, now.tiles[a], rx * 2 + 1 < tw ? now.tiles[a + 1] : uint16_t(0));
+                    if (y == 0) break;
+                    const uint16_t top = uint16_t(now.tiles[a] >> 4);
+                    if (!was && !changedHere[at(rx * 2, y - 1)]) break;
+                    if (!tiles->stackTop(top) || tiles->stackTop(top) != tiles->stackBottom(uint16_t(now.tiles[at(rx * 2, y - 1)] >> 4))) break;
+                }
+            };
+            for (int rx = 0; rx * 2 < tw; ++rx)
+                for (int ry = 0; ry < th; ++ry) {
+                    const size_t a = at(rx * 2, ry);
+                    const bool hasRight = rx * 2 + 1 < tw;
+                    const uint16_t nowLeft = now.tiles[a], nowRight = hasRight ? now.tiles[a + 1] : uint16_t(0);
+                    const uint16_t lastLeft = (*keepTiles)[a], lastRight = hasRight ? (*keepTiles)[a + 1] : uint16_t(0);
+                    if (layerPlaced_.count({rx * 2, ry}) || (hasRight && layerPlaced_.count({rx * 2 + 1, ry}))) continue;
+                    bool layered = false, mine = false;
+                    for (const auto& c : {std::pair{rx, ry}, {rx + 1, ry}, {rx, ry + 1}, {rx + 1, ry + 1}}) {
+                        layered = layered || asked.count(c);
+                        mine = mine || (own && own->count(c));
+                    }
+                    const uint16_t above = ry > 0 ? uint16_t(result[at(rx * 2, ry - 1)] >> 4) : uint16_t(0xFFFF);
+                    const bool aboveChanged = ry > 0 && changedHere[at(rx * 2, ry - 1)];
+                    const auto fits = [&](uint16_t g) { return ry == 0 || above >= tileset_.groups.size() || tiles->stackBottom(above) == tiles->stackTop(g); };
+                    const uint16_t nowGroup = uint16_t(nowLeft >> 4), lastGroup = uint16_t(lastLeft >> 4);
+                    if (lastLeft && (!hasRight || lastRight) && lastGroup < tileset_.groups.size() && (layered ? !mine : aboveChanged) && sameShape(lastGroup, nowGroup) && fits(lastGroup)) {
+                        setRect(rx, ry, lastLeft, lastRight);
+                        continue;
+                    }
+                    if (!aboveChanged || fits(nowGroup)) {
+                        // (under a stack that stays: the stack's variant)
+                        if (aboveChanged && tiles->stackTop(nowGroup)) {
+                            const uint16_t sub = uint16_t(result[at(rx * 2, ry - 1)] & 15);
+                            if (hasVariant(nowGroup, sub) && (!hasRight || hasVariant(uint16_t(nowRight >> 4), sub)))
+                                setRect(rx, ry, uint16_t((nowLeft & ~15) | sub), uint16_t((nowRight & ~15) | sub));
+                        }
+                        continue;
+                    }
+                    // A tile of its shape that fits under the rect above; none: the new tiles.
+                    bool found = false;
+                    for (const IsomTiles::Rect& r : nowGroup < tileset_.groups.size() ? tiles->rectsOf(nowGroup) : std::vector<IsomTiles::Rect>{}) {
+                        for (uint16_t g : tiles->groups(r.parity, r.left, r.right)) {
+                            const uint16_t sub = uint16_t(result[at(rx * 2, ry - 1)] & 15);
+                            if (!fits(g) || !hasVariant(g, sub) || !hasVariant(uint16_t(g + 1), sub)) continue;
+                            setRect(rx, ry, uint16_t(g << 4 | sub), uint16_t((g + 1) << 4 | sub));
+                            found = true;
+                            break;
+                        }
+                        if (found) break;
+                    }
+                    if (!found) stackBack(rx, ry - 1);
+                }
+            // Rects side by side and stacks that do not fit now: the new tiles there.
+            const auto misfits = [&](std::vector<std::pair<int, int>>& where) {
+                Chk trial = chk_;
+                for (int ty = 0; ty < th; ++ty)
+                    for (int tx = 0; tx < tw; ++tx)
+                        if (changedHere[at(tx, ty)]) {
+                            const size_t o = at(tx, ty) * 2;
+                            for (const SectionName name : {SectionName("MTXM"), SectionName("TILE")})
+                                if (Section* sec = trial.find(name); sec && o + 1 < sec->data.size()) sec->data[o] = uint8_t(result[at(tx, ty)]), sec->data[o + 1] = uint8_t(result[at(tx, ty)] >> 8);
+                        }
+                countTileMisfits(trial, tileset_, &where);
+            };
+            for (int pass = 0; pass < 4; ++pass) {
+                std::vector<std::pair<int, int>> where;
+                misfits(where);
+                bool any = false;
+                for (const auto& [tx, ty] : where) {
+                    const int rx = tx / 2;
+                    for (const auto& [ox, oy] : {std::pair{rx, ty}, {rx, ty - 1}, {(tx - 1) / 2, ty}})
+                        if (ox >= 0 && oy >= 0 && ox * 2 < tw && (changedHere[at(ox * 2, oy)] || (ox * 2 + 1 < tw && changedHere[at(ox * 2 + 1, oy)])))
+                            stackBack(ox, oy), any = true;
+                }
+                if (!any) break;
+                if (pass == 3) std::fill(changedHere.begin(), changedHere.end(), uint8_t(0));  // (it does not settle: all the new tiles, which fit)
+            }
+            for (int ty = 0; ty < th; ++ty)
+                for (int tx = 0; tx < tw; ++tx)
+                    if (changedHere[at(tx, ty)]) setTile(tx, ty, result[at(tx, ty)]);
+        }
+    }
+    if (!stack.background.visible)
+        for (int ry = 0; ry < int(height_); ++ry)
+            for (int rx = 0; rx * 2 < int(width_); ++rx)
+                if (!asked.count({rx, ry}) && !asked.count({rx + 1, ry}) && !asked.count({rx, ry + 1}) && !asked.count({rx + 1, ry + 1}))
+                    for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_); ++tx) setTile(tx, ry, 0);
+    layerPlaced_.clear();
+    for (const MapLayer& l : stack.layers)
+        if (l.visible)
+            for (const auto& [at, tile] : l.tiles)
+                if (at.first >= 0 && at.second >= 0 && at.first < int(width_) && at.second < int(height_)) {
+                    setTile(at.first, at.second, tile);
+                    layerPlaced_.insert(at);
+                }
+    restoreProtected(kept, false);
+    const auto onMap = [&](int x, int y) { return x >= 0 && y >= 0 && x < w && y < h && x <= 0xFFFF && y <= 0xFFFF; };
+    units_.clear(), sprites_.clear();
+    std::vector<Doodad> doodadList;
+    // (the Background's objects come back as they were, also those that are not on the map or do not fit)
+    const auto addObjects = [&](MapLayer& l, bool show, bool background) {
+        for (auto& o : l.units) {
+            o.shown = show && (background || onMap(o.x, o.y));
+            if (!o.shown) continue;
+            Unit u = o.item;
+            u.x = uint16_t(o.x), u.y = uint16_t(o.y);
+            units_.push_back(u);
+        }
+        for (auto& o : l.doodads) {
+            const DoodadType* t = doodadTypes_.find(o.item.id);
+            o.shown = false;
+            if (t && show && onMap(o.x, o.y)) {
+                int tx, ty;
+                doodadOrigin(*t, o.x, o.y, tx, ty);
+                o.shown = stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, o.item.owner, false);
+            }
+            if (!show || (!o.shown && !background)) continue;
+            // (its entry as it is: its place to the pixel, its flags; without its tiles when it does not fit)
+            Doodad d = o.item;
+            d.x = uint16_t(o.x), d.y = uint16_t(o.y);
+            doodadList.push_back(d);
+            o.shown = true;
+        }
+    };
+    // (the sprites after all doodads: their own sprites go into THG2 first, in the doodads' order)
+    addObjects(stack.background, stack.background.visible, true);
+    for (MapLayer& l : stack.layers) addObjects(l, l.visible, false);
+    writeDoodads(chk_, doodadList);
+    // The doodads' overlay sprites: at the doodad's place to the pixel, also for one that does not fit, so layerSprites finds them.
+    std::vector<MapSprite> sprites;
+    std::map<std::tuple<uint16_t, uint16_t, uint16_t>, int> withoutOverlay;
+    for (const Doodad& d : doodadList)
+        if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlaySprite) {
+            if (d.noOverlay) ++withoutOverlay[{t->overlaySprite, d.x, d.y}];
+            else sprites.push_back(MapSprite{t->overlaySprite, d.x, d.y, d.owner, 0, SpriteFlag::DrawAsSprite});
+        }
+    const auto addSprites = [&](MapLayer& l, bool show, bool background) {
+        for (auto& o : l.sprites) {
+            o.shown = show && (background || onMap(o.x, o.y));
+            if (!o.shown) continue;
+            MapSprite s = o.item;
+            s.x = uint16_t(o.x), s.y = uint16_t(o.y);
+            sprites.push_back(s);
+            // (exactly the overlay of a doodad with none: the map reads it as that overlay, so it is not one of the layer's own there)
+            if (s.flags & SpriteFlag::DrawAsSprite)
+                if (const auto it = withoutOverlay.find({s.id, s.x, s.y}); it != withoutOverlay.end() && it->second > 0) --it->second, o.shown = false;
+        }
+    };
+    addSprites(stack.background, stack.background.visible, true);
+    for (MapLayer& l : stack.layers) addSprites(l, l.visible, false);
+    writeSprites(chk_, sprites);
+    writeUnits(chk_, units_);
+    doodads_ = readDoodads(chk_);
+    sprites_ = readSprites(chk_);
+    selection_ = selectedUnits;
+    std::erase_if(selection_, [&](int i) { return i < 0 || i >= int(units_.size()); });
+    commit(true);
+    if (fitted) {
+        fitted->clear();
+        for (int y = -1; isomOk_ && y <= int(height_) + 1; ++y)
+            for (int x = -1; x <= int(width_) / 2 + 1; ++x)
+                if (isom_.isCorner(x, y)) {
+                    const auto it = asked.find({x, y});
+                    // (a corner the fit changed, or a NULL corner beside a layer's: the edge is there)
+                    const bool beside = it == asked.end() && (asked.count({x - 1, y - 1}) || asked.count({x + 1, y - 1}) ||
+                                                              asked.count({x - 1, y + 1}) || asked.count({x + 1, y + 1}));
+                    if (beside || (it != asked.end() ? it->second : under.terrainAt(x, y)) != isom_.terrainAt(x, y)) fitted->push_back({x, y});
+                }
+    }
+    return true;
+}
+
+Bytes Editor::layerBaseNow() const {
+    TerrainLayer mtxm = readTerrain(chk_, "MTXM");
+    const TerrainLayer tile = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+    // (as removeDoodads: the doodads' tiles give way to the terrain under them)
+    for (const Doodad& d : doodads_)
+        if (const DoodadType* t = doodadTypes_.find(d.id)) {
+            const int tx = (int(d.x) - t->width * 16) / 32, ty = (int(d.y) - t->height * 16) / 32;
+            for (int r = 0; r < t->height; ++r)
+                for (int c = 0; c < t->width; ++c) {
+                    const int x = tx + c, y = ty + r;
+                    if (x < 0 || y < 0 || x >= width_ || y >= height_) continue;
+                    const size_t k = size_t(y) * width_ + x;
+                    if (k < mtxm.tiles.size() && k < tile.tiles.size() && (mtxm.tiles[k] >> 4) == t->firstGroup + r) mtxm.tiles[k] = tile.tiles[k];
+                }
+        }
+    const auto pack = [](const std::vector<uint16_t>& tiles) {
+        Bytes out;
+        for (uint16_t v : tiles) appendU16(out, v);
+        return out;
+    };
+    std::vector<std::pair<std::string, Bytes>> sections;
+    sections.emplace_back("MTXM", pack(mtxm.tiles));
+    if (chk_.has("TILE")) sections.emplace_back("TILE", pack(tile.tiles));
+    if (chk_.has("ISOM")) sections.emplace_back("ISOM", chk_.effective("ISOM"));
+    return packLayerBase(sections);
+}
+
+std::vector<MapSprite> Editor::layerSprites() const {
+    std::vector<MapSprite> out = sprites_;
+    for (const Doodad& d : doodads_)
+        if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlaySprite)
+            for (size_t s = 0; s < out.size(); ++s)
+                if ((out[s].flags & SpriteFlag::DrawAsSprite) && out[s].id == t->overlaySprite && out[s].x == d.x && out[s].y == d.y) {
+                    out.erase(out.begin() + long(s));
+                    break;
+                }
+    return out;
+}
+
+std::vector<Doodad> Editor::layerDoodads() const {
+    std::vector<Doodad> out = doodads_;
+    std::vector<MapSprite> left = sprites_;
+    for (Doodad& d : out)
+        if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlaySprite) {
+            const auto it = std::find_if(left.begin(), left.end(), [&](const MapSprite& s) {
+                return (s.flags & SpriteFlag::DrawAsSprite) && s.id == t->overlaySprite && s.x == d.x && s.y == d.y;
+            });
+            d.noOverlay = it == left.end();
+            if (it != left.end()) left.erase(it);
+        }
+    return out;
+}
+
+void Editor::beginLayerEdit() {
+    pushUndo(chk_, {kLayersFile, kLayersBaseFile});
+    inStroke_ = strokeStep_ = true;
+}
+
+void Editor::endLayerEdit(bool changed, std::vector<ArchiveFile> files, const std::vector<std::string>& removed) {
+    inStroke_ = strokeStep_ = false;
+    if (!changed) {
+        dropLastUndo();
+        return;
+    }
+    finishFiles();
+    for (const std::string& name : removed) std::erase_if(files_, [&](const ArchiveFile& f) { return f.name == name; });
+    for (ArchiveFile& n : files) {
+        auto it = std::find_if(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == n.name; });
+        if (it != files_.end()) it->data = std::move(n.data);
+        else files_.push_back(std::move(n));
+    }
+    commit(false);
+}
+
+void Editor::amendLastStep(std::vector<ArchiveFile> files, const std::vector<std::string>& removed) {
+    finishFiles();
+    if (!undo_.empty()) {
+        std::vector<std::string> all = removed, names;
+        for (const ArchiveFile& f : files) all.push_back(f.name);
+        for (const std::string& name : all)
+            if (std::none_of(undo_.back().files.begin(), undo_.back().files.end(), [&](const Snapshot::File& k) { return k.name == name; }))
+                names.push_back(name);
+        for (Snapshot::File& f : fileStates(names)) {
+            undo_.back().ownBytes += f.data.size();
+            undoBytes_ += f.data.size();
+            undo_.back().files.push_back(std::move(f));
+        }
+    }
+    for (const std::string& name : removed) std::erase_if(files_, [&](const ArchiveFile& f) { return f.name == name; });
+    for (ArchiveFile& n : files) {
+        auto it = std::find_if(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == n.name; });
+        if (it != files_.end()) it->data = std::move(n.data);
+        else files_.push_back(std::move(n));
+    }
+    commit(false);
+}
+
+bool Editor::exportFlattened(const std::filesystem::path& path, std::string& error, std::vector<std::string>* leftOut, std::vector<std::string>* leftOutInUse) {
+    finishFiles();
+    if (!filesError_.empty()) {
+        error = filesError_ + " (the export would lose them)";
+        return false;
+    }
+    std::vector<ArchiveFile> keep;
+    for (const ArchiveFile& f : files_) {
+        if (keepInExport(f.name)) {
+            keep.push_back(f);
+            continue;
+        }
+        if (!canKeepInExport(f.name)) continue;  // (the layers: the export is flat; they are not the user's to count)
+        if (leftOut) leftOut->push_back(f.name);
+        if (leftOutInUse && namedInMap(f.name)) leftOutInUse->push_back(f.name);
+    }
+    return writeMap(path, savedChk(), keep, error);
+}
+
+namespace {
+// The lines of the export list: path -> on or off.
+std::map<std::string, bool> readExportList(const ArchiveFile* file) {
+    std::map<std::string, bool> out;
+    if (!file) return out;
+    std::string line;
+    const auto take = [&] {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.rfind("on ", 0) == 0) out[line.substr(3)] = true;
+        else if (line.rfind("off ", 0) == 0) out[line.substr(4)] = false;
+        line.clear();
+    };
+    for (uint8_t b : file->data) {
+        if (b == '\n') take();
+        else line.push_back(char(b));
+    }
+    take();
+    return out;
+}
+std::string exportListText(const std::map<std::string, bool>& list) {
+    std::string text;
+    for (const auto& [path, on] : list) text += (on ? "on " : "off ") + path + "\n";
+    return text;
+}
+// The list as a file of the map, inside an undo step already taken. (No lines: no file.)
+void storeExportList(std::vector<ArchiveFile>& files, const std::map<std::string, bool>& list) {
+    std::erase_if(files, [](const ArchiveFile& f) { return f.name == kExportListFile; });
+    const std::string text = exportListText(list);
+    if (!text.empty()) files.push_back({kExportListFile, Bytes(text.begin(), text.end())});
+}
+bool ownFile(const std::string& name) { return name.rfind("stardraft\\", 0) == 0; }
+}  // namespace
+
+bool Editor::canKeepInExport(const std::string& name) { return name != kLayersFile && name != kLayersBaseFile && name != kLayersCheckFile && name != kExportListFile; }
+
+std::string Editor::terrainCheck() const {
+    uint32_t h = 2166136261u;  // FNV-1a
+    if (const Section* s = chk_.find(SectionName("MTXM")))
+        for (uint8_t b : s->data) h = (h ^ b) * 16777619u;
+    char text[16];
+    std::snprintf(text, sizeof text, "%08x", h);
+    return text;
+}
+
+bool Editor::keepInExport(const std::string& name) const {
+    if (!canKeepInExport(name)) return false;
+    const std::map<std::string, bool> list = readExportList(archiveFile(kExportListFile));
+    const auto it = list.find(name);
+    return it != list.end() ? it->second : !ownFile(name);
+}
+
+void Editor::setKeepInExport(const std::string& name, bool keep) {
+    if (!canKeepInExport(name) || keepInExport(name) == keep) return;
+    std::map<std::string, bool> list = readExportList(archiveFile(kExportListFile));
+    if (keep == !ownFile(name)) list.erase(name);  // (the default: no line)
+    else list[name] = keep;
+    const std::string text = exportListText(list);
+    if (text.empty()) removeArchiveFile(kExportListFile);
+    else setArchiveFiles({{kExportListFile, Bytes(text.begin(), text.end())}});
+}
+
+bool Editor::namedInMap(const std::string& name) const {
+    const std::string wanted = lower(name);
+    for (const SectionName section : {SectionName("STR "), SectionName("STRx")})
+        if (const Section* s = chk_.find(section))
+            for (auto it = s->data.begin(); it != s->data.end(); ++it) {
+                it = std::search(it, s->data.end(), wanted.begin(), wanted.end(), [](uint8_t a, char b) { return char(std::tolower(a)) == b; });
+                if (it == s->data.end()) break;
+                const auto end = it + std::ptrdiff_t(wanted.size());
+                if ((it == s->data.begin() || !*(it - 1)) && (end == s->data.end() || !*end)) return true;  // (the whole string, not a part of a text)
+            }
+    return false;
+}
+
+void Editor::setQuietArchiveFile(const std::string& name, Bytes data) {
+    finishFiles();
+    const auto it = std::find_if(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == name; });
+    if (it != files_.end()) it->data = std::move(data);
+    else files_.push_back({name, std::move(data)});
+}
+
+std::string Editor::notes() const {
+    const ArchiveFile* f = archiveFile(kNotesFile);
+    return f ? std::string(f->data.begin(), f->data.end()) : std::string();
+}
+
+void Editor::setNotes(const std::string& text) {
+    if (text == notes()) return;
+    if (text.empty()) removeArchiveFile(kNotesFile);
+    else setArchiveFiles({{kNotesFile, Bytes(text.begin(), text.end())}});
+}
+
 void Editor::setArchiveFiles(std::vector<ArchiveFile> files) {
     if (files.empty()) return;
     std::vector<std::string> paths;
@@ -4578,8 +5160,12 @@ void Editor::setArchiveFiles(std::vector<ArchiveFile> files) {
 bool Editor::removeArchiveFile(const std::string& name) {
     finishFiles();
     if (std::none_of(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == name; })) return false;
-    pushUndo(chk_, {name});  // the undo step keeps the file
+    std::map<std::string, bool> list = readExportList(archiveFile(kExportListFile));
+    const bool listed = list.erase(name) > 0;
+    if (listed) pushUndo(chk_, {name, kExportListFile});  // the undo step keeps the file
+    else pushUndo(chk_, {name});
     std::erase_if(files_, [&](const ArchiveFile& f) { return f.name == name; });
+    if (listed) storeExportList(files_, list);
     commit(false);
     return true;
 }
@@ -4590,8 +5176,14 @@ bool Editor::removeArchiveFiles(const std::vector<std::string>& names) {
     for (const std::string& n : names)
         if (std::any_of(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == n; })) there.push_back(n);
     if (there.empty()) return false;
-    pushUndo(chk_, there);  // the undo step keeps the files
+    std::map<std::string, bool> list = readExportList(archiveFile(kExportListFile));
+    bool listed = false;
+    for (const std::string& n : there) listed = list.erase(n) > 0 || listed;
+    std::vector<std::string> kept = there;
+    if (listed) kept.push_back(kExportListFile);
+    pushUndo(chk_, kept);  // the undo step keeps the files
     std::erase_if(files_, [&](const ArchiveFile& f) { return std::find(there.begin(), there.end(), f.name) != there.end(); });
+    if (listed) storeExportList(files_, list);
     commit(false);
     return true;
 }
@@ -4600,9 +5192,19 @@ bool Editor::renameArchiveFile(const std::string& from, const std::string& to) {
     if (to.empty() || archiveFile(to)) return false;
     auto it = std::find_if(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == from; });
     if (it == files_.end()) return false;
-    // One step: the file's new path, and the briefings that play it name the new path.
-    pushUndo(chk_, {from, to});
+    // One step: the file's new path, the briefings that play it name the new path, and its export setting goes with it.
+    std::map<std::string, bool> list = readExportList(archiveFile(kExportListFile));
+    const auto line = list.find(from);
+    const bool listed = line != list.end();
+    if (listed) {
+        list[to] = line->second;
+        list.erase(from);
+        pushUndo(chk_, {from, to, kExportListFile});
+    } else {
+        pushUndo(chk_, {from, to});
+    }
     it->name = to;
+    if (listed) storeExportList(files_, list);
     std::vector<BriefingTrigger> b = readBriefings(chk_, strings_);
     bool used = false;
     for (auto& t : b)

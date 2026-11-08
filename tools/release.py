@@ -9,7 +9,8 @@ the same way each time, after the owner approves the scope and the release notes
                                 no window (tools/sdl_snapshots.py), cropped into docs/user/images/<version>/.
                                 --measure: only the captures.
     check <version>             All checks, without a change: the version, the push account, the working tree, the
-                                changelog section and its pictures, the UI text, the translation tables, the build.
+                                changelog section and its pictures, the UI text, the translation tables, the quality
+                                KPIs (tools/kpi.py gate: record <version> first; docs/dev/KPI.md), the build.
     publish <version> --yes     check, then commit the changelog and its pictures ("Changelog <version>"); the
                                 preflight: the commit pushed to the branch release-check/<version>, and its build.yml
                                 run's Windows job must pass before any tag (a failure: its errors, no tag; the run's
@@ -538,6 +539,10 @@ def cmd_check(args, quiet_build=False):
     gen = subprocess.run([sys.executable, "-I", "tools/ui_lang_gen.py"], cwd=ROOT, capture_output=True, text=True)
     if gen.returncode or git("status", "--porcelain", "--", "apps/editor/res/lang"):
         problems.append("the translation tables are not made from the .tsv files: python -I tools/ui_lang_gen.py, commit")
+    # The quality KPIs: the version's numbers (tools/kpi.py record <version>) meet their targets (docs/dev/KPI.md)
+    kpi = subprocess.run([sys.executable, "-I", "tools/kpi.py", "gate", version], cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
+    if kpi.returncode:
+        problems.append("KPIs: " + (kpi.stdout + kpi.stderr).strip().splitlines()[-1] + " (docs/dev/KPI.md)")
     # The build: all targets, as CI builds them (in the testing build folder: the user's StarDraft 2.exe stays alone)
     if "--no-build" not in args:
         build = ROOT / (opt(args, "--build-dir") or "build")
@@ -574,7 +579,8 @@ def cmd_publish(args):
     env = push_env(token)
     tag = f"v{version}"
     open_paths = [l[3:].strip().strip('"') for l in git("status", "--porcelain", "--", "docs/user/CHANGELOG.md",
-                                                         f"docs/user/images/{version}", f"tools/shots/{version}.json").splitlines()]
+                                                         f"docs/user/images/{version}", f"tools/shots/{version}.json",
+                                                         f"docs/dev/kpi/{version}.json", "docs/dev/KPI.md").splitlines()]
     commit = []
     if open_paths:
         commit.append(["git", "add", "--", *open_paths])

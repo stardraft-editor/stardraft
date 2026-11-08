@@ -28,3 +28,18 @@ COLORREF kFeedback = RGB(242, 204, 84);
 constexpr UiIcon kFeedbackIcon = UiIcon::Feedback;
 
 #include "../theme.inc"
+
+// While it lives, what is painted takes gray for the accent (`on`: a panel that does not have the focus): its chosen tool
+// and its chosen row stay readable, and only the panel with the focus has the accent. For the theme in use.
+struct MutedAccent {
+    COLORREF accent = kAccent, bright = kAccentBright, line = kAccentLine, sel = kSel, selHot = kSelHot;
+    bool on;
+    explicit MutedAccent(bool mute) : on(mute) {
+        if (on) kAccent = kDim, kAccentBright = kText, kAccentLine = kBorderStrong, kSel = kCtlHot, kSelHot = kBorderHot;
+    }
+    ~MutedAccent() {
+        if (on) kAccent = accent, kAccentBright = bright, kAccentLine = line, kSel = sel, kSelHot = selHot;
+    }
+    MutedAccent(const MutedAccent&) = delete;
+    MutedAccent& operator=(const MutedAccent&) = delete;
+};

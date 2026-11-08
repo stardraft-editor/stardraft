@@ -629,6 +629,8 @@ bool EudProject::writeBuildMap(const std::vector<size_t>& leaveOut, std::string&
     Bytes raw;
     if (archive) {
         if (!readMapFiles(in, files, error)) return error = in.string() + ": " + error, false;
+        // (the layers, the notes, the map's settings: not for the players)
+        std::erase_if(files, [](const ArchiveFile& f) { return f.name.rfind("stardraft\\", 0) == 0; });
         const std::string chkName = kChkArchivePath;
         for (const ArchiveFile& f : files)
             if (f.name.size() == chkName.size() && std::equal(f.name.begin(), f.name.end(), chkName.begin(), [](char a, char b) {

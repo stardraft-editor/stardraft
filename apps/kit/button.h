@@ -35,6 +35,12 @@ public:
     }
     bool enabled() const { return enabled_; }
     void setTip(std::wstring t) { tip_ = std::move(t); }
+    // A segment of a segmented choice: square on the sides that touch the next button (a line between them), as the
+    // tool strip's Isometric | Rectangle | Tile | Custom.
+    void setJoined(bool left, bool right) {
+        joinLeft_ = left, joinRight_ = right;
+        invalidate();
+    }
     // The width the text needs (at least kButtonMinW).
     int preferredWidth(draw::Canvas& c) const;
 
@@ -49,6 +55,7 @@ private:
     std::wstring text_, tip_;
     Tone tone_ = Tone::Normal;
     bool enabled_ = true, hot_ = false, down_ = false;
+    bool joinLeft_ = false, joinRight_ = false;
 };
 
 // The color of a tone's text.

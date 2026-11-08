@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
         size_t c = ed.brushCorners(4000, 2000, Brush{Brush::Circle, 3}).size();
         size_t q = ed.brushCorners(4000, 2000, Brush{Brush::Square, 3}).size();
         std::printf("      size-3 footprints: diamond %zu, circle %zu, square %zu corners\n", d, c, q);
-        check(d < c && c < q, "1.3 shapes: diamond < circle < square");
+        check(d <= c && c < q, "1.3 shapes: diamond <= circle < square");  // (size 3: StarEdit's diamond covers what the circle does)
         auto t0 = Clock::now();
         ed.paintBrush(4000, 2000, Water, Brush{Brush::Circle, 3});
         double paintMs = ms(t0);
@@ -159,6 +159,46 @@ int main(int argc, char** argv) {
         ed.undo();
         check(ed.units().size() == units0, "1.7 paste is one undo step");
         (void)same;
+    }
+
+    // Symmetry anchors: each repeats the point on its own, on the grid; the first is the center.
+    {
+        Editor ed(data);
+        ed.newMap(128, 128, 0, Dirt, err);
+        ed.setMirrors(Mirror::LeftRight);
+        ed.setSymmetryCenter(1024, 1024);
+        check(ed.symmetricPoints(900, 500).size() == 2, "anchors: one, one mirror image");
+        check(ed.addSymmetryAnchor(2051, 1000) == 1 && ed.symmetryAnchors()[1] == std::pair(2048, 992), "anchors: a new one, on the grid");
+        check(ed.addSymmetryAnchor(2048, 992) == -1, "anchors: not two at one point");
+        const auto points = ed.symmetricPoints(900, 500);
+        check(points.size() == 3, "anchors: an image round each, not images of images");
+        check(std::find(points.begin(), points.end(), std::pair(1148, 500)) != points.end() && std::find(points.begin(), points.end(), std::pair(3196, 500)) != points.end(),
+              "anchors: the images are round their anchors");
+        ed.setSymmetryAnchor(1, 1536, 992);
+        check(ed.symmetryAnchors()[1].first == 1536, "anchors: one moves");
+        ed.beginTerrainStroke();
+        ed.paintBrush(900, 496, Water, Brush{Brush::Diamond, 2});
+        ed.endTerrainStroke();
+        check(ed.terrainAt(2172, 496) == Water, "anchors: the brush paints round the new one");
+        check(ed.centerSymmetryAnchor(1) && ed.symmetryAnchors()[1] == std::pair(2048, 2048) && !ed.canCenterSymmetryAnchor(1), "anchors: one to the middle");
+        check(ed.centerSymmetryAnchor(0) && ed.symmetryAnchors().size() == 1 && ed.symmetryAnchors()[0] == std::pair(2048, 2048) && ed.symmetryCenterSet().first < 0,
+              "anchors: the center to the middle, as at first: the two at one point are one");
+        ed.addSymmetryAnchor(1536, 992);
+        ed.setSymmetryAnchor(1, 2048, 2048);
+        check(ed.symmetryAnchors().size() == 2 && ed.mergeSymmetryAnchors() == 1 && ed.symmetryAnchors().size() == 1, "anchors: one dragged onto another: merged");
+        ed.addSymmetryAnchor(1536, 992);
+        ed.removeSymmetryAnchor(0);
+        check(ed.symmetryAnchors().size() == 1 && ed.symmetryAnchors()[0] == std::pair(1536, 992), "anchors: the center goes, the next one is the center");
+        ed.removeSymmetryAnchor(0);
+        check(ed.symmetryAnchors().size() == 1, "anchors: the last one stays");
+        ed.setSymmetryCenter(1024, 1024);
+        ed.addSymmetryAnchor(2048, 992);
+        ed.removeSymmetryAnchor(1);
+        check(ed.symmetricPoints(900, 500).size() == 2, "anchors: removed");
+        for (int i = 0; i < 20; ++i) ed.addSymmetryAnchor(64 * i, 32 * i);
+        check(int(ed.symmetryAnchors().size()) == Editor::kMaxSymmetryAnchors, "anchors: at most the limit");
+        ed.setTurns(8);
+        check(ed.symmetricPoints(900, 500).size() <= kMaxSymmetricPlaces, "anchors: at most the places' limit");
     }
 
     // 1.8 symmetry: mirrored terrain is identical.

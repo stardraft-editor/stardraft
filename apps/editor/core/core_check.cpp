@@ -101,6 +101,7 @@
 #include "stardraft/passages.h"
 #include "stardraft/ramps.h"
 #include "stardraft/triggers.h"
+#include "stardraft/new_map.h"  // (core/map_layers.inc: the scratch map of the layers' terrain)
 
 using namespace stardraft;
 namespace fs = std::filesystem;

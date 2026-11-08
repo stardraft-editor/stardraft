@@ -30,6 +30,7 @@ void sdlUndoSteps(bool redo, size_t steps) {
     }
     if (!gState.ed || !gState.ed->isOpen()) return;
     if (gState.ed->inStroke()) return setMessage(L"Release the mouse button to undo or redo");
+    mapLayersSync();  // (the last edit is in its layer, with its undo step: core/map_layers.inc)
     typingFlush();  // a text being typed on a map page is a step of its own first: Undo takes it back
     Editor& ed = *gState.ed;
     const size_t can = redo ? ed.redoSteps() : ed.undoSteps();
@@ -39,6 +40,7 @@ void sdlUndoSteps(bool redo, size_t steps) {
     const std::vector<MapSprite> sprites = ed.sprites();
     if (redo) ed.redo(steps);
     else ed.undo(steps);
+    mapLayersSync();  // (the layers as the step left them)
     keepItemSelection(gState, doodads, sprites);
     gState.terrainRev = 0;
     rebuildList(gState);

@@ -161,13 +161,11 @@ public:
         using draw::MouseKind;
         if (e.kind == MouseKind::Down && e.button == 0 && !e.mods) {
             const bool r = ListView::mouse(e);  // (the row is selected first)
-            press_ = rowAt(e.pt), pressY_ = e.pt.y, dragging_ = false;
-            if (press_ >= 0 && host()) host()->capture(*this, true);
+            if (const int row = rowAt(e.pt); row >= 0) drag_.press(*this, row, e.pt);
             return r;
         }
-        if (e.kind == MouseKind::Move && press_ >= 0) {
-            if (!dragging_ && std::abs(e.pt.y - pressY_) > scale(4)) dragging_ = true;
-            if (dragging_) {
+        if (e.kind == MouseKind::Move && drag_.item >= 0) {
+            if (drag_.move(*this, e.pt)) {
                 if (e.pt.y < scale(12)) scrollBy(-rowHeight() / 2);
                 else if (e.pt.y > height() - scale(12)) scrollBy(rowHeight() / 2);
                 const int s = slotAt(e.pt.y);
@@ -175,16 +173,18 @@ public:
                 return true;
             }
         }
-        if (e.kind == MouseKind::Up && e.button == 0 && press_ >= 0) {
-            const int from = press_, slot = slot_;
-            const bool was = dragging_;
-            end();
-            if (was && slot >= 0 && slot != from && slot != from + 1 && onDrop) onDrop(from, slot);
+        if (e.kind == MouseKind::Up && e.button == 0 && drag_.dragging()) {
+            const int slot = slot_, from = drag_.release(*this, e.pt);
+            slot_ = -1, invalidate();
+            if (from >= 0 && slot >= 0 && slot != from && slot != from + 1 && onDrop) onDrop(from, slot);
             return true;
         }
+        if (e.kind == MouseKind::Up) drag_.cancel(*this);  // (a click: no drag)
         return ListView::mouse(e);
     }
-    void captureLost() override { end(); }
+    void captureLost() override {
+        if (drag_.armed()) drag_.cancel(*this), slot_ = -1, invalidate();
+    }
     bool key(const draw::KeyEvent& e) override {
         if (e.down && (e.mods & draw::kAlt) && (e.key == draw::Key::Up || e.key == draw::Key::Down)) {
             if (onMove) onMove(e.key == draw::Key::Up ? -1 : 1);
@@ -195,12 +195,12 @@ public:
     }
     void paint(draw::Canvas& c) override {
         ListView::paint(c);
-        if (!dragging_ || slot_ < 0 || !count()) return;
+        if (!drag_.dragging() || slot_ < 0 || !count()) return;
         // The line where the row goes: between two rows (over the first, under the last).
         const int y = slot_ < count() ? rowRect(slot_).top : rowRect(count() - 1).bottom;
-        c.fill({scale(4), y - scale(1), width() - scale(4), y + scale(1)}, kAccent);
+        kitpaint::drawDropLine(c, scale(4), width() - scale(4), y);
     }
-    bool dragging() const { return dragging_; }
+    bool dragging() const { return drag_.dragging(); }
 
 private:
     int slotAt(int y) const {
@@ -208,13 +208,8 @@ private:
         const int top = rowRect(0).top, h = std::max(1, rowRect(0).bottom - top);
         return std::clamp((y - top + h / 2) / h, 0, count());
     }
-    void end() {
-        if (press_ >= 0 && host()) host()->capture(*this, false);
-        press_ = -1, slot_ = -1;
-        if (dragging_) dragging_ = false, invalidate();
-    }
-    int press_ = -1, pressY_ = 0, slot_ = -1;
-    bool dragging_ = false;
+    kitui::ItemDrag drag_;  // (a row's drag: its index)
+    int slot_ = -1;
 };
 
 // --- The view -------------------------------------------------------------------------------------------------------

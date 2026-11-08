@@ -1,0 +1,188 @@
+{
+ "about": "StarDraft's KPIs (tools/kpi.py, docs/dev/KPI.md). dir: max = the value may be at most the target, min = at least. target null: recorded only. accepted: {version: {kpi: reason}} for a release that ships with a missed target.",
+ "kpis": {
+  "startup_ms": {
+   "area": "perf",
+   "name": "Start to the first frame (no map)",
+   "unit": "ms",
+   "dir": "max",
+   "target": 550
+  },
+  "first_frame_small_ms": {
+   "area": "perf",
+   "name": "First frame of a 96 x 96 map",
+   "unit": "ms",
+   "dir": "max",
+   "target": 90
+  },
+  "first_frame_large_ms": {
+   "area": "perf",
+   "name": "First frame of a 256 x 256 map",
+   "unit": "ms",
+   "dir": "max",
+   "target": 95
+  },
+  "paint_p95_ms": {
+   "area": "perf",
+   "name": "Paint stroke step, slowest 5%",
+   "unit": "ms",
+   "dir": "max",
+   "target": 6
+  },
+  "paint_layers_p95_ms": {
+   "area": "perf",
+   "name": "Paint stroke step on a layer, slowest 5%",
+   "unit": "ms",
+   "dir": "max",
+   "target": 9
+  },
+  "palette_scroll_p95_ms": {
+   "area": "perf",
+   "name": "Palette scroll step, slowest 5%",
+   "unit": "ms",
+   "dir": "max",
+   "target": 9
+  },
+  "zoom_p95_ms": {
+   "area": "perf",
+   "name": "Zoom step (256 x 256), slowest 5%",
+   "unit": "ms",
+   "dir": "max",
+   "target": 5
+  },
+  "gpu_nomap_mb": {
+   "area": "perf",
+   "name": "Video memory with no map",
+   "unit": "MB",
+   "dir": "max",
+   "target": 40
+  },
+  "working_set_large_mb": {
+   "area": "perf",
+   "name": "Working set with a 256 x 256 map",
+   "unit": "MB",
+   "dir": "max",
+   "target": 225
+  },
+  "cycles_heap_growth_mb_direct3d12": {
+   "area": "perf",
+   "name": "Heap growth, 25 map opens and closes (Direct3D 12)",
+   "unit": "MB",
+   "dir": "max",
+   "target": 1
+  },
+  "cycles_gpu_growth_mb_direct3d12": {
+   "area": "perf",
+   "name": "Video memory growth, 25 opens and closes (Direct3D 12)",
+   "unit": "MB",
+   "dir": "max",
+   "target": 1
+  },
+  "cycles_heap_growth_mb_vulkan": {
+   "area": "perf",
+   "name": "Heap growth, 25 map opens and closes (Vulkan)",
+   "unit": "MB",
+   "dir": "max",
+   "target": 1
+  },
+  "cycles_gpu_growth_mb_vulkan": {
+   "area": "perf",
+   "name": "Video memory growth, 25 opens and closes (Vulkan)",
+   "unit": "MB",
+   "dir": "max",
+   "target": 8
+  },
+  "snapshots_failed": {
+   "area": "ux",
+   "name": "Snapshot cases that fail",
+   "unit": "",
+   "dir": "max",
+   "target": 0
+  },
+  "ui_text_violations": {
+   "area": "ux",
+   "name": "UI text rule violations",
+   "unit": "",
+   "dir": "max",
+   "target": 0
+  },
+  "strings_missing_max": {
+   "area": "ux",
+   "name": "UI strings missing in a language (most)",
+   "unit": "",
+   "dir": "max",
+   "target": 147
+  },
+  "block_texts_missing_max": {
+   "area": "ux",
+   "name": "Trigger block texts missing in a language (most)",
+   "unit": "",
+   "dir": "max",
+   "target": 1103
+  },
+  "font_symbols": {
+   "area": "ux",
+   "name": "Symbols from a font in the code",
+   "unit": "",
+   "dir": "max",
+   "target": 30
+  },
+  "bare_search_cues": {
+   "area": "ux",
+   "name": "Search cues that do not name what they search",
+   "unit": "",
+   "dir": "max",
+   "target": 0
+  },
+  "tests_failed": {
+   "area": "code",
+   "name": "Test programs that fail",
+   "unit": "",
+   "dir": "max",
+   "target": 0
+  },
+  "unused_static_functions": {
+   "area": "code",
+   "name": "Unused static functions",
+   "unit": "",
+   "dir": "max",
+   "target": 0
+  },
+  "files_over_3000_lines": {
+   "area": "code",
+   "name": "Files of more than 3,000 lines",
+   "unit": "",
+   "dir": "max",
+   "target": 9
+  },
+  "largest_file_lines": {
+   "area": "code",
+   "name": "Lines of the largest file",
+   "unit": "",
+   "dir": "max",
+   "target": 5600
+  },
+  "compiler_warnings": {
+   "area": "code",
+   "name": "Compiler warnings in our code (--rebuild)",
+   "unit": "",
+   "dir": "max",
+   "target": null
+  },
+  "help_check_failed": {
+   "area": "docs",
+   "name": "Help pages check fails",
+   "unit": "",
+   "dir": "max",
+   "target": 0
+  },
+  "docs_broken_links": {
+   "area": "docs",
+   "name": "Links in docs/ to files that are not there",
+   "unit": "",
+   "dir": "max",
+   "target": 0
+  }
+ },
+ "accepted": {}
+}

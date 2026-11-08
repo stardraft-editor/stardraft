@@ -112,9 +112,6 @@ std::wstring shellFilterText();
 bool shellViewShown();
 // The tool strip shows the active mode's tools again.
 void shellToolsChanged();
-// A popup menu of `items` (the strip's brush shapes), with the entry `checked` marked; (x, y) is its place in the tool
-// strip's coordinates. Returns the picked entry's index, or -1 when none is picked.
-int shellPopupPick(const std::vector<std::wstring>& items, int checked, int x, int y);
 // A context menu of `items` at the mouse (a right click's; the Win32 menu ends with Report feedback). Returns the picked
 // entry's number from 1, or 0 when none is picked.
 int shellContextMenu(const std::vector<std::wstring>& items);
@@ -223,6 +220,15 @@ struct ShellFilePick {
 std::filesystem::path shellPickFile(const ShellFilePick& pick);
 // A line of text typed in a small dialog with OK and Cancel (`text` holds what the field shows first). False: Cancel.
 bool shellPromptText(const std::wstring& title, std::wstring& text);
+// The number form (core/views_number_prompt.inc): each number a row with its name, field, unit and range. OK: the values
+// in `asks`, true; Cancel: false.
+struct NumberAsk {
+    std::wstring label;  // its name ("Width")
+    std::wstring unit;   // after the field ("pixels", "tiles", "seconds"); empty: none
+    double value = 0, min = 0, max = 0;
+    int decimals = 0;    // 0: a whole number; 1 or more: that many digits after the point at most
+};
+bool shellAskNumbers(const std::wstring& title, std::vector<NumberAsk>& asks);
 // A value typed in the pop-out under `field` (a part of the view `v`, in its coordinates), as the Data form's values.
 // False: Cancel.
 bool shellEditValueBelow(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text);
@@ -257,6 +263,7 @@ bool shellUiIconMask(int size, int icon, std::vector<uint8_t>& out);
 
 // --- Build and the Log (core/project_build.inc, core/views_log.inc) ---
 // A question with two answers, as a warning: true when the first (`yes`) is chosen. The second is the default (Enter).
+void shellInfoBox(const std::wstring& text, const std::wstring& title);  // a message with OK
 bool shellAskYesNo(const std::wstring& text, const std::wstring& title, const std::wstring& yes, const std::wstring& no);
 // A build starts: the Log's error count goes to 0 (the lines stay).
 void shellLogNewBuild();

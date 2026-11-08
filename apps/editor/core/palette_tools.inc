@@ -58,6 +58,7 @@ Brush::Shape& shapeOf(AppState& app) {
     return app.mode == Mode::Terrain && currentTool(app) == TSelect ? app.selectShapes[app.terrainRect] : app.brushShape;
 }
 
+std::wstring mapLayersStatusText();  // (core/map_layers.inc)
 void setStatusPart(AppState& app, int i, const wchar_t* text) {
     if (app.statusText[i] == text) return;
     app.statusText[i] = text;
@@ -86,6 +87,7 @@ size_t unitStackCount(const AppState& app) {
 }
 
 bool docOpen();  // (documents.inc)
+bool newPageCovers();  // (sdl_new_page.inc)
 // The tile at map point (wx, wy) as text: its CV5 group and index, its VX4 megatile, its terrain, and the tile value
 // (the status bar; Report feedback on the selected terrain). "" outside the map.
 std::wstring tileValueText(const Editor& ed, float wx, float wy) {
@@ -197,7 +199,7 @@ std::wstring modeCountStatus(const AppState& app) {
 }
 void updateStatus(AppState& app) {
     if (!shellHasStatusBar()) return;
-    if (!docOpen()) {  // no map shows (the start page, the New page): no part of a map's status
+    if (!docOpen() || newPageCovers()) {  // no map shows (the start page, the New page): no part of a map's status
         for (int i = 0; i < int(std::size(app.statusText)); ++i)
             if (!app.statusText[i].empty()) setStatusPart(app, i, L"");
         return;
@@ -205,15 +207,22 @@ void updateStatus(AppState& app) {
     wchar_t buf[256];
     float wx, wy;
     toWorld(app, app.mouseX, app.mouseY, wx, wy);
+    // (Units, Doodads and Sprites: their first tool selects with nothing picked and places with a pick: its name says which)
+    const bool placeTool = (app.mode == Mode::Units && currentTool(app) == UPlace) || (app.mode == Mode::Doodads && currentTool(app) == DPlace) ||
+                           (app.mode == Mode::Sprites && currentTool(app) == SPlace);
     std::swprintf(buf, 256, L"%ls: %ls", kModeNames[int(app.mode)],
-                  app.mode == Mode::Terrain ? kTerrainTools[currentTool(app)] : app.mode == Mode::Units ? kUnitTools[currentTool(app)]
-                  : app.mode == Mode::Doodads ? kDoodadTools[currentTool(app)] : currentTool(app) == SErase || (app.mode == Mode::Locations && currentTool(app) == LErase) ? L"Erase"
-                  : app.mode == Mode::Sprites ? (app.palette >= 0 ? L"Place" : L"Select") : L"Edit");
-    setStatusPart(app, 0, buf);
-    std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
+                  placeTool ? (app.palette >= 0 ? L"Place" : L"Select")
+                  : app.mode == Mode::Terrain ? kTerrainTools[currentTool(app)] : app.mode == Mode::Units ? kUnitTools[currentTool(app)]
+                  : app.mode == Mode::Layers ? kLayersTools[currentTool(app)]
+                  : app.mode == Mode::Doodads ? kDoodadTools[currentTool(app)]
+                  : app.mode == Mode::Sprites ? (currentTool(app) == SErase ? L"Erase" : L"Spray")
+                  : currentTool(app) == LErase ? L"Erase" : L"Select");  // (Locations: as their tools' tips name them)
+    setStatusPart(app, 0, (std::wstring(buf) + mapLayersStatusText()).c_str());  // (the layer that the tools change)
+    if (!app.mouseIn) std::swprintf(buf, 256, L"\x2014");  // (the mouse is not on the map: no place)
+    else std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
     // The tile under the mouse: its group and index, its megatile, its terrain (made again only when the map or the
     // mouse's place changed: the status bar is made each frame).
-    if (app.mode == Mode::Terrain && app.ed) {
+    if (app.mode == Mode::Terrain && app.ed && app.mouseIn) {
         static const Editor* forEd = nullptr;
         static uint64_t forRev = ~0ull, forTerrain = ~0ull;
         static int forX = 0, forY = 0;
@@ -324,6 +333,7 @@ std::wstring itemLabel(const AppState& app, int v) {
     case Mode::Locations:
         return widen(ed.locationName(v));
     case Mode::Sprites: break;
+    case Mode::Layers: break;
     }
     return L"";
 }
@@ -355,6 +365,7 @@ void rebuildList(AppState& app) {
             for (auto* d : ds) all.push_back(d->id);
             break;
         }
+        case Mode::Layers: break;  // (its list is the layers: core/views_layers.inc)
         case Mode::Locations:
             for (int i = 0; i < ed.locationCount(); ++i)
                 if (ed.locationUsed(i)) all.push_back(i);
@@ -527,6 +538,7 @@ struct StripItem {
     // arrow and a right click list them (core/views_toolstrip.inc).
     int group = 0;
     std::vector<StripItem> members;
+    bool disabled = false;  // (Move with nothing selected: it shows, and a click does not pick it)
 };
 // The group's button: the member that is the tool, else the one used last, else the first.
 StripItem stripGroup(int group, std::vector<StripItem> members) {
@@ -557,6 +569,9 @@ constexpr const wchar_t* kRampTip = L"Ramp: paint along a cliff edge. The ramp g
 // src/ramps.cpp): one group's button when it has both.
 std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
     AppState& app = appState();
+    // Move: first, beside Select, as it works on what Select selected.
+    tools.insert(tools.begin(), StripItem{UiIcon::MoveAll, L"Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.", TMoveSel, false});
+    tools.front().disabled = !app.hasTerrainSel;
     std::vector<StripItem> group;
     if (!kRampBridgeTools) {  // (hidden: ids.inc)
         int& tool = app.toolByMode[int(Mode::Terrain)];
@@ -573,7 +588,7 @@ std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
 }
 // Terrain's Select and Magic wand: one group's button (4). Select stays the mode's selection (select: true).
 StripItem selectGroup(StripItem select) {
-    return stripGroup(4, {std::move(select), {UiIcon::Wand, L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", TWand, false}});
+    return stripGroup(4, {std::move(select), {UiIcon::Lasso, L"Lasso: draw round the tiles to select. Shift adds, Ctrl removes. Then Ctrl+C copies, and Move moves them.", TLasso, false}, {UiIcon::Wand, L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", TWand, false}});
 }
 // Every mode's tools, Select first. Select is the mode's tool with nothing picked (Terrain has a Select tool of its
 // own); Place is the same tool with a pick from the list.
@@ -619,7 +634,7 @@ std::vector<StripItem> stripTools(Mode m) {
                 {UiIcon::Fill, L"Fill: click a place to put units of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).", UFill, false}};
     case Mode::Doodads:
         return {{UiIcon::Select, L"Select a doodad: click it; drag it to move. Esc returns to the Select tool.", DPlace, true},
-                {UiIcon::Brush, L"Place the doodads selected in the list", DPlace, false},
+                {UiIcon::Add, L"Place the doodads selected in the list", DPlace, false},
                 {UiIcon::Erase, L"Erase: drag the brush over doodads to delete them (Size: the brush's size)", DErase, false},
                 {UiIcon::Spray, L"Spray: random doodads of the selected kinds (Density). Hold the button to spray more.", DSpray, false},
                 {UiIcon::Fill, L"Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).", DFill, false}};
@@ -628,6 +643,8 @@ std::vector<StripItem> stripTools(Mode m) {
                 {UiIcon::Add, L"Place the sprites selected in the list (several: each one at random); drag to place more", SPlace, false},
                 {UiIcon::Erase, L"Erase: drag the brush over sprites to delete them (Size: the brush's size)", SErase, false},
                 {UiIcon::Spray, L"Spray: random sprites of the selected kinds (Density). Hold the button to spray more.", SSpray, false}};
+    case Mode::Layers:
+        return {{UiIcon::MoveLayer, L"Move layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.", LayersMove, true}};
     case Mode::Locations:
         return {{UiIcon::Select, L"Select, move and resize locations; drag on empty ground to make one", LSelect, true},
                 {UiIcon::Erase, L"Erase: drag the brush over locations to delete them (Size: the brush's size)", LErase, false}};
@@ -635,7 +652,8 @@ std::vector<StripItem> stripTools(Mode m) {
     return {};
 }
 // The key of a strip tool (ID_TOOL_KEY + it): 0 V select, 1 B brush or place, 2 A spray, 3 F fill; (ID_SHAPE_KEY + it - 4)
-// 4 I line, 5 O contour, 6 P polygon, 7 X jumble, 8 E erase, 9 H bridge, 10 J ramp, 11 W magic wand; -1 none.
+// 4 I line, 5 O contour, 6 P polygon, 7 X jumble, 8 E erase, 9 H bridge, 10 J ramp, 11 W magic wand, 12 K lasso,
+// 13 M move, 14 N rectangle (Shift: filled), 16 C ellipse (Shift: filled), 18 Z diamond (Shift: filled); -1 none.
 int stripToolKey(const StripItem& it) {
     if (it.select) return 0;
     if (it.icon == UiIcon::Spray) return 2;
@@ -649,7 +667,21 @@ int stripToolKey(const StripItem& it) {
     if (it.icon == UiIcon::Bridge) return 9;
     if (it.icon == UiIcon::Ramp) return 10;
     if (it.icon == UiIcon::Wand) return 11;
+    if (it.icon == UiIcon::Lasso) return 12;
+    if (it.icon == UiIcon::MoveAll) return 13;
+    if (it.icon == UiIcon::Rect) return 14;
+    if (it.icon == UiIcon::RectFill) return 15;
+    if (it.icon == UiIcon::Ellipse) return 16;
+    if (it.icon == UiIcon::EllipseFill) return 17;
+    if (it.icon == UiIcon::Diamond) return 18;
+    if (it.icon == UiIcon::DiamondFill) return 19;
     return -1;
+}
+
+// The name of that key, for a tool's tip.
+const wchar_t* stripKeyName(int key) {
+    static const wchar_t* const names[] = {L"V", L"B", L"A", L"F", L"I", L"O", L"P", L"X", L"E", L"H", L"J", L"W", L"K", L"M", L"N", L"Shift+N", L"C", L"Shift+C", L"Z", L"Shift+Z"};
+    return names[key];
 }
 
 // Whether the active mode is in its selection: its Select tool with nothing picked.

@@ -44,7 +44,7 @@ public:
         add(send_, {0, 0, 0, 0}), add(cancel_, {0, 0, 0, 0});
         // The links are Tab stops too (Enter and Space open them), in the order of the screen: tabChildren.
         discordStop_.press = [this] { host_.openDiscord(); };
-        discordStop_.name = L"Open the Discord server";
+        discordStop_.name = L"StarDraft Discord server";
         issueStop_.press = [this] {
             if (!page_.empty()) host_.openIssue(page_);
         };
@@ -165,7 +165,7 @@ void FeedbackView::paint(draw::Canvas& c) {
     const int W = width(), H = height();
     c.fill({0, 0, W, H}, kBg);
     // The glyph and the title ("Feedback on <the thing>").
-    c.icon({scale(12), scale(10), scale(12) + scale(20), scale(10) + scale(20)}, int(kFeedbackIcon), kFeedback, scale(16));
+    c.icon({pad, pad + scale(1), pad + scale(20), pad + scale(21)}, int(kFeedbackIcon), kFeedback, scale(16));  // (on the title's line)
     c.text({pad + scale(26), pad + scale(1), pad + w, pad + scale(21)}, tr(L"Feedback on ") + on_, kText, draw::kMiddle | draw::kEllipsis);
     int y = pad + scale(24);
     if (stage_ == 0) {  // what to write (the box's height less its line: the dialog keeps its size)
@@ -212,7 +212,7 @@ void FeedbackView::paint(draw::Canvas& c) {
            kDim, draw::kWrap);
     y += scale(38);
     // The Discord link: its width is its text's.
-    const std::wstring discord = tr(L"Open the Discord server");
+    const std::wstring discord = tr(L"StarDraft Discord server");
     discordRect_ = {pad, y, pad + c.measure(discord) + scale(4), y + scale(20)};
     c.text(discordRect_, discord, kAccent, draw::kMiddle);
     placeStop(discordStop_, discordRect_, true);

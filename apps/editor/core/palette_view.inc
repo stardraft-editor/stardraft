@@ -66,6 +66,7 @@ bool applyPaletteViewCommand(Mode mode, int id) { return applyPaletteViewCommand
 
 constexpr int kPalPin = 0xDF00;  // the View menu's Pin / Unpin item
 constexpr int kPalPinUp = 0xDF01, kPalPinDown = 0xDF02;  // ... a pinned doodad's Move up and Move down
+constexpr int kPalMask = 0xDF03;  // ... a terrain's Add to the mask / Remove from the mask (as Alt+click)
 
 // The orders of the palette in `mode` (the Sort button's menu, and in the View menu): `sort` checked; `tiers`: the units
 // have tech tiers (a mod's), so Sort by tier is there. Locations have no categories: by number is their first order.
@@ -132,8 +133,13 @@ void sortLocationItems(const AppState& app, std::vector<int>& all) {
 // Large, the order, and the panel's items. (The palette's section dropdown goes to a section.) `sort`: the order shown
 // checked; `panel`: the menu of a palette panel (Close panel in place of the floating palette's item); `tiers`: the
 // units have tech tiers (a mod's), so Sort by tier is there.
-MenuModel paletteMenuModel(Mode mode, const PaletteView& v, int pin, PaletteSort sort, bool panel, bool tiers = false, int pinMoves = 0) {
+MenuModel paletteMenuModel(Mode mode, const PaletteView& v, int pin, PaletteSort sort, bool panel, bool tiers = false, int pinMoves = 0,
+                           int mask = -1) {
     MenuModel m;
+    if (mask >= 0) {  // (a terrain's row: its mask item, as Alt+click; mask 1: it is in the mask)
+        m.push_back(menuItem(kPalMask, mask ? L"Remove from the &mask" : L"Add to the &mask", L"Alt+click"));
+        m.push_back(menuSeparator());
+    }
     if (pin >= 0) {
         m.push_back(menuItem(kPalPin, pin ? L"Un&pin" : L"&Pin to the top"));
         if (pin) {  // (a pinned doodad: its place in the pinned doodads; pinMove: up -1, down 1)
@@ -174,8 +180,8 @@ struct PaletteRow {
 // with a heading at each section's start; the search's words first, the fuzzy match when no item has them. Doodads in a
 // project: the pinned ones first, under "Pinned", in the order they were pinned (each stays in its place below too);
 // `pinned` is how many (they are rows 1 to pinned).
-std::vector<PaletteRow> paletteRows(const std::vector<PaletteUnit>& units, Mode mode, const std::wstring& filter, const std::wstring& section,
-                                    int& pinned, PaletteSort sort = PaletteSort::Category) {
+std::vector<PaletteRow> paletteRowsOf(const std::vector<PaletteUnit>& units, Mode mode, const std::wstring& filter, const std::wstring& section,
+                                      int& pinned, PaletteSort sort) {
     if (mode == Mode::Terrain) sort = PaletteSort::Category;  // (terrains: in their own order; Terrain has no Sort)
     std::vector<PaletteRow> rows;
     const bool literal = paletteLiteralSearch(units, filter);
@@ -242,6 +248,18 @@ std::vector<PaletteRow> paletteRows(const std::vector<PaletteUnit>& units, Mode 
     }
     return rows;
 }
+// The rows (paletteRowsOf); items of one name that are there more than once get their number after it ("Duke Turret  #19"),
+// so that the user can tell them apart.
+std::vector<PaletteRow> paletteRows(const std::vector<PaletteUnit>& units, Mode mode, const std::wstring& filter, const std::wstring& section,
+                                    int& pinned, PaletteSort sort = PaletteSort::Category) {
+    std::vector<PaletteRow> rows = paletteRowsOf(units, mode, filter, section, pinned, sort);
+    std::map<std::wstring, std::set<int>> values;
+    for (const PaletteRow& r : rows)
+        if (r.value >= 0) values[r.label].insert(r.value);
+    for (PaletteRow& r : rows)
+        if (r.value >= 0 && values[r.label].size() > 1) r.label += L"  #" + std::to_wstring(r.value);
+    return rows;
+}
 
 // The View menu's pin state for the item `value` of `mode`: -1 no pin item (not a doodad, or no place to keep pins: a map
 // not saved yet), 0 Pin, 1 Unpin.
@@ -303,6 +321,19 @@ int doodadPinMovesOff(int value, const std::vector<uint16_t>& shown) {
     if (value < 0) return 3;
     const std::vector<uint16_t> pins = doodadPinsNow();
     return (pinCanMove(pins, uint16_t(value), -1, shown) ? 0 : 1) | (pinCanMove(pins, uint16_t(value), 1, shown) ? 0 : 2);
+}
+// Moves a pinned doodad `steps` places up (less than 0) or down among the pinned doodads that the palette shows (a drag
+// of its row), saved once.
+void doodadPinMoveBy(int value, int steps, const std::vector<uint16_t>& shown) {
+    if (value < 0 || !steps || !canPinDoodads()) return;
+    std::vector<uint16_t> pins = doodadPinsNow();
+    bool moved = false;
+    for (int k = 0; k < std::abs(steps); ++k) moved |= pinMove(pins, uint16_t(value), steps > 0 ? 1 : -1, shown);
+    if (!moved) return;
+    std::string err;
+    if (!setDoodadPinsNow(pins, err)) shellErrorBox(widen(err), shellTr(activeProject() ? L"Could not save the project" : L"Could not save the map's settings"));
+    shellPaletteRebuilt();
+    shellPaletteChanged();
 }
 // Moves a pinned doodad one place up (dir -1) or down (1) among the pinned doodads that the palette shows; kept as its
 // pin is.
@@ -371,9 +402,10 @@ void paletteMaskToggle(AppState& app, int value) {
     std::vector<uint16_t> mask = app.ed->terrainMask();
     if (const auto it = std::find(mask.begin(), mask.end(), uint16_t(value)); it != mask.end()) mask.erase(it);
     else mask.push_back(uint16_t(value));
-    setMessage(mask.empty() ? L"No mask: painting changes all terrains" : L"Mask (experimental): painting changes only the terrains with an outline. Alt+click takes one out.");
+    setMessage(mask.empty() ? L"No mask: painting changes all terrains" : L"Mask: painting changes only the terrains with an outline. Alt+click takes one out.");
     app.ed->setTerrainMask(std::move(mask));
     app.dirty = true;
+    masksChanged();
 }
 
 // --- The pie palette (roadmap 1.9) ---------------------------------------------------------------------------------

@@ -31,8 +31,7 @@ class DataNumberEntry final : public draw::View {
 public:
     DataNumberEntry() {
         field_.setPlain(true);
-        field_.setAlignRight(true);
-        field_.setFont({draw::Face::Mono, 0});
+        field_.setAlignRight(true);  // (the UI font, as the form's values; a table's cell sets its own)
         field_.onEnter = [this] {
             if (onCommit) onCommit();
         };

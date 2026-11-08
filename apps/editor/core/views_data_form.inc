@@ -410,8 +410,7 @@ inline void DataFormView::paint(draw::Canvas& c) {
                 kitpaint::drawFieldBox(c, vb,
                                        !has || ro ? kitpaint::Field::ReadOnly : mod ? kitpaint::Field::Changed : host_.hot(vb) ? kitpaint::Field::Hot : kitpaint::Field::Normal);
                 const bool number = has && !ro && fieldIsNumber(dat, f);
-                c.setFont(c.font({draw::Face::Mono}));
-                draw::Rect vt = dataValueText(fr.box, s);
+                draw::Rect vt = dataValueText(fr.box, s);  // (the UI font: a form's number fields, as the other forms')
                 if (number) vt.right = kitpaint::numberArrowsRect(vb).left;
                 c.text(vt, has ? fieldValueText(f, v) : L"\x2014", !has || ro ? kFaint : mod ? kGood : kText, draw::kMiddle | draw::kRight);
                 c.setFont(uiFont);

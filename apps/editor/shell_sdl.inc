@@ -168,10 +168,6 @@ int sdlMenuPick(draw::View& from, draw::Point at, const std::vector<std::wstring
     gHost->waitUntil([pick] { return pick->closed; });
     return pick->index;
 }
-// The tool strip's dropdown (the brush shape): a menu under the box (x, y: the strip's coordinates), as on Windows.
-int shellPopupPick(const std::vector<std::wstring>& items, int checked, int x, int y) {
-    return sdlMenuPick(gStripInUse && gStripInUse->host() ? *gStripInUse : gToolStripView, {x, y}, items, checked, false);
-}
 // A context menu at the mouse (the Tiles panel's favorites), with Report feedback: the item from 1, 0 for none.
 int shellContextMenu(const std::vector<std::wstring>& items) {
     if (!gRoot || !gHost) return 0;
@@ -280,11 +276,13 @@ int shellAskSaveChanges(bool project) {
 }
 // The start locations question before a save (core/map_commands.inc: confirmStartLocations): 0 Place them, 1 Save anyway,
 // 2 Cancel. Without a window (a test run) the map is saved as it is.
-int shellAskStartLocations(const std::wstring& text) {
+// noMore: Do not ask again was checked (GitHub #253).
+int shellAskStartLocations(const std::wstring& text, bool* noMore) {
     if (!gRoot) return 1;
     if (gShotDialogs) std::printf("question: Start locations (the map has no start location for every player)\n");
-    return msgbox::ask(*gRoot, shellTr(L"Start locations"), text, {shellTr(L"&Place them"), shellTr(L"&Save anyway"), shellTr(L"Cancel")},
-                       msgbox::Icon::Question);
+    msgbox::Box box = msgbox::makeBox(text, {shellTr(L"&Place them"), shellTr(L"&Save anyway"), shellTr(L"Cancel")}, msgbox::Icon::Question);
+    box.check = shellTr(L"Do not &ask again"), box.checkedOut = noMore;
+    return msgbox::runMessageBox(*gRoot, shellTr(L"Start locations"), std::move(box), nullptr);
 }
 // The trigger comments question before a save of a Cosmonarchy map (map_commands.inc confirmTriggerComments): 0 Save
 // anyway, 1 Cancel.
@@ -391,23 +389,18 @@ int shellTabSideMenu(const std::wstring& title, int side, int mode) {
         int id = 0;
     };
     auto pick = std::make_shared<Pick>();
-    std::vector<stardraft::kit::MenuItem> items(4);
-    items[0].label = title, items[0].enabled = false;
-    items[1].separator = true;
-    items[2].label = shellTr(L"Left"), items[2].checked = side == 0, items[2].run = [pick] { pick->id = 1; };
-    items[3].label = shellTr(L"Right"), items[3].checked = side == 1, items[3].run = [pick] { pick->id = 2; };
-    items.push_back(stardraft::kit::MenuItem{}), items.back().separator = true;
-    items.push_back(stardraft::kit::MenuItem{});
-    items.back().label = accessFree(floatPaletteMenuLabel(m)), items.back().run = [pick] { pick->id = 3; };
-    if (m != Mode::Locations) {
-        items.push_back(stardraft::kit::MenuItem{});
-        items.back().label = accessFree(L"&New panel like this"), items.back().run = [pick] { pick->id = 4; };
-    }
+    MenuModel model;
+    model.push_back(menuItem(0, title, {}, true));
+    model.push_back(menuSeparator());
+    model.push_back(menuItem(1, L"&Left", {}, false, side == 0));
+    model.push_back(menuItem(2, L"&Right", {}, false, side == 1));
+    model.push_back(menuSeparator());
+    model.push_back(menuItem(3, floatPaletteMenuLabel(m)));
+    if (m != Mode::Locations) model.push_back(menuItem(4, L"&New panel like this"));
     stardraft::kit::MenuOptions opts;
     opts.closed = [pick](bool) { shellPost([pick] { pick->closed = true; }); };  // (after the picked item ran)
-    ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
-    kit_sdl::ImguiCanvas measure(list, nullptr);
-    if (!stardraft::kit::Menu::popup(*gRoot, gHost->mouse(*gRoot), items, stardraft::kit::Menu::measure(items, &measure), opts)) return 0;
+    const draw::Point at = gHost->mouse(*gRoot);
+    if (!sdlPopupMenu(*gRoot, at, sdlModelItems(model, [pick](int id) { pick->id = id; }), sdlFeedbackOn(*gRoot, at, title), opts)) return 0;
     gHost->waitUntil([pick] { return pick->closed; });
     return pick->id;
 }
@@ -756,6 +749,7 @@ bool shellPromptText(const std::wstring& title, std::wstring& text) {
     TextPromptView* shown = nullptr;
     return gRoot && runTextPrompt(*gRoot, title, text, true, shown);
 }
+bool shellAskNumbers(const std::wstring& title, std::vector<NumberAsk>& asks) { return gRoot && runNumberPrompt(*gRoot, title, asks); }
 // The value pop-out (core/views_value_pop.inc) 2 px under the field, in the main window; "A text of the game..." lists
 // the Strings tab's entries. A text that is not changed is no change (as the Windows editTextValue).
 bool shellEditValue(stardraft::draw::View& v, stardraft::draw::Rect field, const ValuePopSpec& spec, std::string& out) {
@@ -857,6 +851,10 @@ bool shellUiIconMask(int, int, std::vector<uint8_t>&) { return false; }  // (the
 // MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 (the warning icon; the second button has the focus; Escape, or no window, is No).
 msgbox::Box sdlYesNoBox(const std::wstring& text, const std::wstring& yes, const std::wstring& no) {
     return msgbox::makeBox(text, {shellTr(yes.c_str()), shellTr(no.c_str())}, msgbox::Icon::Warning, 1);
+}
+void shellInfoBox(const std::wstring& text, const std::wstring& title) {
+    if (!gRoot) return;
+    msgbox::runMessageBox(*gRoot, shellTr(title.c_str()), msgbox::makeBox(shellTr(text.c_str()), {shellTr(L"OK")}, msgbox::Icon::Info), nullptr);
 }
 bool shellAskYesNo(const std::wstring& text, const std::wstring& title, const std::wstring& yes, const std::wstring& no) {
     if (!gRoot) return false;

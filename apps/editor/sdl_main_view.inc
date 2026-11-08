@@ -20,6 +20,7 @@ struct MainView;
 MainView* gRoot = nullptr;
 LoadingView gLoadingView;  // the map's loading view (core/views_loading.inc): over the workspace while a map opens
 bool sdlPieClickAway();  // (the pie palette that shows: a click on the map closes it, below)
+bool sdlPieShown();
 bool gTilesShown = false;  // the Tiles panel shows (Rectangle mode, in the Map workspace with a map: MainView::relayout)
 
 // The map's texture: the renderer draws the open map into it each frame, and the map view shows it.
@@ -57,6 +58,16 @@ void runPosted() {
 
 // The map into its texture (w x h pixels), in the command buffer the host submits before the windows are painted.
 void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
+    if (gRenderer && gMapEd && !gState.ed && gDocs.empty()) {  // (the last map closed: its GPU memory goes; the next map makes it again)
+        gRenderer->releaseMapData();
+        releaseMapTexture();
+        releaseMapCaches();   // (the map copies, the scratch maps, the game's sprites: core/recent.inc)
+        void releasePaletteArtData();
+        releasePaletteArtData();  // (the palette's and the Tiles grid's HD icons and tiles: sdl_pictures.inc)
+        // (the game data's handle for workers stays: opened and closed at each map it grew the memory by about 1.5 MB each time)
+        shellForgetAnims();   // (the units' idle animations)
+        gMapEd = nullptr;
+    }
     if (!gRenderer || !gState.ed || !gState.ed->isOpen() || w <= 0 || h <= 0) return;
     if (!gMapTex || gMapW != w || gMapH != h) {
         releaseMapTexture();
@@ -71,17 +82,35 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     }
     Editor& ed = *gState.ed;
     clampCamera();
-    // The terrain when it changed, or a layer (View > Layers: no terrain, or no doodads' tiles) went on or off.
-    // (and the creep when it changed: View > Layers > Creep, core/creep_layer.inc)
+    // The terrain when it changed, or a layer (View > Modes: no terrain, or no doodads' tiles) went on or off.
+    // (and the creep when it changed: View > Modes > Creep, core/creep_layer.inc)
     static MapLayers uploaded;
-    static uint64_t uploadedCreep = 0;
+    static uint64_t uploadedCreep = 0, uploadedOutside = 0;
     const uint64_t creepRev = creepRevision(ed);
+    const LayersOutside& outside = mapLayersOutside(ed);  // (map layers' terrain outside of the map: core/map_layers.inc)
     if (gMapEd != &ed || gTerrainRev != ed.terrainRevision() || uploaded.terrain != gLayers.terrain ||
-        uploaded.doodads != gLayers.doodads || uploaded.creep != gLayers.creep || uploadedCreep != creepRev) {
+        uploaded.doodads != gLayers.doodads || uploaded.creep != gLayers.creep || uploadedCreep != creepRev || uploadedOutside != outside.gen) {
         gRenderer->setSources(&ed.gameData(), &ed.unitSprites(), &ed.tileset(), ed.era());
-        if (gLayers.terrain && gLayers.doodads && !gLayers.creep) gRenderer->updateTerrain(ed.terrain());
-        else gRenderer->updateTerrain(terrainWithLayers(ed));  // (core/map_scene.inc)
-        gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers, uploadedCreep = creepRev;
+        const bool plain = gLayers.terrain && gLayers.doodads && !gLayers.creep;
+        if (!outside.any) {
+            if (plain) gRenderer->updateTerrain(ed.terrain());
+            else gRenderer->updateTerrain(terrainWithLayers(ed));  // (core/map_scene.inc)
+        } else {  // a grid larger than the map: the map, and the layers' tiles outside of it (tile 0 elsewhere: black)
+            const TerrainLayer map = plain ? ed.terrain() : terrainWithLayers(ed);
+            const int ex0 = std::min(0, outside.x0), ey0 = std::min(0, outside.y0);
+            const int ex1 = std::max(int(map.width), outside.x0 + outside.w), ey1 = std::max(int(map.height), outside.y0 + outside.h);
+            TerrainLayer grid;
+            grid.width = uint16_t(ex1 - ex0), grid.height = uint16_t(ey1 - ey0);
+            grid.tiles.assign(size_t(grid.width) * grid.height, 0);
+            for (int y = 0; y < map.height; ++y)
+                std::copy_n(map.tiles.begin() + ptrdiff_t(y) * map.width, map.width, grid.tiles.begin() + ptrdiff_t(y - ey0) * grid.width - ex0);
+            for (int y = 0; y < outside.h; ++y)
+                for (int x = 0; x < outside.w; ++x)
+                    if (const uint16_t v = outside.tiles[size_t(y) * outside.w + x]; v != 0xFFFF)
+                        grid.tiles[size_t(outside.y0 + y - ey0) * grid.width + size_t(outside.x0 + x - ex0)] = v;
+            gRenderer->updateTerrainExtended(grid, -ex0, -ey0, map.width, map.height);
+        }
+        gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers, uploadedCreep = creepRev, uploadedOutside = outside.gen;
     }
     // The players' colors: the map's own for players 1 to 8, the fixed ones for the rest (core/map_scene.inc: playerRgba).
     uint32_t team[12];
@@ -114,6 +143,8 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
         if (!same) {  // (setItems closes an open list: only when a color changed)
             gOwnerBox.setItems(owners);
             gOwnerBox.setValue(gState.playerOwner);
+            void otherRowsOwnerItems(const std::vector<kit::DropdownItem>& owners);  // (sdl_panels.inc)
+            otherRowsOwnerItems(owners);
         }
     }
     // (a mod's colors: their own shades, Rainbow as the game shows it; a custom RGB color has no row: tinted)
@@ -227,12 +258,68 @@ struct MapView final : draw::View {
         if (!has) tabbed = false;
         invalidate();
     }
+    // The modifier key's mark at the mouse (core/map_mod_mark.inc). None while a text field has the keyboard (Shift only
+    // types capital letters there), and where a press does not reach the map: a modal window, the pie palette.
+    int modRepaints = 0;  // (the modifier keys' changes that asked for a new paint; the script's hold reads it)
+    UiIcon modMark() const {
+        if (!open() || !gState.mouseIn || panning || rightDown || simBarShown() || sdlPieShown() || !host() || (gHost && (gHost->textInputOn() || gHost->modalOpen())))
+            return kNoModMark;
+        return mapModMark(gState, gState.mouseX, gState.mouseY, host()->modifiers());
+    }
+    // In the view's pixels at the UI's scale, so the map's zoom does not change its size: next to the system's cursor, on
+    // the other side at the view's edges.
+    void paintModMark(draw::Canvas& c) {
+        const UiIcon mark = modMark();
+        if (mark == kNoModMark) return;
+        const int size = scale(20), off = scale(14);
+        int x = gState.mouseX + off, y = gState.mouseY + off;
+        if (x + size > width()) x = gState.mouseX - off - size;
+        if (y + size > height()) y = gState.mouseY - off - size;
+        x = std::clamp(x, 0, std::max(0, width() - size)), y = std::clamp(y, 0, std::max(0, height() - size));
+        const draw::Rect r(x, y, x + size, y + size);
+        c.roundBox(r, kCtl, kBorderStrong, float(scale(4)));
+        c.icon(r, int(mark), kText, scale(16));
+    }
+    // The mask's chip (Terrain, a mask on: core/views_toolstrip.inc stripMaskShown) at the map's top left: what is in the
+    // mask, and a close button that clears it (masksClear). Drawn over the map, so that no list moves when a mask starts.
+    draw::Rect maskChip{}, maskClose{};
+    draw::Rect maskClosedAt{};  // (the chip's place after its close: the second press of a double-click stays off the map)
+    bool maskCloseHot = false, maskPressed = false;
+    void paintMaskChip(draw::Canvas& c) {
+        maskChip = maskClose = {};
+        if (!open() || !stripMaskShown()) return void(maskCloseHot = false);
+        const std::wstring text = stripMaskText();
+        const int h = scale(26), pad = scale(8), closeW = h;
+        const int w = std::min(width() - 2 * pad, c.measure(text) + scale(16) + closeW);
+        maskChip = {pad, pad, pad + w, pad + h}, maskClose = {maskChip.right - closeW, maskChip.top, maskChip.right, maskChip.bottom};
+        c.roundBox(maskChip, kSel, kAccentLine, float(scale(kModeBoxRadius)));
+        c.text({maskChip.left + scale(10), maskChip.top, maskClose.left, maskChip.bottom}, text, kAccent, draw::kMiddle | draw::kEllipsis);
+        if (maskCloseHot) c.roundBox({maskClose.left + scale(3), maskClose.top + scale(3), maskClose.right - scale(3), maskClose.bottom - scale(3)}, kCtlHot, draw::kNone, float(scale(3)));
+        c.icon(maskClose, int(UiIcon::Close), maskCloseHot ? kText : kAccent, scale(16));
+    }
     void paintOver(draw::Canvas& c) override {
         if (tabbed && hasFocus()) paintFocusOutline(c, {0, 0, width(), height()});
+        paintMaskChip(c);
+        paintModMark(c);
     }
     std::wstring focusedItem() const override { return L"Map"; }
     bool mouse(const draw::MouseEvent& e) override {
         if (e.kind == draw::MouseKind::Down && sdlPieClickAway()) return true;  // (a click away from the pie palette closes it)
+        {  // the mask's chip: a press on it stays off the map (its close button clears the mask), with its release
+            const bool shown = maskChip.right > maskChip.left, onChip = shown && maskChip.contains(e.pt), onClose = shown && maskClose.contains(e.pt);
+            if ((e.kind == draw::MouseKind::Move || e.kind == draw::MouseKind::Leave) && (onClose && e.kind == draw::MouseKind::Move) != maskCloseHot)
+                maskCloseHot = !maskCloseHot, invalidate();
+            if (e.kind == draw::MouseKind::Move && !maskClosedAt.contains(e.pt)) maskClosedAt = {};
+            const bool press = e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick;
+            if (press && gState.drag == Drag::None && (onChip || (e.kind == draw::MouseKind::DoubleClick && maskClosedAt.contains(e.pt)))) {
+                maskPressed = true;
+                if (e.kind == draw::MouseKind::Down && e.button == 0 && onClose)
+                    maskClosedAt = maskChip, masksClear(), maskCloseHot = false, invalidateMapView();
+                return true;
+            }
+            if (press) maskClosedAt = {};
+            if (e.kind == draw::MouseKind::Up && maskPressed) return maskPressed = false, true;
+        }
         // While a live game shows: its bar's buttons; on the map only the view moves (middle button, wheel, pinch).
         if (simBarShown()) {
             if (simBarMouse(e, draw::Rect(0, 0, width(), height()))) return true;
@@ -436,6 +523,7 @@ struct MainView final : draw::View {
         add(gToolStripView, draw::Rect(0, 0, 0, 0));  // the tool strip (core/views_toolstrip.inc)
         add(gToolStripView2, draw::Rect(0, 0, 0, 0));  // the other side's mode's strip
         add(gToolStripView3, draw::Rect(0, 0, 0, 0));
+        add(gLayersPanel, draw::Rect(0, 0, 0, 0));  // (core/views_layers.inc)
         add(modes, draw::Rect(0, 0, 0, 0));
         add(gPanelTabsSdl[0], draw::Rect(0, 0, 0, 0));
         add(gPanelTabsSdl[1], draw::Rect(0, 0, 0, 0));
@@ -443,8 +531,9 @@ struct MainView final : draw::View {
         add(gFilterSdl, draw::Rect(0, 0, 0, 0));
         add(gSearchSdl, draw::Rect(0, 0, 0, 0));
         add(gSectionDropSdl, draw::Rect(0, 0, 0, 0));
+        add(gSortBtnSdl, draw::Rect(0, 0, 0, 0));  // (Tab goes in the order of the screen: Sort, then View)
+        add(gPieBtnSdl, draw::Rect(0, 0, 0, 0));
         add(gViewBtnSdl, draw::Rect(0, 0, 0, 0));
-        add(gSortBtnSdl, draw::Rect(0, 0, 0, 0));
         add(gLocSortBtnSdl, draw::Rect(0, 0, 0, 0));
         add(gPalList, draw::Rect(0, 0, 0, 0));
         gTilesDockPanel.holdGrid(gTilesDockGrid);  // the Tiles panel (core/views_tiles.inc): the grid is in the panel on this system
@@ -452,6 +541,16 @@ struct MainView final : draw::View {
         add(gLocList, draw::Rect(0, 0, 0, 0));
         add(gPal2List, draw::Rect(0, 0, 0, 0));
         add(gPal3List, draw::Rect(0, 0, 0, 0));
+        for (OtherSearchRow* r : {&gSearchRow2, &gSearchRow3}) {
+            add(r->owner, draw::Rect(0, 0, 0, 0));
+            add(r->ownerCatch, draw::Rect(0, 0, 0, 0));
+            add(r->section, draw::Rect(0, 0, 0, 0));
+            add(r->sectionCatch, draw::Rect(0, 0, 0, 0));
+            add(r->box, draw::Rect(0, 0, 0, 0));
+            add(r->catcher, draw::Rect(0, 0, 0, 0));  // (over the box)
+            add(r->sort, draw::Rect(0, 0, 0, 0));
+            add(r->view, draw::Rect(0, 0, 0, 0));
+        }
         add(notHere, draw::Rect(0, 0, 0, 0));
         add(gStartView, draw::Rect(0, 0, 0, 0));  // the start page (sdl_start.inc): no map open
         add(gNewView, draw::Rect(0, 0, 0, 0));    // the New page (sdl_new_page.inc): File > New project, a card
@@ -470,7 +569,7 @@ struct MainView final : draw::View {
 
     void resized() override { relayout(); }
 
-    // Tab's order follows the screen: the menu bar, the top bar (with the modes in it: TopBarView), the document tabs,
+    // Tab's order follows the screen: the menu bar, the document tabs, the top bar (with the modes in it: TopBarView),
     // the workspace rail, the left side bar from the top down, the map (or the workspace's view), the right side bar from
     // the top down, then the Log's bar. (The status bar has nothing to click.)
     std::vector<View*> tabChildren() const override {
@@ -546,7 +645,7 @@ struct MainView final : draw::View {
         // lost the keyboard (Alt+Tab: SDL lets go of the held keys), the ring closes with no change (the Windows
         // WM_KILLFOCUS).
         if (e.key == draw::Key::Space && !e.down && pie.shown()) {
-            if (SDL_GetKeyboardFocus()) return pieRelease(), true;
+            if (SDL_GetKeyboardFocus()) return pieRelease((e.mods & (draw::kShift | draw::kCtrl)) != 0), true;
             pie.setVisible(false);
             invalidate();
             return true;
@@ -610,7 +709,7 @@ struct MainView final : draw::View {
         }
         const bool right = mini ? gDock.minimapRight : gDock.toolsRight[int(gState.mode)];
         std::vector<kit::MenuItem> items = sdlModelItems(dockMenuModel(mini, right, gState.mode), [](int id) { command(id); });
-        if (!mini && gState.mode != Mode::Locations) {  // (the tool strip, the Isometric | Rectangle | Tile | Custom row, the modes: as a panel tab's menu)
+        if (!mini && gState.mode != Mode::Locations && gState.mode != Mode::Layers) {  // (the tool strip, the Isometric | Rectangle | Tile | Custom row, the modes: as a panel tab's menu)
             const Mode m = gState.mode;
             items.push_back(kit::MenuItem{}), items.back().separator = true;
             items.push_back(sdlPaletteFloatItem(m));
@@ -738,7 +837,9 @@ struct MainView final : draw::View {
     // The pie palette (core/palette_view.inc: pieTerrains): the ring in the middle of the map, its slice the one the
     // mouse points at. Nothing when the map has no terrain to paint (or the mode is not Terrain).
     void pieOpen() {
-        pie.onClick = [this] { pieRelease(); };  // (from the menu: a click picks; with Space held, a click picks too)
+        pie.onClick = [this] {  // (from the menu: a click picks; with Space held, a click picks too)
+            pieRelease(shellCtrlOrShiftDown());
+        };
         pie.items = pieTerrains(gState);
         if (pie.items.empty() || !map.shown()) return;
         const draw::Rect m = map.frame();
@@ -753,12 +854,17 @@ struct MainView final : draw::View {
         pie.hot = pie.sliceAt(at);
         pie.invalidate();
     }
-    // Space is let go: the brush paints with the slice's terrain (none in the middle).
-    void pieRelease() {
+    // Space is let go: the brush paints with the slice's terrain (none in the middle). `add` (Shift or Ctrl held, as a
+    // click in the palette): it goes into the picks that Spray and Fill use; the terrain in use stays a pick.
+    void pieRelease(bool add = false) {
         const int h = pie.hot;
         pie.setVisible(false);
         invalidate();
-        if (h >= 0 && h < int(pie.items.size())) pickUnit(gState, pie.items[size_t(h)], false), invalidateMapView();
+        if (h < 0 || h >= int(pie.items.size())) return;
+        const bool picks = add && !gState.terrainRect;
+        if (picks && pie.items[size_t(h)] == gState.palette) return;  // (the terrain in use: it stays a pick, and the others too)
+        pickUnit(gState, pie.items[size_t(h)], picks);
+        invalidateMapView();
     }
 
     // The menu bar's height; the top tool bar is under it (as the Windows menu and its top bar).
@@ -872,6 +978,14 @@ struct MainView final : draw::View {
         noteSlot.rc.top = L.tool.rc.top;
         const bool floated = floatPaletteSync(m, mapWs && noteSlot.placed, tiles, draw::Rect(noteSlot.rc));
         palettePanelsSync();
+        if (gLayersPanel.parent() == this) {  // The Layer List: Map Layers' list in the side bar, also as the other side's list
+            PaneSlot slot = L.palette;
+            bool shown = false;
+            if (gState.mode == Mode::Layers && !floated) slot.rc.top = L.search.rc.top, shown = mapWs;
+            else if (L.palette2.visible && L.secondMode == Mode::Layers) slot = L.palette2, shown = mapWs;
+            else if (L.palette3.visible && L.thirdMode == Mode::Layers) slot = L.palette3, shown = mapWs;
+            apply(gLayersPanel, slot, shown);
+        }
         const bool here = mapWs && !floated;  // (the active mode's panel is in the side bar)
         apply(gToolStripView, L.tool, here);
         const auto side = [this](draw::View& v, const PaneSlot& s, bool shown) {
@@ -884,19 +998,38 @@ struct MainView final : draw::View {
         const bool tiles2 = !tiles && rectT && L.palette2.visible && L.secondMode == Mode::Terrain;
         const bool tiles3 = !tiles && !tiles2 && rectT && L.palette3.visible && L.thirdMode == Mode::Terrain;
         if (tiles2 || tiles3) gTilesShown = true;
-        side(gTilesDockPanel, tiles2 ? L.palette2 : tiles3 ? L.palette3 : tilesSlot, (tiles && !floated) || tiles2 || tiles3);
-        side(gSearchSdl, L.search, !locs && here && !tiles);
-        side(gViewBtnSdl, L.viewBtn, !locs && here && !tiles);
+        // (the Tiles panel has its own search row: it takes the list's row too)
+        PaneSlot tilesSlot2 = L.palette2, tilesSlot3 = L.palette3;
+        tilesSlot2.rc.top = L.search2.rc.top, tilesSlot3.rc.top = L.search3.rc.top;
+        side(gTilesDockPanel, tiles2 ? tilesSlot2 : tiles3 ? tilesSlot3 : tilesSlot, (tiles && !floated) || tiles2 || tiles3);
+        const bool layersMode = m == Mode::Layers;  // (its list: the Layer List, above)
+        side(gSearchSdl, L.search, !locs && !layersMode && here && !tiles);
+        gSearchSdl.setPlaceholder(paletteSearchCue(m));  // (the mode's: "Search units")
+        side(gViewBtnSdl, L.viewBtn, !locs && !layersMode && here && !tiles);
         sortTipsSdl();
-        side(gSortBtnSdl, L.sortBtn, L.sortBtn.visible && !locs && here && !tiles);
+        side(gSortBtnSdl, L.sortBtn, L.sortBtn.visible && !locs && !layersMode && here && !tiles && m != Mode::Terrain);
+        side(gPieBtnSdl, L.sortBtn, here && !tiles && m == Mode::Terrain);
         side(gLocSortBtnSdl, L.sortBtn, locs && here);
-        side(gPalList, L.palette, !locs && here && !tiles);
+        side(gPalList, L.palette, !locs && !layersMode && here && !tiles);
         side(gFilterSdl, L.filter, locs && here);
         side(gLocList, L.list, locs && here);
-        apply(gPal2List, L.palette2, L.palette2.visible && mapWs && !tiles2);
+        apply(gPal2List, L.palette2, L.palette2.visible && mapWs && !tiles2 && L.secondMode != Mode::Layers);
+        const auto searchRow = [&](OtherSearchRow& r, const PaneSlot& owner, const PaneSlot& section, const PaneSlot& box, const PaneSlot& view, const PaneSlot& sort, bool shown) {
+            if (shown && owner.visible) r.owner.setValue(panelFresh(dockedPanel(r.mode)).owner);  // (the panel's player, as now)
+            apply(r.owner, owner, shown && owner.visible);
+            apply(r.ownerCatch, owner, shown && owner.visible);
+            apply(r.section, section, shown && section.visible);
+            apply(r.sectionCatch, section, shown && section.visible);
+            apply(r.box, box, shown && box.visible);
+            apply(r.catcher, box, shown && box.visible);
+            apply(r.view, view, shown && view.visible);
+            apply(r.sort, sort, shown && sort.visible);
+        };
+        searchRow(gSearchRow2, L.owner2, L.section2, L.search2, L.view2, L.sort2, mapWs && !tiles2);
+        searchRow(gSearchRow3, L.owner3, L.section3, L.search3, L.view3, L.sort3, mapWs && !tiles3);
         apply(gToolStripView2, L.tool2, L.tool2.visible && mapWs);
         apply(gToolStripView3, L.tool3, L.tool3.visible && mapWs);
-        apply(gPal3List, L.palette3, L.palette3.visible && mapWs && !tiles3);
+        apply(gPal3List, L.palette3, L.palette3.visible && mapWs && !tiles3 && L.thirdMode != Mode::Layers);
         // The workspace area: the registered view of the workspace shown, else the "Not on this system yet" view.
         const auto found = gWorkspaceViews.find(gWorkspace);
         draw::View* wsView = mapWs || found == gWorkspaceViews.end() ? nullptr : found->second;
@@ -954,7 +1087,7 @@ PanelState* sidePanelAt(draw::Point pt) {
     for (PaletteGridView* l : {static_cast<PaletteGridView*>(&gPalList), static_cast<PaletteGridView*>(&gPal2List), static_cast<PaletteGridView*>(&gPal3List)})
         if (in(*l)) return l->state;
     if (in(gTilesDockPanel)) return &dockedPanel(Mode::Terrain);
-    for (draw::View* v : std::initializer_list<draw::View*>{&gSearchSdl, &gViewBtnSdl, &gSortBtnSdl, &gSectionDropSdl, &gOwnerBox})
+    for (draw::View* v : std::initializer_list<draw::View*>{&gSearchSdl, &gViewBtnSdl, &gSortBtnSdl, &gPieBtnSdl, &gSectionDropSdl, &gOwnerBox})
         if (in(*v)) return &dockedPanel(gState.mode);
     if (in(gLocList) || in(gFilterSdl) || in(gLocSortBtnSdl)) return &dockedPanel(Mode::Locations);
     return nullptr;
@@ -1023,6 +1156,7 @@ void shellLoadingDone() {
     gRoot->relayout();
     gRoot->invalidate();
 }
+bool sdlPieShown() { return gRoot && gRoot->pie.shown(); }
 bool sdlPieClickAway() {
     if (!gRoot || !gRoot->pie.shown()) return false;
     gRoot->pie.setVisible(false);

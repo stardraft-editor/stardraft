@@ -1,3 +1,15 @@
+void mapLayersDragStop();
+void mapLayersDelete();
+void mapLayersCurrentDuplicate();
+void mapLayersCurrentRename();
+void mapLayersSync();
+bool mapLayersOnLayer();
+void mapLayersSelectAll();
+bool mapLayersHaveStack(const Editor& ed);
+bool mapLayersActiveRefuses();
+bool mapLayersMoveTerrain(Editor& ed, const std::vector<std::pair<int, int>>& cells, bool iso, int rx, int ry, int tileDx, int tileDy);
+bool mapLayersActiveLocked();
+bool mapLayersDeleteSelection(const std::vector<std::pair<int, int>>& tiles);  // (core/map_layers.inc)
 // The Map workspace's Edit and Options commands (portable, core.inc; moved from main.cpp's commandBody): copy, cut,
 // paste, duplicate, delete and select all of the active mode, the snap and place rules of each kind, the terrain copy,
 // View > Grid size and the town areas, the player keys (1 to 0; in Terrain mode they pick a terrain), the tool keys (V, B, A, F), the side bar's keys
@@ -25,7 +37,9 @@ constexpr ProgramKey kProgramKeys[] = {
     {"Ctrl+T", ID_MODE_TERRAIN, true}, {"Ctrl+G", ID_MODE_DOODADS, true}, {"Ctrl+L", ID_MODE_LOCATIONS, true},
     {"Ctrl+U", ID_MODE_UNITS, true}, {"Ctrl+R", ID_MODE_SPRITES, true},
     {"T", ID_CT_ADD_TRIGGER},      {"C", ID_CT_ADD_CONDITION},       {"A", ID_CT_ADD_ACTION},  // (before the tools' A: on the Classic triggers page only)
-    {"V", ID_TOOL_KEY},
+    {"V", ID_TOOL_KEY},            {"K", ID_SHAPE_KEY + 8},        {"M", ID_SHAPE_KEY + 9},          {"N", ID_SHAPE_KEY + 10},
+    {"Shift+N", ID_SHAPE_KEY + 11}, {"C", ID_SHAPE_KEY + 12},        {"Shift+C", ID_SHAPE_KEY + 13},     {"Z", ID_SHAPE_KEY + 14},
+    {"Shift+Z", ID_SHAPE_KEY + 15},
     {"B", ID_TOOL_KEY + 1},        {"A", ID_TOOL_KEY + 2},           {"F", ID_TOOL_KEY + 3},             {"I", ID_SHAPE_KEY},          {"W", ID_SHAPE_KEY + 7},
     {"O", ID_SHAPE_KEY + 1},       {"P", ID_SHAPE_KEY + 2},          {"X", ID_SHAPE_KEY + 3},            {"E", ID_SHAPE_KEY + 4},            {"H", ID_SHAPE_KEY + 5},            {"J", ID_SHAPE_KEY + 6},            {"Ctrl+1", ID_RAIL_KEY},
     {"Ctrl+2", ID_RAIL_KEY + 1},   {"Ctrl+3", ID_RAIL_KEY + 2},      {"Ctrl+4", ID_RAIL_KEY + 3},        {"Ctrl+5", ID_RAIL_KEY + 4},
@@ -87,6 +101,7 @@ bool closeAllDocs(std::vector<std::wstring>* reopen = nullptr) {
             else if (app.ed && !app.ed->path().empty()) reopen->push_back(app.ed->path().wstring());
         }
         mapPageClose();
+        mapLayersDragStop();  // (before its editor goes; core/map_layers.inc)
         app.ed.reset();
         shellForgetAnims();
         forgetProject(gDocs[size_t(i)].project.get());
@@ -194,7 +209,9 @@ void pasteMapCopy(AppState& app) {
         app.toolByMode[int(Mode::Terrain)] = TSelect;
         fillToolCombo(app);
         app.terrainPasting = true;
+        setTerrainSelTiles({});  // (the selection goes: the copy follows the mouse)
         app.dirty = true;
+        if (mapLayersOnLayer() && (app.terrainRect || (!app.ed->mirrors() && app.ed->turns() <= 1))) return setMessage(L"Paste on the layer: click to place it, and then drag to move it. R turns it, M mirrors it. Right-click or Esc stops.");
         setMessage(app.terrainRect ? L"Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops."
                                    : L"Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.");
         return;
@@ -230,10 +247,11 @@ std::string shellClipboardText();  // (shell_sdl.inc)
 extern std::string gClipboardAtCopy;  // (stamps.inc: the clipboard's text at the map's last Ctrl+C)
 extern bool gMapCopied;
 // Isometric's copy of the terrain selection: its box in its shape, or (a selection of any form: its mask) its tiles.
-bool copySelectedTerrain(AppState& app, const Rect& r) {
-    if (app.terrainSelMask.empty()) return app.ed->copyTerrain(r, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape());
-    return app.ed->copyTerrain(r, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, Editor::SelectShape::Rect, [](int x, int y) { return terrainSelHas(x, y); });
+bool copySelectedTerrainOf(Editor& ed, const AppState& app, const Rect& r) {
+    if (app.terrainSelMask.empty()) return ed.copyTerrain(r, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape());
+    return ed.copyTerrain(r, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, Editor::SelectShape::Rect, [](int x, int y) { return terrainSelHas(x, y); });
 }
+bool copySelectedTerrain(AppState& app, const Rect& r) { return copySelectedTerrainOf(*app.ed, app, r); }
 void copyMapSelection(AppState& app) {
     if (app.mode == Mode::Terrain) gClipboardAtCopy = shellClipboardText(), gMapCopied = true;  // (newer than that text)
     if (app.mode == Mode::Terrain && app.terrainRect) {
@@ -246,16 +264,15 @@ void copyMapSelection(AppState& app) {
     } else if (app.mode == Mode::Terrain) {
         if (app.hasTerrainSel && copySelectedTerrain(app, app.terrainSel))
             shareTerrainCopy(*app.ed), setMessage(L"Copied the terrain selection");
-        else if (app.hasTerrainSel && !app.terrainSelMask.empty() && app.ed->canPaintTerrain())  // (a form with no whole diamond in it)
-            setMessage(L"Nothing to copy there: make the selection larger");
-        else if (app.hasTerrainSel && copySelectedTiles(*app.ed)) {  // (no ISOM to copy there: its tiles, in Tile, GitHub #235)
+        else if (app.hasTerrainSel && copySelectedTiles(*app.ed)) {
+            // (no whole diamond in the selection, or no ISOM there to copy: its tiles, in Rectangle; GitHub #235)
             void setTerrainKind(int kind);  // (views_toolstrip.inc)
-            const Rect sel = app.terrainSel;
+            const std::vector<std::pair<int, int>> tiles = terrainSelTiles();  // (in Isometric's shape: the tiles copied)
             shareTerrainCopy(*app.ed);
-            setTerrainKind(1);
-            app.hasTerrainSel = true, app.terrainSel = sel;  // (the selection stays, as in Tile)
-            tilesStampFromCopy();
-            setMessage(L"Copied the tiles of the selection, in Tile: the map has no isometric terrain there to copy");
+            setTerrainKind(3);
+            setTerrainSelTiles(tiles);  // (the selection stays: those tiles, in Rectangle)
+            setMessage(L"Copied " + std::to_wstring(app.ed->tileClipboardWidth()) + L" x " + std::to_wstring(app.ed->tileClipboardHeight()) +
+                       L" tiles, in Rectangle: the selection has no whole isometric diamond. Ctrl+V pastes them");
         } else
             setMessage(L"Select an area with the Select tool first");
     } else if (app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
@@ -300,6 +317,7 @@ void cutMapSelection(AppState& app) {
         return;
     }
     if (!app.hasTerrainSel) return setMessage(L"Select an area with the Select tool first");
+    if (mapLayersActiveLocked()) return setMessage(L"The layer is locked: nothing changed");
     // Terrain: copy it, then null tiles in its place (black; nothing can walk or build there).
     const Rect& r = app.terrainSel;
     const bool copied = app.terrainRect ? copySelectedTiles(*app.ed) : copySelectedTerrain(app, r);
@@ -317,13 +335,104 @@ void cutMapSelection(AppState& app) {
     const int n = app.ed->placeTileCells(cells, 0);  // tile 0: the null tile
     app.ed->endStroke();
     app.ed->takeUnitsRemovedByTerrain();  // (the next paint's message counts only what it removes)
-    setMessage(L"Cut the terrain: " + std::to_wstring(n) + L" null tiles in its place (one undo step)");
+    mapLayersSync();  // (on a layer: NULL in its place, at once; core/map_layers.inc)
+    setMessage(mapLayersOnLayer() ? L"Cut the terrain: what is under the layer shows in its place (one undo step)"
+                                  : L"Cut the terrain: " + std::to_wstring(n) + L" null tiles in its place (one undo step)");
     app.dirty = true;
+}
+
+// The move itself: the copy (of the selection, just made) goes there, and the selection's place is emptied.
+void terrainMoveApply(Editor& ed, const std::vector<std::pair<int, int>>& cells, bool iso, int rx, int ry, int tileX, int tileY) {
+    const auto origin = ed.terrainCopyOrigin();
+    if (iso && !mapLayersOnLayer()) {
+        std::set<std::pair<int, int>> rects;
+        for (const auto& [tx, ty] : cells) rects.insert({tx / 2, ty});
+        std::vector<CornerValue> corners;
+        const uint16_t ground = eraseTerrain(ed);
+        std::set<std::pair<int, int>> seen;
+        for (const auto& [cx, cy] : rects)
+            for (const auto& at : {std::pair{cx, cy}, {cx + 1, cy}, {cx, cy + 1}, {cx + 1, cy + 1}})
+                if (((at.first + at.second) & 1) && seen.insert(at).second) corners.push_back({at.first, at.second, ground});
+        ed.setTerrainCorners(corners);
+    } else {
+        ed.placeTileCells(cells, 0);
+    }
+    if (iso) ed.pasteTerrain((origin.first + rx) * 64, (origin.second + ry) * 32, appState().correction);
+    else ed.pasteTiles(tileX, tileY);
+}
+
+// Terrain's Move: the selected terrain goes (dx, dy) pixels on, one undo step. Isometric: on the diamonds' grid, the terrain
+// fitted there, and the Erase terrain where it was (on a layer: NULL). The other kinds: the tiles as they are, null tiles
+// where they were. The copy that Ctrl+V pastes stays. Mirrors and turns do not repeat a move.
+void moveSelectedTerrain(AppState& app, int dx, int dy) {
+    if (!app.ed || !app.hasTerrainSel || (!dx && !dy)) return;
+    Editor& ed = *app.ed;
+    if (mapLayersActiveLocked()) return setMessage(L"The layer is locked: nothing changed");
+    const bool iso = !app.terrainRect;
+    if (iso && !ed.canPaintTerrain()) return setMessage(L"The map has no isometric terrain data: use Rectangle or Tile");
+    int rx = 0, ry = 0, tileDx, tileDy;
+    if (iso) {
+        snapLayerMove(dx, dy, rx, ry);
+        tileDx = rx * 2, tileDy = ry;
+    } else {
+        tileDx = int(std::lround(dx / 32.0)), tileDy = int(std::lround(dy / 32.0));
+    }
+    if (!tileDx && !tileDy) return;
+    const std::vector<std::pair<int, int>> cells = terrainSelTiles();
+    const auto selectMoved = [&] {
+        std::vector<std::pair<int, int>> moved;
+        for (const auto& [tx, ty] : cells) moved.push_back({tx + tileDx, ty + tileDy});
+        std::erase_if(moved, [&ed](const auto& c) { return c.first < 0 || c.second < 0 || c.first >= int(ed.width()) || c.second >= int(ed.height()); });
+        setTerrainSelTiles(moved);
+        setMessage(L"Moved the terrain (one undo step)");
+        app.terrainRev = 0;
+        app.dirty = true;
+    };
+    mapLayersSync();
+    if (mapLayersHaveStack(ed)) {  // (in the active layer only)
+        if (!mapLayersMoveTerrain(ed, cells, iso, rx, ry, tileDx, tileDy)) return setMessage(L"Nothing to move there: this layer has no terrain in the selection");
+        return selectMoved();
+    }
+    const Editor::TerrainCopies held = ed.terrainCopies();
+    const int mirrors = ed.mirrors(), turns = ed.turns();
+    const bool copied = iso ? copySelectedTerrain(app, app.terrainSel) : copySelectedTiles(ed);
+    if (!copied) {
+        ed.setTerrainCopies(held);
+        return setMessage(L"Nothing to move there: make the selection larger");
+    }
+    const int tileX = iso ? 0 : app.terrainSel.left / 32 + tileDx, tileY = iso ? 0 : app.terrainSel.top / 32 + tileDy;
+    ed.setMirrors(0), ed.setTurns(1);
+    ed.beginStroke();  // one undo step
+    if (iso && app.copyUnitsWithTerrain) {  // the copied units go with it
+        ed.clearSelection();
+        const Rect& r = app.terrainSel;
+        for (int i = 0; i < int(ed.units().size()); ++i)
+            if (const Unit& u = ed.units()[size_t(i)]; app.terrainSelMask.empty() ? Editor::inSelectShape(r, selectShape(), u.x, u.y) : terrainSelHas(u.x / 32, u.y / 32))
+                ed.select(i, true);
+        ed.deleteSelection();
+    }
+    terrainMoveApply(ed, cells, iso, rx, ry, tileX, tileY);
+    ed.endStroke();
+    ed.takeUnitsRemovedByTerrain();
+    ed.setMirrors(mirrors), ed.setTurns(turns);
+    ed.setTerrainCopies(held);
+    selectMoved();
+    mapLayersSync();
 }
 
 // The commands above. True when `id` is one of them (it ran); the menus follow and the map is drawn again then.
 bool commandMapEdit(AppState& app, int id) {
     const bool open = app.ed && app.ed->isOpen();
+    mapLayersSync();  // (the last edit is in its layer before the next one: core/map_layers.inc)
+    if (app.mode == Mode::Layers && id == ID_EDIT_DUPLICATE) return mapLayersCurrentDuplicate(), true;
+    if (app.mode == Mode::Layers && id == ID_EDIT_RENAME) return mapLayersCurrentRename(), true;
+    if (app.mode == Mode::Layers && id == ID_EDIT_SELECTALL) return mapLayersSelectAll(), true;
+    if (app.mode == Mode::Layers && (id == ID_EDIT_CUT || id == ID_EDIT_COPY)) return true;
+    if (app.mode == Mode::Layers && id == ID_EDIT_PASTE) {  // (the copy goes on the selected layer: in the mode that pastes it)
+        if (!open || !(app.ed->hasTerrainClipboard() || app.ed->hasTileClipboard())) return true;
+        setMode(Mode::Terrain);
+    }
+    if (app.mode == Mode::Layers && id == ID_EDIT_DELETE) return mapLayersDelete(), true;
     auto done = [&app] {
         shellMenusChanged();
         app.dirty = true;
@@ -382,10 +491,10 @@ bool commandMapEdit(AppState& app, int id) {
     }
     if (id >= ID_GRID_SIZE && id < ID_GRID_SIZE + int(std::size(kGridPresets))) {  // View > Grid: a preset
         const GridPreset& g = kGridPresets[id - ID_GRID_SIZE];
-        gDock.gridW = gDock.gridH = g.px, gDock.gridX = gDock.gridY = 0;
+        gDock.gridW = g.px, gDock.gridH = g.h(), gDock.gridX = gDock.gridY = 0;
         app.showGrid = true, app.dirty = true;
         saveDock();
-        setMessage(L"Grid: " + std::to_wstring(g.px) + L" pixels");
+        setMessage(L"Grid: " + std::to_wstring(g.px) + (g.py ? L" x " + std::to_wstring(g.py) : std::wstring()) + L" pixels");
         return done();
     }
     if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) {  // (as the tool strip's mirror buttons: in the modes that have them)
@@ -451,7 +560,7 @@ bool commandMapEdit(AppState& app, int id) {
         } else if (app.mode == Mode::Doodads) {
             if (app.ed->deleteDoodads(app.selDoodads)) setMessage(L"Deleted " + std::to_wstring(app.selDoodads.size()) + L" doodads");
             app.selDoodads.clear();
-        } else app.ed->deleteSelection();
+        } else if (app.mode != Mode::Terrain || !app.hasTerrainSel || !mapLayersDeleteSelection(terrainSelTiles())) app.ed->deleteSelection();
         break;
     case ID_EDIT_SELECTALL:  // the active mode's things
         if (!open) break;
@@ -481,6 +590,10 @@ bool commandMapEdit(AppState& app, int id) {
         break;
     case ID_EDIT_CORRECTION: app.correction = !app.correction; break;
     case ID_OPT_DRAGBACK: app.dragSnapBack = !app.dragSnapBack; break;
+    case ID_OPT_DRAGOBJECTS:
+        app.dragObjects = !app.dragObjects;
+        setMessage(app.dragObjects ? L"A drag moves units, doodads, sprites and locations" : L"A drag does not move units, doodads, sprites or locations");
+        break;
     case ID_OPT_SNAPBUILDINGS:  // buildings on tile edges, or where they are placed (the unit snap is for the other units)
         app.snapBuildings = !app.snapBuildings;
         setBuildingSnap(app.snapBuildings);
@@ -544,27 +657,30 @@ bool commandMapEdit(AppState& app, int id) {
     case ID_SHAPE_KEY + 4:
     case ID_SHAPE_KEY + 5:
     case ID_SHAPE_KEY + 6:
-    case ID_SHAPE_KEY + 7: stripToolByKey(4 + id - ID_SHAPE_KEY); break;
+    case ID_SHAPE_KEY + 7:
+    case ID_SHAPE_KEY + 8:
+    case ID_SHAPE_KEY + 9:
+        if (id == ID_SHAPE_KEY + 9 && cursorTurnable(app)) {  // (M: what is on the cursor mirrors)
+            mapMirrorPaste(app, false);
+            break;
+        }
+        [[fallthrough]];
+    case ID_SHAPE_KEY + 10:
+    case ID_SHAPE_KEY + 11:
+    case ID_SHAPE_KEY + 12:
+    case ID_SHAPE_KEY + 13:
+    case ID_SHAPE_KEY + 14:
+    case ID_SHAPE_KEY + 15: stripToolByKey(4 + id - ID_SHAPE_KEY); break;
     case ID_TERRAIN_KIND_NEXT:  // (the Terrain tool strip's choice: another mode has none)
         if (app.mode == Mode::Terrain) setTerrainKind(nextTerrainKind(terrainKind()));
         break;
     case ID_GRID_CUSTOM: {  // the grid's width, height and offset, in map pixels
-        std::wstring text = std::to_wstring(gDock.gridW) + L", " + std::to_wstring(gDock.gridH) + L", " + std::to_wstring(gDock.gridX) + L", " +
-                            std::to_wstring(gDock.gridY);
-        if (!shellPromptText(L"Grid: width, height, x offset, y offset (map pixels)", text)) break;
-        int v[4] = {gDock.gridW, gDock.gridH, gDock.gridX, gDock.gridY}, n = 0;
-        for (const wchar_t* c = text.c_str(); *c && n < 4;) {
-            if (iswdigit(*c)) {
-                v[n++] = int(std::wcstol(c, nullptr, 10));
-                while (iswdigit(*c)) ++c;
-            } else ++c;
-        }
-        if (n < 2) {
-            setMessage(L"Type the width and the height (and the offsets), for example 48, 48, 16, 0");
-            break;
-        }
-        gDock.gridW = std::clamp(v[0], 1, 8192), gDock.gridH = std::clamp(v[1], 1, 8192);
-        gDock.gridX = n > 2 ? std::clamp(v[2], 0, 8191) : 0, gDock.gridY = n > 3 ? std::clamp(v[3], 0, 8191) : 0;
+        std::vector<NumberAsk> asks{{tr(L"Width"), tr(L"pixels"), double(gDock.gridW), 1, 8192},
+                                    {tr(L"Height"), tr(L"pixels"), double(gDock.gridH), 1, 8192},
+                                    {tr(L"X offset"), tr(L"pixels"), double(gDock.gridX), 0, 8191},
+                                    {tr(L"Y offset"), tr(L"pixels"), double(gDock.gridY), 0, 8191}};
+        if (!shellAskNumbers(tr(L"Custom grid"), asks)) break;
+        gDock.gridW = int(asks[0].value), gDock.gridH = int(asks[1].value), gDock.gridX = int(asks[2].value), gDock.gridY = int(asks[3].value);
         app.showGrid = true, app.dirty = true;
         saveDock();
         setMessage(L"Grid: " + std::to_wstring(gDock.gridW) + L" x " + std::to_wstring(gDock.gridH) + L" pixels, offset " + std::to_wstring(gDock.gridX) +
@@ -593,7 +709,7 @@ int mapMenuCheck(int id) {
     if (id == ID_SNAP_LOCATIONS) return app.snapLocations;
     bool preset = false;
     for (int k = 0; k < int(std::size(kGridPresets)); ++k) {
-        const bool on = gDock.gridW == kGridPresets[k].px && gDock.gridH == kGridPresets[k].px && !gDock.gridX && !gDock.gridY;
+        const bool on = gDock.gridW == kGridPresets[k].px && gDock.gridH == kGridPresets[k].h() && !gDock.gridX && !gDock.gridY;
         if (id == ID_GRID_SIZE + k) return on;
         preset |= on;
     }
@@ -608,9 +724,14 @@ int mapMenuCheck(int id) {
     case ID_OPT_STACK: return app.allowStacking;
     case ID_OPT_RESDIST: return app.resourceDistance;
     case ID_OPT_RANDOMFACING: return app.randomFacing;
+    case ID_OPT_MANYSTARTS: {
+        bool manyStartLocations();  // (views_tabs.inc)
+        return manyStartLocations();
+    }
     case ID_OPT_ANIMATE: return app.animate;
     case ID_OPT_SNAPBUILDINGS: return app.snapBuildings;
     case ID_OPT_DRAGBACK: return app.dragSnapBack && !app.allowIllegalUnits;
+    case ID_OPT_DRAGOBJECTS: return app.dragObjects;
     case ID_EDIT_TERRAINUNITS: return app.copyUnitsWithTerrain;
     case ID_OPT_LOCWRAP: return app.locationWrap;
     case ID_EDIT_TERRAINDOODADS: return app.copyDoodadsWithTerrain;

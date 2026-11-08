@@ -71,12 +71,12 @@ void decodeDds(const DdsTexture& t, int x0, int y0, int w, int h, std::vector<ui
         }
 }
 
-bool loadHdCommandIcons(const GameData& data, bool carbot, std::vector<Sprite>& out, std::string& error) {
+bool loadHdCommandIcons(const GameData& data, bool carbot, std::vector<Sprite>& out, std::string& error, bool offThread) {
     // cmdicons.dds.grp: u32 file size, u16 frame count, u16 version, then per frame u32 0, u16 width,
     // u16 height, u32 size and a DDS file.
     const std::string name = std::string("HD2\\") + (carbot ? "Carbot\\" : "") + "unit\\cmdicons\\cmdicons.dds.grp";
     Bytes d;
-    if (!data.readFile(name, d, error)) return false;
+    if (!(offThread ? data.readFileOffThread(name, d, error) : data.readFile(name, d, error))) return false;
     if (d.size() < 8) {
         error = name + ": too small";
         return false;
@@ -105,23 +105,48 @@ bool loadHdCommandIcons(const GameData& data, bool carbot, std::vector<Sprite>& 
     return true;
 }
 
+HdUnitPictureJob hdUnitPictureJob(const UnitSprites& sprites, uint16_t unitType) {
+    HdUnitPictureJob job;
+    const int baseImage = sprites.imageFor(unitType);
+    for (int image : {baseImage, sprites.subunitImage(unitType)}) {
+        if (image < 0) continue;
+        HdUnitPictureJob::Part p;
+        p.image = image;
+        p.frame = sprites.defaultFrame(unitType, image, p.flip);
+        job.parts.push_back(p);
+    }
+    if (job.parts.size() > 1) {
+        const HdUnitPictureJob::Part& b = job.parts.front();
+        auto [tx, ty] = sprites.specialOffset(baseImage, std::max(0, b.frame));
+        job.turretX = b.flip ? -tx : tx, job.turretY = ty;
+        auto [t0x, t0y] = sprites.specialOffset(baseImage, 0);
+        job.turret0X = b.flip ? -t0x : t0x, job.turret0Y = t0y;
+    }
+    return job;
+}
+
 bool hdUnitPicture(const GameData& data, const UnitSprites& sprites, uint16_t unitType, uint32_t teamRgb, bool carbot, Sprite& out,
                    std::string& error) {
+    return hdUnitPictureFrom(data, hdUnitPictureJob(sprites, unitType), teamRgb, carbot, out, error);
+}
+
+bool hdUnitPictureFrom(const GameData& data, const HdUnitPictureJob& job, uint32_t teamRgb, bool carbot, Sprite& out, std::string& error,
+                       bool offThread) {
     struct Layer {
         AnimImage a;
         int frame = 0;
         bool flip = false;
+        bool base = false;
     };
     std::vector<Layer> layers;
-    const int baseImage = sprites.imageFor(unitType);
-    for (int image : {baseImage, sprites.subunitImage(unitType)}) {
-        if (image < 0) continue;
+    for (size_t i = 0; i < job.parts.size(); ++i) {
+        const HdUnitPictureJob::Part& p = job.parts[i];
         Layer l;
-        if (!loadAnimImage(data, image, GraphicsQuality::HD2, l.a, error, carbot) || l.a.frames.empty()) {
+        if (!loadAnimImage(data, p.image, GraphicsQuality::HD2, l.a, error, carbot, offThread) || l.a.frames.empty()) {
             if (layers.empty()) return false;
             continue;
         }
-        l.frame = sprites.defaultFrame(unitType, image, l.flip);
+        l.frame = p.frame, l.flip = p.flip, l.base = i == 0;
         if (l.frame < 0 || l.frame >= int(l.a.frames.size())) l.frame = 0;
         layers.push_back(std::move(l));
     }
@@ -147,10 +172,9 @@ bool hdUnitPicture(const GameData& data, const UnitSprites& sprites, uint16_t un
         else mask.assign(diff.size(), 0);
         // A turret sits at the base's special-overlay offset for the base's frame (map pixels; 4 full-HD px each).
         int offX = 0, offY = 0;
-        if (&l != &layers.front()) {
-            const Layer& b = layers.front();
-            auto [tx, ty] = sprites.specialOffset(baseImage, b.frame);
-            offX = int((b.flip ? -tx : tx) * 4 * ts), offY = int(ty * 4 * ts);
+        if (&l != &layers.front() && layers.front().base) {
+            const bool frame0 = layers.front().frame != job.parts.front().frame;  // (the base's frame was out of its HD art: 0)
+            offX = int((frame0 ? job.turret0X : job.turretX) * 4 * ts), offY = int((frame0 ? job.turret0Y : job.turretY) * 4 * ts);
         }
         const int boxW = int(l.a.boxWidth * ts), left = W / 2 - boxW / 2 + offX, top = H / 2 - int(l.a.boxHeight * ts) / 2 + offY;
         for (int y = 0; y < fh; ++y)

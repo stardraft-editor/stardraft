@@ -84,7 +84,7 @@ public:
     void paint(draw::Canvas& c) override {
         boxes_.clear();
         if (names_.empty()) {
-            c.text({0, 0, width(), height()}, tr(L"No unit excluded"), kDim, draw::kMiddle);
+            c.text({0, 0, width(), height()}, tr(L"None"), kDim, draw::kMiddle);
             return;
         }
         const int pad = scale(6), gap = scale(4);
@@ -185,7 +185,7 @@ inline draw::Point mapImageSize(const MapImageOptions& o) {
     return {std::max(0, w), std::max(0, h)};
 }
 
-// The terrain of the picture: with the doodads' tiles (MTXM), or without them (TILE, as View > Layers > Doodads off).
+// The terrain of the picture: with the doodads' tiles (MTXM), or without them (TILE, as View > Modes > Doodads off).
 inline TerrainLayer mapImageTerrain(const Editor& ed, bool doodads) {
     if (doodads || !ed.chk().has("TILE")) return ed.terrain();
     return readTerrain(ed.chk(), "TILE");
@@ -209,7 +209,7 @@ inline render::Scene mapImageScene(const MapImageOptions& o, float x, float y, f
         for (float gx = std::ceil((x0 - ox) / gw) * gw + ox; gx <= x1; gx += gw) s.rects.push_back({gx, y0, gx + t, y1, 0xFFFFFF30u, true});
         for (float gy = std::ceil((y0 - oy) / gh) * gh + oy; gy <= y1; gy += gh) s.rects.push_back({x0, gy, x1, gy + t, 0xFFFFFF30u, true});
     }
-    // The doodads' overlays go with the doodads, the other map sprites with the sprites (as View > Layers).
+    // The doodads' overlays go with the doodads, the other map sprites with the sprites (as View > Modes).
     std::set<std::tuple<uint16_t, uint16_t, uint16_t>> overlays;
     for (const Doodad& dd : ed.doodads())
         if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlaySprite});
@@ -295,7 +295,7 @@ namespace mapImageLayout {
 constexpr int kPad = 16, kRowH = 24, kPitch = 32, kLabelW = 112, kFieldW = 360;
 constexpr int kContentW = kLabelW + kFieldW;
 constexpr int kAreaY = kPad, kScaleY = kAreaY + 3 * kPitch + 8, kShowY = kScaleY + kPitch + 8, kUnitsY = kShowY + 3 * kPitch + 8,
-              kLeaveY = kUnitsY + 2 * kPitch + 8, kSizeY = kLeaveY + 3 * kPitch + 8;
+              kLeaveY = kUnitsY + 4 * kPitch + 8, kSizeY = kLeaveY + 2 * kPitch + 8;
 constexpr int kButtonH = 28, kButtonsY = kSizeY + kPitch + 16, kWindowH = kButtonsY + kButtonH + kPad;
 constexpr int kColW = 140;  // the first column of the check boxes (the second is wider: Locations and their names)
 }  // namespace mapImageLayout
@@ -307,7 +307,7 @@ public:
     MapImageView(const MapImageOptions& o, bool hd, bool selection) : opts_(o) {
         using stardraft::kit::LabelTone;
         for (auto [l, t] : {std::pair{&labels_[0], L"Area"}, std::pair{&labels_[1], L"Scale"}, std::pair{&labels_[2], L"Show"},
-                            std::pair{&labels_[3], L"Size"}, std::pair{&labels_[4], L"Include units"}, std::pair{&labels_[5], L"Exclude specific units"}}) {
+                            std::pair{&labels_[3], L"Size"}, std::pair{&labels_[4], L"Include units"}, std::pair{&labels_[5], L"Exclude"}}) {
             l->setText(tr(t)), l->setTone(LabelTone::Dim);
             add(*l, {0, 0, 0, 0});
         }
@@ -352,7 +352,7 @@ public:
         }
         // The units in the picture: all, or only the start locations and Player 12's units (each on or off).
         unitModes_[0] = std::make_unique<stardraft::kit::RadioButton>(tr(L"All units"), unitGroup_, !o.someUnits);
-        unitModes_[1] = std::make_unique<stardraft::kit::RadioButton>(tr(L"Only:"), unitGroup_, o.someUnits);
+        unitModes_[1] = std::make_unique<stardraft::kit::RadioButton>(tr(L"Only"), unitGroup_, o.someUnits);
         for (auto& m : unitModes_) m->setPlainLabel(true), add(*m, {0, 0, 0, 0});
         unitGroup_.onChange = [this](stardraft::kit::RadioButton& b) {
             opts_.someUnits = &b == unitModes_[1].get();
@@ -426,12 +426,12 @@ public:
         for (int k = 0; k < 5; ++k) put(shows_[k], kLabelW + (k / 3) * kColW, kShowY + (k % 3) * kPitch, k < 3 ? kColW - 8 : kFieldW - kColW, kRowH);
         put(labels_[4], 0, kUnitsY, kLabelW - 8, kRowH);
         put(*unitModes_[0], kLabelW, kUnitsY, kFieldW, kRowH);
-        put(*unitModes_[1], kLabelW, kUnitsY + kPitch, 64, kRowH);
-        put(keeps_[0], kLabelW + 72, kUnitsY + kPitch, 136, kRowH);
-        put(keeps_[1], kLabelW + 216, kUnitsY + kPitch, kFieldW - 216, kRowH);
-        put(labels_[5], 0, kLeaveY, kContentW, kRowH);  // (Exclude specific units: a line of its own, the list and the chips under it)
-        put(add_, kLabelW, kLeaveY + kPitch, kFieldW, kRowH);
-        put(chips_, kLabelW, kLeaveY + 2 * kPitch, kFieldW, kRowH);
+        put(*unitModes_[1], kLabelW, kUnitsY + kPitch, kFieldW, kRowH);
+        for (int k = 0; k < 2; ++k)  // (Only's units: under it, at its label's edge)
+            put(keeps_[k], kLabelW + 26, kUnitsY + (2 + k) * kPitch, kFieldW - 26, kRowH);
+        put(labels_[5], 0, kLeaveY, kLabelW - 8, kRowH);  // (Exclude: the list in the field column, the chips under it)
+        put(add_, kLabelW, kLeaveY, kFieldW, kRowH);
+        put(chips_, kLabelW, kLeaveY + kPitch, kFieldW, kRowH);
         put(labels_[3], 0, kSizeY, kLabelW - 8, kRowH);
         put(size_, kLabelW, kSizeY, kFieldW, kRowH);
     }

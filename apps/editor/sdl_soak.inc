@@ -16,6 +16,9 @@
 //   minimap            the minimap's terrain is made again: a line with its time
 //   simstep <frames>   the simulation that shows (Tools > Simulate) runs that many game frames at once (pictures of a
 //                      game in progress): a line with the game's frame
+//   hold <keys>|none   modifier keys go down (Shift, Ctrl, Alt, joined with +) and stay down, or all go up, with no move
+//                      of the mouse: a line with the map's mark at the mouse (core/map_mod_mark.inc). A click or a drag
+//                      has only the keys of its own value while it runs
 //   frame <file>       the picture of the frame after this line goes to that PNG file (videos: one line for each frame)
 //   stats              a line with the memory (the working set, the GPU's, the bitmaps with a texture), the undo
 //                      steps and the frame times since the last stats line
@@ -94,7 +97,7 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
         {"wheel", 'h'},   {"pinch", 'p'},   {"wait", 'w'},      {"command", 'C'},   {"mode", 'M'},      {"rect", 'Q'},
         {"workspace", 'W'}, {"open", 'O'},  {"roundtrip", 'R'}, {"undocheck", 'U'}, {"stats", 'S'}, {"minimap", 'P'},
         {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}, {"panel", 'J'}, {"simstep", 'X'}, {"frame", 'Y'}, {"rclick", 'r'},
-        {"floatmove", 'V'}};
+        {"floatmove", 'V'}, {"hold", 'K'}};
     std::vector<std::pair<char, std::string>> lines;
     int lineNo = 0;
     for (std::string line; std::getline(in, line);) {
@@ -125,6 +128,8 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
 // the system does not say).
 struct SdlMemory {
     double workingSet = -1, peak = -1, privateBytes = -1, gpuLocal = -1, gpuShared = -1;
+    double heap = -1;  // the process heap's allocated bytes (Windows: HeapSummary; the C++ allocations are there): a leak
+                       // shows here, while the private bytes also keep what the heap freed
 };
 
 SdlMemory sdlMemory() {
@@ -134,6 +139,16 @@ SdlMemory sdlMemory() {
     PROCESS_MEMORY_COUNTERS_EX pmc{};
     if (GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc), sizeof pmc))
         m.workingSet = double(pmc.WorkingSetSize) / kMb, m.peak = double(pmc.PeakWorkingSetSize) / kMb, m.privateBytes = double(pmc.PrivateUsage) / kMb;
+    {  // (HeapSummary: Windows 10 and newer, looked up: kernel32's headers have it only for newer targets)
+        struct Summary {
+            DWORD cb;
+            SIZE_T allocated, committed, reserved, maxReserve;
+        };
+        using HeapSummaryFn = BOOL(WINAPI*)(HANDLE, DWORD, Summary*);
+        static const auto heapSummary = reinterpret_cast<HeapSummaryFn>(reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "HeapSummary")));
+        Summary s{sizeof(Summary), 0, 0, 0, 0};
+        if (heapSummary && heapSummary(GetProcessHeap(), 0, &s)) m.heap = double(s.allocated) / kMb;
+    }
     // The GPU memory of this process (DXGI: the video memory the system's scheduler counts for it), on every adapter.
     using CreateFactory = HRESULT(WINAPI*)(REFIID, void**);
     static HMODULE dxgi = LoadLibraryW(L"dxgi.dll");
@@ -301,9 +316,9 @@ void sdlSoakStats() {
     int bitmaps = 0;
     size_t bitmapBytes = 0;
     kit_sdl::bitmapTextureStats(bitmaps, bitmapBytes);
-    std::printf("stats: loop %d, step %d: working set %.1f MB (peak %.1f), private %.1f MB, GPU %.1f MB (shared %.1f), %d bitmaps %.1f MB; %zu tabs; %s; "
+    std::printf("stats: loop %d, step %d: working set %.1f MB (peak %.1f), private %.1f MB, GPU %.1f MB (shared %.1f), heap %.1f MB, %d bitmaps %.1f MB; %zu tabs; %s; "
                 "frames %d, %.1f ms on average, %.1f ms at most; inputs %d, %.1f ms on average, %.1f ms at most\n",
-                gSoakFrames.loop, gSoakFrames.steps, m.workingSet, m.peak, m.privateBytes, m.gpuLocal, m.gpuShared, bitmaps,
+                gSoakFrames.loop, gSoakFrames.steps, m.workingSet, m.peak, m.privateBytes, m.gpuLocal, m.gpuShared, m.heap, bitmaps,
                 double(bitmapBytes) / (1024.0 * 1024.0), gDocs.size(), map.c_str(), gSoakFrames.count, avg, gSoakFrames.max,
                 gSoakFrames.inputs, gSoakFrames.inputs ? gSoakFrames.inputTotal / gSoakFrames.inputs : 0.0, gSoakFrames.inputMax);
     gSoakFrames.count = 0, gSoakFrames.total = 0, gSoakFrames.max = 0;
@@ -379,6 +394,25 @@ bool sdlScriptStep(char kind, const std::string& value) {
     }
     case 'G': std::printf("%s\n", pathingStateLine().c_str()); return true;  // the pathing layer and check (core/pathing_layer.inc)
     case 'S': sdlSoakStats(); return true;
+    case 'K': {
+        SDL_Keymod held = SDL_KMOD_NONE;
+        if (value.find("Shift") != std::string::npos) held = SDL_Keymod(held | SDL_KMOD_LSHIFT);
+#ifdef __APPLE__
+        if (value.find("Ctrl") != std::string::npos) held = SDL_Keymod(held | SDL_KMOD_LGUI);
+#else
+        if (value.find("Ctrl") != std::string::npos) held = SDL_Keymod(held | SDL_KMOD_LCTRL);
+#endif
+        if (value.find("Alt") != std::string::npos) held = SDL_Keymod(held | SDL_KMOD_LALT);
+        SDL_SetModState(held);
+        SDL_Event k{};  // (as SDL gives a modifier key: no kit key, only the host's hook sees it)
+        k.type = held ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+        k.key.key = SDLK_LSHIFT, k.key.down = held != SDL_KMOD_NONE, k.key.mod = held;
+        const int asked = gRoot->map.modRepaints;
+        gHost->snapshotMouse(sdlShotRoot(), {k});
+        const UiIcon mark = gRoot->map.modMark();
+        std::printf("hold %s: mark %s; new paint %s\n", value.c_str(), mark != kNoModMark ? uiIconId(mark) : "(none)", gRoot->map.modRepaints != asked ? "yes" : "no");
+        return true;
+    }
     case 'F': sdlFloatPaletteScript(value); return true;
     case 'J': sdlPanelScript(value); return true;
     default: return false;  // (an input option's verb)

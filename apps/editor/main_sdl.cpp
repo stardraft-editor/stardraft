@@ -121,6 +121,7 @@
 #include "stardraft/dat_edit.h"
 #include "stardraft/dat_extras.h"
 #include "stardraft/dat_units.h"  // the converted values on the Data form (core/data_model.inc)
+#include "stardraft/new_map.h"  // (core/map_layers.inc: the scratch map of the layers' terrain outside of the map)
 #include "stardraft/help.h"  // the help pages (core/views_help.inc)
 #include "stardraft/campaign.h"
 #include "stardraft/project_import.h"
@@ -539,6 +540,22 @@ int sdlFrameClock() {
 }
 
 // STARDRAFT_START_TIME=1 prints how long each stage of the start took (for speed work).
+// --kpi (tools/kpi.py): "kpi: startup <ms>" when the first frame is there (from the process's start), and after each
+// input of a script "kpi: <verb> input <ms> frame <ms>" (the input's time without its input lines, then the frame's).
+bool gKpi = false;
+double processAgeMs() {
+#ifdef _WIN32
+    FILETIME created{}, exited{}, kernel{}, user{}, now{};
+    if (GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user)) {
+        GetSystemTimePreciseAsFileTime(&now);
+        const auto ticks = [](const FILETIME& f) { return (uint64_t(f.dwHighDateTime) << 32) | f.dwLowDateTime; };
+        return double(ticks(now) - ticks(created)) / 10000.0;  // (100 ns ticks)
+    }
+#endif
+    static const auto start = std::chrono::steady_clock::now();  // (else: since the first call, early in main)
+    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+}
+
 void startLap(const char* stage) {
     static const bool on = std::getenv("STARDRAFT_START_TIME") != nullptr;
     static auto last = std::chrono::steady_clock::now();
@@ -550,11 +567,13 @@ void startLap(const char* stage) {
 
 int main(int argc, char** argv) {
     startLap("before main");
+    processAgeMs();  // (its clock's start, where the system does not say when the process started: --kpi)
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     // --update-test <zip> [options]: the update's install with a zip on this computer (sdl_updates.inc), then the end.
     if (argc > 2 && std::string(argv[1]) == "--update-test")
         return sdlUpdateTest(fs::path(widen(argv[2])), std::vector<std::string>(argv + 3, argv + argc));
     std::string passagesArg;  // --passages: a passages file the tools use, for a snapshot (Program options' Ramp and bridge mappings)
+    std::string driverArg;  // --driver
     std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg, briefArg, dropArg;
     int accentArg = -1;
     gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
@@ -620,6 +639,7 @@ int main(int argc, char** argv) {
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
         else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or blockpick, blockhelp:<block id>, unitprops, locprops, quick, valuepop[:number|:colors|:text], about, message, message:build, message:delete, error or tip: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
+        else if (a == "--kpi") gKpi = true;  // the startup's and each scripted input's times (tools/kpi.py)
         else if (a == "--custom") customArg = true;  // Terrain mode's Custom (the Custom list), for a snapshot
         else if (a == "--histbox") {  // tiles (or mouse,rx,ry): the state line's tilehist=, for a test
             const std::string v = next();
@@ -679,6 +699,7 @@ int main(int argc, char** argv) {
         else if (a == "--smartzoom") inputArgs.emplace_back('z', next());  // x,y: a trackpad's smart zoom (macOS: a double tap with two fingers) there, for a snapshot
         else if (a == "--swipe") inputArgs.emplace_back('g', next());  // x,y,left|right: a swipe of three fingers there (macOS's Swipe between pages), for a snapshot
         else if (a == "--wait") inputArgs.emplace_back('w', next());  // ms: the time passes for the program's timers (in order with the inputs), for a snapshot
+        else if (a == "--driver") driverArg = next();  // the GPU driver tried first (direct3d12, vulkan, warp), for a test: memory per driver
         else if (a == "--script") { if (!sdlReadScript(next(), inputArgs)) return 1; }  // file[:times]: inputs from a file, times over (sdl_soak.inc), for a snapshot
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
@@ -740,11 +761,12 @@ int main(int argc, char** argv) {
 #ifdef _WIN32
     {  // (Program options > Graphics: the driver tried first)
         int pick = 0;
-        prefs::number(L"GraphicsDriver", pick, 0, 2);
-        static const char* const drivers[] = {"", "direct3d12", "warp"};
+        prefs::number(L"GraphicsDriver", pick, 0, 3);
+        static const char* const drivers[] = {"", "direct3d12", "warp", "vulkan"};
         renderer.setPreferredDriver(drivers[pick]);
     }
 #endif
+    if (!driverArg.empty()) renderer.setPreferredDriver(driverArg);
     if (gFailDeviceArg || !renderer.createDevice(err)) {
         // The window cannot show: a message box says why (the program has no console). After an update, the program
         // before it goes back in its place and starts (core/releases.inc: rollBackUpdate).
@@ -807,10 +829,12 @@ int main(int argc, char** argv) {
         // 32 px atlas, and the Start page's 32 px card icon 64 px from the 64 px atlas, sharp on a Retina display).
         std::printf("stardraft_editor: icons %d px from the %d px atlas, card icons %d px from the %d px atlas\n", kit::px(16),
                     kit_sdl::iconAtlasCell(0, kit::px(16)), kit::px(32), kit_sdl::iconAtlasCell(0, kit::px(32)));
-        kit_sdl::setGlyphIcons(kitpaint::glyphIcon);  // the glyphs as UI icons (no system has to have Segoe MDL2 Assets)
         if (!kit_sdl::loadResourceIcon(1, base + "res/stardraft.ico")) std::printf("stardraft_editor: no app icon in res/\n");  // (About's)
         host.setHoverHook(sdlHover);  // the views' tooltips (sdl_tips.inc)
         host.setKeyFilter(sequenceKey);  // the second key of a two-key shortcut (Ctrl+K, G: sdl_menus.inc)
+        host.setModifierHook([] {  // the modifier key's mark at the mouse (core/map_mod_mark.inc), with no move of the mouse
+            if (gRoot && gState.mouseIn) ++gRoot->map.modRepaints, gRoot->map.invalidate();
+        });
         host.setRightClickHook(sdlWindowRightClick);  // Report feedback in the dialogs and pop-outs (sdl_menus.inc)
 #ifdef __APPLE__
         if (snapshot.empty()) {  // a trackpad's scroll moves the map, a wheel zooms it: macOS tells them apart (mac_input.mm)
@@ -903,6 +927,7 @@ int main(int argc, char** argv) {
             sdlIsomRulesFrame();  // (the Custom isom terrain editor's place and size: sdl_options.inc)
             sdlPassagesFrame();   // (the Ramp and bridge mapper's window place)
             sdlPalettePanelsFrame();  // (the palette panels of the active tab show, and their places: sdl_palette_panels.inc)
+            mapLayersFrame();  // (the map's layers: core/map_layers.inc)
             protectedTerrainSync();  // (the active tab's protected terrain kept in its project: core/protected_layer.inc)
             sdlFollowSystemLook();  // (macOS, Linux: the system's look changed; also while no frame comes: sdl_window.inc)
         });
@@ -1016,6 +1041,8 @@ int main(int argc, char** argv) {
             if (docOpen()) projectStart.openMap = docTitle(gActive, false);
             NewProjectView projectShot(projectStart);
             TextPromptView promptShot(L"0x", false);
+            std::vector<NumberAsk> numberAsks{{L"Width", L"pixels", 64, 1, 8192}, {L"Height", L"pixels", 32, 1, 8192}, {L"X offset", L"pixels", 0, 0, 8191}, {L"Y offset", L"pixels", 0, 0, 8191}};
+            NumberPromptView numbersShot(numberAsks);  // numbers: the number form (View > Grid > Custom; --size 385x205)
             // listpick: the list picker as a multi-pick of unit types (classictrig:values on Windows; --size 378x494).
             std::vector<ListPickItem> pickItems;
             for (int u = 0; u <= 227; ++u) pickItems.push_back(ListPickItem{unitDisplayName(u), L"", std::to_string(u), "", -1});
@@ -1083,6 +1110,7 @@ int main(int argc, char** argv) {
                 shown = &importDlg, width = sz.x, height = sz.y;
             }
             else if (dialogArg == "prompt") shown = &promptShot;
+            else if (dialogArg == "numbers") shown = &numbersShot;
             else if (dialogArg == "listpick") shown = &pickShot;
             else if (dialogArg == "toolpopout") shown = toolPopoutShot();  // (core/views_toolstrip.inc)
             else if (dialogArg == "blockpick") shown = &blockShot;
@@ -1145,6 +1173,7 @@ int main(int argc, char** argv) {
                 if (problems.empty()) problems = {"Player 1 owns units but has no start location"};  // (a map that has them: a sample)
                 messageShot.b = msgbox::makeBox(startLocationsQuestion(problems),
                                                 {shellTr(L"&Place them"), shellTr(L"&Save anyway"), shellTr(L"Cancel")}, msgbox::Icon::Question);
+                messageShot.b.check = shellTr(L"Do not &ask again");
                 const draw::Point sz = messageShot.layout(kit_sdl::measuringCanvas());
                 width = sz.x, height = sz.y;
             } else if (dialogArg == "error") {  // an error box (shellErrorBox: the error icon and OK)
@@ -1191,19 +1220,24 @@ int main(int argc, char** argv) {
                 // A second frame first: a view that places its parts from the last paint's size (the New page's block)
                 // is where the user sees it, as a window has painted more than once before a user's first input.
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+                if (gKpi) std::printf("kpi: startup %.1f\n", processAgeMs());
                 gShotInputs.assign(inputArgs.begin(), inputArgs.end());
                 host.setSnapshotModalHook([](draw::View&) { return sdlShotInputNext(); });
                 for (;;) {
                     // (each input's time without its input lines, for --script's stats)
                     const double linesBefore = gInputLineMs;
+                    const char kind = gShotInputs.empty() ? '-' : gShotInputs.front().first;
                     const auto i0 = std::chrono::steady_clock::now();
                     if (!sdlShotInputNext()) break;
-                    sdlSoakInput(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - i0).count() - (gInputLineMs - linesBefore));
+                    const double inputMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - i0).count() - (gInputLineMs - linesBefore);
+                    sdlSoakInput(inputMs);
                     // (a frame after each: the views lay out and the map's scene takes the change, as between a user's inputs)
                     host.snapshotTimers(20);
                     const auto t0 = std::chrono::steady_clock::now();
                     host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
-                    sdlSoakFrame(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());  // (--script stats)
+                    const double frameMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+                    sdlSoakFrame(frameMs);  // (--script stats)
+                    if (gKpi) std::printf("kpi: %c input %.2f frame %.2f\n", kind, inputMs, frameMs);
                     if (!gShotFrameFile.empty()) {  // (--script's frame <file>: this frame's picture)
                         if (!writeSnapshot(device, tex, width, height, gShotFrameFile)) std::printf("frame: could not write %s\n", gShotFrameFile.c_str());
                         gShotFrameFile.clear();
@@ -1231,10 +1265,15 @@ int main(int argc, char** argv) {
                 for (const std::string& r : rclickArgs) sdlRightClickShot(r, shown == &root ? nullptr : shown, title);
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             }
-            // The map's sprites load over a few frames: frames until they are all there (as the Windows program paints
-            // while images are pending).
-            for (int k = 0; k < 100 && renderer.stats().imagesPending > 0; ++k)
-                host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            // The map's sprites and the palettes' pictures load over a few frames: frames until they are all there (as
+            // the Windows program paints while images are pending).
+            extern int gPaletteArtLeft;  // (sdl_pictures.inc)
+            // (100 frames, and at least 3 s: the HD tiles read on a worker, whatever a frame takes)
+            const auto waitStart = std::chrono::steady_clock::now();
+            for (int k = 0; (k < 100 || std::chrono::steady_clock::now() - waitStart < std::chrono::seconds(3)) &&
+                            (renderer.stats().imagesPending > 0 || gPaletteArtLeft > 0);
+                 ++k)
+                gPaletteArtLeft = 0, host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);
             std::printf("%s %s\n", ok ? "wrote" : "could not write", snapshot.c_str());

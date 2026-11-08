@@ -1,6 +1,6 @@
 // The map's scene (portable, core.inc; moved from main.cpp's buildScene and tiles_view.inc): what the renderer draws on
 // the terrain each frame. The grid (View > Show grid, Grid size), the pathing overlays, the doodads' overlays and the
-// sprites (View > Layers), the units with their overlays, shadows, add-on connectors, turrets and idle animations (the
+// sprites (View > Modes), the units with their overlays, shadows, add-on connectors, turrets and idle animations (the
 // game's ticks: advanceAnims), a moved selection in red where it does not fit, the locations with their names, the
 // selection circles, the terrain selection, the ranges (View > Show ranges), the symmetry axes, the paste ghosts, the
 // unit, sprite or doodad to place (the doodad's tiles: ghostTiles, the renderer's terrain preview), the Rectangle mode's
@@ -12,7 +12,7 @@ void dataLoadForProject();
 void applyProjectGraphics(UnitSprites& sp);  // the project's graphics edits on `sp` (core/project_build.inc)
 int gUnitGraphics = 0;  // changes when syncMapUnitGraphics gives the map other unit graphics
 
-// View > Layers: the terrain the renderer gets when a layer is off: no terrain (black), or the terrain without the
+// View > Modes: the terrain the renderer gets when a layer is off: no terrain (black), or the terrain without the
 // doodads' tiles (StarEdit's copy, TILE); with the start creep's tiles (Creep: core/creep_layer.inc).
 TerrainLayer terrainWithLayers(const Editor& ed) {
     TerrainLayer t = !gLayers.terrain || gLayers.doodads ? ed.terrain()
@@ -429,6 +429,7 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
     Editor& ed = *app.ed;
     const bool dragging = app.mode == Mode::Terrain && app.drag == Drag::TerrainSelect;
     const size_t from = s.rects.size();
+    if (app.drag == Drag::TerrainMove) return 0;  // (Move: its own outline, where the selection goes)
     const bool combining = dragging && app.terrainSelOp;  // Shift or Ctrl: the selection and the drag's box
     if (app.mode == Mode::Terrain && app.hasTerrainSel && (combining || (!dragging && !app.terrainSelMask.empty()))) {
         tileOutline(s, terrainSelTiles(), 0xFFD040FFu);  // the outline of the selected tiles (any shape, in parts)
@@ -485,6 +486,56 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
 std::set<std::pair<int, int>> rampBrushCorners(std::pair<int, int> at) {
     const std::vector<std::pair<int, int>> c = appState().ed->brushCorners(at.first, at.second, currentBrush());
     return std::set<std::pair<int, int>>(c.begin(), c.end());
+}
+
+// Terrain's Move, under way: the map as the release would leave it (the move on a copy of the map, its changed tiles over
+// the terrain), and the outline of the selection there. Made again only when the place changes; a large map's at most
+// every 2 times its last time (as the paste's), the last one when the mouse rests.
+void terrainMoveScene(render::Scene& s) {
+    AppState& app = shellState();
+    Editor& ed = *app.ed;
+    const bool iso = !app.terrainRect;
+    int rx = 0, ry = 0, tileDx, tileDy;
+    if (iso) {
+        snapLayerMove(gTerrainMoveDX, gTerrainMoveDY, rx, ry);
+        tileDx = rx * 2, tileDy = ry;
+    } else {
+        tileDx = int(std::lround(gTerrainMoveDX / 32.0)), tileDy = int(std::lround(gTerrainMoveDY / 32.0));
+    }
+    const std::vector<std::pair<int, int>> cells = terrainSelTiles();
+    struct MoveGhost {
+        std::vector<int64_t> key;
+        std::vector<std::pair<int, uint16_t>> cells;
+        double cost = 0;
+        std::chrono::steady_clock::time_point last{};
+    };
+    static MoveGhost g;
+    const Rect& r = app.terrainSel;
+    std::vector<int64_t> key = {int64_t(reinterpret_cast<uintptr_t>(&ed)), int64_t(ed.revision()), int64_t(iso), int64_t(app.correction), tileDx, tileDy, r.left, r.top, r.right, r.bottom, int64_t(cells.size())};
+    const auto now = std::chrono::steady_clock::now();
+    const bool soon = g.cost > 12 && std::chrono::duration<double, std::milli>(now - g.last).count() < 2 * g.cost;
+    if (g.key != key && soon) app.dirty = true;  // (again on a later frame)
+    else if (g.key != key) {
+        g.key = std::move(key), g.cells.clear();
+        Editor& copy = shapeCopy(ed.gameData());
+        std::string error;
+        if ((tileDx || tileDy) && (!iso || ed.canPaintTerrain()) && copy.openChk(ed.chk(), error)) {
+            shapeCopySettings(copy, ed);
+            copy.setMirrors(0), copy.setTurns(1);
+            if (mapLayersHaveStack(ed)) mapLayersMovePreview(copy, ed, cells, iso, rx, ry, tileDx, tileDy);
+            else if (iso ? copySelectedTerrainOf(copy, app, r) : copySelectedTiles(copy)) terrainMoveApply(copy, cells, iso, rx, ry, r.left / 32 + tileDx, r.top / 32 + tileDy);
+            const std::vector<uint16_t>&a = ed.terrain().tiles, &c = copy.terrain().tiles;
+            if (a.size() == c.size())
+                for (size_t i = 0; i < a.size(); ++i)
+                    if (a[i] != c[i]) g.cells.push_back({int(i), c[i]});
+        }
+        g.last = std::chrono::steady_clock::now();
+        g.cost = std::chrono::duration<double, std::milli>(g.last - now).count();
+    }
+    ghostTiles = g.cells;
+    std::vector<std::pair<int, int>> moved;
+    for (const auto& [x, y] : cells) moved.push_back({x + tileDx, y + tileDy});
+    tileOutline(s, moved, 0xFFFFFFE0u);
 }
 
 // The shape under way (core/terrain_shapes.inc): its tiles over the terrain (ghostTiles), its lines between its points,
@@ -625,8 +676,9 @@ render::Scene buildScene() {
     addTerrainFlagsLayer(s);  // (View > Overlays > Terrain flags: core/terrain_flags_layer.inc)
     addPathingLayer(s);
     addPathOverlays(s);
-    addCreepEdges(ed, s);  // (View > Layers > Creep: core/creep_layer.inc)
-    addProtectedLayer(ed, s);  // (View > Layers > Protected terrain: core/protected_layer.inc)
+    addCreepEdges(ed, s);  // (View > Modes > Creep: core/creep_layer.inc)
+    addMapLayersOverlay(ed, s);  // (core/map_layers.inc)
+    addProtectedLayer(ed, s);  // (View > Modes > Protected terrain: core/protected_layer.inc)
 
     // Only what can show in the view is drawn: the map's sprites and units whose point is in the view or less than
     // kSpriteReach map pixels out of it. (A picture reaches at most 256 pixels from its point: a GRP frame's place and
@@ -641,7 +693,7 @@ render::Scene buildScene() {
     const float viewLeft = app.camX, viewTop = app.camY, viewRight = app.camX + float(viewW) / viewZoom, viewBottom = app.camY + float(viewH) / viewZoom;
     auto inView = [&](float x, float y) { return x >= viewX0 && x <= viewX1 && y >= viewY0 && y <= viewY1; };
 
-    // Doodad overlays and other map sprites (THG2). View > Layers: a doodad's overlay goes with the doodads, the rest with
+    // Doodad overlays and other map sprites (THG2). View > Modes: a doodad's overlay goes with the doodads, the rest with
     // the sprites.
     // (x, y, sprite) of the doodads' overlays: made again when the map changes
     static std::set<std::tuple<uint16_t, uint16_t, uint16_t>> overlays;
@@ -716,7 +768,7 @@ render::Scene buildScene() {
         bool active = app.mode == Mode::Locations;
         // A move: each selected location by the selected one's way; a resize: the selected one.
         int moveX = 0, moveY = 0;
-        if (app.drag == Drag::LocMove && ed.locationUsed(ed.selectedLocation())) {
+        if (app.drag == Drag::LocMove && app.dragMoved && ed.locationUsed(ed.selectedLocation())) {
             const Rect to = previewLocationRect(wx, wy);
             moveX = to.left - app.locStart.left, moveY = to.top - app.locStart.top;
         }
@@ -794,37 +846,58 @@ render::Scene buildScene() {
     // Symmetry axes.
     if (const int mm = ed.mirrors(); mm || ed.turns() > 1) {
         float W = ed.width() * 32.0f, H = ed.height() * 32.0f, t = 1.5f / app.zoom;
-        const float cx = float(ed.symmetryCenter().first), cy = float(ed.symmetryCenter().second);  // (through the center)
-        uint32_t c = 0x80C0FF70u;
-        auto vline = [&] { s.rects.push_back({cx - t, 0, cx + t, H, c, true}); };
-        auto hline = [&] { s.rects.push_back({0, cy - t, W, cy + t, c, true}); };
-        auto diag = [&](bool anti) {
-            for (int k = -200; k <= 200; ++k) {
-                const float f = k / 200.0f, x = cx + f * W, y = anti ? cy - f * H : cy + f * H;
-                if (x >= 0 && x <= W && y >= 0 && y <= H) s.rects.push_back({x - t * 2, y - t * 2, x + t * 2, y + t * 2, c, true});
-            }
-        };
-        if (mm & Mirror::LeftRight) vline();
-        if (mm & Mirror::TopBottom) hline();
-        if (mm & Mirror::Diagonal) diag(false);
-        if (mm & Mirror::AntiDiagonal) diag(true);
-        if (ed.turns() > 1) {  // a turn: a mark at the center
-            const float r = 10 / app.zoom;
-            s.rects.push_back({cx - r, cy - r, cx + r, cy + r, c, true});
-        }
-        // The center's handle: under the mouse (Terrain's Select tool) or while it is dragged: a ring and a cross.
-        if (app.drag == Drag::SymmetryCenter || (app.mouseIn && app.drag == Drag::None && symmetryHandleAt(app, app.mouseX, app.mouseY))) {
-            const float r = float(scale(10)) / app.zoom;
-            auto line = [&](float x0, float y0, float x1, float y1) {
+        const auto anchors = ed.symmetryAnchors();
+        const int hovered = app.drag == Drag::SymmetryCenter ? gSymmetryDragged
+                            : app.mouseIn && app.drag == Drag::None ? symmetryHandleIndex(app, app.mouseX, app.mouseY) : -1;
+        // A dragged anchor on another one: they merge when the mouse button is released (green: the handle shows it).
+        const bool merging = app.drag == Drag::SymmetryCenter && hovered >= 0 && hovered < int(anchors.size()) &&
+                             std::count(anchors.begin(), anchors.end(), anchors[size_t(hovered)]) > 1;
+        static const auto unit = [] {  // (the ring's points: once)
+            std::array<std::pair<float, float>, 25> p{};
+            for (int k = 0; k <= 24; ++k) p[size_t(k)] = {std::cos(k * 6.2831853f / 24), std::sin(k * 6.2831853f / 24)};
+            return p;
+        }();
+        for (int anchor = 0; anchor < int(anchors.size()); ++anchor) {
+            const float cx = float(anchors[size_t(anchor)].first), cy = float(anchors[size_t(anchor)].second);  // (through the anchor)
+            uint32_t c = 0x80C0FF70u;
+            auto vline = [&] { s.rects.push_back({cx - t, 0, cx + t, H, c, true}); };
+            auto hline = [&] { s.rects.push_back({0, cy - t, W, cy + t, c, true}); };
+            auto diag = [&](bool anti) {  // (one line, cut at the map's edges)
+                const float f0 = std::max(-cx / W, anti ? (cy - H) / H : -cy / H), f1 = std::min((W - cx) / W, anti ? cy / H : (H - cy) / H);
+                if (f0 >= f1) return;
                 render::RectDraw l;
-                l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = 0xFFD040FFu, l.thickness = 2, l.line = true;
+                l.x0 = cx + f0 * W, l.y0 = anti ? cy - f0 * H : cy + f0 * H, l.x1 = cx + f1 * W, l.y1 = anti ? cy - f1 * H : cy + f1 * H;
+                l.rgba = c, l.thickness = 3, l.line = true;
                 s.rects.push_back(l);
             };
-            for (int k = 0; k < 32; ++k) {
-                const float a0 = k * 6.2831853f / 32, a1 = (k + 1) * 6.2831853f / 32;
-                line(cx + r * std::cos(a0), cy + r * std::sin(a0), cx + r * std::cos(a1), cy + r * std::sin(a1));
+            if (mm & Mirror::LeftRight) vline();
+            if (mm & Mirror::TopBottom) hline();
+            if (mm & Mirror::Diagonal) diag(false);
+            if (mm & Mirror::AntiDiagonal) diag(true);
+            auto line = [&](float x0, float y0, float x1, float y1, uint32_t rgba) {
+                render::RectDraw l;
+                l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = rgba, l.thickness = 2, l.line = true;
+                s.rects.push_back(l);
+            };
+            auto ring = [&](float r, uint32_t rgba) {
+                for (size_t k = 0; k < 24; ++k)
+                    line(cx + r * unit[k].first, cy + r * unit[k].second, cx + r * unit[k + 1].first, cy + r * unit[k + 1].second, rgba);
+            };
+            const bool handle = anchor == hovered;
+            if (!handle) {  // each anchor: a cross with a small ring (with turns only, no axis shows where it is)
+                const float r = float(scale(5)) / app.zoom, arm = float(scale(12)) / app.zoom;
+                const uint32_t mark = 0x80C0FFE0u;
+                ring(r, mark);
+                line(cx - arm, cy, cx - r, cy, mark), line(cx + r, cy, cx + arm, cy, mark);
+                line(cx, cy - arm, cx, cy - r, mark), line(cx, cy + r, cx, cy + arm, mark);
             }
-            line(cx - r * 0.6f, cy, cx + r * 0.6f, cy), line(cx, cy - r * 0.6f, cx, cy + r * 0.6f);
+            // The center's handle: under the mouse (Terrain's Select tool) or while it is dragged: a ring and a cross.
+            if (handle) {
+                const float r = float(scale(10)) / app.zoom;
+                const uint32_t hc = merging ? 0x60E060FFu : 0xFFD040FFu;
+                ring(r, hc);
+                line(cx - r * 0.6f, cy, cx + r * 0.6f, cy, hc), line(cx, cy - r * 0.6f, cx, cy + r * 0.6f, hc);
+            }
         }
     }
 
@@ -994,6 +1067,9 @@ render::Scene buildScene() {
                 s.sprites.push_back(g);
             }
         }
+    } else if (terrainEditBlockedAt(app, wx, wy)) {  // (off the map: no brush; the cursor says No: map_input.inc)
+    } else if (app.mode == Mode::Terrain && app.drag == Drag::TerrainMove && app.hasTerrainSel) {
+        terrainMoveScene(s);
     } else if (app.mode == Mode::Terrain && shapeOn()) {
         shapeScene(s);
     } else if (app.mode == Mode::Terrain && (currentTool() == TRamp || currentTool() == TBridge)) {  // Ramp, Bridge: the brush, a diamond (any kind of terrain)
@@ -1426,6 +1502,8 @@ void syncMapUnitGraphics() {
     gGameUnitImage.clear(), gGameSubunitImage.clear();
     if (on) {
         static std::unique_ptr<UnitSprites> game;
+        static const bool released = (mapCacheReleases().push_back(+[] { game.reset(); }), true);
+        (void)released;
         std::string err;
         if (!game && !(game = std::make_unique<UnitSprites>())->load(app.data, err)) game.reset();
         for (uint16_t t = 0; game && t < app.ed->unitTypes().size(); ++t)
@@ -1471,19 +1549,35 @@ void tilesScene(render::Scene& s, float wx, float wy) {
             if (app.terrainPasting || tilesMaskLets(all[i].x, all[i].y, all[i].value)) cells.push_back({all[i].y * ed.width() + all[i].x, all[i].value});
     };
     const int tool = currentTool();
-    if (tool == TWand) return;  // (its selection only)
+    if (tool == TWand || tool == TLasso) return;  // (its selection only)
     if (tool == TSelect) {
         if (!app.terrainPasting || !ed.hasTileClipboard()) return;
         tilesPasteAt(wx, wy, cx, cy);  // (it may hang over the map's edge: the tiles on the map show)
         const int cw = ed.tileClipboardWidth();
         for (int y = 0; y < ed.tileClipboardHeight(); ++y)
-            for (int x = 0; x < cw; ++x) add(cx + x, cy + y, ed.tileClipboard()[size_t(y) * cw + x]);
+            for (int x = 0; x < cw; ++x) {
+                const uint16_t v = ed.tileClipboard()[size_t(y) * cw + x];
+                add(cx + x, cy + y, v);
+                const int tx = cx + x, ty = cy + y;  // (a null tile has no picture: black, as the paste makes it; GitHub #254)
+                if (v != 0xFFFF && tileIsNull(v) && tx >= 0 && ty >= 0 && tx < ed.width() && ty < ed.height())
+                    s.rects.push_back({float(tx * 32), float(ty * 32), float(tx * 32 + 32), float(ty * 32 + 32), 0x000000FFu, true});
+            }
     } else if (tool == TBrush && tilesStampOn() && !(appState().drag == Drag::Tiles && gTiles->scatter)) {  // the stamp at the mouse
         int sx, sy;
         tilesStampOrigin(cx, cy, sx, sy);
         const std::vector<Editor::TileAt> stamp = tilesStampCells(sx, sy);
         for (const auto& t : stamp) add(t.x, t.y, t.value);
         addMirrors(stamp);
+        if (gTiles->stampCopied)  // a copy's null tiles: holes (the map keeps its tiles there), each with a line across (GitHub #254)
+            for (int y = 0; y < gTiles->stampH; ++y)
+                for (int x = 0; x < gTiles->stampW; ++x)
+                    if (const int tx = sx + x, ty = sy + y; gTiles->stamp[size_t(y) * size_t(gTiles->stampW) + size_t(x)] == 0xFFFF && tx >= 0 &&
+                                                            ty >= 0 && tx < ed.width() && ty < ed.height()) {
+                        render::RectDraw l;
+                        l.x0 = float(tx * 32), l.y0 = float(ty * 32 + 32), l.x1 = float(tx * 32 + 32), l.y1 = float(ty * 32);
+                        l.rgba = 0xFFFFFF60u, l.thickness = 1, l.line = true;
+                        s.rects.push_back(l);
+                    }
     } else if (gTiles->solid && (tool == TBrush || tool == TSpray)) {  // Solid: the outline of the brush's rects (each rect at random)
         if (app.palette <= 0) return;
         std::vector<Editor::TileAt> foot;

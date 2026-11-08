@@ -3,6 +3,7 @@
 // StarCraft: Remastered HD assets, decoded to GPU-ready (still compressed) data. GPU-free.
 
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <string>
 #include <vector>
@@ -45,7 +46,9 @@ struct AnimImage {
 // Load images.dat image `image` ("anim\main_NNN.anim", or "HD2\anim\..." for HD2).
 // `carbot`: the Cartooned (Carbot) skin, anim\Carbot\ and Carbot\TileSet\; images it does not
 // cover fall back to the normal art.
-bool loadAnimImage(const GameData& data, int image, GraphicsQuality quality, AnimImage& out, std::string& error, bool carbot = false);
+// `offThread`: a worker reads (GameData::readFileOffThread).
+bool loadAnimImage(const GameData& data, int image, GraphicsQuality quality, AnimImage& out, std::string& error, bool carbot = false,
+                   bool offThread = false);
 
 // HD megatile graphics ("TileSet\<name>.dds.vr4" or "HD2\..."): one texture per megatile, indexed like
 // the SD megatiles (VX4EX).
@@ -54,7 +57,16 @@ struct HdTiles {
     DdsTexture::Format format = DdsTexture::BC1;
     std::vector<Bytes> tiles;  // compressed blocks of each megatile
 };
-bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, HdTiles& out, std::string& error, bool carbot = false);
+// `offThread`: a worker reads them (GameData::readFileOffThread).
+bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, HdTiles& out, std::string& error, bool carbot = false,
+                 bool offThread = false);
+// The same, read once for all who use them (the renderer's atlas, the palette, the Tiles grid, the pictures): they
+// stay while one holds them, and the last ones read stay for the next (a map of the same tileset). nullptr: not there.
+// `busy` (not nullptr): no wait while another thread reads them (the renderer's worker); *busy is true, and nullptr back.
+std::shared_ptr<const HdTiles> sharedHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, bool carbot = false,
+                                             std::string* error = nullptr, bool* busy = nullptr, bool offThread = false);
+// The last ones read go (no map is open): only the holders keep theirs.
+void releaseSharedHdTiles();
 
 // The HD or HD2 art of a GRP that no images.dat entry names (UnitSprites::extraImage: "tileset\<name>.grp", the creep
 // edges): "<path>.dds.grp" (or "HD2\..."; with `carbot`, the Carbot skin's first), one DDS a frame, its frames put into
@@ -62,7 +74,7 @@ bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, Hd
 // GRP) sits, kept inside the box.
 struct Grp;
 bool loadHdGrp(const GameData& data, const std::string& sdPath, const Grp& sd, GraphicsQuality quality, AnimImage& out,
-               std::string& error, bool carbot = false);
+               std::string& error, bool carbot = false, bool offThread = false);
 
 // Previews drawn without the GPU (src/hd_preview.cpp).
 // Decodes the region (x0, y0, w, h) of a block-compressed texture to RGBA (straight alpha).
@@ -75,10 +87,25 @@ struct TerrainLayer;
 Image renderHdTerrain(const Tileset& ts, const HdTiles& hd, const TerrainLayer& terrain, int downscale);
 // The HD2 command-card icons of units 0..227 (HD2\unit\cmdicons\cmdicons.dds.grp, or the Carbot
 // skin's), decoded; units without an icon (the game's placeholder) get an empty Sprite.
-bool loadHdCommandIcons(const GameData& data, bool carbot, std::vector<Sprite>& icons, std::string& error);
+bool loadHdCommandIcons(const GameData& data, bool carbot, std::vector<Sprite>& icons, std::string& error, bool offThread = false);
 // A unit in HD2 (or Carbot) art: its image and subunit in their default frames, centered on the
 // largest frame box, team color applied as the renderer does. Texture pixels.
 bool hdUnitPicture(const GameData& data, const UnitSprites& sprites, uint16_t unitType, uint32_t teamRgb, bool carbot, Sprite& out,
                    std::string& error);
+// The same in two parts, for a worker: what the unit's sprites say (its images, their default frames, the turret's place:
+// on the thread that owns `sprites`), then the picture from the game data only (offThread: through its handle for workers,
+// GameData::readFileOffThread).
+struct HdUnitPictureJob {
+    struct Part {
+        int image = -1, frame = 0;
+        bool flip = false;
+    };
+    std::vector<Part> parts;  // the unit's image, then its subunit's
+    int turretX = 0, turretY = 0;  // the subunit's place: the base's special-overlay offset for the base's frame (map pixels)
+    int turret0X = 0, turret0Y = 0;  // the same for the base's frame 0 (the HD art has fewer frames: the base draws frame 0)
+};
+HdUnitPictureJob hdUnitPictureJob(const UnitSprites& sprites, uint16_t unitType);
+bool hdUnitPictureFrom(const GameData& data, const HdUnitPictureJob& job, uint32_t teamRgb, bool carbot, Sprite& out, std::string& error,
+                       bool offThread = false);
 
 }  // namespace stardraft

@@ -445,6 +445,11 @@ void ListView::paintHeader(draw::Canvas& c, int rw, int hh) {
         draw::Rect cr = colRect(row, k);
         cr.left += px(kCellInset), cr.right -= px(kCellInset);
         c.text(cr, cols_[k].name, th.dim, alignFlags(cols_[k].align));
+        if (cols_[k].sortIcon >= 0) {  // (an icon, never a font's arrow: after the name, or before it in a right-aligned column)
+            const int nw = c.measure(cols_[k].name), iw = px(14);
+            const int x = cols_[k].align == ColAlign::Right ? cr.right - nw - iw : cols_[k].align == ColAlign::Center ? (cr.left + cr.right + nw) / 2 : cr.left + nw;
+            c.icon({x, cr.top, x + iw, cr.bottom}, cols_[k].sortIcon, th.dim, px(16));
+        }
     }
     c.setFont(of);
     c.fill({0, hh - 1, rw, hh}, th.border);

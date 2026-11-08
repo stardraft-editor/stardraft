@@ -9,6 +9,8 @@
 struct PaletteGridView : draw::View {
     std::vector<PaletteRow> rows;
     int pinned = 0;            // rows 1 to pinned are the pinned doodads' copies
+    kitui::ItemDrag pinDrag_;  // a pinned doodad's drag (its row), among the pins
+    int pinTo_ = -1;           // ... the pinned row it goes to
     Mode mode = Mode::Units;   // the mode of the rows (their pictures are of it)
     bool second = false;       // the second palette: no pick of its own shows (its picks are its own list)
     std::vector<int>* chosen = nullptr;  // the picks it shows (the first palette: the shell's; the second: its own)
@@ -16,6 +18,8 @@ struct PaletteGridView : draw::View {
     std::wstring searchWords;  // the search's text (lower case): its words are in the accent in a list
     // The item's picture in `box` (false: none; a terrain then gets an empty swatch).
     std::function<bool(draw::Canvas&, Mode, int value, bool sprites, draw::Rect box)> picture;
+    // The paint's time for new pictures: start (true), end (false; true back: pictures are left, the view paints again).
+    std::function<bool(bool start)> pictureBudget;
     // A left click on an item (row index), with the keys held.
     std::function<void(int row, unsigned mods)> picked;
     // A right click (the row under it, or -1), at `pt` (the view's coordinates).
@@ -25,7 +29,10 @@ struct PaletteGridView : draw::View {
         add(bar_, draw::Rect{});
         bar_.onScroll = [this](int p) { scrollTo(p); };
     }
-    ~PaletteGridView() override { remove(bar_); }
+    ~PaletteGridView() override {
+        if (againTimer_ && againHost_) againHost_->cancelTimer(againTimer_);  // (the host the timer is on: a floating palette has left it by now)
+        remove(bar_);
+    }
 
     const PaletteView* ownView = nullptr;  // a palette panel's own view (else the mode's: gViewByMode)
     const PaletteView& view() const { return ownView ? *ownView : gViewByMode[int(mode)]; }
@@ -79,6 +86,15 @@ struct PaletteGridView : draw::View {
 
     void resized() override { layout(); }
     void paint(draw::Canvas& c) override {
+        if (pictureBudget) pictureBudget(true);
+        struct BudgetEnd {  // (at each way out of the paint: the pictures left come in a next frame)
+            PaletteGridView& v;
+            ~BudgetEnd() {
+                if (v.pictureBudget && v.pictureBudget(false) && v.host() && !v.againTimer_)
+                    v.againHost_ = v.host(), v.againTimer_ = v.host()->timer(1, [&v = v] { v.againTimer_ = 0, v.againHost_ = nullptr, v.invalidate(); });
+            }
+        } budgetEnd{*this};
+        const MutedAccent muted(state && state != gActivePanel);  // (no focus: gray)
         const PanelScope scope(state);  // (its panel's picks)
         const bool own = state != nullptr;
         const std::vector<int>* chosen = own ? &shellPaletteChosen() : this->chosen;
@@ -126,11 +142,7 @@ struct PaletteGridView : draw::View {
                 if (isChosen && units && chosen->size() > 1) c.frame(f, kAccentBright, scale(2));
             }
             if (pinned && i >= 1 && i <= size_t(pinned)) {  // a pinned doodad's copy at the top: the pin at its right
-                draw::FontDesc glyphs;
-                glyphs.face = draw::Face::Glyphs, glyphs.px = scale(11);
-                const draw::Font of = c.setFont(c.font(glyphs));
-                c.text({r.right - scale(22), r.top, r.right - scale(6), r.bottom}, L"\xE718", kDim, draw::kRight | draw::kMiddle);
-                c.setFont(of);
+                c.icon({r.right - scale(22), r.top, r.right - scale(6), r.bottom}, int(UiIcon::Pin), kDim, scale(16));
             }
             draw::Rect box = r;
             if (v.grid) box = {r.left + scale(3), r.top + scale(3), r.right - scale(3), r.bottom - scale(3)};
@@ -138,6 +150,8 @@ struct PaletteGridView : draw::View {
                 const int bw = (r.bottom - r.top) * (mode == Mode::Terrain ? 2 : 1);
                 box = {r.left + scale(4), r.top + scale(2), r.left + scale(4) + bw, r.bottom - scale(2)};
             }
+            if (v.grid && !(isPick || isChosen || int(i) == hover_))  // (a grid: each cell a quiet tile, so the pictures of any shape sit in a grid)
+                c.roundBox({r.left + scale(2), r.top + scale(2), r.right - scale(2), r.bottom - scale(2)}, kCtl, draw::kNone, float(scale(4)));
             const bool drawn = picture && picture(c, mode, e.value, v.grid && v.sprites, box);
             if (!drawn && mode == Mode::Terrain) c.roundBox(box, draw::rgb(6, 6, 10), kBorder, float(scale(3)));  // nothing to show (Space): an empty swatch
             if (!v.grid) {
@@ -155,6 +169,11 @@ struct PaletteGridView : draw::View {
             r.top -= scroll_, r.bottom -= scroll_;
             paintFocusOutline(c, {r.left + 1, r.top + 1, r.right - 1, r.bottom - 1});
         }
+        if (pinDrag_.dragging() && pinTo_ >= 1 && pinTo_ != pinDrag_.item) {  // a pin's drag: the line where it goes
+            draw::Rect r = rowRect(pinTo_);
+            r.top -= scroll_, r.bottom -= scroll_;
+            kitpaint::drawDropLine(c, r.left, r.right, pinTo_ < pinDrag_.item ? r.top + scale(1) : r.bottom - scale(1));
+        }
         c.popClip();
         if (const int fh = paletteFooterHeight(v)) {  // grid: the hovered (or picked) item's name
             draw::Rect f{0, viewH, width(), viewH + fh};
@@ -162,6 +181,12 @@ struct PaletteGridView : draw::View {
             const int show = hover_ >= 0 && hover_ < int(rows.size()) ? rows[size_t(hover_)].value : units ? pick : -1;
             f.left += scale(6);
             if (app.ed && show >= 0) c.text(f, paletteItemNameOf(mode, show), kText, draw::kMiddle | draw::kEllipsis);  // (the rows' mode: GitHub #101)
+            else if (app.ed) {  // (nothing under the mouse or picked: how many the grid has, dim)
+                size_t n = 0;
+                for (size_t k = 0; k < rows.size(); ++k) n += rows[k].value >= 0 && !(pinned && k >= 1 && k <= size_t(pinned));
+                static const wchar_t* const kinds[] = {L" terrains", L" units", L" doodads", L" locations", L" sprites", L" layers"};
+                c.text(f, std::to_wstring(n) + tr(kinds[std::clamp(int(mode), 0, 5)]), kFaint, draw::kMiddle | draw::kEllipsis);
+            }
         }
     }
     bool mouse(const draw::MouseEvent& e) override {
@@ -172,6 +197,10 @@ struct PaletteGridView : draw::View {
         case draw::MouseKind::Move: {
             const int h = rowAt(e.pt);
             if (h != hover_) hover_ = h, invalidate();
+            if (pinDrag_.item >= 0 && pinDrag_.move(*this, e.pt)) {  // a pin's drag: the pinned row it goes to
+                const int to = std::clamp(h >= 1 && h <= pinned ? h : e.pt.y + scroll_ < rowRect(1).top ? 1 : pinned, 1, std::max(1, pinned));
+                if (to != pinTo_) pinTo_ = to, invalidate();
+            }
             return true;
         }
         case draw::MouseKind::Leave:
@@ -188,15 +217,31 @@ struct PaletteGridView : draw::View {
             keys_.pressed();
             if (h >= 0) keys_.at = h;
             if (h >= 0 && picked) picked(h, e.mods);
+            // (a pinned doodad's copy at the top: a drag moves it among the pins, as Move up and Move down)
+            if (e.kind == draw::MouseKind::Down && mode == Mode::Doodads && pinned > 1 && h >= 1 && h <= pinned) pinDrag_.press(*this, h, e.pt), pinTo_ = h;
             invalidate();
             return true;
         }
         case draw::MouseKind::Up:
+            if (e.button == 0 && pinDrag_.item >= 0) {
+                const bool dragged = pinDrag_.dragging();
+                const int from = pinDrag_.release(*this, e.pt), to = std::exchange(pinTo_, -1);
+                if (dragged && from >= 1 && to >= 1 && to != from && from < int(rows.size())) {
+                    const int value = rows[size_t(from)].value;
+                    const std::vector<uint16_t> shown = paletteShownDoodads(rows);
+                    doodadPinMoveBy(value, to - from, shown);
+                }
+                invalidate();
+                return true;
+            }
             if (e.button != 1) return false;
             if (context) context(rowAt(e.pt), e.pt);
             return true;
         default: return false;
         }
+    }
+    void captureLost() override {
+        if (pinDrag_.armed()) pinDrag_.cancel(*this), pinTo_ = -1, invalidate();
     }
     std::wstring tip(draw::Point p) override {  // (Report feedback names the entry under the mouse)
         const int h = rowAt(p);
@@ -252,6 +297,8 @@ struct PaletteGridView : draw::View {
     std::wstring focusedItem() const override { return isItem(keys_.at) ? rows[size_t(keys_.at)].label : std::wstring(); }
 
 private:
+    int againTimer_ = 0;  // (pictures left by a paint: the timer of the next one)
+    draw::Host* againHost_ = nullptr;  // (the host that timer is on)
     int px(int v100) const { return scale(v100); }
     bool isItem(int i) const { return i >= 0 && i < int(rows.size()) && i < int(rects_.size()) && rows[size_t(i)].value >= 0; }
     // The next item after row `i` (dir -1: before it), or -1.

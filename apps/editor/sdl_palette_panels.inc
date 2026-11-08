@@ -293,6 +293,7 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
     p->doc = doc;
     PalettePanelView& v = *p->view;
     v.mode = m, v.view = view, v.sort = sort;
+    v.search.setPlaceholder(paletteSearchCue(m));  // (the type's: "Search doodads")
     if (m != Mode::Units) v.view.sprites = false;
     std::vector<kit::DropdownItem> types;
     for (Mode t : kPanelModes) types.push_back({shellTr(kModeNames[int(t)])});
@@ -349,6 +350,7 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
             retitle(o);
         }
         pv->mode = to;
+        pv->search.setPlaceholder(paletteSearchCue(to));
         if (!other) {
             pv->section.clear();
             if (pv->mode != Mode::Units) pv->view.sprites = false;
@@ -383,6 +385,7 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
     v.onSort = [pv] { paletteSortMenuSdl(pv->mode, pv->sortButton, pv); };
     v.onCollapse = [pv] { shellPost([pv] { palettePanelCollapse(*pv, !pv->collapsed); }); };
     v.list.picture = panelPicture;
+    v.list.pictureBudget = panelPictureBudget;
     // A pick picks in the panel's mode: the active mode becomes it (as a click in the mode's own palette).
     v.list.picked = [pv](int row, unsigned mods) {
         if (row < 0 || row >= int(pv->list.rows.size())) return;
@@ -417,7 +420,7 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
 // A new panel like a palette (its mode, view and order), of the active tab; by the window `nearView` (a floating palette or
 // a panel: a step down and right of it), else over the map by the side bar.
 void palettePanelNew(Mode m, const PaletteView& view, PaletteSort sort, draw::View* nearView) {
-    if (!gRoot || !docOpen() || m == Mode::Locations) return;
+    if (!gRoot || !docOpen() || m == Mode::Locations || m == Mode::Layers) return;
     auto p = palettePanelMake(m, view, sort, activeDocKey());
     PalettePanelView& v = *p->view;
     // Its place: a step from the window it comes from (its size too), else over the map by the side bar.
@@ -515,8 +518,11 @@ std::vector<std::string> sidePanelsText(int doc) {
 }
 
 // The tab's panels from its map's file, the first time the tab shows (none kept: none).
+bool mapPrefsFromMap(const Editor& ed);  // (core/map_prefs.inc)
 void palettePanelsLoad(int doc) {
     if (!doc || gPanelsLoaded.count(doc)) return;
+    for (size_t i = 0; i < gDocs.size(); ++i)  // (settings that came with the map: when its files are read, at a later turn)
+        if (const Editor* ed = gDocs[i].key != doc ? nullptr : int(i) == gActive ? gState.ed.get() : gDocs[i].ed.get(); ed && !gDocs[i].page && !mapPrefsFromMap(*ed)) return;
     gPanelsLoaded.insert(doc);
     const fs::path f = palettePanelsFile(doc);
     std::error_code ec;
@@ -632,7 +638,7 @@ PanelWindow* floatingPanelOf(int doc, Mode m) {
     return nullptr;
 }
 bool paletteFloats(Mode m) {
-    if (m == Mode::Locations) return gFloatPal[int(m)].floating;
+    if (m == Mode::Locations || m == Mode::Layers) return gFloatPal[int(m)].floating;
     return floatingPanelOf(activeDocKey(), m) != nullptr;
 }
 
@@ -691,15 +697,15 @@ void floatPalettesTiles() {
 bool floatPalettesSync(Mode active, bool shown, bool, draw::Rect) {
     gPanelsShown = shown;
     floatPalettesTiles();  // (each Terrain panel in Rectangle shows its own Tiles list)
-    return active != Mode::Locations && floatingPanelOf(activeDocKey(), active) != nullptr;
+    return active != Mode::Locations && active != Mode::Layers && floatingPanelOf(activeDocKey(), active) != nullptr;
 }
 PanelState* floatingPanelStateOf(Mode m) {
-    PanelWindow* p = m == Mode::Locations ? nullptr : floatingPanelOf(activeDocKey(), m);
+    PanelWindow* p = m == Mode::Locations || m == Mode::Layers ? nullptr : floatingPanelOf(activeDocKey(), m);
     return p ? &p->view->states[size_t(m)] : nullptr;
 }
 
 draw::View* floatingWindowOf(Mode m) {
-    if (m == Mode::Locations) return gFloatPalOpen ? &gFloatPalView : nullptr;
+    if (m == Mode::Locations || m == Mode::Layers) return gFloatPalOpen && gFloatPalMode == m ? &gFloatPalView : nullptr;
     PanelWindow* p = floatingPanelOf(activeDocKey(), m);
     return p && p->open ? p->view.get() : nullptr;
 }
@@ -756,6 +762,10 @@ bool SDLCALL palettePanelsPress(void*, SDL_Event* e) {
             if (pt.y >= p->view->titleH && !p->view->type.frame().contains(pt) && &p->view->state() != gActivePanel) activatePanel(&p->view->state());
             return true;
         }
+    if (gFloatPalOpen && at(gFloatPalView, pt)) {
+        if (pt.y >= gFloatPalView.titleH && gFloatPalMode != Mode::Layers && gState.mode != gFloatPalMode) setMode(gFloatPalMode);  // (Map Layers': its list does it)
+        return true;
+    }
     if (gRoot && at(*gRoot, pt))
         if (PanelState* s = sidePanelAt(pt); s && s != gActivePanel && s->mode == gState.mode) activatePanel(s);  // (another mode's: its pick)
     // (The location list's window: its pick makes Locations the mode, locationListPicked.)

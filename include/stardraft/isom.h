@@ -351,12 +351,19 @@ bool tileFromIsom(const Chk& chk, const struct TerrainLayer& tile, int tx, int t
 // picks the group for, from the CV5): a group of one terrain has one, a transition two; {0, 0} when none.
 std::vector<std::array<uint16_t, 2>> tileGroupTerrains(const struct Tileset& tileset);
 
+// The chance (0 to 100 percent) that the isometric and Rectangle brushes pick a detailed (rare) tile variant: one after
+// the first empty megatile of its group. The default value is 5, the game's 1 in 20. detailedTileRoll: true for a
+// detailed tile, from a random number.
+void setDetailedTilePercent(int percent);
+int detailedTilePercent();
+bool detailedTileRoll(uint32_t rnd);
+
 // The tile group StarEdit puts under solid `terrain` (from the CV5), or -1. half: 0 left, 1 right tile of a rect.
 int solidTileGroup(const struct Tileset& tileset, uint16_t terrain, int half = 0);
 
 // The tiles that the isometric brush puts inside `terrain` (its solid rect, not its edges), for rect (rx, ry): tiles 2rx
 // and 2rx + 1 of row ry (Terrain's Solid, docs/dev/solid-terrain-brush.md). A game terrain: its solid group that stacks
-// under the tile above in `tile` (as StarEdit picks), and one of its variants, a rare one 1 time in 20. A mod terrain
+// under the tile above in `tile` (as StarEdit picks), and one of its variants, a rare one as detailedTileRoll picks. A mod terrain
 // (Tileset::modTerrains): one of its fill pieces, as pickModPiece picks them; with no fill pieces, its stand-in's tiles.
 // `rnd`: a random number. False: the terrain has no solid tiles in the tileset.
 bool solidRectTiles(const struct Tileset& tileset, uint16_t terrain, const struct TerrainLayer& tile, int rx, int ry, uint32_t rnd, uint16_t& left,

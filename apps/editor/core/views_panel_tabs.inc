@@ -45,7 +45,7 @@ struct PanelTabsView final : stardraft::draw::View {
         c.fill(rc, kBg);
         tabs.clear();
         const std::vector<Mode> ms = modes();
-        static const UiIcon icons[kModeCount] = {UiIcon::Terrain, UiIcon::Units, UiIcon::Doodads, UiIcon::Locations, UiIcon::DatSprites};
+        static const UiIcon icons[kModeCount] = {UiIcon::Terrain, UiIcon::Units, UiIcon::Doodads, UiIcon::Locations, UiIcon::DatSprites, UiIcon::Layers};
         int widest = 0;
         for (Mode m : ms) widest = std::max<int>(widest, c.measure(kModeNames[int(m)]));
         const int n = std::max<int>(1, int(ms.size()));

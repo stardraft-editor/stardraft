@@ -72,7 +72,7 @@ struct TilesArt {
     // HD2 or Carbot megatiles (pixelsMode 1, 2) for each game data (a Cosmonarchy tab has its own; the game's stay
     // loaded while one is open), with the era and mode they are of.
     struct HdSlot {
-        HdTiles hd;
+        std::shared_ptr<const HdTiles> hd;  // (sharedHdTiles: the palette's and the renderer's)
         int era = -1, mode = -1;
     };
     std::map<const GameData*, HdSlot> hdByData;
@@ -141,7 +141,7 @@ bool tilesStampOn() { return !gTiles->solid && (gTiles->stamp.size() > 1 || (!gT
 void tilesToBrush() {
     AppState& app = appState();
     app.terrainPasting = false;
-    if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || currentTool(app) == TWand)) {
+    if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || currentTool(app) == TWand || currentTool(app) == TLasso)) {
         app.toolByMode[int(Mode::Terrain)] = TBrush;
         fillToolCombo(app);
     }
@@ -317,13 +317,14 @@ std::vector<Editor::TileAt> solidMirrored(const std::vector<Editor::TileAt>& cel
 }
 // (Rectangle with a game terrain: on a mod's tileset, the mod's own tiles of that terrain too, as the isometric brush puts
 // them; a mod terrain's fill stays as it is, as the isometric brush keeps it)
-// The mask (Alt+click in the lists; none for Custom): only the cells it lets change. Rectangle: a tile of a masked terrain
-// (its group's; a mod's terrains have no groups of their own: the terrain there); Tile: a tile of a masked value.
+// The mask (Alt+click in the lists): only the cells it lets change. Rectangle: a tile of a masked terrain (its group's; a
+// mod's terrains have no groups of their own: the terrain there); Tile and Custom: a tile of a masked value (Alt+click
+// on a custom terrain: its tiles, GitHub #247).
 const std::vector<std::array<uint16_t, 2>>& solidGroupTerrains();
 bool tilesMaskLets(int x, int y, uint16_t value) {
     const Editor& ed = *appState().ed;
     const std::vector<uint16_t>& mask = gTiles->solid ? ed.terrainMask() : ed.tileMask();
-    if (mask.empty() || gTiles->stamps) return true;
+    if (mask.empty()) return true;
     if (x < 0 || y < 0 || x >= ed.width() || y >= ed.height()) return false;
     const auto in = [&](uint16_t v) { return std::find(mask.begin(), mask.end(), v) != mask.end(); };
     const uint16_t v = ed.terrain().tiles[size_t(y) * ed.width() + x];
@@ -388,7 +389,7 @@ void tilesPlacedMessage(int n, const wchar_t* verb) {
     Editor& ed = *appState().ed;
     const int doodads = ed.takeDoodadsRemovedByTerrain(), units = ed.takeUnitsRemovedByTerrain();
     std::wstring m = std::wstring(verb) + (n == 1 ? L" 1 tile" : L" " + std::to_wstring(n) + L" tiles");
-    if (!n) m = !gTiles->stamps && !(gTiles->solid ? ed.terrainMask() : ed.tileMask()).empty() ? L"Nothing changed: the mask keeps these tiles" : L"The tiles are the same already";
+    if (!n) m = !(gTiles->solid ? ed.terrainMask() : ed.tileMask()).empty() ? L"Nothing changed: the mask keeps these tiles" : L"The tiles are the same already";
     if (doodads) m += L". Removed " + std::to_wstring(doodads) + (doodads == 1 ? L" doodad under them" : L" doodads under them");
     if (units) m += L". Removed " + std::to_wstring(units) + (units == 1 ? L" unit that cannot stand there" : L" units that cannot stand there");
     if (doodads || units) m += L".";
@@ -672,6 +673,26 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
         if (appState().terrainPasting && ed.hasTileClipboard()) {
             ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
             tilesPasteAt(wx, wy, tx, ty);  // (it may hang over the map's edge)
+            bool mapLayersOnLayer();  // (map_layers.inc)
+            bool mapLayersActiveRefuses();
+            if (mapLayersActiveRefuses()) {
+                appState().drag = Drag::None;
+                return true;
+            }
+            if (mapLayersOnLayer()) {
+                std::vector<std::pair<int, int>> tiles;
+                const int cw = ed.tileClipboardWidth();
+                for (int y = 0; y < ed.tileClipboardHeight(); ++y)
+                    for (int x = 0; x < cw; ++x)
+                        if (const int at = tx + x, row = ty + y; ed.tileClipboard()[size_t(y) * cw + x] != 0xFFFF && at >= 0 && row >= 0 && at < int(ed.width()) && row < int(ed.height()))
+                            tiles.push_back({at, row});
+                ed.beginStroke();
+                const int pasted = ed.pasteTiles(tx, ty);
+                ed.endStroke();
+                if (pasted) terrainPastedOnLayer(tiles);
+                appState().drag = Drag::None;
+                return true;
+            }
             // The copy stays on the mouse, as a brush: click again to paste again; right-click or Esc stops (GitHub feedback #123).
             // A drag pastes it again along the way, each copy next to the last (on a grid of its size from the first),
             // all in one undo step (GitHub #237).
@@ -728,18 +749,81 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
     return true;
 }
 
+// A paste drag's next copy at (tx, ty): its tiles, but not its null tiles: the map keeps its tiles there (GitHub #255).
+// The tiles changed.
+int tilesPasteNoNull(Editor& ed, int tx, int ty) {
+    const int w = ed.tileClipboardWidth(), h = ed.tileClipboardHeight();
+    const std::vector<uint16_t>& clip = ed.tileClipboard();
+    std::vector<Editor::TileAt> cells;
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x)
+            if (const uint16_t v = clip[size_t(y) * size_t(w) + size_t(x)]; v != 0xFFFF && !tileIsNull(v)) cells.push_back({tx + x, ty + y, v});
+    return ed.placeTileValues(cells);
+}
+
+// Alt+click on a tile or a custom terrain (and the row's right-click item): its tiles go into the tile mask, or out of it
+// when they are all in it already (a toggle, as a terrain in the terrain list). Painting in Tile and Custom then changes
+// only the tiles of the mask.
+// A mask changed: the tool strip's chip shows it (the strip's height changes with it).
+void shellRelayout();
+void shellToolsChanged();
+void masksChanged() {
+    shellToolsChanged();
+    shellRelayout();
+}
+// The chip's close button and the map's right-click item Clear the mask: no terrain mask and no tile mask.
+void shellPaletteChanged();
+void masksClear() {
+    AppState& app = appState();
+    if (!app.ed) return;
+    const bool terrains = !app.ed->terrainMask().empty(), tiles = !app.ed->tileMask().empty();
+    app.ed->setTerrainMask({}), app.ed->setTileMask({});
+    setMessage(terrains && tiles ? L"Cleared the masks: painting changes all terrains and tiles"
+               : tiles           ? L"Cleared the tile mask: painting changes all tiles"
+                                 : L"Cleared the terrain mask: painting changes all terrains");
+    app.dirty = true;
+    shellPaletteChanged(), tilesPanelRepaint();
+    masksChanged();
+}
+bool tilesMaskHas(const std::vector<uint16_t>& tiles) {
+    const std::vector<uint16_t>& mask = appState().ed->tileMask();
+    return !tiles.empty() && std::all_of(tiles.begin(), tiles.end(), [&](uint16_t v) { return std::find(mask.begin(), mask.end(), v) != mask.end(); });
+}
+void tilesMaskToggle(const std::vector<uint16_t>& tiles) {
+    if (!appState().ed || tiles.empty()) return;
+    std::vector<uint16_t> mask = appState().ed->tileMask();
+    if (tilesMaskHas(tiles)) std::erase_if(mask, [&](uint16_t v) { return std::find(tiles.begin(), tiles.end(), v) != tiles.end(); });
+    else
+        for (uint16_t v : tiles)
+            if (std::find(mask.begin(), mask.end(), v) == mask.end()) mask.push_back(v);
+    setMessage(mask.empty() ? L"No mask: painting changes all tiles"
+                            : L"Mask: painting in Tile and Custom changes only the tiles with an outline (" + std::to_wstring(mask.size()) +
+                                  L"). Alt+click takes them out.");
+    appState().ed->setTileMask(std::move(mask));
+    tilesPanelRepaint();
+    appState().dirty = true;
+    masksChanged();
+}
+// The tiles of custom terrain (each value once; its holes are not in it).
+std::vector<uint16_t> stampTilesOf(const TerrainStamp& s) {
+    std::vector<uint16_t> out;
+    for (size_t i = 0; i < s.tiles.size() && i < s.mask.size(); ++i)
+        if (const uint16_t v = s.tiles[i]; s.mask[i] && std::find(out.begin(), out.end(), v) == out.end()) out.push_back(v);
+    return out;
+}
+
 // The drag: the footprint at the mouse; the stamp: each block of its pattern along the way from the last tile (a fast
 // drag leaves no gaps).
 void tilesMouseMove(float wx, float wy) {
     if (!appState().ed) return;
-    if (gTilesPasteDrag) {  // (a drag with the copy on the mouse: the copies on its grid from the first, each once)
+    if (gTilesPasteDrag) {  // (a drag with the copy on the mouse: the copies on its grid from the first, each once; no null tiles)
         Editor& ed = *appState().ed;
         int tx, ty;
         tilesPasteAt(wx, wy, tx, ty);
         const int w = std::max(1, ed.tileClipboardWidth()), h = std::max(1, ed.tileClipboardHeight());
         const auto cell = [](int v, int at, int n) { return at + int(std::floor(double(v - at) / n)) * n; };
         const int cx = cell(tx, gTilesPasteX, w), cy = cell(ty, gTilesPasteY, h);
-        if (cx != gTiles->lastX || cy != gTiles->lastY) gTilesStrokePlaced += ed.pasteTiles(cx, cy), gTiles->lastX = cx, gTiles->lastY = cy;
+        if (cx != gTiles->lastX || cy != gTiles->lastY) gTilesStrokePlaced += tilesPasteNoNull(ed, cx, cy), gTiles->lastX = cx, gTiles->lastY = cy;
         return;
     }
     if (!tilesHavePick()) return;

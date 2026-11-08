@@ -1,4 +1,4 @@
-// View > Layers > Creep (core.inc): the creep that the map's Zerg buildings have at the start of a game (stardraft/
+// View > Modes > Creep (core.inc): the creep that the map's Zerg buildings have at the start of a game (stardraft/
 // creep.h: the creep makers' areas, the footprints of the buildings that require creep, the map's own creep tiles),
 // drawn as the game draws it: each creep tile is a tile of the tileset's creep group, its variant drawn once a
 // session, and each tile next to creep gets a frame of the creep edge GRP over it. Made again only when the terrain or
@@ -98,7 +98,7 @@ const std::vector<uint8_t>& shownCreep(const Editor& ed) {
     return game ? *game : mapCreep(ed);
 }
 
-// The terrain with the start creep's tiles (View > Layers > Creep on, and the terrain shows).
+// The terrain with the start creep's tiles (View > Modes > Creep on, and the terrain shows).
 void addCreepTiles(const Editor& ed, TerrainLayer& terrain) {
     if (!gLayers.creep || !gLayers.terrain || !ed.isOpen()) return;
     const std::vector<uint8_t>& creep = shownCreep(ed);
@@ -181,11 +181,11 @@ int creepTilesShown(const Editor& ed) {
     return n;
 }
 
-// View > Layers > Creep.
+// View > Modes > Creep.
 void toggleCreep() {
     gLayers.creep = !gLayers.creep;
     setMessage(gLayers.creep ? std::wstring(tr(L"Creep shows"))
-                             : std::wstring(tr(L"Creep is hidden (View > Layers shows it again)")));
+                             : std::wstring(tr(L"Creep is hidden (View > Modes shows it again)")));
     shellMenusChanged();
     shellState().dirty = true;
 }

@@ -18,7 +18,10 @@ struct StatusView final : stardraft::draw::View {
         const int w = width(), h = height();
         c.fill({0, 0, w, h}, kPanel);
         c.fill({0, 0, w, 1}, kBorder);
-        const bool map = gWorkspace == Workspace::Map && !activePage();  // (a page: Start, the map pages: no map parts)
+        bool docOpen();
+        bool newPageCovers();
+        // (a page: Start, the map pages, the New page over a map; no map open: no map parts)
+        const bool map = gWorkspace == Workspace::Map && !activePage() && docOpen() && !newPageCovers();
         const int pad = scale(8);
         auto part = [&](int l, int r, int i, COLORREF col) { c.text({l + pad, 1, r - pad, h}, st.statusText[i], col, kMiddle | kEllipsis); };
         auto sep = [&](int x) { c.fill({x, scale(4), x + 1, h - scale(3)}, kBorder); };

@@ -79,6 +79,8 @@ public:
     virtual void changed() = 0;
     // A force name typed: the program puts it into the map when the typing stops.
     virtual void typed() = 0;
+    // The width that the page can use (Forces go beside the players where both fit). 0: not known.
+    virtual int availableWidth() { return 0; }
     // The width of t in the page's font (the page's columns are measured with it).
     virtual int textWidth(const std::wstring& t) = 0;
     // The page's content is w x h (the program sizes the window it is in).
@@ -155,8 +157,8 @@ public:
         if (width() != l.width || height() != l.height) host_.fitSize(l.width, l.height);  // (its own size: a paint again)
         const int gap = scale(8);
         auto text = [&](const std::wstring& t, int x, int y, int w, draw::Color col) { c.text({x, y, x + w, y + l.rowH}, t, col, draw::kMiddle | draw::kEllipsis); };
-        text(L"Players", l.c0, l.pad, l.right - l.c0, kText);  // a section heading, as the map's fields have
-        c.fill({l.c0, l.pad + l.rowH, l.right, l.pad + l.rowH + 1}, kBorder);
+        text(L"Players", l.c0, l.pad, l.c5 - l.c0, kText);  // a section heading, as the map's fields have
+        c.fill({l.c0, l.pad + l.rowH, l.c5, l.pad + l.rowH + 1}, kBorder);
         int y = l.tableTop;
         text(L"Player", l.c0, y, l.c1 - l.c0, kDim), text(L"Type", l.c1, y, l.c2 - l.c1, kDim), text(L"Race", l.c2, y, l.c3 - l.c2, kDim);
         text(L"Force", l.c3, y, l.c4 - l.c3, kDim), text(L"Color", l.c4, y, l.c5 - l.c4, kDim);
@@ -173,11 +175,11 @@ public:
         }
         // Forces: the name (a field), then the four flags.
         y = l.forcesTop;
-        text(L"Forces", l.c0, y, l.right - l.c0, kText);
-        c.fill({l.c0, y + l.rowH, l.right, y + l.rowH + 1}, kBorder);
+        text(L"Forces", l.f0, y, l.fRight - l.f0, kText);
+        c.fill({l.f0, y + l.rowH, l.fRight, y + l.rowH + 1}, kBorder);
         y += l.pitch;
         for (int f = 0; f < 4; ++f) {
-            name_[f].setFrame({l.c0, y, l.c1 + scale(110), y + l.rowH});
+            name_[f].setFrame({l.f0, y, l.f0 + scale(190), y + l.rowH});
             int fx = l.flagX;
             for (int b = 0; b < 4; ++b) {
                 flag_[f][b].setFrame({fx, y, fx + l.flagW[b] - gap, y + l.rowH});
@@ -197,8 +199,8 @@ public:
             const bool good = line[0] == L'\x2713';
             line = line.substr(std::min(line.size(), size_t(3)));
             const draw::Color col = good ? kGood : kWarn;
-            c.icon({l.c0, y, l.c0 + scale(16), y + scale(22)}, int(good ? UiIcon::Check : UiIcon::Warning), col, scale(16));
-            c.text({l.c0 + scale(24), y, l.right, y + scale(22)}, line, col, draw::kMiddle | draw::kEllipsis);
+            c.icon({l.f0, y, l.f0 + scale(16), y + scale(22)}, int(good ? UiIcon::Check : UiIcon::Warning), col, scale(16));
+            c.text({l.f0 + scale(24), y, l.fRight, y + scale(22)}, line, col, draw::kMiddle | draw::kEllipsis);
             y += scale(22);
         }
     }
@@ -206,21 +208,26 @@ public:
 private:
     // The page's rows (the same at each paint).
     struct Rows {
-        int pad, rowH, pitch, c0, c1, c2, c3, c4, c5, flagX, right, tableTop, forcesTop, problemsTop, width, height;
+        int pad, rowH, pitch, c0, c1, c2, c3, c4, c5, f0, fRight, flagX, right, tableTop, forcesTop, problemsTop, width, height;
         int flagW[4];
     };
     Rows rows() {
         Rows l{};
         l.pad = scale(stardraft::kit::kDialogPad), l.rowH = scale(stardraft::kit::kFieldH), l.pitch = l.rowH + scale(8);
         l.c0 = l.pad, l.c1 = l.pad + scale(80), l.c2 = l.c1 + scale(210), l.c3 = l.c2 + scale(170), l.c4 = l.c3 + scale(170), l.c5 = l.c4 + scale(230);
-        l.flagX = l.c1 + scale(120);
-        int end = l.flagX;
-        for (int b = 0; b < 4; ++b) l.flagW[b] = host_.textWidth(kForceFlagNames[b]) + scale(40), end += l.flagW[b];
-        l.right = std::max(l.c5, end);
-        l.tableTop = l.pad + l.pitch;                    // under the "Players" heading
-        l.forcesTop = l.tableTop + l.pitch * 13 + l.pad;  // the column names and 12 players
+        int flags = 0;
+        for (int b = 0; b < 4; ++b) l.flagW[b] = host_.textWidth(kForceFlagNames[b]) + scale(40), flags += l.flagW[b];
+        const int forcesW = scale(200) + flags;  // (the name, then the four flags)
+        l.tableTop = l.pad + l.pitch;            // under the "Players" heading
+        const int tableEnd = l.tableTop + l.pitch * 13;  // the column names and 12 players
+        // Forces and what the map needs: beside the players where they fit, else under them.
+        const bool beside = host_.availableWidth() >= l.c5 + 2 * l.pad + forcesW + l.pad;
+        l.f0 = beside ? l.c5 + 2 * l.pad : l.c0, l.flagX = l.f0 + scale(200);
+        l.fRight = beside ? l.f0 + forcesW : std::max(l.c5, l.f0 + forcesW);  // (under the players: its line as long as theirs)
+        l.right = std::max(l.c5, l.fRight);
+        l.forcesTop = beside ? l.pad : tableEnd + l.pad;
         l.problemsTop = l.forcesTop + l.pitch + 4 * l.pitch + l.pad;
-        l.height = l.problemsTop + scale(70) + l.pad;
+        l.height = std::max(l.problemsTop + scale(70), beside ? tableEnd : 0) + l.pad;
         l.width = l.right + l.pad;
         return l;
     }

@@ -5,6 +5,7 @@
 // theirs here. A panel that is not active paints and measures with its own state in the app state for a moment
 // (PanelScope).
 
+void mapLayersDragStop();
 struct PanelState {
     Mode mode = Mode::Units;
     int palette = -1;  // (AppState's)
@@ -196,6 +197,7 @@ void activatePanel(PanelState* p) {
     fillToolCombo(app);
     app.terrainPasting = false;
     rebuildList(app);
+    mapLayersDragStop();  // (core/map_layers.inc)
     app.drag = Drag::None;
     app.dirty = true;
     shellPanelsChanged();
@@ -231,7 +233,7 @@ bool panelStateRead(PanelState& s, const std::vector<std::string>& part, size_t 
     if (s.terrainRect && m == Mode::Terrain) s.brushSize = std::max(1.0f, s.brushSize);  // (the Rectangle tools: a tile is the least)
     if (m == Mode::Terrain && (s.tool > TRamp || (s.terrainRect && s.tool == TJumble))) s.tool = TBrush;  // (Jumble: Isometric's only)
     if ((m == Mode::Units && s.tool > UErase) || (m == Mode::Doodads && s.tool > DErase) || (m == Mode::Sprites && s.tool > SErase) ||
-        (m == Mode::Locations && s.tool > LErase))
+        (m == Mode::Locations && s.tool > LErase) || (m == Mode::Layers && s.tool > LayersMove))
         s.tool = 0;
     s.owner = std::clamp(num(8), 0, 11), s.palette = num(9);
     s.chosen.clear();

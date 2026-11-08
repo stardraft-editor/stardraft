@@ -13,7 +13,7 @@ constexpr int kIconGap = 5;
 constexpr int kMinTabW = 90;    // a tab's width: its text, within these
 constexpr int kMaxTabW = 260;
 constexpr int kSegGap = 4;      // between the segments of a Segmented row (CONTROLS.md)
-constexpr int kDragSlop = 6;    // the mouse moves this far before a tab is dragged
+constexpr int kDragSlop = 4;    // the mouse moves this far before a tab is dragged (as every drag: docs/dev/PATTERNS.md)
 }  // namespace
 
 void TabStrip::setTabs(std::vector<Tab> tabs) {

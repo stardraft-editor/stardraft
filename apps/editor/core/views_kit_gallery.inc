@@ -154,7 +154,7 @@ public:
                 bool on, over;
             } bare[] = {{UiIcon::OpenExternal, L"open", Tone::Primary, false, false}, {UiIcon::OpenExternal, L"open, mouse", Tone::Primary, false, true},
                         {UiIcon::Duplicate, L"duplicate", Tone::Normal, false, false}, {UiIcon::Duplicate, L"mouse", Tone::Normal, false, true},
-                        {UiIcon::Delete, L"delete, mouse", Tone::Danger, false, true},  {L"\xE7E8", L"turned off", Tone::Quiet, true, false}};
+                        {UiIcon::Delete, L"delete, mouse", Tone::Danger, false, true},  {UiIcon::Power, L"turned off", Tone::Quiet, true, false}};
             for (const auto& bb : bare) {
                 kitpaint::drawIconFace(c, {x, y + scale(6), x + b, y + scale(6) + b}, bb.g, bb.tone, bb.on, bb.over);
                 caption(x - scale(4), y + scale(8) + b, bb.name);
@@ -178,7 +178,7 @@ public:
                 s_.add({r, nullptr, [this] { selected = !selected, invalidate(); }, L"", draw::Cursor::Hand});
                 if (kind != 2)
                     kitui::rowActions(c, s_, r,
-                                      {{L"\xE7E8", L"Turn off", click, Tone::Quiet},
+                                      {{UiIcon::Power, L"Turn off", click, Tone::Quiet},
                                        {UiIcon::Duplicate, L"Duplicate", click},
                                        {UiIcon::MoveUp, L"Move up", click, Tone::Normal, false, false},
                                        {UiIcon::Close, L"Remove", click, Tone::Danger}},

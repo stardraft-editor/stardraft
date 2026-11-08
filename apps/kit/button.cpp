@@ -20,7 +20,15 @@ void Button::paint(draw::Canvas& c) {
     if (enabled_ && hot_ && down_) fill = tone_ == Tone::Primary ? th.sel : th.ctlDown;
     if (!enabled_) fill = th.bg, line = th.border;
     if (hasFocus() && enabled_) line = th.accent;
-    c.roundBox(r, fill, line, px(kRadius));
+    if (joinLeft_ || joinRight_) {  // (the box wider on the joined sides, cut by the clip: square corners there)
+        const int over = px(kRadius) + 2;
+        c.pushClip(r);
+        c.roundBox({r.left - (joinLeft_ ? over : 0), r.top, r.right + (joinRight_ ? over : 0), r.bottom}, fill, line, px(kRadius));
+        if (joinRight_) c.fill({r.right - 1, r.top + 1, r.right, r.bottom - 1}, th.border);  // the line to the next segment
+        c.popClip();
+    } else {
+        c.roundBox(r, fill, line, px(kRadius));
+    }
     c.text(r, text_, !enabled_ ? th.faint : toneText(tone_ == Tone::Quiet ? Tone::Normal : tone_), draw::kMiddle | draw::kCenter | draw::kEllipsis);
 }
 

@@ -216,6 +216,7 @@ void mediaFilesPicked(void* userdata, const char* const* list, int, bool tracks)
 void musicFilesPicked(void* userdata, const char* const* list, int filter) { mediaFilesPicked(userdata, list, filter, true); }
 void dotFilesPicked(void* userdata, const char* const* list, int filter) { mediaFilesPicked(userdata, list, filter, false); }
 
+void gFilesHostChanged();  // (below: the other views that show the sounds)
 // Imports the sound files of the dialog into the map (staredit\wav\<file name>), as one undo step; a file that does not
 // decode is named in the status bar. The first one that came in is selected.
 // The map the dialog was opened for (target): when another map is open now, nothing is imported into it.
@@ -241,6 +242,78 @@ void importSoundFilesSdl(const std::vector<fs::path>& files, const Editor* targe
     setMessage(L"Imported " + std::to_wstring(added.size()) + L" sounds");
     updateTitle();
     gFilesPage.setSelected(added.front());
+}
+
+// Any files into the map, as one undo step (All files): each by its name; a sound goes where the sounds are, and a file
+// of that name in the map is replaced.
+void addMapFilesSdl(const std::vector<fs::path>& files, const Editor* target) {
+    if (!gState.ed || !gState.ed->isOpen()) return setMessage(L"Open a map first: the files go into the map");
+    if (gState.ed.get() != target) return setMessage(L"The map changed while you selected the files: nothing was added");
+    std::vector<ArchiveFile> read;
+    int replaced = 0;
+    for (const fs::path& f : files) {
+        std::ifstream in(f, std::ios::binary);
+        if (!in) {
+            setMessage(L"Could not read the file: " + f.filename().wstring());
+            continue;
+        }
+        Bytes data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        std::wstring ext = f.extension().wstring();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::towlower);
+        std::string name = (ext == L".wav" || ext == L".ogg" ? "staredit\\wav\\" : "") + narrow(f.filename().wstring());
+        if (!archiveNameUsable(name)) {
+            setMessage(L"Did not add " + f.filename().wstring() + L": the game uses that name");
+            continue;
+        }
+        if (const ArchiveFile* same = gState.ed->archiveFile(name)) name = same->name, ++replaced;  // (the names of a map have no case)
+        read.push_back({name, std::move(data)});
+    }
+    if (read.empty()) return;
+    const std::string first = read.front().name;
+    const size_t n = read.size();
+    gState.ed->setArchiveFiles(std::move(read));
+    setMessage(L"Added " + std::to_wstring(n) + (n == 1 ? L" file" : L" files") + (replaced ? L" (" + std::to_wstring(replaced) + L" replaced)" : L""));
+    updateTitle();
+    gFilesPage.setSelected(first);
+    gFilesPage.invalidate();
+    gFilesHostChanged();
+}
+void mapFilesPicked(void* userdata, const char* const* list, int) {
+    std::vector<fs::path> files;
+    for (int i = 0; list && list[i]; ++i) files.push_back(fs::path(widen(list[i])));
+    if (files.empty()) return;
+    const Editor* target = static_cast<const Editor*>(userdata);
+    shellPost([files, target] { addMapFilesSdl(files, target); });
+}
+// Replace and Extract: the file of the map the dialog is open for.
+std::string gMapFileAsked;
+void replaceFilePicked(void* userdata, const char* const* list, int) {
+    if (!list || !list[0]) return;
+    const fs::path file(widen(list[0]));
+    const Editor* target = static_cast<const Editor*>(userdata);
+    shellPost([file, target] {
+        if (!gState.ed || gState.ed.get() != target || !gState.ed->archiveFile(gMapFileAsked)) return setMessage(L"The map changed while you selected the file: nothing changed");
+        std::ifstream in(file, std::ios::binary);
+        if (!in) return setMessage(L"Could not read the file: " + file.filename().wstring());
+        Bytes data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        gState.ed->setArchiveFiles({{gMapFileAsked, std::move(data)}});
+        setMessage(L"Replaced the data of " + widen(gMapFileAsked));
+        updateTitle();
+        gFilesPage.invalidate();
+        gFilesHostChanged();
+    });
+}
+void extractFilePicked(void* userdata, const char* const* list, int) {
+    if (!list || !list[0]) return;
+    const fs::path file(widen(list[0]));
+    const Editor* target = static_cast<const Editor*>(userdata);
+    shellPost([file, target] {
+        const ArchiveFile* f = gState.ed && gState.ed.get() == target ? gState.ed->archiveFile(gMapFileAsked) : nullptr;
+        if (!f) return setMessage(L"The map changed while you selected the place: nothing was saved");
+        std::ofstream out(file, std::ios::binary);
+        out.write(reinterpret_cast<const char*>(f->data.data()), std::streamsize(f->data.size()));
+        setMessage(out ? L"Saved " + file.filename().wstring() : L"Could not save " + file.filename().wstring());
+    });
 }
 
 // The open dialog's answer (SDL's thread): the UI thread imports the files.
@@ -270,6 +343,17 @@ public:
         sdlFileDialog(SDL_FILEDIALOG_OPENFILE, soundFilesPicked, gState.ed.get(), kSounds, 1, "", "", true);  // (the map it opens for)
         return {};
     }
+    void addFiles() override { sdlFileDialog(SDL_FILEDIALOG_OPENFILE, mapFilesPicked, gState.ed.get(), nullptr, 0, "", "", true); }
+    void extractFile(const std::string& name) override {
+        gMapFileAsked = name;
+        const size_t slash = name.find_last_of("\\/");
+        const std::string file = slash == std::string::npos ? name : name.substr(slash + 1);
+        sdlFileDialog(SDL_FILEDIALOG_SAVEFILE, extractFilePicked, gState.ed.get(), nullptr, 0, file.c_str(), "", false);
+    }
+    void replaceFile(const std::string& name) override {
+        gMapFileAsked = name;
+        sdlFileDialog(SDL_FILEDIALOG_OPENFILE, replaceFilePicked, gState.ed.get(), nullptr, 0, "", "", false);
+    }
     bool askName(const std::wstring& title, std::wstring& text) override { return prompt(title.c_str(), text); }  // (sdl_map_dialogs.inc)
     std::vector<FilesUse> soundUses(const std::string& name) override { return soundUsesOf(name); }
     void showUse(const FilesUse& use) override { briefingShowUseSdl(use.trig, use.act); }
@@ -293,3 +377,4 @@ void SdlFilesHost::soundsChanged() {
     gFilesPage.invalidate();
     shellStatusChanged();
 }
+void gFilesHostChanged() { gFilesHost.soundsChanged(); }

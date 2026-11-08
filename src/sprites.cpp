@@ -1248,19 +1248,31 @@ const Sprite* UnitSprites::commandIcon(uint16_t unitType) {
                 const uint8_t* pal = ticon.data() + ticon.size() - 768;
                 for (int i = 0; i < 17; ++i)
                     for (int c = 0; c < 3; ++c) iconRgb_.push_back(pal[row[std::min<size_t>(i, row.size() - 1)] * 3 + c]);
-                // Units without an icon share one placeholder frame ("BLANK"): the frame repeated most
-                // often among the unit icons.
+                // Units without an icon have a placeholder frame ("BLANK", a short line of text; the game has a few of
+                // them): a frame less than half as high as the icon's box (a unit's own icon fills it).
                 std::map<std::vector<uint8_t>, int> seen;
-                int most = 0;
-                for (int i = 0; i < 228; ++i) most = std::max(most, ++seen[g->frames[size_t(i)].pixels]);
-                for (int i = 0; i < 228; ++i)
-                    if (most > 1 && seen[g->frames[size_t(i)].pixels] == most) iconBlank_.push_back(uint16_t(i));
+                for (int i = 0; i < 228; ++i) ++seen[g->frames[size_t(i)].pixels];
+                for (int i = 0; i < 228; ++i) {
+                    const Grp::Frame& f = g->frames[size_t(i)];
+                    if (f.width && 2 * int(f.height) < int(g->height)) iconBlank_.push_back(uint16_t(i));
+                }
+                if (iconBlank_.empty()) {  // (another icon set: the frame repeated most often, as before)
+                    int most = 0;
+                    for (const auto& [px, n] : seen) most = std::max(most, n);
+                    for (int i = 0; i < 228; ++i)
+                        if (most > 1 && seen[g->frames[size_t(i)].pixels] == most) iconBlank_.push_back(uint16_t(i));
+                }
                 cmdIcons_ = std::move(g);
             }
         }
     }
     if (!cmdIcons_ || unitType >= cmdIcons_->frames.size()) return nullptr;
     return iconFrame(unitType);
+}
+
+bool UnitSprites::hasBlankIcon(uint16_t unitType) {
+    commandIcon(0);  // loads the icons
+    return std::find(iconBlank_.begin(), iconBlank_.end(), unitType) != iconBlank_.end();
 }
 
 const Sprite* UnitSprites::blankIcon() {

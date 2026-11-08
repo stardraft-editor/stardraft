@@ -1,7 +1,8 @@
 # StarDraft principles
 
 The rules that each change to StarDraft follows: the product, new features, the UI and the text. Other docs give the
-details: CONTROLS.md (the control kit),
+details: PATTERNS.md (one pattern for each job that comes back: lists, settings, keys, menus, masks, drags),
+CONTROLS.md (the control kit),
 DEVELOPING.md (build and tests), FEEDBACK.md (what to do with feedback), ROADMAP.md (what comes next).
 
 ## Product

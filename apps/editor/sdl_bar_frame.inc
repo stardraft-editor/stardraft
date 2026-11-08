@@ -16,11 +16,20 @@ public:
         add(bar_, {0, 0, 0, 0});
     }
     static int barW() { return scale(stardraft::kit::kScrollBarW); }
+    // The bar's room only while the view scrolls: the view's rows reach the frame's right edge, as the fields above
+    // them (for views with rows of a fixed height: a view whose height follows its width could change each frame).
+    void setBarOnlyWhenScrolls(bool on) { autoBar_ = on, resized(); }
     void resized() override {
-        content_.setFrame({0, 0, std::max(0, width() - barW()), height()});
-        bar_.setFrame({width() - barW(), 0, width(), height()});
+        const int w = autoBar_ && !scrolls_ ? 0 : barW();
+        content_.setFrame({0, 0, std::max(0, width() - w), height()});
+        bar_.setFrame({width() - w, 0, width(), height()});
     }
-    void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, kBg); }
+    void paint(draw::Canvas& c) override {
+        c.fill({0, 0, width(), height()}, kBg);
+        int range = 0, page = 0, pos = 0;  // (as the view's last paint measured it; a change shows in the next frame)
+        const bool scrolls = content_.windowScrollBar(range, page, pos) && page > 0 && range + 1 > page;
+        if (autoBar_ && scrolls != scrolls_) scrolls_ = scrolls, resized(), invalidate();
+    }
     bool mouse(const draw::MouseEvent& e) override {  // the wheel over the bar scrolls the view
         return e.kind == draw::MouseKind::Wheel && content_.mouse(e);
     }
@@ -43,5 +52,6 @@ private:
     };
     draw::View& content_;
     Bar bar_;
+    bool autoBar_ = false, scrolls_ = true;
 };
 

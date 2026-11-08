@@ -210,19 +210,23 @@ std::vector<kit::MenuItem> mapMenuKit(const MenuModel& items) {
 }
 
 // The right button let go on the map (the Windows map's WM_RBUTTONUP): placing, pasting or painting stops (back to the
-// mode's selection); else the map's menu opens at the mouse for what is under it.
+// mode's selection); else the map's menu opens at the mouse for what is under it. On a symmetry anchor (Terrain, with
+// mirrors or turns): its menu, with each tool.
 void mapRightClickSdl(draw::View& map, draw::Point at) {
     if (!gState.ed || !gState.ed->isOpen() || gState.drag != Drag::None) return;
     if (trigUnitPickActive()) return trigCancelUnitPick();  // (cancelStep: a unit pick for a trigger stops first)
-    if (!inSelection()) {  // (the Windows program's cancelStep: no stroke is going on here)
+    float wx, wy;
+    toWorld(at.x, at.y, wx, wy);
+    const bool onAnchor = gState.mode == Mode::Terrain && !gState.terrainPasting && gTiles->stamp.empty() && (gState.ed->mirrors() || gState.ed->turns() > 1) &&
+                          symmetryAnchorNear(*gState.ed, wx, wy, gState.zoom) >= 0;
+    if (!inSelection() && !onAnchor) {  // (the Windows program's cancelStep: no stroke is going on here)
         enterSelection();
         setMessage(std::wstring(kModeNames[int(gState.mode)]) + L": select");
         gState.dirty = true;
         return;
     }
-    float wx, wy;
-    toWorld(at.x, at.y, wx, wy);
     const MenuModel model = mapMenuModel(wx, wy);
+    if (model.empty() && gState.mode == Mode::Layers) return;  // (no layers in the map: no menu)
     const std::vector<kit::MenuItem> items = mapMenuKit(model);
     gState.dirty = true;
     map.invalidate();

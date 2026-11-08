@@ -1,5 +1,5 @@
 // Protected terrain (core.inc): the map's tiles that no terrain edit changes (Editor::protectTiles). The terrain
-// selection's right-click menu protects and unprotects them; View > Layers > Protected terrain shows them over the map.
+// selection's right-click menu protects and unprotects them; View > Modes > Protected terrain shows them over the map.
 // The map file does not have them: they are kept in the map's project (project.stardraft: "protectedterrain"), else in
 // the map's own settings (core/map_prefs.inc), as the map is saved (the map with no changes that are not saved: they
 // are kept for that map file), and they come back when the map opens.
@@ -62,6 +62,7 @@ void protectedTerrainSync() {
     // (nothing changed since the last frame: the same place, the same protected tiles, or changes not saved)
     if (d.protectLoaded && (ed.protectedRevision() == d.protectRev || ed.modified()) && d.protectPlace.native() == place.native()) return;
     if (!d.protectLoaded || d.protectPlace != place) {
+        if (!pr && !mapPrefsFromMap(ed)) return;  // (settings that came with the map: when its files are read, at a later frame)
         d.protectLoaded = true, d.protectPlace = place;
         if (!ed.hasProtectedTiles()) {  // (the kept tiles; with tiles protected already: they go to the new place)
             std::string text;
@@ -109,7 +110,7 @@ void protectSelection(bool on) {
     app.dirty = true;
 }
 
-// View > Layers > Protected terrain: a yellow fill over the protected tiles, put together into rectangles (the same run
+// View > Modes > Protected terrain: a yellow fill over the protected tiles, put together into rectangles (the same run
 // of tiles on rows one under the other: one rectangle). Made again when the mask or the theme changes. Only in Terrain
 // mode (the protection is for the terrain tools).
 struct ProtectedLayer {
@@ -161,11 +162,11 @@ void addProtectedLayer(const Editor& ed, render::Scene& s) {
     addRectsInView(s.rects, l.fills);  // (only those the view shows: core/map_edit.inc)
 }
 
-// View > Layers > Protected terrain.
+// View > Modes > Protected terrain.
 void toggleProtectedLayer() {
     gLayers.protectedTerrain = !gLayers.protectedTerrain;
     setMessage(gLayers.protectedTerrain ? std::wstring(tr(L"Protected terrain shows"))
-                                        : std::wstring(tr(L"Protected terrain is hidden (View > Layers shows it again)")));
+                                        : std::wstring(tr(L"Protected terrain is hidden (View > Modes shows it again)")));
     shellMenusChanged();
     shellState().dirty = true;
 }

@@ -12,9 +12,8 @@ enum class Field { Normal, Hot, Focus, Changed, ReadOnly };
 // An icon: one of the UI icons (tools/icongen; apps/editor/res/ui_icons.h), or a Segoe MDL2 glyph where the icon set
 // has none yet.
 struct Ico {
-    const wchar_t* glyph = nullptr;
     int icon = -1;
-    Ico(const wchar_t* g) : glyph(g) {}
+    Ico() = default;  // (no icon)
     Ico(UiIcon i) : icon(int(i)) {}
 };
 
@@ -70,29 +69,11 @@ inline void drawFieldBox(draw::Canvas& c, draw::Rect r, Field f) {
     c.roundBox(r, fill, line, float(scale(stardraft::kit::kRadius)));
 }
 
-// The UI icon of each glyph that the views draw (Segoe MDL2 Assets, and the pencil U+270E of the UI face): the SDL
-// canvas draws these icons in place of the glyphs (setGlyphIcons), so that each system shows them (macOS and Linux
-// have no Segoe MDL2 Assets). -1: no icon. Add a glyph here when a view starts to use it.
-inline int glyphIcon(wchar_t g) {
-    struct Pair { wchar_t glyph; UiIcon icon; };
-    static constexpr Pair kGlyphIcons[] = {
-        {L'\xE70E', UiIcon::ChevronUp},   {L'\xE70D', UiIcon::ChevronDown}, {L'\xE76C', UiIcon::ChevronRight},
-        {L'\xE710', UiIcon::Add},         {L'\xE738', UiIcon::Remove},      {L'\xE71B', UiIcon::Link},
-        {L'\xE718', UiIcon::Pin},         {L'\xE7E8', UiIcon::Power},       {L'\xE946', UiIcon::Info},
-        {L'\xE8E4', UiIcon::AlignLeft},   {L'\xE8E3', UiIcon::AlignCenter}, {L'\xE8E2', UiIcon::AlignRight},
-        {L'\xE945', UiIcon::Attack},      {L'\x270E', UiIcon::Edit},
-    };
-    for (const Pair& p : kGlyphIcons)
-        if (p.glyph == g) return int(p.icon);
-    return -1;
-}
-
-// The glyph of a Segoe MDL2 face (or a UI icon), centered in `r`, at `size` (96-dpi pixels).
+// A UI icon, centered in `r` (a symbol is always an icon, never a font's glyph: docs/dev/PATTERNS.md). `size`: kept for
+// the callers, the icon is the 16 px one at the display's scale.
 inline void drawGlyph(draw::Canvas& c, draw::Rect r, Ico g, draw::Color col, int size = stardraft::kit::kGlyph) {
-    if (g.icon >= 0) return c.icon(r, g.icon, col, scale(16));
-    const draw::Font of = c.setFont(c.font({draw::Face::Glyphs, scale(size)}));
-    c.text(r, std::wstring_view(g.glyph, 1), col, draw::kMiddle | draw::kCenter);
-    c.setFont(of);
+    (void)size;
+    if (g.icon >= 0) c.icon(r, g.icon, col, scale(16));
 }
 
 // The two halves of a number field's arrows: the right end of the box, up above down.
@@ -107,8 +88,8 @@ inline void drawNumberArrows(draw::Canvas& c, draw::Rect vb, bool hotBox, bool u
     if (!hotBox) return;
     draw::Rect up, down;
     numberArrowHalves(vb, up, down);
-    drawGlyph(c, up, L"\xE70E", upHot ? kText : kDim, 7);    // chevron up
-    drawGlyph(c, down, L"\xE70D", downHot ? kText : kDim, 7);  // chevron down
+    drawGlyph(c, up, UiIcon::ChevronUp, upHot ? kText : kDim, 7);
+    drawGlyph(c, down, UiIcon::ChevronDown, downHot ? kText : kDim, 7);
 }
 
 // A dropdown's face: icon, name, the number on the right, the chevron. Changed, read-only and hot take their own field
@@ -389,7 +370,7 @@ inline int drawSideHeader(draw::Canvas& c, int x, int y, int w, const std::wstri
     c.text(h, std::to_wstring(count), kDim, draw::kMiddle | draw::kRight);
     y += scale(30);
     if (!count) {
-        c.text({x, y, x + w, y + scale(20)}, L"No other data uses this entry", kDim, draw::kMiddle | draw::kEllipsis);
+        c.text({x, y, x + w, y + scale(20)}, L"None", kDim, draw::kMiddle | draw::kEllipsis);
         y += scale(22);
     }
     return y;

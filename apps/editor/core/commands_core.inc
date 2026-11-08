@@ -51,7 +51,7 @@ void campaignShow();
 void trigFind();
 
 bool commandPortable(AppState& app, int id) {
-    // The active mode's layer is hidden (View > Layers): the edits of the map are refused.
+    // The active mode's layer is hidden (View > Modes): the edits of the map are refused.
     if (gWorkspace == Workspace::Map && modeLayerHidden() &&
         (id == ID_EDIT_SELECTALL || id == ID_EDIT_DELETE || id == ID_EDIT_CUT || id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE))
         return modeLayerHiddenMessage(), true;
@@ -117,7 +117,7 @@ bool commandPortable(AppState& app, int id) {
 // The commands that act on a map: a page tab (the New page, the start page) has none. The graphics quality (View >
 // High definition ... Carbot) is a program setting, not one of them.
 bool mapCommand(int id) {
-    return id == ID_FILE_SAVE || id == ID_FILE_SAVEAS || id == ID_FILE_EXPORTIMAGE || (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_SNAPGRID ||
+    return id == ID_FILE_SAVE || id == ID_FILE_SAVEAS || id == ID_FILE_EXPORTIMAGE || id == ID_FILE_EXPORTMAP || (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_SNAPGRID ||
            (id >= ID_VIEW_LOCATIONS && id <= ID_PATHSIZE_LARGE) || (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) ||
            (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) || id == ID_QUICKPICK || id == ID_PIE_PALETTE || (id >= ID_PROJ_COMPILE && id <= ID_PROJ_FROMMAP) ||
            (id >= ID_WS_MAP && id <= ID_WS_HELP) || (id >= ID_DOCK_MINI_LEFT && id <= ID_DOCK_TOOLS_RIGHT) || id == ID_SCEN_PLAYERS ||

@@ -227,7 +227,7 @@ struct FloatPaletteView final : PanelStripView {
             if (fill) fill->setFrame({pad, y, std::max(pad, right), y + rowH}), fill->setVisible(!alt);
             y += rowH + pad;
         }
-        if (parts_.rows.empty()) y = top + pad + rowH + pad;
+        if (parts_.rows.empty() && !toolsMode) y = top + pad + rowH + pad;
         if (parts_.list) parts_.list->setFrame({pad, y, w - pad, std::max(y + 1, h - pad)}), parts_.list->setVisible(!alt);
         const int below = top + pad + rowH + pad;
         if (parts_.alt) parts_.alt->setFrame({pad, below, w - pad, std::max(below + 1, h - pad)}), parts_.alt->setVisible(alt);
@@ -275,7 +275,7 @@ struct PalettePanelView final : PanelStripView {
     stardraft::kit::Button viewButton{L"View", stardraft::kit::Tone::Normal, [this] {
                                           if (onView) onView();
                                       }};
-    stardraft::kit::IconButton sortButton{stardraft::kit::IconGlyph::ofGlyph(L'\xE8CB'), stardraft::kit::IconStyle::Boxed, L"", [this] {
+    stardraft::kit::IconButton sortButton{stardraft::kit::IconGlyph::ofIcon(int(UiIcon::Sort)), stardraft::kit::IconStyle::Boxed, L"", [this] {
                                               if (onSort) onSort();
                                           }};
     PaletteGridView list;
@@ -317,7 +317,7 @@ struct PalettePanelView final : PanelStripView {
         tilesPanel.bind(&tilesData);
         list.ownView = &view;
         for (draw::View* v : std::initializer_list<draw::View*>{&tools, &type, &owner, &sections, &search, &sortButton, &viewButton, &list}) add(*v, {});
-        search.setPlaceholder(L"Search");
+        search.setPlaceholder(paletteSearchCue(mode));
     }
     ~PalettePanelView() override {
         attach(nullptr);

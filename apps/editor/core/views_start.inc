@@ -198,13 +198,11 @@ public:
                 c.text({card.left + inPad, ty, card.right - inPad, ty + scale(26)}, cardName(k), enabled ? kText : kFaint, kMiddle | kEllipsis);
                 c.setFont(of);
             }
-            if (soon) {  // the "Coming later" mark, at the top right
-                const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
+            if (soon) {  // the "Coming later" mark, at the top right (the UI font: as the card's text)
                 const int lw = c.measure(L"Coming later") + scale(16), lh = scale(20);
                 const Rect mark{card.right - inPad - lw, card.top + inPad, card.right - inPad, card.top + inPad + lh};
                 c.roundBox(mark, kChipDim, kReadOnlyLine, float(scale(stardraft::kit::kRadius)));
                 c.text(mark, L"Coming later", kDim, kMiddle | kCenter);
-                c.setFont(of);
             }
             ty += scale(26) + scale(6);
             c.text({card.left + inPad, ty, card.right - inPad, card.bottom - inPad}, cardText(k), enabled ? kDim : kFaint, kWrap | kLeft);
@@ -289,9 +287,7 @@ public:
         // The alpha notice: under the recent list and Open.
         const int ny = y + scale(24);
         {
-            const draw::Font of = c.setFont(c.font({Face::Glyphs, scale(14)}));
-            c.text({x1, ny + scale(2), x1 + scale(16), ny + scale(18)}, L"\xE946", kAccent, kMiddle | kCenter);
-            c.setFont(of);
+            c.icon({x1, ny + scale(2), x1 + scale(16), ny + scale(18)}, int(UiIcon::Info), kAccent, scale(16));
         }
         const Rect nr{x1 + scale(22), ny, x1 + cw, ny + scale(200)};
         c.text(nr, kStartNotice, kDim, kWrap | kLeft);

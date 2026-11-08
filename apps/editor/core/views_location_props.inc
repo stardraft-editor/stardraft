@@ -108,7 +108,7 @@ public:
             label(labels_[1 + k], kEdgeNames[k]);
             stardraft::kit::TextField& f = edge_[k];
             f.setText(locEdgeText(vals[k]));
-            f.setFont({draw::Face::Mono, 0}), f.setAlignRight(true);
+            f.setAlignRight(true);
             f.setTrailing(scale(2));  // (the native edit's right margin: the digits end where they did)
             f.setFilter([](wchar_t c) { return c >= L'0' && c <= L'9'; });  // ES_NUMBER
             f.setMaxLength(7);

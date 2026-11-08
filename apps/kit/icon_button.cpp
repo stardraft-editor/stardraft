@@ -21,15 +21,8 @@ static draw::Rect squareIn(draw::Rect r) {
 
 // `size` is at 100 %; the glyph's pixel size is scaled here, once.
 void IconButton::drawGlyph(draw::Canvas& c, draw::Rect r, draw::Color col, int size) const {
-    if (glyph_.icon >= 0) return c.icon(r, glyph_.icon, col, px(kIconPx));
-    if (glyph_.glyph == 0) return;
-    draw::FontDesc d;
-    d.face = draw::Face::Glyphs;
-    d.px = px(size);
-    const draw::Font of = c.setFont(c.font(d));
-    const wchar_t g[1] = {glyph_.glyph};
-    c.text(r, std::wstring_view(g, 1), col, draw::kMiddle | draw::kCenter);
-    c.setFont(of);
+    (void)size;
+    if (glyph_.icon >= 0) c.icon(r, glyph_.icon, col, px(kIconPx));
 }
 
 void IconButton::paint(draw::Canvas& c) {

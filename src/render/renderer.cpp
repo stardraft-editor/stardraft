@@ -5,10 +5,14 @@
 
 #include <algorithm>
 #include <chrono>
+#include <future>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <condition_variable>
 #include <deque>
+#include <mutex>
+#include <thread>
 #include <map>
 #include <tuple>
 #include <unordered_map>
@@ -104,6 +108,7 @@ float kPlayerRgb[12][3] = {{0.957f, 0.016f, 0.016f}, {0.047f, 0.282f, 0.8f},   {
 
 struct ImageTex {
     bool loaded = false, failed = false;
+    bool queued = false;  // (its HD art is with the renderer's worker)
     bool team = false;  // (SD: it has player color pixels)
     SDL_GPUTexture* diffuse = nullptr;
     SDL_GPUTexture* mask = nullptr;
@@ -171,7 +176,9 @@ struct Renderer::Impl {
 
     // Terrain
     SDL_GPUTexture* tileIndex = nullptr;
-    uint16_t mapW = 0, mapH = 0;
+    uint16_t mapW = 0, mapH = 0;  // the tile index's grid (the map, or a larger grid: updateTerrainExtended)
+    int originX = 0, originY = 0;  // ... the map's tile (0, 0) in it
+    uint16_t realW = 0, realH = 0;  // ... the map's own size (the previews' indices, the sprites' depth)
     uint16_t tileIndexW = 0, tileIndexH = 0;  // size the tile index texture was created at
     SDL_GPUTexture* hdAtlas = nullptr;
     SDL_GPUTexture* hdDown = nullptr;  // HD atlas box-filtered to 32 px tiles, mipmapped
@@ -218,6 +225,45 @@ struct Renderer::Impl {
         return list[at];
     }
     int imagesResident = 0;  // (the images with a texture or SD frames: Stats)
+    // The HD images are read and decoded on a worker (a big one, the creep edges, took 58 ms of a map's first frame):
+    // the frame asks for an image, it comes in a later frame (uploaded at the frame's start, takeImages). The images'
+    // generation: a change of the art (freeImages) drops what the worker made before it.
+    struct ImageJob {
+        int id = 0;
+        uint64_t generation = 0;
+        const GameData* data = nullptr;  // (the job's own: the renderer's may change while it runs)
+        GraphicsQuality quality = GraphicsQuality::HD2;
+        bool carbot = false;
+        std::string extraPath;  // (UnitSprites::extraImage: its GRP's path; its SD frames copied)
+        Grp extraSd;
+    };
+    struct ImageMade {
+        int id = 0;
+        uint64_t generation = 0;
+        bool hd = false;
+        AnimImage art;
+    };
+    std::thread imageWorker;
+    std::mutex imageJobsLock;
+    std::condition_variable imageJobsReady;
+    std::deque<ImageJob> imageJobs;
+    std::vector<ImageMade> imagesMade;
+    bool imageWorkerStop = false;
+    uint64_t imageGeneration = 1;
+    bool imagesOffThread() const { return loadBudgetMs < 1e6 && artQuality() != GraphicsQuality::SD && data; }
+    void queueImage(int id, ImageTex& t);
+    void takeImages(Clock::time_point frameStart);
+    void finishImage(ImageTex& t, bool hd, AnimImage& a, int id, int row);
+    void stopImageWorker() {
+        {
+            std::lock_guard<std::mutex> lock(imageJobsLock);
+            imageWorkerStop = true, imageJobs.clear();
+        }
+        imageJobsReady.notify_all();
+        if (imageWorker.joinable()) imageWorker.join();
+        imageWorkerStop = false, imagesMade.clear();
+    }
+    ~Impl() { stopImageWorker(); }
     // (setExactTeamColors: an image in a color row's shades; the key: the image's id << 16 | the row)
     std::unordered_map<uint64_t, ImageTex> teamImages;
     // The frame's lists, kept from frame to frame (their memory too).
@@ -232,7 +278,7 @@ struct Renderer::Impl {
     std::vector<Raw> raw;
     std::vector<uint32_t> rawOrder;  // (raw's indexes by batch)
     std::vector<Batch> batches;
-    std::vector<GpuRect> rects;
+    std::vector<GpuRect> rects, underRects;
     uint16_t exactTeam = 0;  // (a bit per owner)
     std::vector<AtlasPage> pages;
     bool pagesFull = false;  // (the next frame starts them again)
@@ -243,12 +289,15 @@ struct Renderer::Impl {
     };
     std::vector<PageUpload> pageUploads;  // (sent in the frame's own copy pass)
     double loadBudgetMs = 30;
+    double frameBudgetMs = 30;  // (this frame's: a map's first frame has less, its terrain shows at once)
 
     // Dynamic buffers
     SDL_GPUBuffer* instanceBuf = nullptr;
     uint32_t instanceCap = 0;
     SDL_GPUBuffer* rectBuf = nullptr;
     uint32_t rectCap = 0;
+    SDL_GPUBuffer* underBuf = nullptr;  // (Scene::underRects)
+    uint32_t underCap = 0;
     SDL_GPUTransferBuffer* uploadBuf = nullptr;
     uint32_t uploadCap = 0;
 
@@ -268,6 +317,12 @@ struct Renderer::Impl {
     void reloadTileset();
     void buildSdAtlas();
     bool buildHdAtlas();
+    // The HD megatiles are read on a worker (76 ms for a 256 x 256 map's tileset, in its first frame before): the SD
+    // atlas draws until they are there; then the HD atlas is made from them (finishHdAtlas, at the start of a frame).
+    std::future<std::shared_ptr<const HdTiles>> hdReading;
+    std::string hdReadError;
+    bool finishHdAtlas(const HdTiles& tiles);
+    void takeHdTiles(bool wait);
     void ensureDepth(uint32_t w, uint32_t h);
     bool ensureBackdrop(uint32_t w, uint32_t h);
     bool ensureBuffer(SDL_GPUBuffer*& buf, uint32_t& cap, uint32_t bytes);
@@ -299,12 +354,18 @@ static SDL_PropertiesID deviceProperties() {
     return props;
 }
 
+#ifdef STARDRAFT_SHADERS_DXIL
+bool allCardsHaveD3d12FeatureLevel12();  // (d3d12_probe.cpp)
+#endif
+
 bool Renderer::Impl::createDevice(std::string& err) {
-    // Windows: Vulkan, else Direct3D 12 on the video card, else Direct3D 12 on WARP (the software device of Windows:
-    // slow, but the program starts on video cards that have neither). Vulkan first: an old video card's Direct3D 12
-    // (feature level 11_0, as the GeForce GTX 770's) stopped the whole computer (0.8.5). setPreferredDriver (Program
-    // options) goes first; the skipped drivers go only when no other is left. STARDRAFT_GPU_DRIVER "direct3d12",
-    // "vulkan" or "warp" asks for only that one. Elsewhere SDL picks Metal or Vulkan.
+    // Windows: Direct3D 12 when every video card has it at feature level 12_0 (it uses about a third of Vulkan's video
+    // memory, and that memory does not grow as maps open and close), else Vulkan first: an old video card's Direct3D 12
+    // (feature level 11_0, as the GeForce GTX 770's) stopped the whole computer (0.8.5). Then the other, then Direct3D
+    // 12 on WARP (the software device of Windows: slow, but the program starts on video cards that have neither).
+    // setPreferredDriver (Program options) goes first; the skipped drivers go only when no other is left (a start that
+    // a driver stopped: main_sdl.cpp's gpu-skip.txt). STARDRAFT_GPU_DRIVER "direct3d12", "vulkan" or "warp" asks for
+    // only that one. Elsewhere SDL picks Metal or Vulkan.
 #ifdef STARDRAFT_SHADERS_DXIL
     const char* asked = std::getenv("STARDRAFT_GPU_DRIVER");
     std::string only = asked ? asked : "";
@@ -327,7 +388,14 @@ bool Renderer::Impl::createDevice(std::string& err) {
         &reasons);
     std::string errors;
     std::vector<const char*> order = {"vulkan", "direct3d12", "warp"};
-    for (size_t i = 1; i < order.size(); ++i)
+    // (the probe opens each card's Direct3D 12 driver: as a try, its start is marked first, so a start that it stops
+    // leaves Direct3D 12 out the next time; not at all when it is left out already)
+    const bool d3d12Skipped = ("," + skipped + ",").find(",direct3d12,") != std::string::npos;
+    if (preferred.empty() && only.empty() && !d3d12Skipped) {
+        if (tryHook) tryHook("direct3d12");
+        if (allCardsHaveD3d12FeatureLevel12()) std::swap(order[0], order[1]);
+    }
+    for (size_t i = 1; i < order.size(); ++i)  // (the chosen one first)
         if (preferred == order[i]) std::rotate(order.begin(), order.begin() + std::ptrdiff_t(i), order.begin() + std::ptrdiff_t(i + 1));
     std::vector<const char*> tries;
     for (const char* d : order)
@@ -538,6 +606,10 @@ void Renderer::Impl::freeImages() {
     for (auto& [key, t] : teamImages) release(t);
     images.clear(), extraImages.clear(), teamImages.clear();
     imagesResident = 0;
+    {  // (what the worker makes for the old art: dropped when it comes)
+        std::lock_guard<std::mutex> lock(imageJobsLock);
+        ++imageGeneration, imageJobs.clear(), imagesMade.clear();
+    }
     freePages();
 }
 
@@ -649,12 +721,15 @@ void Renderer::Impl::sendPageUploads(SDL_GPUCommandBuffer* cmd) {
 
 void Renderer::shutdown() {
     Impl& r = *impl_;
+    r.stopImageWorker();
     if (!r.device) return;
+    if (r.hdReading.valid()) r.hdReading.wait();
+    r.hdReading = {};
     SDL_WaitForGPUIdle(r.device);
     r.freeImages();
     for (SDL_GPUTexture* t : {r.offscreen, r.depth, r.backdrop, r.blackTex, r.tileIndex, r.hdAtlas, r.hdDown, r.sdAtlas})
         if (t) SDL_ReleaseGPUTexture(r.device, t);
-    for (SDL_GPUBuffer* b : {r.instanceBuf, r.rectBuf})
+    for (SDL_GPUBuffer* b : {r.instanceBuf, r.rectBuf, r.underBuf})
         if (b) SDL_ReleaseGPUBuffer(r.device, b);
     if (r.uploadBuf) SDL_ReleaseGPUTransferBuffer(r.device, r.uploadBuf);
     for (SDL_GPUSampler* s : {r.pointClamp, r.linearClamp, r.linearMip})
@@ -663,7 +738,7 @@ void Renderer::shutdown() {
         if (p) SDL_ReleaseGPUGraphicsPipeline(r.device, p);
     if (r.window) SDL_ReleaseWindowFromGPUDevice(r.device, r.window);
     SDL_DestroyGPUDevice(r.device);
-    r = Impl{};
+    impl_ = std::make_unique<Impl>();  // (all as new; a worker and its lock are not copied)
 }
 
 // --- Resources ---------------------------------------------------------------------------------
@@ -740,13 +815,29 @@ void Renderer::Impl::buildSdAtlas() {
 bool Renderer::Impl::buildHdAtlas() {
     if (hdAtlas) SDL_ReleaseGPUTexture(device, hdAtlas), hdAtlas = nullptr;
     if (hdDown) SDL_ReleaseGPUTexture(device, hdDown), hdDown = nullptr;
+    if (hdReading.valid()) hdReading.wait();  // (another tileset's read that is still running: its result is not used)
+    hdReading = {};
     if (artQuality() == GraphicsQuality::SD) return true;
-    HdTiles tiles;
-    std::string err;
-    if (!loadHdTiles(*data, era, artQuality(), tiles, err, carbot)) {
-        error = err;
-        return false;
-    }
+    // (the game data reads under its own lock: a worker may read while the program reads its sprites)
+    const GameData* d = data;
+    const uint16_t e = era;
+    const GraphicsQuality q = artQuality();
+    const bool cb = carbot;
+    hdReading = std::async(std::launch::async, [this, d, e, q, cb] { return sharedHdTiles(*d, e, q, cb, &hdReadError, nullptr, true); });
+    takeHdTiles(loadBudgetMs >= 1e6);  // (a picture of the whole map, the map image: it waits for them)
+    return true;
+}
+
+// The worker's HD megatiles, when they are there (`wait`: until they are): the HD atlas from them.
+void Renderer::Impl::takeHdTiles(bool wait) {
+    if (!hdReading.valid()) return;
+    if (!wait && hdReading.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
+    const std::shared_ptr<const HdTiles> held = hdReading.get();
+    if (!held) error = hdReadError;
+    else finishHdAtlas(*held);
+}
+
+bool Renderer::Impl::finishHdAtlas(const HdTiles& tiles) {
     // Lay megatiles out in a square grid; copy whole 4x4 blocks (no decoding).
     const uint32_t tile = uint32_t(tiles.tileSize), blocks = tile / 4, blockBytes = tiles.format == DdsTexture::BC1 ? 8 : 16;
     size_t n = tiles.tiles.size();
@@ -839,9 +930,29 @@ void Renderer::setSources(const GameData* data, UnitSprites* sprites, const Tile
 
 void Renderer::reloadImages() { impl_->freeImages(); }
 
-void Renderer::updateTerrain(const TerrainLayer& mtxm) {
+void Renderer::releaseMapData() {
     Impl& r = *impl_;
+    if (!r.device) return;
+    if (r.hdReading.valid()) r.hdReading.wait();
+    r.hdReading = {};
+    r.freeImages();
+    for (SDL_GPUTexture** t : {&r.sdAtlas, &r.hdAtlas, &r.hdDown, &r.tileIndex})
+        if (*t) SDL_ReleaseGPUTexture(r.device, *t), *t = nullptr;
+    r.tileIndexW = r.tileIndexH = 0;
+    r.data = nullptr, r.unitSprites = nullptr, r.tileset = nullptr, r.era = 0xFFFF;
+    r.loadedTileset = nullptr, r.loadedEra = 0xFFFF, r.loadedTilesetSize = 0, r.tilesetDirty = true;
+    r.baseTerrain.clear(), r.baseTerrain.shrink_to_fit(), r.pendingTerrain.clear(), r.pendingTerrain.shrink_to_fit();
+    r.terrainPreview.clear(), r.previewNext.clear(), r.terrainDirty = false;
+    r.mapW = r.mapH = 0, r.realW = r.realH = 0, r.originX = r.originY = 0;
+}
+
+void Renderer::updateTerrain(const TerrainLayer& mtxm) { updateTerrainExtended(mtxm, 0, 0, mtxm.width, mtxm.height); }
+
+void Renderer::updateTerrainExtended(const TerrainLayer& mtxm, int originX, int originY, int mapW, int mapH) {
+    Impl& r = *impl_;
+    if (r.originX != originX || r.originY != originY) r.terrainPreview.clear();  // (its indices are of the old grid)
     r.mapW = mtxm.width, r.mapH = mtxm.height;
+    r.originX = originX, r.originY = originY, r.realW = uint16_t(mapW), r.realH = uint16_t(mapH);
     r.baseTerrain.resize(mtxm.tiles.size());
     for (size_t i = 0; i < mtxm.tiles.size(); ++i) {
         int mega = r.tileset ? r.tileset->megatileFor(mtxm.tiles[i]) : -1;
@@ -863,9 +974,15 @@ void Renderer::setTerrainPreview(const std::vector<std::pair<int, uint16_t>>& ce
     Impl& r = *impl_;
     std::vector<std::pair<int, uint16_t>>& megas = r.previewNext;
     megas.clear();
+    const bool shifted = r.originX || r.originY || r.realW != r.mapW;
     for (auto [i, tile] : cells) {
         const int mega = r.tileset ? r.tileset->megatileFor(tile) : -1;
-        if (mega > 0) megas.push_back({i, uint16_t(mega)});
+        if (mega <= 0) continue;
+        if (shifted) {  // (the map's index: the cell's index in the larger grid)
+            if (!r.realW || i < 0) continue;
+            i = (i / r.realW + r.originY) * r.mapW + i % r.realW + r.originX;
+        }
+        megas.push_back({i, uint16_t(mega)});
     }
     if (megas == r.terrainPreview) return;
     std::swap(r.terrainPreview, megas);
@@ -926,6 +1043,12 @@ void Renderer::Impl::loadImage(int id, ImageTex& t, int row) {
     const bool hd = artQuality() != GraphicsQuality::SD && data &&
                     (extra ? extraSd && loadHdGrp(*data, *extra, *extraSd, artQuality(), a, err, carbot)
                            : loadAnimImage(*data, id, artQuality(), a, err, carbot));
+    finishImage(t, hd, a, id, row);
+}
+
+// An image's textures (HD) or its SD frames' places (the SD art, or no HD art for it).
+void Renderer::Impl::finishImage(ImageTex& t, bool hd, AnimImage& a, int id, int row) {
+    t.loaded = true;
     if (hd) {
         auto fmt = [](const DdsTexture& d) {
             return d.format == DdsTexture::BC1 ? SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM : SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM;
@@ -958,12 +1081,76 @@ void Renderer::Impl::loadImage(int id, ImageTex& t, int row) {
         t.frames.push_back({0, 0, 0, 0, float(fr.x), float(fr.y), float(fr.width), float(fr.height)});
 }
 
+// The worker's next image: the HD art read through the game data's own handle for workers.
+void Renderer::Impl::queueImage(int id, ImageTex& t) {
+    ImageJob job;
+    job.id = id, job.data = data, job.quality = artQuality(), job.carbot = carbot;
+    if (const std::string* extra = unitSprites ? unitSprites->extraPath(id) : nullptr) {
+        const Grp* sd = unitSprites->grp(id);
+        if (!sd) return loadImage(id, t);  // (no SD frames: nothing to read)
+        job.extraPath = *extra, job.extraSd = *sd;
+    }
+    t.queued = true;
+    {
+        std::lock_guard<std::mutex> lock(imageJobsLock);
+        job.generation = imageGeneration;
+        imageJobs.push_back(std::move(job));
+    }
+    if (!imageWorker.joinable())
+        imageWorker = std::thread([this] {
+            for (;;) {
+                ImageJob job;
+                {
+                    std::unique_lock<std::mutex> lock(imageJobsLock);
+                    imageJobsReady.wait(lock, [&] { return imageWorkerStop || !imageJobs.empty(); });
+                    if (imageWorkerStop) return;
+                    job = std::move(imageJobs.front());
+                    imageJobs.pop_front();
+                }
+                const GameData* d = job.data;
+                ImageMade made;
+                made.id = job.id, made.generation = job.generation;
+                std::string err;
+                made.hd = d && (job.extraPath.empty() ? loadAnimImage(*d, job.id, job.quality, made.art, err, job.carbot, true)
+                                                      : loadHdGrp(*d, job.extraPath, job.extraSd, job.quality, made.art, err, job.carbot, true));
+                std::lock_guard<std::mutex> lock(imageJobsLock);
+                if (made.generation == imageGeneration) imagesMade.push_back(std::move(made));
+            }
+        });
+    imageJobsReady.notify_one();
+}
+
+// The worker's images of this art: their textures, while the frame has time (the rest at the next frame).
+void Renderer::Impl::takeImages(Clock::time_point frameStart) {
+    std::vector<ImageMade> made;
+    {
+        std::lock_guard<std::mutex> lock(imageJobsLock);
+        made.swap(imagesMade);
+    }
+    size_t i = 0;
+    for (; i < made.size() && (i == 0 || msSince(frameStart) < frameBudgetMs); ++i) {
+        if (made[i].generation != imageGeneration) continue;
+        ImageTex& t = imageSlot(made[i].id);
+        if (t.loaded) continue;
+        finishImage(t, made[i].hd, made[i].art, made[i].id, -1);
+        imagesResident += t.diffuse != nullptr || t.sd;
+    }
+    if (i < made.size()) {
+        std::lock_guard<std::mutex> lock(imageJobsLock);
+        imagesMade.insert(imagesMade.begin(), std::make_move_iterator(made.begin() + std::ptrdiff_t(i)), std::make_move_iterator(made.end()));
+    }
+}
+
 ImageTex* Renderer::Impl::image(int id, Clock::time_point frameStart, bool& pending) {
     pending = false;
     if (id < 0) return nullptr;
     ImageTex& t = imageSlot(id);
+    if (!t.loaded && imagesOffThread()) {  // (the worker reads it; a later frame shows it)
+        if (!t.queued) queueImage(id, t);
+        if (!t.loaded) return pending = true, nullptr;
+    }
     if (!t.loaded) {
-        if (msSince(frameStart) > loadBudgetMs) {
+        if (msSince(frameStart) > frameBudgetMs) {
             pending = true;
             return nullptr;
         }
@@ -979,10 +1166,17 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     auto frameStart = Clock::now();
     stats = {};
     if (pagesFull) freePages();
-    if (tilesetDirty) reloadTileset();
+    frameBudgetMs = loadBudgetMs;
+    if (tilesetDirty) {  // (a map's first frame: the terrain at once, the sprites from the next frames)
+        reloadTileset();
+        if (loadBudgetMs < 1e6) frameStart = Clock::now(), frameBudgetMs = std::min(loadBudgetMs, 8.0);
+    }
+    takeHdTiles(loadBudgetMs >= 1e6);
+    takeImages(frameStart);
+    if (hdReading.valid()) ++stats.imagesPending;  // (the HD tiles still reading: the program paints again, as for the sprites)
     ensureDepth(w, h);
     const Camera& cam = scene.camera;
-    const float mapPxH = std::max<float>(mapH * 32.0f, 1);
+    const float mapPxH = std::max<float>((realH ? realH : mapH) * 32.0f, 1);
 
     // Build sprite instances bucketed by image (one draw per image; depth handles the order).
     raw.clear();
@@ -1005,7 +1199,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         size_t warpFrame = 0;  // (the Warp Texture's frame: the level)
         if (warp) {
             warpFrame = size_t(std::clamp(s.level, 0, int(warp->frames.size()) - 1));
-            if (warp->sd && warp->frames[warpFrame].page < 0 && (msSince(frameStart) > loadBudgetMs || !atlasFrame(*warp, 210, warpFrame))) {
+            if (warp->sd && warp->frames[warpFrame].page < 0 && (msSince(frameStart) > frameBudgetMs || !atlasFrame(*warp, 210, warpFrame))) {
                 ++stats.imagesPending;
                 continue;
             }
@@ -1022,7 +1216,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         // An SD frame on its page: within the frame's load budget, as image().
         auto onPage = [&](ImageTex& im, int id, size_t k) {
             if (im.frames[k].page >= 0) return true;
-            if (msSince(frameStart) > loadBudgetMs) return ++stats.imagesPending, false;
+            if (msSince(frameStart) > frameBudgetMs) return ++stats.imagesPending, false;
             return atlasFrame(im, id, k);
         };
         if (t->sd && !onPage(*t, s.image, fi)) continue;
@@ -1141,6 +1335,17 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
             pushRect(x1 - t, y0 + t, x1, y1 - t, rd.rgba);
         }
     }
+    underRects.clear();  // (fills only, in the view)
+    for (const RectDraw& rd : scene.underRects) {
+        float x0, y0, x1, y1;
+        toScreen(std::min(rd.x0, rd.x1), std::min(rd.y0, rd.y1), rd.world, x0, y0);
+        toScreen(std::max(rd.x0, rd.x1), std::max(rd.y0, rd.y1), rd.world, x1, y1);
+        if (x1 < 0 || y1 < 0 || x0 > w || y0 > h) continue;
+        GpuRect r{};
+        r.rect[0] = x0, r.rect[1] = y0, r.rect[2] = x1, r.rect[3] = y1;
+        color(rd.rgba, r.color);
+        underRects.push_back(r);
+    }
     static std::vector<char> glyphBuf(1 << 18);  // (textWidth: stb_easy_font_width)
     for (const TextDraw& td : scene.texts) {
         float sx, sy;
@@ -1162,7 +1367,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
 
     // Uploads: terrain indices (if changed), instances, rects.
     uint32_t instBytes = uint32_t(raw.size() * sizeof(GpuInstance));
-    uint32_t rectBytes = uint32_t(rects.size() * sizeof(GpuRect));
+    uint32_t rectBytes = uint32_t(rects.size() * sizeof(GpuRect)), underBytes = uint32_t(underRects.size() * sizeof(GpuRect));
     if (terrainDirty && (!tileIndex || tileIndexW != mapW || tileIndexH != mapH)) {  // the map's size changed
         if (tileIndex) SDL_ReleaseGPUTexture(device, tileIndex);
         tileIndex = createTexture(SDL_GPU_TEXTUREFORMAT_R16_UINT, mapW, mapH, 1, SDL_GPU_TEXTUREUSAGE_SAMPLER);
@@ -1177,7 +1382,8 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     if (terrainDirty && terrainBytes == 0) terrainDirty = false;  // (an empty box)
     if (instBytes) ensureBuffer(instanceBuf, instanceCap, instBytes);
     if (rectBytes) ensureBuffer(rectBuf, rectCap, rectBytes);
-    uint32_t total = instBytes + rectBytes + terrainBytes;
+    if (underBytes) ensureBuffer(underBuf, underCap, underBytes);
+    uint32_t total = instBytes + rectBytes + terrainBytes + underBytes;
     if (total && ensureUpload(total)) {
         uint8_t* p = static_cast<uint8_t*>(SDL_MapGPUTransferBuffer(device, uploadBuf, true));
         GpuInstance* inst = reinterpret_cast<GpuInstance*>(p);
@@ -1188,6 +1394,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
                 std::memcpy(p + instBytes + rectBytes + size_t(y) * tw * 2, pendingTerrain.data() + size_t(ty0 + y) * mapW + tx0, size_t(tw) * 2);
         else if (terrainBytes)
             std::memcpy(p + instBytes + rectBytes, pendingTerrain.data(), terrainBytes);
+        std::memcpy(p + instBytes + rectBytes + terrainBytes, underRects.data(), underBytes);  // (after the terrain: last)
         SDL_UnmapGPUTransferBuffer(device, uploadBuf);
         SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
         if (instBytes) {
@@ -1210,6 +1417,11 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
             dst.x = uint32_t(tx0), dst.y = uint32_t(ty0), dst.w = uint32_t(tw), dst.h = uint32_t(th), dst.d = 1;
             SDL_UploadToGPUTexture(copy, &src, &dst, false);
             terrainDirty = false, terrainAll = false;
+        }
+        if (underBytes) {
+            SDL_GPUTransferBufferLocation src{uploadBuf, instBytes + rectBytes + terrainBytes};
+            SDL_GPUBufferRegion dst{underBuf, 0, underBytes};
+            SDL_UploadToGPUBuffer(copy, &src, &dst, true);
         }
         SDL_EndGPUCopyPass(copy);
     }
@@ -1238,7 +1450,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         bool hdSmall = !hdFull && hdDown;
         SDL_GPUTexture* atlasTex = hdFull ? hdAtlas : hdSmall ? hdDown : sdAtlas;
         TerrainUniforms u{};
-        u.camera[0] = cam.x, u.camera[1] = cam.y, u.zoom = cam.zoom;
+        u.camera[0] = cam.x + float(originX) * 32.0f, u.camera[1] = cam.y + float(originY) * 32.0f, u.zoom = cam.zoom;  // (a larger grid: the map at its origin)
         u.viewport[0] = float(w), u.viewport[1] = float(h);
         u.mapTiles[0] = mapW, u.mapTiles[1] = mapH;
         u.atlasSize[0] = hdFull ? hdAtlasW : hdSmall ? hdDownW : sdAtlasW;
@@ -1253,6 +1465,16 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         SDL_BindGPUFragmentSamplers(pass, 0, b, 2);
         SDL_PushGPUFragmentUniformData(cmd, 0, &u, sizeof u);
         SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
+        ++stats.drawCalls;
+    }
+
+    if (!underRects.empty() && underBuf) {  // (Scene::underRects: on the terrain, under the sprites)
+        SDL_BindGPUGraphicsPipeline(pass, solidPipe);
+        SDL_BindGPUVertexStorageBuffers(pass, 0, &underBuf, 1);
+        SolidUniforms su{};
+        su.viewport[0] = float(w), su.viewport[1] = float(h);
+        SDL_PushGPUVertexUniformData(cmd, 0, &su, sizeof su);
+        SDL_DrawGPUPrimitives(pass, 6, uint32_t(underRects.size()), 0, 0);
         ++stats.drawCalls;
     }
 

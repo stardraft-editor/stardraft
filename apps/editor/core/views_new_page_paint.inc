@@ -59,10 +59,9 @@ void NewPageView::paintSizeRow(draw::Canvas& c, int x, int y, int labelW, int ri
         uint16_t* const target = p;
         const std::wstring what = name;
         NewPageView* const self = this;
-        std::wstring text = std::to_wstring(*target);
-        if (!shellPromptText(what + L" (16 to 256 tiles)", text)) return;
-        const int v = std::wcstol(text.c_str(), nullptr, 10);
-        if (v < 16 || v > 256) return setMessage(what + L": type a size from 16 to 256");
+        std::vector<NumberAsk> asks{{what, tr(L"tiles"), double(*target), 16, 256}};
+        if (!shellAskNumbers(tr(L"Map size"), asks)) return;
+        const int v = int(asks[0].value);
         if (v != *target) *target = uint16_t(v), self->changed();
     };
     hits.push_back(typed);
@@ -188,7 +187,7 @@ void NewPageView::paint(draw::Canvas& c) {
             const std::wstring map = fromMapText();
             sub = map.empty() ? L"an imported map" : L"imported from " + fs::path(map).filename().wstring();
         }
-        y = kitpaint::drawTitle(c, x1, y, x3 + w3, {}, true, proj ? UiIcon::NewProject : UiIcon::New, cosmonarchy ? kCosmonarchyName : kKindNames[proj ? 1 : 0],
+        y = kitpaint::drawTitle(c, x1, y, x3 + w3, {}, true, proj ? UiIcon::Project : UiIcon::Map, cosmonarchy ? kCosmonarchyName : kKindNames[proj ? 1 : 0],
                                 sub, false)
                 .next;
     }
@@ -221,11 +220,9 @@ void NewPageView::paint(draw::Canvas& c) {
             if (!warning.empty()) {
                 c.icon({x1, fy + scale(2), x1 + scale(16), fy + scale(18)}, int(UiIcon::Warning), kWarn, scale(16));
                 fy = paragraph(c, {x1 + scale(22), fy, x1 + w1, fy + scale(200)}, warning, kWarn) + scale(8);
-            } else {
-                const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
+            } else {  // (the UI font: the whole folder, which the Location field can cut)
                 fy = paragraph(c, {x1, fy, x1 + w1, fy + scale(100)}, L"The project goes into the new folder " + projectFolder().make_preferred().wstring(), kDim) +
                      scale(8);
-                c.setFont(of);
             }
         }
         const std::wstring cue = nameText() + L"_EUD.scx";

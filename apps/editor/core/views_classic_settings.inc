@@ -337,7 +337,8 @@ struct ClassicNumber {
 class ClassicPageView final : public draw::View {
 public:
     ClassicPageView(ClassicHost& host, ClassicDialog& d, int tab) : host_(host), d_(d), tab_(tab), model_([&host](int t, int e) { return host.entryName(t, e); }) {
-        search_.setPlaceholder(L"Search");
+        static const wchar_t* const kCues[kClassicTabCount] = {L"Search units", L"Search upgrades", L"Search technologies"};
+        search_.setPlaceholder(kCues[tab_]);  // (as the other lists' cues: "Search <things>")
         search_.onChange = [this] { fillList(); };
         add(search_, {0, 0, 0, 0});
         // The Changed filter: the Data workspace's button (core/views_data_workspace.inc), at the search box's right.
@@ -372,7 +373,7 @@ public:
             add(n.field, {0, 0, 0, 0});
         }
         if (tab_ == kClassicUnits) {  // the name (the rename button) after the fields, as the old Name box
-            rename_.setText(L"\x270E"), rename_.setTone(stardraft::kit::Tone::Normal);
+            rename_.setGlyph(stardraft::kit::IconGlyph::ofIcon(int(UiIcon::Edit))), rename_.setStyle(stardraft::kit::IconStyle::Boxed);
             rename_.setTip(L"Rename the unit (empty: the game's name)");
             rename_.onClick = [this] { renameUnit(); };
             add(rename_, {0, 0, 0, 0});
@@ -503,7 +504,7 @@ public:
     stardraft::kit::CheckBox& globalB() { return globalCheckB_; }
     stardraft::kit::TextField& globalLevelA() { return globalA_.field; }
     stardraft::kit::TextField& globalLevelB() { return globalB_.field; }
-    stardraft::kit::Button& renameButton() { return rename_; }
+    stardraft::kit::IconButton& renameButton() { return rename_; }
     stardraft::kit::TextField& search() { return search_.field(); }
     bool renameShown() const { return tab_ == kClassicUnits; }
     // Use default: on takes the game's values, off the entry's own (the page's Use default, as a change does it).
@@ -689,7 +690,7 @@ private:
     // A child's frame, set only when it differs (a set repaints).
     static bool isDigit(wchar_t c) { return c >= L'0' && c <= L'9'; }
     void setNumberLook(ClassicNumber& n) {
-        n.field.setAlignRight(true), n.field.setFont({draw::Face::Mono, 0}), n.field.setFilter(isDigit);
+        n.field.setAlignRight(true), n.field.setFilter(isDigit);
     }
 
     // The check boxes' changes: the page's change of the entry's values.
@@ -957,9 +958,7 @@ private:
         const bool pinned = i < pinnedShown_;
         const draw::Rect t{box.right + scale(8), r.top, r.right - scale(pinned ? 34 : 16), r.bottom};
         if (pinned) {  // a pin at the right, and a line under the last pinned row (as the Data workspace's list)
-            const draw::Font old = c.setFont(c.font({draw::Face::Glyphs, scale(11)}));
-            c.text({r.right - scale(33), r.top, r.right - scale(18), r.bottom}, L"\xE718", kDim, draw::kCenter | draw::kMiddle);
-            c.setFont(old);
+            c.icon({r.right - scale(33), r.top, r.right - scale(18), r.bottom}, int(UiIcon::Pin), kDim, scale(16));
             if (i == pinnedShown_ - 1 && i + 1 < int(shown_.size())) c.fill({r.left + scale(6), r.bottom - 1, r.right - scale(6), r.bottom}, kBorder);
         }
         c.text(t, host_.entryName(tab_, e), sel ? kAccent : kText, draw::kMiddle | draw::kEllipsis);
@@ -979,7 +978,7 @@ private:
     std::vector<int> shown_;  // the entries in the list, in order
     int pinnedShown_ = 0;     // how many of the first rows are pinned
     int scrollToRow_ = -1;    // the selected row, to bring in view at the next paint (-1: none)
-    stardraft::kit::Button rename_;
+    stardraft::kit::IconButton rename_;
     ClassicNumber fields_[6];
     ClassicNumber weaponDamage_[kCsWeaponRows], weaponBonus_[kCsWeaponRows];
     std::vector<int> weapons_;  // the weapon of each weapon row (-1: none)

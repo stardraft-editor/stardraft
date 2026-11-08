@@ -57,6 +57,7 @@ struct Doodad {
     uint16_t id = 0, x = 0, y = 0;  // center, pixels
     uint8_t owner = 0;
     uint8_t disabled = 0;
+    bool noOverlay = false;  // (not in DD2; map layers, Editor::layerDoodads: its overlay sprite was removed, and stays out)
 };
 
 // THG2 entry (10 bytes).

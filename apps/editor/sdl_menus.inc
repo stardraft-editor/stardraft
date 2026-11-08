@@ -142,6 +142,8 @@ bool keyOfChord(const std::string& name, draw::Key& out) {
     else if (name == "Right") out = draw::Key::Right;
     else if (name == "Up") out = draw::Key::Up;
     else if (name == "Down") out = draw::Key::Down;
+    else if (name == "PgUp") out = draw::Key::PageUp;
+    else if (name == "PgDn") out = draw::Key::PageDown;
     else if (name.size() >= 2 && name[0] == 'F' && std::isdigit(static_cast<unsigned char>(name[1]))) {
         const int n = std::atoi(name.c_str() + 1);
         if (n < 1 || n > 12) return false;
@@ -195,6 +197,7 @@ bool sdlRuns(int id) {
     case ID_FILE_SAVE:
     case ID_FILE_SAVEAS:
     case ID_FILE_EXPORTIMAGE:  // (core/map_image.inc)
+    case ID_FILE_EXPORTMAP:
     case ID_FILE_EXIT:
     case ID_EDIT_UNDO:
     case ID_EDIT_REDO:
@@ -285,6 +288,8 @@ bool sdlRuns(int id) {
     case ID_OPT_RANDOMFACING:
     case ID_OPT_SNAPBUILDINGS:
     case ID_OPT_DRAGBACK:
+    case ID_OPT_DRAGOBJECTS:
+    case ID_OPT_MANYSTARTS:
     case ID_OPT_ANIMATE:
     case ID_DOODAD_FIT:
     case ID_DOODAD_NEAREST:
@@ -300,7 +305,7 @@ bool sdlRuns(int id) {
     }
     if (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) return true;  // the keys 1 to 0 and = (player 12)
     if (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) return true;   // V, B, A, F
-    if (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 8) return true;  // I, O, P, X, E, H, J, W
+    if (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 16) return true;  // I, O, P, X, E, H, J, W, K, M, N, C, Z (Shift: filled)
     if (id == ID_TERRAIN_KIND_NEXT) return true;                   // Ctrl+Alt+T
     if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) return true;  // Alt+0 to Alt+4: the symmetry
     if (id >= ID_RAIL_KEY && id < ID_RAIL_KEY + 9) return true;   // Ctrl+1 to Ctrl+9
@@ -318,7 +323,7 @@ bool simBarShown();  // (sdl_simulation.inc)
 bool simLocksCommand(int id) {
     return (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_HISTORY || id == ID_EDIT_SNAPGRID || id == ID_EDIT_TERRAINUNITS || id == ID_EDIT_TERRAINDOODADS ||
            (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) || (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) || id == ID_QUICKPICK ||
-           (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) || (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 8) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) || id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SCEN_PLAYERS ||
+           (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) || (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 16) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) || id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SCEN_PLAYERS ||
            id == ID_SCEN_PROPS || id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG || id == ID_PROJ_FROMMAP;
 }
 
@@ -647,6 +652,7 @@ bool shortcutRun(const draw::KeyEvent& e) {
 // The second key of a two-key shortcut, before any view takes the key (a search box would type it): its command, or
 // nothing (Esc, or a key that no shortcut has). True when the key was the second key.
 bool sequenceKey(const draw::KeyEvent& e) {
+    if (e.down && e.key == draw::Key::Escape && kitui::ItemDrag::escape()) return true;  // (Esc ends a list's drag)
     if (!gSequenceFirst) return false;
     if (e.key == draw::Key::None) return gSequenceFirst.reset(), setMessage(L""), false;  // (a press or a lost keyboard: SdlHost::setKeyFilter)
     if (!e.down) return false;
@@ -918,7 +924,8 @@ bool sdlShotInputNext() {
 // odd one a click: SdlHost). Quick in a click's mods: the click comes quickly after the click before it (SDL's clicks 2, anywhere: the
 // system counts it as a double click when it is near the first). Undo in a drag's mods: Ctrl+Z is pressed halfway,
 // while the button is held. Right in a click's mods: the right button; Menu<n>: a right click, and the menu that opens
-// runs its item n (its items go to the output, as --rclick's: sdlMenuShot).
+// runs its item n (its items go to the output, as --rclick's: sdlMenuShot); Pick<n>: the same with a left click (a
+// button that opens a menu, as a panel's Settings).
 // The points are the main window's, as a user's mouse is on the screen: a pop-out that an input opened takes the
 // events when the first point is on it, and a press outside it closes it; a dialog takes them in its own pixels.
 // A drag can go on through more points: x0,y0-x1,y1-x2,y2... (the mouse moves to each in turn, in steps). Hold in a
@@ -980,7 +987,8 @@ void sdlMouseShot(const std::string& spec, char kind) {
         else if (m == "Right" && !drag && !moveOnly) right = true;
         else if (m == "Middle" && !drag && !moveOnly) middle = true;
         else if (m.rfind("Menu", 0) == 0 && m.size() > 4 && !drag && !moveOnly) right = true, menuPick = std::atoi(m.c_str() + 4);
-        else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl, Alt, Double, Quick, Repeat<n>, Right, Middle, Menu<n>, Undo or Hold\n", name.c_str(), spec.c_str(), m.c_str()));
+        else if (m.rfind("Pick", 0) == 0 && m.size() > 4 && !drag && !moveOnly) menuPick = std::atoi(m.c_str() + 4);
+        else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl, Alt, Double, Quick, Repeat<n>, Right, Middle, Menu<n>, Pick<n>, Undo or Hold\n", name.c_str(), spec.c_str(), m.c_str()));
     }
     std::vector<SDL_Event> events;
     float px = float(x0), py = float(y0);
@@ -1185,7 +1193,7 @@ void sdlPinchShot(const std::string& spec) {
 // view.grid, view.ranges...) or one of the names below, as its menu item runs it. The output says whether the item is
 // enabled (a gray item: "(WRONG)").
 void sdlCommandShot(const std::string& name) {
-    static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.animate", ID_OPT_ANIMATE}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
+    static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.animate", ID_OPT_ANIMATE}, {"options.dragobjects", ID_OPT_DRAGOBJECTS}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
                                                          {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO}, {"edit.history", ID_EDIT_HISTORY},
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT}, {"project.addmusic", ID_PROJ_ADDMUSIC}, {"project.adddots", ID_PROJ_ADDDOTS},
                                                          {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART},
@@ -1465,6 +1473,13 @@ void commandSdl(int id) {
         return;
     case ID_FILE_SAVE: saveOpenMap(false); return;
     case ID_FILE_SAVEAS: saveOpenMap(true); return;
+    case ID_FILE_EXPORTMAP:
+        showFileDialog(true, [](const fs::path& picked) {
+            fs::path p = picked;
+            if (!p.empty() && !p.has_extension()) p += ".scx";
+            if (!p.empty()) mapLayersExport(p);
+        });
+        return;
     case ID_FILE_EXPORTIMAGE:
         sdlExportMapImage();  // (sdl_map_image.inc; as Save as, its dialogs run here)
         return;
@@ -1474,7 +1489,17 @@ void commandSdl(int id) {
     case ID_EDIT_HISTORY: sdlShowUndoHistory(); return;
     case ID_WS_ASSETS: setWorkspace(Workspace::Files); return;  // Assets is part of Files
     case ID_SCEN_PROPS: setWorkspace(Workspace::Properties); return;
-    case ID_SCEN_PLAYERS: setWorkspace(Workspace::Players); return;
+    case ID_SCEN_PLAYERS: {  // (Map properties at its Players and forces tab: one place for the page, the rail's Properties on)
+        extern int gSdlPropsTab;
+        void sdlPropsTabSync();
+        void gSdlMapPages_scrollTop();
+        const int was = gSdlPropsTab;
+        gSdlPropsTab = 1;
+        setWorkspace(Workspace::Properties);
+        if (gWorkspace != Workspace::Properties) gSdlPropsTab = was;  // (the page did not show: its tab as it was)
+        else sdlPropsTabSync(), gSdlMapPages_scrollTop();               // (open already: the tab's part shows)
+        return;
+    }
     case ID_SCEN_CLASSIC: setWorkspace(Workspace::ClassicSettings); return;
     case ID_SCEN_CLASSICTRIG: setWorkspace(Workspace::ClassicTriggers); return;
     // The keys of the pages: a project's Triggers and Data workspaces, a classic map's Classic triggers and Map data pages.

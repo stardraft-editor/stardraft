@@ -60,7 +60,7 @@ std::vector<std::pair<int, std::wstring>> railMenuItems();  // (core/views_rail.
 
 // The two-key shortcuts of the menu items that have no key of their own (sdl_menus.inc: the first key, then the
 // second: always one letter or digit, with no Shift), by the item's menu path in English: Ctrl+K the View menu's (but
-// View > Layers and View > Floating palettes: Ctrl+Shift+L), Ctrl+J the Options menu's, Ctrl+Shift+K the others' (File,
+// View > Modes and View > Floating palettes: Ctrl+Shift+L), Ctrl+J the Options menu's, Ctrl+Shift+K the others' (File,
 // Tools, Help).
 void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
     static const std::map<std::wstring, std::wstring> kKeys = {
@@ -101,14 +101,14 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"View/Overlays/Unit vision and ranges/Detection", L"Ctrl+K, D"},
         {L"View/Overlays/Unit vision and ranges/Psi field", L"Ctrl+K, I"},
         {L"View/Overlays/Turn off all overlays", L"Ctrl+K, O"},
-        {L"View/Layers/Terrain", L"Ctrl+Shift+L, T"},
-        {L"View/Layers/Doodads", L"Ctrl+Shift+L, D"},
-        {L"View/Layers/Sprites", L"Ctrl+Shift+L, S"},
-        {L"View/Layers/Units", L"Ctrl+Shift+L, U"},
-        {L"View/Layers/Map revealers", L"Ctrl+Shift+L, R"},
-        {L"View/Layers/Creep", L"Ctrl+Shift+L, C"},
-        {L"View/Layers/Protected terrain", L"Ctrl+Shift+L, P"},
-        {L"View/Layers/Locations", L"Ctrl+Shift+L, L"},
+        {L"View/Modes/Terrain", L"Ctrl+Shift+L, T"},
+        {L"View/Modes/Doodads", L"Ctrl+Shift+L, D"},
+        {L"View/Modes/Sprites", L"Ctrl+Shift+L, S"},
+        {L"View/Modes/Units", L"Ctrl+Shift+L, U"},
+        {L"View/Modes/Map revealers", L"Ctrl+Shift+L, R"},
+        {L"View/Modes/Creep", L"Ctrl+Shift+L, C"},
+        {L"View/Modes/Protected terrain", L"Ctrl+Shift+L, P"},
+        {L"View/Modes/Locations", L"Ctrl+Shift+L, L"},
         {L"View/Animate units", L"Ctrl+K, N"},
         {L"View/Show minimap", L"Ctrl+K, M"},
         {L"View/Floating palettes/Terrain palette", L"Ctrl+Shift+L, 1"},
@@ -189,6 +189,7 @@ MenuModel buildMenuModel() {
                    menuSeparator(),
                    menuItem(ID_FILE_SAVE, L"&Save", L"Ctrl+S"),
                    menuItem(ID_FILE_SAVEAS, L"Save &as\x2026", L"Ctrl+Shift+S"),
+                   menuItem(ID_FILE_EXPORTMAP, L"E&xport map\x2026"),
                    menuItem(ID_FILE_EXPORTIMAGE, L"&Export map image\x2026", L"Ctrl+Shift+E"),
                    menuSeparator(),
                    menuItem(ID_FILE_CLOSE, L"&Close", L"Ctrl+W"),
@@ -245,7 +246,8 @@ MenuModel buildMenuModel() {
         menuCommand(grid, "view.grid");
         grid.push_back(menuSeparator());
         for (int k = 0; k < int(std::size(kGridPresets)); ++k)
-            grid.push_back(menuItem(ID_GRID_SIZE + k, std::to_wstring(kGridPresets[k].px) + L" pixels" +
+            grid.push_back(menuItem(ID_GRID_SIZE + k, std::to_wstring(kGridPresets[k].px) +
+                                                          (kGridPresets[k].py ? L" x " + std::to_wstring(kGridPresets[k].py) : std::wstring()) + L" pixels" +
                                                           (*kGridPresets[k].tiles ? L" (" + std::wstring(kGridPresets[k].tiles) + L")" : std::wstring())));
         grid.push_back(menuSeparator());
         grid.push_back(menuItem(ID_GRID_CUSTOM, L"&Custom\x2026"));
@@ -281,7 +283,7 @@ MenuModel buildMenuModel() {
         MenuModel layers;
         menuCommands(layers, "View/Layers");
         layers.push_back(menuItem(ID_VIEW_LOCATIONS, L"&Locations"));
-        view.push_back(menuPopup(L"La&yers", layers));
+        view.push_back(menuPopup(L"&Modes", layers));
     }
     view.push_back(menuItem(ID_OPT_ANIMATE, L"A&nimate units"));  // (the units' idle animations on the map)
     view.push_back(menuSeparator());
@@ -322,9 +324,12 @@ MenuModel buildMenuModel() {
     MenuModel mode, terrainTools;
     menuCommands(mode, "Mode");
     menuCommands(terrainTools, "Mode/Terrain tools");
+    MenuModel layerCommands;
+    menuCommands(layerCommands, "Mode/Layer");
     terrainTools.insert(terrainTools.end() - 1, menuSeparator());  // (before Next)
     mode.push_back(menuSeparator());
     mode.push_back(menuPopup(L"Te&rrain tools", terrainTools));
+    mode.push_back(menuPopup(L"La&yer", layerCommands));
     // (No Scenario menu: Map properties, Players and forces, Map data and Classic triggers are the side bar's items
     // (their keys: Ctrl+1 to Ctrl+9; Players and forces is part of Properties), and the checks are in Tools.)
     // Options: the snap and placement rules of each kind (the same items for each; a rule that does not change is
@@ -345,6 +350,7 @@ MenuModel buildMenuModel() {
     units.push_back(menuItem(ID_OPT_RESDIST, L"Keep &resources 3 tiles from town halls"));
     units.push_back(menuItem(ID_OPT_RANDOMFACING, L"&Randomize unit direction when placed"));
     units.push_back(menuItem(ID_OPT_DRAGBACK, L"Dragged units go &back to the last place where they fit"));
+    units.push_back(menuItem(ID_OPT_MANYSTARTS, L"Many start &locations for each player"));
     doodads.push_back(menuItem(ID_FIXED_DOODAD_SNAP, L"Snap to tiles (32 px): always, a doodad is made of tiles", {}, true, true, true));
     doodads.push_back(menuSeparator());
     append(doodads, placeItems(ID_DOODAD_FIT, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE));
@@ -365,6 +371,8 @@ MenuModel buildMenuModel() {
                       menuPopup(L"&Doodads", doodads),
                       menuPopup(L"&Sprites", sprites),
                       menuPopup(L"&Locations", locations),
+                      menuSeparator(),
+                      menuItem(ID_OPT_DRAGOBJECTS, L"D&rag objects to move them"),
                       menuSeparator(),
                       menuItem(ID_EDIT_TERRAINUNITS, L"Terrain copy includes u&nits"),
                       menuItem(ID_EDIT_TERRAINDOODADS, L"Terrain copy includes d&oodads"),

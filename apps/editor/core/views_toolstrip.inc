@@ -10,6 +10,7 @@ constexpr double kStripPi = 3.14159265358979323846;
 
 void setTerrainRect(bool rect);
 bool objectSprayOn();
+void shellMenuAt(draw::View& from, draw::Point at, const MenuModel& m, const std::wstring& on, std::function<void(int)> pick);  // (sdl_panels.inc)
 
 // The brush sizes (diamonds; the sprays' radius too): 0.5 (half a diamond: one corner), 1 to 16, then every other to 32.
 const std::vector<float>& brushSizes() {
@@ -32,7 +33,7 @@ int brushSizeIndex(float size) {  // the nearest size in the list
 }
 
 // The tool strip's number boxes (Size, Density, the Terrain height and the brush shape, for the wheel).
-enum StripNumber { kNumSize, kNumDensity, kNumHeight, kNumShape, kNumTurns, kNumMix };
+enum StripNumber { kNumSize, kNumDensity, kNumHeight, kNumShape, kNumTurns, kNumMix, kNumDetail };
 
 // A click area of the strip, as painted: what it does, its tip, its cursor.
 struct StripHit {
@@ -65,7 +66,7 @@ public:
 };
 
 // The shape list's entries: the names as the menu shows them.
-static const wchar_t* const kStripShapeNames[3] = {L"Diamond", L"Square", L"Circle"};
+static const wchar_t* const kStripShapeNames[3] = {L"&Diamond", L"&Square", L"&Circle"};
 
 // --- Rules of the strip (no drawing) ------------------------------------------------------------------------------------
 bool objectSprayOn() {
@@ -83,6 +84,17 @@ bool stripHasDensity() {
 }
 // Mix: Terrain's Fill (several picks in patches).
 bool stripHasMix() { return appState().mode == Mode::Terrain && currentTool() == TFill && terrainKind() != 2; }  // (not Custom)
+// More: the terrain tools' less used values, under a fold at the strip's end (Isometric and Rectangle: Detailed tiles,
+// GitHub #257). Its fold, open or closed, is kept in the settings (ToolStripMore).
+bool stripHasMore() { return appState().mode == Mode::Terrain && (terrainKind() == 0 || terrainKind() == 3); }
+bool& stripMoreOpen() {
+    static bool open = [] {
+        bool v = false;
+        if (!gSelfTest && !gSettingsOff) prefs::flag(L"ToolStripMore", v);
+        return v;
+    }();
+    return open;
+}
 // The mirrors: the modes whose edits repeat with them (Rectangle too: its tiles at the mirror images; sprites as units do).
 bool stripHasMirrors() {
     const AppState& app = appState();
@@ -147,6 +159,7 @@ std::wstring stripNumberText(int which) {
     else if (which == kNumHeight) std::swprintf(t, 24, L"%g", brushHeightOf(app));  // linked: the size; the Diamond: its own rule
     else if (which == kNumTurns) std::swprintf(t, 24, L"%d", app.ed ? app.ed->turns() : 1);
     else if (which == kNumMix) std::swprintf(t, 24, L"%d", app.fillMix);
+    else if (which == kNumDetail) std::swprintf(t, 24, L"%d", stardraft::detailedTilePercent());
     else std::swprintf(t, 24, L"%d", app.sprayDensity);
     return t;
 }
@@ -184,6 +197,9 @@ void stripNumberStep(int which, int dir) {
         if (app.ed) app.ed->setTurns(app.ed->turns() + dir);
     } else if (which == kNumMix) {
         app.fillMix = std::clamp(app.fillMix + dir, 1, 10);
+    } else if (which == kNumDetail) {
+        stardraft::setDetailedTilePercent(stardraft::detailedTilePercent() + dir);
+        shellSettingsChanged();
     } else {
         // (in fives: 1, 5, 10, ... 100; typed: any number)
         const int d = app.sprayDensity;
@@ -202,7 +218,7 @@ bool stripNumberSet(int which, const std::wstring& text) {
     wchar_t* end = nullptr;
     const double v = std::wcstod(text.c_str(), &end);
     while (end && *end == L' ') ++end;
-    if (which == kNumDensity && end && *end == L'%') ++end;  // (as it shows)
+    if ((which == kNumDensity || which == kNumDetail) && end && *end == L'%') ++end;  // (as it shows)
     if (text.empty() || !end || end == text.c_str() || *end || !std::isfinite(v)) {
         setMessage(L"Not a number: " + text);
         return false;
@@ -215,6 +231,9 @@ bool stripNumberSet(int which, const std::wstring& text) {
         if (app.ed) app.ed->setTurns(int(std::lround(std::clamp(v, -1000.0, 1000.0))));
     } else if (which == kNumMix) {
         app.fillMix = std::clamp(int(std::lround(std::clamp(v, -1000.0, 1000.0))), 1, 10);
+    } else if (which == kNumDetail) {
+        stardraft::setDetailedTilePercent(int(std::lround(std::clamp(v, 0.0, 100.0))));
+        shellSettingsChanged();
     } else {
         app.sprayDensity = std::clamp(int(std::lround(std::clamp(v, -1000.0, 1000.0))), 1, kDensityMax);
     }
@@ -247,6 +266,7 @@ void pickStripTool(const StripItem& it) {
 void stripToolByKey(int key) {
     if (gWorkspace != Workspace::Map) return;
     for (const StripItem& it : stripTools(appState().mode)) {
+        if (it.disabled && stripToolKey(it) == key) return setMessage(L"Select terrain first, with Select, the Lasso or the Magic wand");
         if (it.members.empty() && stripToolKey(it) == key) return pickStripTool(it);
         for (const StripItem& m : it.members)  // (a group: each of its tools by its own key)
             if (stripToolKey(m) == key) return pickStripTool(m);
@@ -256,6 +276,23 @@ void stripToolByKey(int key) {
 // click on it. A click on one picks it and closes the row; Esc or a click outside closes it. (`it` a copy: the strip
 // paints its buttons again while the row is open.)
 void stripGroupPopout(StripItem it, draw::View& from, draw::Rect button);
+
+// Terrain with a mask on (the terrain mask or the tile mask): the map shows a chip with what is in it, at its top left
+// (sdl_main_view.inc: MapView; on the map, so that the lists do not move when a mask starts).
+bool stripMaskShown() {
+    const AppState& app = appState();
+    return app.mode == Mode::Terrain && app.ed && app.ed->isOpen() && (!app.ed->terrainMask().empty() || !app.ed->tileMask().empty());
+}
+// The chip's text: "Mask: Dirt, Mud" (the terrains), "3 tiles" (the tiles), or both.
+std::wstring stripMaskText() {
+    const Editor& ed = *appState().ed;
+    std::wstring t;
+    const auto& tm = ed.terrainMask();
+    for (size_t i = 0; i < tm.size() && i < 3; ++i) t += (i ? L", " : L"") + widen(ed.terrainName(tm[i]));
+    if (tm.size() > 3) t += L" +" + std::to_wstring(tm.size() - 3);
+    if (const size_t n = ed.tileMask().size()) t += (t.empty() ? L"" : L"  \x00b7  ") + std::to_wstring(n) + (n == 1 ? tr(L" tile") : tr(L" tiles"));
+    return tr(L"Mask: ") + t;
+}
 
 int toolStripHeight(int width, bool titled) {
     const AppState& app = appState();
@@ -267,7 +304,8 @@ int toolStripHeight(int width, bool titled) {
     const bool turnsBeside = width - (5 * (scale(28) + scale(3)) + scale(6)) >= scale(84);
     const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + (turnsBeside ? 0 : scale(26) + gap) : 0) +
                       (stripHasDensity() ? scale(26) + gap : 0) +
-                      (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0);  // Terrain: Isometric | Rectangle
+                      (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0) +  // Terrain: Isometric | Rectangle
+                      (stripHasMore() ? scale(22) + gap + (stripMoreOpen() ? scale(26) + gap : 0) : 0);  // (More, and its rows)
     return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
 }
 // The strip's height for a panel (its tools, its sizes, its options: panel_state.inc).
@@ -290,11 +328,10 @@ Rect square(Rect r) {
     const int x = r.left + (w - s) / 2, y = r.top + (h - s) / 2;
     return {x, y, x + s, y + s};
 }
-// A glyph of the Segoe MDL2 face, centered, at `size` (96-dpi pixels).
-void glyph(Canvas& c, Rect r, wchar_t g, Color col, int size) {
-    const draw::Font prev = c.setFont(c.font({draw::Face::Glyphs, scale(size)}));
-    c.text(r, std::wstring_view(&g, 1), col, draw::kMiddle | draw::kCenter);
-    c.setFont(prev);
+// A small UI icon (a chevron, the link), centered: the 16 px icon (`size`: kept for the callers).
+void glyph(Canvas& c, Rect r, UiIcon g, Color col, int size) {
+    (void)size;
+    c.icon(r, int(g), col, scale(16));
 }
 // A UI icon, centered, at the size of 16 (the strip's icon buttons) or `px`.
 void icon(Canvas& c, Rect r, UiIcon i, Color col, int px = 16) { c.icon(r, int(i), col, scale(px)); }
@@ -308,8 +345,9 @@ void buttonFace(Canvas& c, Rect r, const std::wstring& text, bool primary, bool 
     c.text(r, text, primary ? kAccent : kText, draw::kMiddle | draw::kCenter | draw::kEllipsis);
 }
 // A flat icon button (ui::iconButton, Boxed): a fill when on (the accent) or under the mouse.
-void iconButtonFace(Canvas& c, Rect r, UiIcon g, bool on, bool over) {
+void iconButtonFace(Canvas& c, Rect r, UiIcon g, bool on, bool over, bool disabled = false) {
     r = square(r);
+    if (disabled) return icon(c, r, g, kFaint, 16);
     if (on) box(c, r, kSel, kAccentLine);
     else if (over) box(c, r, kCtlHot, kNoLine);
     icon(c, r, g, on ? kAccentBright : over ? kText : kDim, 16);  // (a UI icon is always at 16, as the Win32 glyph was)
@@ -359,7 +397,7 @@ struct ToolPopoutView final : draw::View {
         if (i < 0) return {};
         const StripItem& m = group.members[size_t(i)];
         const int key = stripToolKey(m);
-        return std::wstring(tr(m.tip)) + (key >= 0 ? std::wstring(L" (") + wchar_t(L"VBAFIOPXEHJW"[key]) + L")" : L"");
+        return std::wstring(tr(m.tip)) + (key >= 0 ? std::wstring(L" (") + stripKeyName(key) + L")" : L"");
     }
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {
@@ -456,6 +494,7 @@ public:
     bool typing() const { return editing_ >= 0; }
 
     void paint(draw::Canvas& c) override {
+        const MutedAccent muted(state && state != gActivePanel);  // (no focus: gray)
         using namespace stripLook;
         PanelScope scope(state);
         AppState& app = appState();
@@ -522,13 +561,19 @@ public:
             const bool on = currentTool() == it.tool && (!shared || it.select != picked) && (app.mode == Mode::Terrain || !it.select || !picked);
             const int key = stripToolKey(it);
             const draw::Rect r{x, y, x + b, y + b};
-            iconButtonFace(c, r, it.icon, on, hot(square(r)));
+            iconButtonFace(c, r, it.icon, on, hot(square(r)), it.disabled);
+            if (it.disabled) {  // (Move with nothing selected)
+                addHit(square(r), [] { setMessage(L"Select terrain first, with Select, the Lasso or the Magic wand"); },
+                       std::wstring(tr(it.tip)) + (key >= 0 ? std::wstring(L" (") + stripKeyName(key) + L")" : L"") + L" " + tr(L"Not available: no terrain is selected."));
+                next();
+                continue;
+            }
             // A group: a click selects its tool and shows its tools under it.
             addHit(square(r), [this, it, sq = square(r)] {
                 pickStripTool(it);
-                if (!it.members.empty() && it.group != 4) stripGroupPopout(it, *this, sq);  // (Select: its arrow lists them)
-            }, (key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOPXEHJW"[key]) + L")" : std::wstring(it.tip)) +
-                   (it.members.empty() || it.group == 4 ? L"" : tr(L" A click also shows the tools of this button.")));
+                if (!it.members.empty()) stripGroupPopout(it, *this, sq);
+            }, (key >= 0 ? std::wstring(tr(it.tip)) + L" (" + stripKeyName(key) + L")" : std::wstring(it.tip)) +
+                   (it.members.empty() ? L"" : tr(L" A click also shows the tools of this button.")));
             if (!it.members.empty()) {  // its arrow: a small triangle in the corner, a click lists the tools
                 const draw::Rect sq = square(r);
                 // (a small smooth triangle in the corner, its right angle at the corner)
@@ -575,7 +620,7 @@ public:
                 const draw::Rect k = more ? up : down;
                 const bool over = hot(k);
                 if (over) box(c, k, kCtlHot, kNoLine, 2);
-                glyph(c, k, more ? L'\xE70E' : L'\xE70D', over ? kText : kDim, 6);  // chevrons up and down
+                glyph(c, k, more ? UiIcon::ChevronUp : UiIcon::ChevronDown, over ? kText : kDim, 6);  // chevrons up and down
             }
             addHitC(value, [this, which, typed] { beginEdit(which, typed); }, tip, draw::Cursor::IBeam);
             addHit(up, [which] { stripNumberStep(which, 1); }, L"One step more");
@@ -589,7 +634,7 @@ public:
         };
         static const wchar_t* const kSizeTip = L"Brush size: 1 to 32. Click to type a size. The arrows and the mouse wheel change it (Alt+wheel on the map too).";
         static const wchar_t* const kTurnsTip =
-            L"Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).";
+            L"Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).";
         static const wchar_t* const kHeightTip =
             L"Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.";
         if (stripHasSize() && app.mode == Mode::Terrain) {
@@ -611,24 +656,25 @@ public:
             const draw::Rect sr{boxR.left, boxR.top, boxR.left + seg, boxR.bottom};
             hotFill(sr);
             c.icon({sr.left + scale(4), sr.top, sr.left + scale(24), sr.bottom}, int(shapeIcons[int(shapeOf(app)) % 3]), kText, scale(14));
-            glyph(c, {sr.left + scale(24), sr.top, sr.right - scale(4), sr.bottom}, L'\xE70D', kDim, 7);
+            glyph(c, {sr.left + scale(24), sr.top, sr.right - scale(4), sr.bottom}, UiIcon::ChevronDown, kDim, 7);
             addHit(sr, [this, sr] {
-                std::vector<std::wstring> names;
-                for (const wchar_t* n : kStripShapeNames) names.push_back(std::wstring(tr(n)));
-                const int pick = shellPopupPick(names, int(shapeOf(appState())), sr.left, sr.bottom + scale(2));
-                if (pick >= 0) {
-                    shapeOf(appState()) = Brush::Shape(pick);
+                MenuModel m;
+                for (int k = 0; k < 3; ++k) m.push_back(menuItem(k + 1, kStripShapeNames[k], {}, false, int(shapeOf(appState())) == k));
+                PanelState* panel = state;
+                shellMenuAt(*this, {sr.left, sr.bottom + scale(2)}, m, L"the brush shape", [panel](int id) {
+                    PanelScope scope(panel);
+                    shapeOf(appState()) = Brush::Shape(std::clamp(id - 1, 0, 2));
                     shellSettingsChanged();
                     shellToolsChanged();
-                }
-                shellFocusView();
+                    shellFocusView();
+                });
             }, L"Brush shape: diamond, square or circle. Click to select one; the mouse wheel changes it.");
             numbers_.push_back({sr, kNumShape});
             divider(sr.right);
             // The link.
             const draw::Rect lk{boxR.right - linkW, boxR.top, boxR.right, boxR.bottom};
             hotFill(lk);
-            glyph(c, lk, L'\xE71B', linked ? kAccent : kFaint, 10);
+            glyph(c, lk, UiIcon::Link, linked ? kAccent : kFaint, 10);
             addHit(lk, [] {
                 AppState& a = appState();
                 a.brushHeight = a.brushHeight <= 0 ? brushHeightOf(a) : 0;  // as it is now (a typed height may just have been set)
@@ -643,19 +689,19 @@ public:
                 const int mid = (boxR.top + boxR.bottom) / 2;
                 const draw::Rect value{left, boxR.top, right - spin, boxR.bottom}, up{right - spin, boxR.top + pad, right - scale(2), mid},
                     down{right - spin, mid, right - scale(2), boxR.bottom - pad};
-                // Its name inside at the left, the number at the right (as the other number boxes); the one Size: the two together in the middle.
+                // Its name inside at the left, the number at the right (as the other number boxes).
                 const std::wstring number = stripNumberText(which);
-                const int nameW = c.measure(tr(name)), numberW = c.measure(number), between = scale(6);
-                const int nameLeft = linked ? (value.left + value.right - nameW - between - numberW) / 2 : value.left + scale(7);
+                const int nameW = c.measure(tr(name));
+                const int nameLeft = value.left + scale(7);
                 const int nameRight = nameLeft + nameW;
                 c.text({nameLeft, value.top, nameRight, value.bottom}, name, kDim, draw::kMiddle | draw::kLeft);
                 const draw::Rect typed{nameRight + scale(1), value.top, value.right, value.bottom};  // (the field over the number)
-                if (editing_ != which) c.text({typed.left, value.top, linked ? nameRight + between + numberW : value.right - scale(4), value.bottom}, number, kText, draw::kMiddle | draw::kRight);
+                if (editing_ != which) c.text({typed.left, value.top, value.right - scale(4), value.bottom}, number, kText, draw::kMiddle | draw::kRight);
                 for (const bool more : {true, false}) {
                     const draw::Rect k = more ? up : down;
                     const bool over = hot(k);
                     if (over) box(c, k, kCtlHot, kNoLine, 2);
-                    glyph(c, k, more ? L'\xE70E' : L'\xE70D', over ? kText : kDim, 6);  // chevrons up and down
+                    glyph(c, k, more ? UiIcon::ChevronUp : UiIcon::ChevronDown, over ? kText : kDim, 6);  // chevrons up and down
                 }
                 addHitC(value, [this, which, typed] { beginEdit(which, typed); }, tip, draw::Cursor::IBeam);
                 addHit(up, [which] { stripNumberStep(which, 1); }, L"One step more");
@@ -727,12 +773,35 @@ public:
             // too narrow.
             const int minStep = scale(84), left = mx + scale(6);
             if (W - left >= minStep) {
-                spinner(kNumTurns, {left, y + scale(1), W, y + mb - scale(1)}, L"Turns", L"", kTurnsTip);
+                spinner(kNumTurns, {left, y + scale(1), W, y + mb - scale(1)}, L"Brushes", L"", kTurnsTip);
                 y += mb + gap;
             } else {
                 y += mb + gap;
-                numberRow(kNumTurns, L"Turns", kTurnsTip);
+                numberRow(kNumTurns, L"Brushes", kTurnsTip);
             }
+        }
+        // More: a fold (a chevron and its name, then a line), and its rows when it is open.
+        if (stripHasMore()) {
+            const int fh = scale(22);
+            const draw::Rect fold{0, y, W, y + fh};
+            const bool open = stripMoreOpen();
+            c.icon({0, y, scale(16), y + fh}, int(open ? UiIcon::ChevronDown : UiIcon::ChevronRight), hot(fold) ? kText : kDim, scale(16));
+            c.text({scale(18), y, W, y + fh}, tr(L"More"), hot(fold) ? kText : kDim, draw::kMiddle);
+            const int lineL = scale(18) + c.measure(tr(L"More")) + scale(8);
+            if (lineL < W) c.fill({lineL, y + fh / 2, W, y + fh / 2 + 1}, kBorder);
+            addHit(fold, [] {
+                bool& o = stripMoreOpen();
+                o = !o;
+                if (!gSelfTest && !gSettingsOff) prefs::setNumber(L"ToolStripMore", o ? 1 : 0);
+                shellToolsChanged();
+                void shellRelayout();
+                shellRelayout();
+            }, open ? L"Hide the less used values" : L"Show the less used values: Detailed tiles");
+            y += fh + gap;
+            if (open)
+                numberRow(kNumDetail, L"Detailed tiles",
+                          L"Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.",
+                          L"%");
         }
         c.setFont(prevFont);
         // The hits (their tips and cursors) are the last paint's; a hover change repaints.

@@ -48,7 +48,11 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 
 | Key | What it does |
 |---|---|
-| T, U, D, S, L | Terrain, Units, Doodads, Sprites and Locations mode |
+| T, U, D, S, L, Y | Terrain, Units, Doodads, Sprites, Locations and Map Layers mode |
+| Ctrl+Alt+N, Ctrl+Alt+H, Ctrl+Alt+L, Ctrl+Alt+E | New layer; hide or show, lock or unlock the selected layer; merge it down |
+| Ctrl+Alt+A | Select all layers (in Map Layers mode: Ctrl+A too) |
+| Alt+Page Up, Alt+Page Down | The layer above or below |
+| Alt+Shift+Page Up, Alt+Shift+Page Down | Move the selected layer up or down in the list |
 | Ctrl+T, Ctrl+U, Ctrl+G, Ctrl+R, Ctrl+L | Terrain, Units, Doodads, Sprites and Locations mode (as SCMDraft's layer keys, but Doodads on Ctrl+G; in the Map workspace) |
 | Ctrl+F | Show or hide the fog of war of the selected player |
 | V, B, A, F | The mode's tools: Select, Brush (place), Spray and Fill |
@@ -62,6 +66,11 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl+click, Shift+click in the palette | Select more terrains (Shift: the ones between). Spray and Fill put them at random; Fill in patches (Mix) |
 | Alt+click in the palette | Add a terrain (Tile: a tile) to the mask, or remove it. It gets an outline. Painting then changes only the terrains (or tiles) in the mask |
 | Shift+click with Fill | Fill every place of the clicked terrain (in the selection, if there is one) |
+| M | Terrain mode's Move tool, when a terrain is selected (with something on the cursor: M mirrors it) |
+| N, Shift+N | Terrain mode's Rectangle and Filled rectangle tools |
+| C, Shift+C | Terrain mode's Ellipse and Filled ellipse tools |
+| Z, Shift+Z | Terrain mode's Diamond and Filled diamond tools |
+| K | Terrain mode's Lasso: draw round the tiles to select. Shift adds, Ctrl removes. |
 | W | Terrain mode's Magic wand: a click selects what is reachable from there. Isometric: that terrain, with its edges and cliffs. Rectangle, Tile and Custom: the connected tiles of that terrain. Shift+click adds, Ctrl+click removes |
 | 1 to 9, 0, and the two keys after 0 | Player 1 to 12 for what you place (in Terrain mode, the palette's terrain). The keys go by their place on the keyboard, so they work on all layouts |
 | G | Show or hide the grid |
@@ -75,7 +84,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Esc | Cancel what is under way: a paste, a drag, a selection |
 | R, Shift+R | Turn what is on the cursor (terrain or tiles to paste, the Brush's copied tiles or custom terrain) clockwise, the other way. Isometric terrain makes its edges again; tiles keep their pictures |
 | M, Shift+M | Mirror what is on the cursor left and right, top and bottom |
-| Space (held) | Terrain mode: the pie palette; let go over a slice to paint with its terrain (View > Terrain pie palette: a click on a slice) |
+| Space (held) | Terrain mode: the pie palette; let go over a slice to paint with its terrain (View > Terrain pie palette: a click on a slice). With Shift held (or Ctrl, pressed after Space): the terrain goes into the selected terrains that Spray and Fill use, or comes out of them, as a Ctrl+click in the palette |
 | Alt+wheel | The brush one size up or down; Doodads mode with a doodad picked (no spray): the next or previous doodad; otherwise nothing (it never zooms) |
 
 The mouse: the wheel zooms the map at the mouse; a trackpad scrolls it with two fingers and zooms with a pinch; the
@@ -217,17 +226,18 @@ Cosmonarchy BW mode.)
 | Ctrl+K, L | View > Data > Entry view |
 | Ctrl+K, X | View > Triggers > Trigger code pane |
 
-### Ctrl+Shift+L: View > Layers and View > Floating palettes
+### Ctrl+Shift+L: View > Modes and View > Floating palettes
 
 | Keys | Menu command |
 |---|---|
-| Ctrl+Shift+L, T | View > Layers > Terrain |
-| Ctrl+Shift+L, D | View > Layers > Doodads |
-| Ctrl+Shift+L, S | View > Layers > Sprites |
-| Ctrl+Shift+L, U | View > Layers > Units |
-| Ctrl+Shift+L, R | View > Layers > Map revealers |
-| Ctrl+Shift+L, C | View > Layers > Creep |
-| Ctrl+Shift+L, L | View > Layers > Locations |
+| Ctrl+Shift+L, T | View > Modes > Terrain |
+| Ctrl+Shift+L, P | View > Modes > Protected terrain |
+| Ctrl+Shift+L, D | View > Modes > Doodads |
+| Ctrl+Shift+L, S | View > Modes > Sprites |
+| Ctrl+Shift+L, U | View > Modes > Units |
+| Ctrl+Shift+L, R | View > Modes > Map revealers |
+| Ctrl+Shift+L, C | View > Modes > Creep |
+| Ctrl+Shift+L, L | View > Modes > Locations |
 | Ctrl+Shift+L, 1 | View > Floating palettes > Terrain palette |
 | Ctrl+Shift+L, 2 | View > Floating palettes > Unit palette |
 | Ctrl+Shift+L, 3 | View > Floating palettes > Doodad palette |

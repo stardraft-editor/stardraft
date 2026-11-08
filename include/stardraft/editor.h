@@ -5,6 +5,8 @@
 // undo/redo. GPU-free and UI-free, so it can be driven by any shell, tests or agents.
 
 #include <algorithm>
+#include <chrono>
+#include <set>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -26,6 +28,7 @@
 #include "stardraft/doodads.h"
 #include "stardraft/isom.h"
 #include "stardraft/isom_core.h"
+#include "stardraft/layers.h"
 #include "stardraft/locations.h"
 #include "stardraft/map_file.h"
 #include "stardraft/sprites.h"
@@ -207,6 +210,9 @@ public:
     // Per tile (MTXM order): 1 where the ISOM does not give the tile there (placed as it is: Rectangle, Tile, a stamp, a
     // mod's piece the ISOM has no rule for), else 0. All 1 when the map has no ISOM.
     std::vector<uint8_t> tilesNotFromIsom() const;
+    // The same for one tile, with the tile section (layerTileSection) given: true where the ISOM gives the tile there.
+    // (A few tiles of an edit: not the whole map's check.)
+    bool tileIsFromIsom(const TerrainLayer& section, int tx, int ty) const { return isomOk_ && isom_.tileFromIsom(chk_, section, tx, ty); }
     // Jumble: each ISOM corner under the brush, in random order, gets one of the terrains under the brush at random (a
     // dab of one corner, at every symmetric position), and the terrain around each dab is fitted to it, so the ISOM stays
     // valid. One undo step, or part of an open stroke. Returns the dabs that changed the terrain (-1: fewer than two
@@ -233,6 +239,7 @@ public:
                      const std::function<bool(int, int)>& tileIn = nullptr);
     // The ISOM corners of the terrain at the pixel that are reachable from it along the diamonds' edges (one terrain).
     std::vector<std::pair<int, int>> terrainRegionCorners(int px, int py) const { return isomOk_ ? isom_.floodCorners(px, py) : std::vector<std::pair<int, int>>{}; }
+    std::pair<int, int> terrainCopyOrigin() const { return terrainCopyOrigin_; }  // (the corner the last copyTerrain's offsets are from)
     bool hasTerrainClipboard() const { return !terrainClip_.corners.empty(); }
     Rect terrainClipboardBox() const { return {0, 0, terrainClip_.width, terrainClip_.height}; }
     // Turn the terrain clipboard a quarter turn clockwise as seen in the game (corner (x, y) goes to
@@ -338,8 +345,20 @@ public:
     void setSymmetryCenter(int px, int py);
     std::pair<int, int> symmetryCenter() const;
     // The same center as `other` has, as it is (a copy of the map paints as the map does; the default middle stays one).
-    void copySymmetryCenter(const Editor& other) { symmetryX_ = other.symmetryX_, symmetryY_ = other.symmetryY_; }
+    void copySymmetryCenter(const Editor& other) { symmetryX_ = other.symmetryX_, symmetryY_ = other.symmetryY_, moreAnchors_ = other.moreAnchors_; }
     std::pair<int, int> symmetryCenterSet() const { return {symmetryX_, symmetryY_}; }  // (as set: -1 for the map's middle)
+    // More anchors: an edit also repeats round each of them, each on its own (its images are not repeated round the
+    // others), at most kMaxSymmetricPlaces places in all. Anchor 0 is the center above; each on the grid as it is.
+    std::vector<std::pair<int, int>> symmetryAnchors() const;
+    int addSymmetryAnchor(int px, int py);  // its index; -1: there are kMaxSymmetryAnchors, or one is at that point
+    void setSymmetryAnchor(int index, int px, int py);
+    void removeSymmetryAnchor(int index);  // (anchor 0: the next one becomes the center; the last one stays)
+    // Puts the anchor in the map's middle (the center: as at first), and merges it with one that is there. False: it is there.
+    bool centerSymmetryAnchor(int index);
+    bool canCenterSymmetryAnchor(int index) const;
+    // Anchors at exactly one point become one (the center stays the center). The number that went.
+    int mergeSymmetryAnchors();
+    static constexpr int kMaxSymmetryAnchors = 8;
     // The masks (Alt+click in the lists): painting changes only the corners of these terrains (Isometric; the tool strip's
     // Rectangle checks its tiles' terrains) and the tiles of these values (Tile). Empty: all. Not in the map: a new map has none.
     const std::vector<uint16_t>& terrainMask() const { return terrainMask_; }
@@ -704,6 +723,67 @@ public:
     // selects some tiles at random). The archive's other files stay. False when `edited` is not open. The protected
     // tiles move by (shiftX, shiftY) tiles (as resizeShift gives them); a new tileset unprotects them.
     bool takeScenario(const Editor& edited, int shiftX = 0, int shiftY = 0);
+    // --- Map layers (layers.h) -------------------------------------------------------------------
+    const IsomGrid& isomGrid() const { return isom_; }
+    // The map's terrain and objects are made again: the Background (`base`, as layerBaseNow gives it) with its objects,
+    // then each visible layer, from the bottom up, with the terrain fitted to it as a brush's. What is outside of the map
+    // is left out, and each object's `shown` says whether it is on the map. Where the corners stay, the terrain's tiles
+    // stay. `fitted`: the corners on the map where an edge is. No undo step of its own: inside beginLayerEdit, or after an
+    // edit whose step amendLastStep gets. Protected tiles keep their tiles.
+    // `hold`: a step on the way to a new Background; the next call takes its tiles from the map as it is before this one.
+    // `keepTiles` (the tile section before this edit, with `activeLayer`, the row of the layer being edited; -1: the
+    // Background): the tiles of the other layers stay as they were while they keep their shape, so that their variants
+    // do not change with an edit of another layer.
+    bool composeLayers(const Bytes& base, LayerStack& stack, std::vector<std::pair<int, int>>* fitted = nullptr, bool hold = false,
+                       const std::vector<uint16_t>* keepTiles = nullptr, int activeLayer = -1);
+    // Tiles that are a layer's placed tiles: not the terrain's (they are not reused when a layer goes). After a read.
+    void noteLayerPlaced(std::set<std::pair<int, int>> tiles) { layerPlaced_ = std::move(tiles); }
+    // The tiles under the doodads (TILE; a map without it: MTXM).
+    TerrainLayer layerTileSection() const { return readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM"); }
+    // The map's terrain without its doodads' tiles, for the Background file.
+    Bytes layerBaseNow() const;
+    // The map's sprites without its doodads' own sprites.
+    std::vector<MapSprite> layerSprites() const;
+    std::vector<Doodad> layerDoodads() const;  // (noOverlay set on those that have no overlay sprite on the map)
+    // The corners the terrain tools asked for since the last call (on: they are noted), also those that already had that
+    // terrain: painting a terrain over the same terrain under a layer puts it in the layer.
+    void noteAskedCorners(bool on) { noteAsked_ = on; if (!on) askedCorners_.clear(); }
+    std::vector<std::pair<int, int>> takeAskedCorners() { return std::exchange(askedCorners_, {}); }
+    // Changes when the map is read anew (open, new, undo, redo): what changed then is not an edit.
+    uint64_t loadMark() const { return loadMark_; }
+    // The map's other files have been read (archiveFile would not wait for them).
+    bool filesRead() const { return !pendingFiles_.valid() || pendingFiles_.wait_for(std::chrono::seconds(0)) == std::future_status::ready; }
+    // An undo step for an edit of the layers (a panel's button, a drag): `end` with the files as they are after it.
+    // endLayerEdit(false): nothing changed, no step.
+    void beginLayerEdit();
+    void endLayerEdit(bool changed, std::vector<ArchiveFile> files = {}, const std::vector<std::string>& removed = {});
+    // The last edit goes back, and Redo does not give it again (a locked layer).
+    void refuseLastEdit() {
+        undo();
+        if (!redo_.empty()) redo_.pop_back();
+    }
+    // The files change as part of the undo step that the last edit took.
+    void amendLastStep(std::vector<ArchiveFile> files, const std::vector<std::string>& removed = {});
+    // The map as the layers flatten it, without the layers' files, to another file; the open map stays as it is. The
+    // files set not to go (keepInExport) stay out: `leftOut`, and of them `leftOutInUse`, those the map names.
+    bool exportFlattened(const std::filesystem::path& path, std::string& error, std::vector<std::string>* leftOut = nullptr,
+                         std::vector<std::string>* leftOutInUse = nullptr);
+    // Does File > Export keep this file? By default yes, but not StarDraft's own files. The layers and the list itself
+    // never go (canKeepInExport). The setting is a file of the map; one undo step.
+    bool keepInExport(const std::string& name) const;
+    static bool canKeepInExport(const std::string& name);
+    void setKeepInExport(const std::string& name, bool keep);
+    // A number for the map's terrain now (the layers' check: another editor changed the map after the last save here).
+    std::string terrainCheck() const;
+    // The map's text (the string table) names this file: a trigger's or a briefing's sound, for example.
+    bool namedInMap(const std::string& name) const;
+    // A file of the map that is no edit: no undo step, and the map does not count as changed (the map's own settings).
+    void setQuietArchiveFile(const std::string& name, Bytes data);
+    // The files the archive has with no name to read them by, or that could not be read: a save leaves them out.
+    const std::vector<std::string>& unreadableFiles() const { return finishFiles(), unreadable_; }
+    // The map's notes (UTF-8; none: empty). Set: one undo step; empty notes remove the file.
+    std::string notes() const;
+    void setNotes(const std::string& text);
     // A file of the map archive by its path (a briefing's sound), or nullptr.
     const ArchiveFile* archiveFile(const std::string& name) const;
     // Adds (or replaces) files in the map archive, such as a briefing's sound; saved with the map. One undo step.
@@ -853,15 +933,29 @@ private:
     // applyTerrain's.
     bool applyOld(const std::vector<CornerValue>& corners, int x0, int y0, int x1, int y1, bool overPlaced = false, size_t own = SIZE_MAX);
     IsomCore core_;
-    std::pair<int, int> mirror(int px, int py, int which) const;
+    std::pair<int, int> mirror(int px, int py, int which, std::pair<int, int> center) const;
     // The point turned `k` steps of 360 / turns() degrees about the map's middle (in the map's proportions: on a square map a
     // true turn; on another the copies stay in the map's box).
-    std::pair<int, int> turnPoint(int px, int py, int k) const;
+    std::pair<int, int> turnPoint(int px, int py, int k, std::pair<int, int> center) const;
     TerrainClip terrainClip_;
     TileClip tileClip_;
     int mirrors_ = 0;  // Mirror:: flags
     int turns_ = 1;    // the turns (setTurns)
     int symmetryX_ = -1, symmetryY_ = -1;  // setSymmetryCenter (-1: the map's middle)
+    std::vector<std::pair<int, int>> moreAnchors_;  // addSymmetryAnchor
+    uint64_t loadMark_ = 0;
+    std::pair<int, int> terrainCopyOrigin_{0, 0};
+    bool noteAsked_ = false;
+    std::vector<std::pair<int, int>> askedCorners_;
+    void noteCorners(const std::vector<CornerValue>& corners) {
+        if (noteAsked_)
+            for (const CornerValue& c : corners) askedCorners_.push_back({c.x, c.y});
+    }
+    std::set<std::pair<int, int>> layerPlaced_;  // the tiles the last composeLayers placed from layers
+    std::optional<std::pair<IsomGrid, TerrainLayer>> layerHeld_;  // composeLayers' hold
+    std::pair<int, int> anchorOnGrid(int px, int py) const;
+    int moreAnchorOf(int index) const;
+    std::pair<int, int> anchorMiddle(int index) const;
     std::vector<uint16_t> terrainMask_, tileMask_;  // setTerrainMask, setTileMask
     std::vector<uint16_t> terrainMaskIds_;          // (terrainMask_ with the mod terrains' variants)
     std::optional<IsomGrid> maskGround_;            // (a stroke's ground when it began: what it paints round does not join the mask)
@@ -937,6 +1031,8 @@ private:
     // The archive's files while they are read (after open); filesError_: why they could not be (save refuses then).
     mutable std::future<std::vector<ArchiveFile>> pendingFiles_;
     mutable std::string filesError_;
+    mutable std::vector<std::string> unreadable_;
+    std::shared_ptr<std::vector<std::string>> pendingUnreadable_;
     void finishFiles() const;
     bool open_ = false, modified_ = false, asArchive_ = false;
 

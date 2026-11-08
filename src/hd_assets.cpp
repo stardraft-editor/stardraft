@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
+#include <tuple>
 
 #include "byteio.h"
 #include "stardraft/game_data.h"
@@ -41,6 +43,8 @@ namespace {
 int animReference(const GameData& data, int image) {
     static const GameData* cachedFor = nullptr;
     static std::vector<int> refs;
+    static std::mutex lock;  // (the renderer's worker asks too)
+    std::lock_guard<std::mutex> guard(lock);
     if (cachedFor != &data) {
         cachedFor = &data;
         refs.assign(999, -1);
@@ -57,7 +61,7 @@ int animReference(const GameData& data, int image) {
 
 }  // namespace
 
-bool loadAnimImage(const GameData& data, int image, GraphicsQuality quality, AnimImage& out, std::string& error, bool carbot) {
+bool loadAnimImage(const GameData& data, int image, GraphicsQuality quality, AnimImage& out, std::string& error, bool carbot, bool offThread) {
     for (int hops = 0; hops < 4; ++hops) {
         int ref = animReference(data, image);
         if (ref < 0 || ref == image) break;
@@ -66,10 +70,11 @@ bool loadAnimImage(const GameData& data, int image, GraphicsQuality quality, Ani
     char name[64];
     const char* hd2 = quality == GraphicsQuality::HD2 ? "HD2\\" : "";
     Bytes d;
+    const auto read = [&](const std::string& n) { return offThread ? data.readFileOffThread(n, d, error) : data.readFile(n, d, error); };
     std::snprintf(name, sizeof name, "%sanim\\Carbot\\main_%03d.anim", hd2, image);
-    if (!carbot || !data.readFile(name, d, error)) {
+    if (!carbot || !read(name)) {
         std::snprintf(name, sizeof name, "%sanim\\main_%03d.anim", hd2, image);
-        if (!data.readFile(name, d, error)) return false;
+        if (!read(name)) return false;
     }
     if (d.size() < 332 + 12 || std::memcmp(d.data(), "ANIM", 4) != 0) {
         error = std::string(name) + ": not an ANIM file";
@@ -122,13 +127,52 @@ bool loadAnimImage(const GameData& data, int image, GraphicsQuality quality, Ani
     return true;
 }
 
-bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, HdTiles& out, std::string& error, bool carbot) {
+namespace {
+using HdTilesKey = std::tuple<const GameData*, uint16_t, int, bool>;
+std::mutex gHdTilesLock;
+std::vector<std::pair<HdTilesKey, std::weak_ptr<const HdTiles>>> gHdTilesHeld;  // (each set someone holds)
+std::pair<HdTilesKey, std::shared_ptr<const HdTiles>> gHdTilesLast;             // (the last set read: kept for the next)
+}  // namespace
+
+void releaseSharedHdTiles() {
+    std::lock_guard<std::mutex> guard(gHdTilesLock);
+    gHdTilesLast = {};
+}
+
+std::shared_ptr<const HdTiles> sharedHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, bool carbot, std::string* error, bool* busy,
+                                             bool offThread) {
+    using Key = HdTilesKey;
+    auto& lock = gHdTilesLock;
+    auto& held = gHdTilesHeld;
+    auto& last = gHdTilesLast;
+    const Key key{&data, era, int(quality), carbot};
+    std::unique_lock<std::mutex> guard(lock, std::defer_lock);
+    if (!busy) guard.lock();
+    else if (!guard.try_lock()) return *busy = true, nullptr;
+    if (last.second && last.first == key) return last.second;
+    std::erase_if(held, [](const auto& h) { return h.second.expired(); });
+    for (const auto& [k, w] : held)
+        if (k == key)
+            if (auto s = w.lock()) return last = {key, s}, s;
+    auto tiles = std::make_shared<HdTiles>();
+    std::string err;
+    if (!loadHdTiles(data, era, quality, *tiles, err, carbot, offThread)) {
+        if (error) *error = err;
+        return nullptr;
+    }
+    std::shared_ptr<const HdTiles> s = std::move(tiles);
+    held.push_back({key, s}), last = {key, s};
+    return s;
+}
+
+bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, HdTiles& out, std::string& error, bool carbot, bool offThread) {
     const std::string hd2 = quality == GraphicsQuality::HD2 ? "HD2\\" : "";
     std::string name = hd2 + "Carbot\\TileSet\\" + tilesetName(era) + ".dds.vr4";
     Bytes d;
-    if (!carbot || !data.readFile(name, d, error)) {
+    const auto read = [&](const std::string& n) { return offThread ? data.readFileOffThread(n, d, error) : data.readFile(n, d, error); };
+    if (!carbot || !read(name)) {
         name = hd2 + "TileSet\\" + tilesetName(era) + ".dds.vr4";
-        if (!data.readFile(name, d, error)) return false;
+        if (!read(name)) return false;
     }
     if (d.size() < 8) {
         error = name + ": too small";
@@ -157,15 +201,16 @@ bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, Hd
 }
 
 bool loadHdGrp(const GameData& data, const std::string& sdPath, const Grp& sd, GraphicsQuality quality, AnimImage& out,
-               std::string& error, bool carbot) {
+               std::string& error, bool carbot, bool offThread) {
     if (sdPath.size() < 4 || sd.frames.empty()) return error = sdPath + ": no SD frames", false;
     const std::string base = sdPath.substr(0, sdPath.size() - 4) + ".dds.grp";  // ("tileset\badlands.grp")
     const std::string hd2 = quality == GraphicsQuality::HD2 ? "HD2\\" : "";
     std::string name = hd2 + "Carbot\\" + base;
     Bytes d;
-    if (!carbot || !data.readFile(name, d, error)) {
+    const auto read = [&](const std::string& n) { return offThread ? data.readFileOffThread(n, d, error) : data.readFile(n, d, error); };
+    if (!carbot || !read(name)) {
         name = hd2 + base;
-        if (!data.readFile(name, d, error)) return false;
+        if (!read(name)) return false;
     }
     // u32 file size, u16 frame count, u16 version, then each frame: u32 0, u16 width, u16 height, u32 size, a DDS file.
     if (d.size() < 8) return error = name + ": too small", false;

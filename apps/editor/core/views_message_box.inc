@@ -27,15 +27,21 @@ struct Box {
     int result = 0;
     bool done = false;
     draw::Rect textRc{}, iconRc{};
+    // A check box at the left of the buttons (empty: none), as "Do not &ask again"; checkedOut gets its state when the box
+    // closes.
+    std::wstring check;
+    bool checked = false, checkHot = false;
+    bool* checkedOut = nullptr;
+    draw::Rect checkRc{};
 };
 
-// The icon for the box's icon kind: an icon of the set (or a Segoe MDL2 glyph, for the information icon) and its color.
+// The icon for the box's icon kind: an icon of the set, and its color.
 inline bool iconFor(Icon i, kitpaint::Ico& ico, draw::Color& c) {
     switch (i) {
     case Icon::Error: ico = UiIcon::Error, c = kBad; return true;
     case Icon::Warning: ico = UiIcon::Warning, c = kWarn; return true;
     case Icon::Question: ico = UiIcon::Help, c = kAccent; return true;
-    case Icon::Info: ico = L"\xE946", c = kAccent; return true;  // Info
+    case Icon::Info: ico = UiIcon::Info, c = kAccent; return true;
     default: return false;
     }
 }
@@ -73,20 +79,22 @@ public:
             widths.push_back(std::max(scale(stardraft::kit::kButtonMinW), c.measureBox(bt.name, 0, draw::kPrefixHidden).x + scale(28)));
             bw += widths.back() + (bw ? gap : 0);
         }
+        const int checkW = b.check.empty() ? 0 : scale(14) + scale(8) + c.measureBox(b.check, 0, draw::kPrefixHidden).x;
         c.setFont(of);
 
-        kitpaint::Ico ico = L"";
+        kitpaint::Ico ico{};
         draw::Color ic = kText;
         const bool icon = iconFor(b.icon, ico, ic);
         const int iconW = icon ? scale(32) : 0, iconGap = icon ? scale(12) : 0;
         const int textW = std::min<int>(wrap, t.x), textH = t.y;
         const int contentH = std::max(textH, iconW);
-        const int w = std::max(pad + iconW + iconGap + textW + pad, pad + bw + pad);
+        const int w = std::max(pad + iconW + iconGap + textW + pad, pad + (checkW ? checkW + scale(24) : 0) + bw + pad);
         // The text is beside the icon, centered on it when it is one or two lines.
         const int ty = pad + (contentH - textH) / 2;
         b.iconRc = {pad, pad, pad + iconW, pad + iconW};
         b.textRc = {pad + iconW + iconGap, ty, pad + iconW + iconGap + textW, ty + textH};
         const int by = pad + contentH + scale(24);
+        b.checkRc = {pad, by, pad + checkW, by + bh};
         int x = w - pad;
         for (size_t k = b.buttons.size(); k-- > 0;) {
             b.buttons[k].rc = {x - widths[k], by, x, by + bh};
@@ -117,13 +125,18 @@ public:
         if (!laidOut_) layout(c);
         c.fill({0, 0, width(), height()}, kBg);
         const bool alt = host() && (host()->modifiers() & draw::kAlt) != 0;
-        kitpaint::Ico ico = L"";
+        kitpaint::Ico ico{};
         draw::Color ic = kText;
         if (iconFor(b.icon, ico, ic)) {
             if (ico.icon >= 0) c.icon(b.iconRc, ico.icon, ic, scale(32));
             else kitpaint::drawGlyph(c, b.iconRc, ico, ic, 26);
         }
         c.text(b.textRc, b.text, kText, draw::kWrap);
+        if (!b.check.empty()) {  // (its access key underlined while Alt is down, as the buttons')
+            kitpaint::drawCheck(c, b.checkRc, L"", b.checked, b.checkHot);
+            c.text({b.checkRc.left + scale(22), b.checkRc.top, b.checkRc.right, b.checkRc.bottom}, b.check, b.checked || b.checkHot ? kText : kDim,
+                   draw::kMiddle | (alt ? draw::kPrefix : draw::kPrefixHidden));
+        }
         // The buttons: the kit's face, then the name with its access key underlined while Alt is down.
         for (size_t k = 0; k < b.buttons.size(); ++k) {
             const Button& bt = b.buttons[k];
@@ -152,14 +165,16 @@ public:
         case draw::MouseKind::Move: {
             const int h = hitButton(e.pt);
             if (h != b.hot) b.hot = h, invalidate();
+            if (const bool on = hitCheck(e.pt); on != b.checkHot) b.checkHot = on, invalidate();
             return true;
         }
         case draw::MouseKind::Leave:
-            if (b.hot != -1) b.hot = -1, invalidate();
+            if (b.hot != -1 || b.checkHot) b.hot = -1, b.checkHot = false, invalidate();
             return true;
         case draw::MouseKind::Down:
         case draw::MouseKind::DoubleClick:  // (a quick second click is this)
             if (e.button != 0) return false;
+            if (hitCheck(e.pt)) return b.checked = !b.checked, invalidate(), true;
             b.down = hitButton(e.pt);
             if (b.down >= 0 && host()) host()->capture(*this, true), b.focus = b.down, invalidate();
             return true;
@@ -208,16 +223,21 @@ public:
         return true;
     }
 
-    draw::Cursor cursor(draw::Point) override { return b.hot != -1 ? draw::Cursor::Hand : draw::Cursor::Arrow; }
+    draw::Cursor cursor(draw::Point) override { return b.hot != -1 || b.checkHot ? draw::Cursor::Hand : draw::Cursor::Arrow; }
 
     // Ends the box with button k; false when it is ended already or k is no button.
     bool choose(int k) {
         if (b.done || k < 0 || k >= int(b.buttons.size())) return false;
         b.result = b.buttons[size_t(k)].id, b.done = true;
+        if (b.checkedOut) *b.checkedOut = b.checked;
         return true;
     }
 
 private:
+    bool hitCheck(draw::Point p) const {
+        const draw::Rect& r = b.checkRc;
+        return !b.check.empty() && p.x >= r.left && p.x < r.right && p.y >= r.top && p.y < r.bottom;
+    }
     int hitButton(draw::Point p) const {
         for (size_t k = 0; k < b.buttons.size(); ++k) {
             const draw::Rect& r = b.buttons[k].rc;
@@ -230,6 +250,7 @@ private:
     }
     bool pressAccess(wchar_t c) {
         if (!c || b.done) return false;
+        if (!b.check.empty() && accessKey(b.check) == c) return b.checked = !b.checked, invalidate(), true;
         for (size_t k = 0; k < b.buttons.size(); ++k)
             if (accessKey(b.buttons[k].name) == c) {
                 press(int(k));
@@ -260,7 +281,7 @@ inline int runMessageBox(draw::View& from, const std::wstring& caption, Box box,
     if (box.buttons.empty()) box.buttons.push_back({L"OK", 0});
     box.focus = std::clamp(box.focus, 0, int(box.buttons.size()) - 1);
     box.cancel = std::clamp(box.cancel, 0, int(box.buttons.size()) - 1);
-    if (!shown && hostBox())
+    if (!shown && hostBox() && box.check.empty())  // (the host's box has no check box)
         if (const int k = hostBox()(from, caption, box); k >= 0 && k < int(box.buttons.size())) return box.buttons[size_t(k)].id;
     MessageView view;
     view.b = std::move(box);
@@ -286,6 +307,7 @@ inline int runMessageBox(draw::View& from, const std::wstring& caption, Box box,
         int bw = 0;
         for (const Button& bt : view.b.buttons)
             bw += std::max(scale(stardraft::kit::kButtonMinW), int(bt.name.size()) * scale(7) + scale(28)) + (bw ? scale(stardraft::kit::kButtonGap) : 0);
+        if (!view.b.check.empty()) bw += int(view.b.check.size()) * scale(7) + scale(22) + scale(24);
         const int contentH = std::max(lines * scale(16), iconW);
         size = {std::max(pad + iconW + (iconW ? scale(12) : 0) + std::min(wrap, longest) + pad, pad + bw + pad),
                 pad + contentH + scale(24) + scale(stardraft::kit::kButtonH) + pad};

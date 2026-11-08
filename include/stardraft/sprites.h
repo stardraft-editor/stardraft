@@ -252,6 +252,8 @@ public:
     const Sprite* commandIcon(uint16_t unitType);
     // The game's placeholder icon ("BLANK"), which units without an icon of their own share (commandIcon gives it for them).
     const Sprite* blankIcon();
+    // The unit's icon is a placeholder (the unit has no icon of its own: its picture is its sprite).
+    bool hasBlankIcon(uint16_t unitType);
 
     // Image id (images.dat) used for a unit type, or -1.
     int imageFor(uint16_t unitType) const;

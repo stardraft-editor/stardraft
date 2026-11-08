@@ -67,9 +67,9 @@ constexpr int kIcon = 40;                                   // the picture's box
 constexpr int kTextX = kIcon + 12;                          // the name and the line under it (from the content's left)
 constexpr int kNameY = kPad - 2, kNameB = kPad + 24, kSubY = kPad + 22, kSubB = kPad + 42;
 constexpr int kStatesY = kTop + 4 * (kRowH + kGap) + kRowH + kGap + 6;  // the state check boxes, 3 to a row
-constexpr int kStateStepX = 150, kStateColX = 232, kStateW = 200, kStateStepY = kRowH + 2;
+constexpr int kStateStepX = 150, kStateColX = kColW, kStateW = 200, kStateStepY = kRowH + 2;
 constexpr int kContentW = kColW + kLabelW + kBoxW;          // 464: the window is 496 px wide inside
-constexpr int kListW = 300, kListGap = 16;                  // the Units list: the left column; the fields start after it
+constexpr int kListW = 380, kListGap = 16;                  // the Units list: the left column (a long unit type shows whole); the fields start after it
 constexpr int kRightX = kListW + kListGap;                  // the fields' column (and the picture, the name) from the left
 constexpr int kButtonH = 28;                                // ui::kButtonH: Edit unit type, Apply and Cancel
 constexpr int kButtonsGap = 24;                             // Edit unit type to Apply and Cancel
@@ -93,26 +93,24 @@ struct UnitRowsView final : stardraft::kit::ListView {
         }
         if (draggable && e.kind == draw::MouseKind::Down && e.button == 0 && !(e.mods & (draw::kCtrl | draw::kShift))) {
             const int r = rowAt(e.pt);
-            if (r >= 0 && isSelected(r)) return pressed_ = true, dragging_ = false, down_ = e, true;
+            if (r >= 0 && isSelected(r)) return drag_.press(*this, r, e.pt), down_ = e, true;
         }
-        if (pressed_ && e.kind == draw::MouseKind::Move) {
-            const int dx = e.pt.x - down_.pt.x, dy = e.pt.y - down_.pt.y;
-            if (!dragging_ && (dx * dx + dy * dy > 16)) dragging_ = true;
-            if (dragging_) {
+        if (drag_.item >= 0 && e.kind == draw::MouseKind::Move) {
+            if (drag_.move(*this, e.pt)) {
                 dropAt_ = dropRowAt(e.pt);
                 invalidate();
             }
             return true;
         }
-        if (pressed_ && e.kind == draw::MouseKind::Up && e.button == 0) {
-            pressed_ = false;
-            if (dragging_) {
+        if (drag_.item >= 0 && e.kind == draw::MouseKind::Up && e.button == 0) {
+            if (drag_.dragging()) {
                 const int at = dropAt_;
-                dragging_ = false, dropAt_ = -1;
+                dropAt_ = -1;
                 invalidate();
-                if (onDrop) onDrop(at);
+                if (drag_.release(*this, e.pt) >= 0 && onDrop) onDrop(at);  // (released outside the list: no move)
                 return true;
             }
+            drag_.cancel(*this);
             stardraft::kit::ListView::mouse(down_);  // (a click: the press, then the release, as the list gets them)
             return stardraft::kit::ListView::mouse(e);
         }
@@ -132,12 +130,15 @@ struct UnitRowsView final : stardraft::kit::ListView {
     }
     void paint(draw::Canvas& c) override {
         stardraft::kit::ListView::paint(c);
-        if (dragging_ && dropAt_ >= 0) {  // the line where the rows go
+        if (drag_.dragging() && dropAt_ >= 0) {  // the line where the rows go
             const int y = dropAt_ < count() ? rowRect(dropAt_).top : rowRect(count() - 1).bottom;
-            c.fill({0, y - 1, width(), y + 1}, stardraft::kit::theme().accent);
+            kitpaint::drawDropLine(c, 0, width(), y);
         }
     }
-    bool pressed_ = false, dragging_ = false;
+    void captureLost() override {
+        if (drag_.armed()) drag_.cancel(*this), dropAt_ = -1, invalidate();
+    }
+    kitui::ItemDrag drag_;  // (the selected rows' drag: the row pressed)
     int dropAt_ = -1;
     draw::MouseEvent down_{};
     bool key(const draw::KeyEvent& e) override {
@@ -154,7 +155,7 @@ public:
         ed_ = &ed;
         const Unit& u = first;
         // The Units list (the left column): the search box over the rows, a row for each unit of the map.
-        search_.setPlaceholder(std::wstring(tr(L"Search the units")));
+        search_.setPlaceholder(std::wstring(tr(L"Search units")));
         search_.onChange = [this] { rebuild(); };
         list_.setMode(stardraft::kit::SelectMode::Multiple);
         setHeaders();
@@ -180,7 +181,7 @@ public:
         };
         auto number = [&](stardraft::kit::TextField& f, uint32_t v, bool on) {
             f.setText(std::to_wstring(v));
-            f.setFont({draw::Face::Mono, 0}), f.setAlignRight(true);
+            f.setAlignRight(true);
             f.setTrailing(scale(2));  // (the native edit's right margin: the digits end where they did)
             f.setFilter([](wchar_t c) { return c >= L'0' && c <= L'9'; });  // ES_NUMBER
             if (!on) {  // a disabled edit box: read only, not a Tab stop, its text faint
@@ -200,11 +201,11 @@ public:
         owner_.setEnabled(true);  // (any unit can take a player, as in SCMDraft: a mod's unit types often lack StarEdit's Non-Neutral flag)
         add(owner_, {0, 0, 0, 0});
         const bool single = units.size() == 1;
-        label(labels_[1], L"Hit points %"), number(hp_, u.hitPoints, u.validProps & UnitProp::HitPoints);
+        label(labels_[1], L"Hit points (%)"), number(hp_, u.hitPoints, u.validProps & UnitProp::HitPoints);
         label(labels_[2], L"Resources"), number(resources_, u.resources, u.validProps & UnitProp::Resources);
-        label(labels_[3], L"Shields %"), number(shields_, u.shields, u.validProps & UnitProp::Shields);
+        label(labels_[3], L"Shields (%)"), number(shields_, u.shields, u.validProps & UnitProp::Shields);
         label(labels_[4], L"Hangar"), number(hangar_, u.hangar, u.validProps & UnitProp::Hangar);
-        label(labels_[5], L"Energy %"), number(energy_, u.energy, u.validProps & UnitProp::Energy);
+        label(labels_[5], L"Energy (%)"), number(energy_, u.energy, u.validProps & UnitProp::Energy);
         label(labels_[6], L"X (pixels)"), number(x_, u.x, single);
         label(labels_[7], L"Y (pixels)"), number(y_, u.y, single);
         label(labels_[8], L"Unit ID"), number(unitId_, u.type, true);
@@ -219,7 +220,7 @@ public:
         }
         // The unit's type: in a project, open it in the Data workspace; on a classic map, on the Map data page (its unit
         // settings: hit points, costs, names).
-        type_.setText((project ? tr(L"Edit unit type in Data (") : tr(L"Edit unit type in Map data (")) + unitDisplayName(u.type) + L")");
+        type_.setText(tr(project ? L"Edit unit type in Data" : L"Edit unit type in Map data"));  // (the header names the type)
         type_.onClick = [this] {
             if (dlg_) dlg_->close(kUnitPropsEditType);
         };
@@ -340,7 +341,7 @@ public:
         c.text({rightPx + scale(kTextX), scale(kNameY), scale(2000), scale(kNameB)}, unitDisplayName(first_.type), kText, draw::kLeft);
         c.setFont(of);
         const std::wstring sub = count_ > 1 ? std::to_wstring(count_) + tr(L" units selected. Changes apply to all of them.")
-                                            : tr(L"Unit ") + std::to_wstring(first_.type) + tr(L"  \x00B7  serial ") + std::to_wstring(first_.serial);
+                                            : tr(L"Serial ") + std::to_wstring(first_.serial);  // (its type's number is the Unit ID field)
         c.text({rightPx + scale(kTextX), scale(kSubY), scale(2000), scale(kSubB)}, sub, kDim, draw::kLeft);
     }
 
@@ -407,15 +408,13 @@ private:
     // The header: the five columns, the sorted one with its arrow. The list is in the index's order at first.
     void setHeaders() {
         static const wchar_t* const names[5] = {L"Unit type", L"Owner", L"X", L"Y", L"Index"};
-        static const int widths[5] = {0, 70, 52, 52, 46};
+        static const int widths[5] = {0, 62, 44, 44, 44};  // (the numbers narrow: the unit type gets the rest)
         static const stardraft::kit::ColAlign aligns[5] = {stardraft::kit::ColAlign::Left, stardraft::kit::ColAlign::Left,
                                                            stardraft::kit::ColAlign::Right, stardraft::kit::ColAlign::Right,
                                                            stardraft::kit::ColAlign::Right};
         std::vector<stardraft::kit::Column> cols;
         for (int k = 0; k < 5; ++k) {
-            std::wstring name(tr(names[k]));
-            if (k == sortCol_) name += sortDesc_ ? L" \u25BC" : L" \u25B2";
-            cols.push_back({name, widths[k], aligns[k]});
+            cols.push_back({std::wstring(tr(names[k])), widths[k], aligns[k], k == sortCol_ ? int(sortDesc_ ? UiIcon::ChevronDown : UiIcon::ChevronUp) : -1});
         }
         list_.setColumns(cols);
         list_.draggable = sortCol_ == 4 && !sortDesc_;  // (the rows move in the index's order only)

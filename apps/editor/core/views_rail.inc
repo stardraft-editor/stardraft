@@ -7,6 +7,7 @@ void command(int id);
 bool mapPageChangesFor(int id);  // map_pages.inc: the page of rail item `id` has changes that are not applied
 void setWorkspace(Workspace w);
 stardraft::EudProject* activeProject();
+bool newPageCovers();  // (sdl_new_page.inc: the New page, or the start page over the open map, shows)
 
 // The mark of a changed entry: a small green dot at (cx, cy).
 void changedDotOn(stardraft::draw::Canvas& c, int cx, int cy) {
@@ -66,7 +67,7 @@ std::vector<RailItem> railItems() {
         {ID_WS_PROJECT, UiIcon::Project, L"Project", L"the Project page", false, Workspace::Project},  // after Properties: the classic map's order, then the project's own
     };
     std::vector<RailItem> out;
-    if (!gDocs.empty())
+    if (!gDocs.empty() && !newPageCovers())  // (the New page or the start page shows: no map's items, as with no map open)
         for (const RailItem& it : items)
             if (it.id && commandInMode(it.id)) out.push_back(it);
     out.push_back({ID_WS_HELP, UiIcon::Help, L"Help", L"Help: the documentation (also F1)", false, Workspace::Help});
@@ -104,7 +105,9 @@ struct RailView final : stardraft::draw::View {
             const bool isHelp = it.id == ID_WS_HELP;
             if (isHelp) y = std::max(y, int(rc.bottom) - scale(8) - itemH);
             RECT r{m, y, rc.right - m - 1, y + itemH};
-            const bool on = it.page ? gWorkspace >= Workspace::Properties && mapPageCommandOf(gWorkspace) == it.id : gWorkspace == it.ws,
+            // (the Players and forces page is Map properties' tab: Properties is on)
+            const Workspace page = gWorkspace == Workspace::Players ? Workspace::Properties : gWorkspace;
+            const bool on = it.page ? page >= Workspace::Properties && mapPageCommandOf(page) == it.id : gWorkspace == it.ws,
                        hot = gWsHot == it.id;
             if (on || hot) c.roundBox(r, on ? accBg : kHot, on ? accBg : kHot, scale(9) / 2.0f);
             if (on) c.fill({0, r.top + scale(12), scale(3), r.bottom - scale(12)}, acc);

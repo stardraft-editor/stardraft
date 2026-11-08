@@ -1572,6 +1572,8 @@ namespace Chk {
         }
     };
 
+    inline int rareSubtilePercent = 5; // StarDraft: the chance (0 to 100) of a rare tile; 5 is the game's 1 in 20
+
     // IsomCache holds all the data required to edit isometric terrain which is not a part of scenario; as well as methods that operate on said data exclusively
     // IsomCache is invalidated & must be re-created whenever tileset, map width, or map height changes
     struct IsomCache
@@ -1633,7 +1635,7 @@ namespace Chk {
                 for ( ; totalCommon < 16 && tileGroups[tileGroup].megaTileIndex[totalCommon] != 0; ++totalCommon );
                 for ( ; totalCommon+totalRare+1 < 16 && tileGroups[tileGroup].megaTileIndex[totalCommon+totalRare+1] != 0; ++totalRare );
 
-                if ( totalRare != 0 && std::rand() <= RAND_MAX / 20 ) // 1 in 20 chance of using a rare tile
+                if ( totalRare != 0 && rareSubtilePercent > 0 && std::rand() <= int(double(RAND_MAX) * rareSubtilePercent / 100) ) // 1 in 20 chance of using a rare tile (StarDraft: rareSubtilePercent)
                     return 16*tileGroup + uint16_t(totalCommon + 1 + (std::rand() % totalRare)); // Select particular rare tile
                 else if ( totalCommon != 0 ) // Use a common tile
                     return 16*tileGroup + uint16_t(std::rand() % totalCommon); // Select particular common tile

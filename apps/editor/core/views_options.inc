@@ -32,12 +32,13 @@ struct OptionsValues {
     bool openLast = false;
     bool askStartLocations = true;  // Saving maps: a save asks when the map has no start locations (AskStartLocations)
     bool manyStartLocations = false;  // Placing units: more than one start location for each player (ManyStartLocations)
+    int detailedTiles = 5;    // Painting terrain: the chance (0 to 100%) of a detailed tile variant (stardraft/isom.h)
     int gameMode = 0;         // Plugins > Cosmonarchy BW: 0 not loaded, 1 loaded (core/cmbw.inc cmbwMode)
     bool checkUpdates = false;
     bool previews = false;    // Updates > Previews: the pre-releases too (else the stable releases only)
     int crashReports = 0;     // 0 ask, 1 send, 2 do not send
     bool gpuRow = false;      // the Graphics row shows (Windows: its drivers)
-    int gpuDriver = 0;        // Graphics: 0 automatic (Vulkan first), 1 Direct3D 12, 2 software (ID_GPU_DRIVER + it)
+    int gpuDriver = 0;        // Graphics: 0 automatic, 1 Direct3D 12, 2 software, 3 Vulkan (ID_GPU_DRIVER + it)
     std::wstring gpuInUse;    // the driver and video card in use ("Vulkan, NVIDIA GeForce GTX 770")
     bool mapsWithSD2 = false; // .scm and .scx open with StarDraft 2
     bool mapsRow = true;      // the Maps row shows (the file association: the Windows program's)
@@ -71,6 +72,8 @@ public:
     virtual void setUnitNames(int i) = 0;
     virtual void setUnitLimit(int k, int v) = 0;
     virtual void setVolume(int v) = 0;
+    // Painting terrain's Detailed tiles (0 to 100%; GitHub #257).
+    virtual void setDetailedTiles(int percent) { (void)percent; }
     // Simulate mining's settings (which: 0 workers, 1 gas workers, 2 minutes, 3 races; OptionsValues::sim*).
     virtual void setSimulation(int which, int value) { (void)which, (void)value; }
     // The working folder: a folder chosen by the user, or the default one.
@@ -133,10 +136,12 @@ public:
             middleSeg_[i].onClick = [this, i] { host_.command(ID_MIDDLE_MODE + (i == 0 ? 1 : 0)); };
         }
         for (int i = 0; i < 3; ++i) crashSeg_[i].onClick = [this, i] { host_.command(ID_CRASH_MODE + i); };
-        gpuSeg_[0].setText(L"Automatic"), gpuSeg_[0].setTip(L"Vulkan. If the video card cannot use it: Direct3D 12, then software drawing (default)");
+        gpuSeg_[0].setText(L"Automatic"),
+            gpuSeg_[0].setTip(L"Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)");
         gpuSeg_[1].setText(L"Direct3D 12"), gpuSeg_[1].setTip(L"Direct3D 12. If the video card cannot use it: Vulkan, then software drawing");
-        gpuSeg_[2].setText(L"Software"), gpuSeg_[2].setTip(L"Software drawing (WARP): slow, but it does not use the video card");
-        for (int i = 0; i < 3; ++i) gpuSeg_[i].onClick = [this, i] { host_.command(ID_GPU_DRIVER + i); };
+        gpuSeg_[2].setText(L"Vulkan"), gpuSeg_[2].setTip(L"Vulkan. If the video card cannot use it: Direct3D 12, then software drawing");
+        gpuSeg_[3].setText(L"Software"), gpuSeg_[3].setTip(L"Software drawing (WARP): slow, but it does not use the video card");
+        for (int i = 0; i < 4; ++i) gpuSeg_[i].onClick = [this, i] { host_.command(ID_GPU_DRIVER + kGpuValue[i]); };
         for (auto* b : allButtons()) add(*b, {0, 0, 0, 0}), b->setVisible(false);
         lastProject_.setLabel(L"Open the last project on start");
         lastProject_.onChange = [this](bool) { host_.command(ID_OPT_LASTPROJECT); };
@@ -216,6 +221,12 @@ public:
             limit_[k].onEscape = [this, k] { limit_[k].setText(std::to_wstring(limitValue_[k])); };
             add(limit_[k], {0, 0, 0, 0}), limit_[k].setVisible(false);
         }
+        detail_.setFilter([](wchar_t c) { return c >= L'0' && c <= L'9'; });
+        detail_.setMaxLength(3);
+        detail_.onEnter = [this] { commitDetail(); };
+        detail_.onFocusLost = [this] { commitDetail(); };
+        detail_.onEscape = [this] { detail_.setText(std::to_wstring(detailValue_)); };
+        add(detail_, {0, 0, 0, 0}), detail_.setVisible(false);
         folder_.setReadOnly(true), folder_.setTabStop(false);
         install_.setReadOnly(true), install_.setTabStop(false);
         cmbw_.setReadOnly(true), cmbw_.setTabStop(false), overrideFile_.setReadOnly(true), overrideFile_.setTabStop(false);
@@ -373,7 +384,7 @@ private:
         for (int i = 0; i < 2; ++i) out.push_back(&lightSeg_[i]), out.push_back(&middleSeg_[i]);
         out.push_back(&lightSeg_[2]);
         for (int i = 0; i < 3; ++i) out.push_back(&crashSeg_[i]);
-        for (int i = 0; i < 3; ++i) out.push_back(&gpuSeg_[i]);
+        for (int i = 0; i < 4; ++i) out.push_back(&gpuSeg_[i]);
         for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &passagesBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) out.push_back(b);
         return out;
     }
@@ -390,6 +401,13 @@ private:
         if (v != limitValue_[k]) host_.setUnitLimit(k, v);
         limitValue_[k] = v;
         limit_[k].setText(std::to_wstring(v));
+    }
+    void commitDetail() {
+        const std::wstring t = detail_.text();
+        const int v = t.empty() ? detailValue_ : std::clamp(int(std::wcstol(t.c_str(), nullptr, 10)), 0, 100);
+        if (v != detailValue_) host_.setDetailedTiles(v);
+        detailValue_ = v;
+        detail_.setText(std::to_wstring(v));
     }
     // Places a child at `r` (view coordinates) for this paint; a child is shown when it is wholly in the content (the
     // tab strip and the footer are not drawn over; `bottom`: a child out of the content, the strip and Close). A child
@@ -409,7 +427,9 @@ private:
     void sync(const OptionsValues& v);
 
     OptionsHost& host_;
-    stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3], gpuSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
+    // (Graphics' segments in their order: Automatic, Direct3D 12, Vulkan, Software; their settings' values)
+    static constexpr int kGpuValue[4] = {0, 1, 3, 2};
+    stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3], gpuSeg_[4];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, overrideBrowse_, passagesBrowse_, check_, restart_, reset_, maps_, close_;
     stardraft::kit::ScrollBar bar_;  // at the content's right when it is taller than its room
     stardraft::kit::CheckBox lastProject_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_;
@@ -417,7 +437,7 @@ private:
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
     stardraft::kit::Slider slider_;
-    stardraft::kit::TextField limit_[2], folder_, install_, cmbw_, overrideFile_, passagesFile_;
+    stardraft::kit::TextField limit_[2], detail_, folder_, install_, cmbw_, overrideFile_, passagesFile_;
     std::vector<int> langChoices_;     // the choice index of each language dropdown item
     std::vector<OptionsAccent> accents_;
     std::vector<draw::Rect> accentRects_;
@@ -429,6 +449,7 @@ private:
     int systemThemeShown_ = -1;  // (the Theme buttons' tips were set for systemTheme)
     int lightChosen_ = -1, middleChosen_ = -1, crashChosen_ = -1, gpuChosen_ = -1;  // the segmented choices' Primary buttons (sync)
     int limitValue_[2] = {3400, 1700};
+    int detailValue_ = 5;
     int tab_ = -1;          // setTab
     bool stripOn_ = false;  // showTabStrip
     int tabHeight_ = 0;     // the height that onTabHeight got last
@@ -465,7 +486,7 @@ void OptionsView::sync(const OptionsValues& v) {
     }
     if (v.gpuDriver != gpuChosen_) {
         gpuChosen_ = v.gpuDriver;
-        for (int i = 0; i < 3; ++i) gpuSeg_[i].setTone(i == v.gpuDriver ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
+        for (int i = 0; i < 4; ++i) gpuSeg_[i].setTone(kGpuValue[i] == v.gpuDriver ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
     cmbwPlugin_.setOn(v.gameMode == 1), override_.setOn(v.overrideOn);
     if (const std::wstring f = v.overrideFile.empty() ? std::wstring(L"\x2014") : v.overrideFile; overrideFile_.text() != f) overrideFile_.setText(f);
@@ -491,6 +512,8 @@ void OptionsView::sync(const OptionsValues& v) {
         limitValue_[k] = v.unitLimit[k];
         if (!limit_[k].hasFocus() && limit_[k].text() != std::to_wstring(v.unitLimit[k])) limit_[k].setText(std::to_wstring(v.unitLimit[k]));
     }
+    detailValue_ = v.detailedTiles;
+    if (!detail_.hasFocus() && detail_.text() != std::to_wstring(v.detailedTiles)) detail_.setText(std::to_wstring(v.detailedTiles));
     if (slider_.value() != v.volume) slider_.setValue(v.volume);
     auto pick = [](stardraft::kit::Dropdown& d, const int* values, size_t n, int value) {
         int at = -1;
@@ -555,15 +578,16 @@ void OptionsView::paint(draw::Canvas& c) {
         parts_[part] = r;
         return r.right;
     };
-    // A segmented choice: one button for each choice, the chosen one Primary, 4 px apart.
+    // A segmented choice: one button for each choice, the chosen one Primary, joined (as the tool strip's choices).
     auto segmented = [&](int rowY, stardraft::kit::Button* bs, int n, const std::string& part) {
         int x = fx;
         for (int i = 0; i < n; ++i) {
             const int w = bs[i].preferredWidth(c);
             const draw::Rect r{x, fieldTop(rowY), x + w, fieldTop(rowY) + fieldH};
             place(bs[i], r, true);
+            bs[i].setJoined(i > 0, i < n - 1);
             parts_[part + "." + std::to_string(i)] = r;
-            x += w + scale(4);
+            x += w;
         }
     };
     auto checkRow = [&](int rowY, stardraft::kit::CheckBox& cb, const std::string& part) {
@@ -579,7 +603,12 @@ void OptionsView::paint(draw::Canvas& c) {
     // Start.
     if (shown & optionsview::kStart) {
         header(L"Start");
-        checkRow(y, lastProject_, "lastproject");
+        label(L"Projects");  // (a label and its value, as the Maps row under it)
+        {
+            const draw::Rect cr{fx, y, fx + scale(24) + c.measure(lastProject_.label()), y + rowH};
+            place(lastProject_, cr, true);
+            parts_["lastproject"] = cr;
+        }
         y += rowH;
         // Maps (.scm, .scx): the program a double-click opens them with (where the system lets the program say it).
         if (v.mapsRow) {
@@ -609,17 +638,17 @@ void OptionsView::paint(draw::Canvas& c) {
             smallAt(restart_, x, y, "restart");
         }
         y += rowH;
-        note(fx, y - scale(4), L"The new language shows after a restart");
-        y += scale(20);
+        if (v.restartDue) {  // (only while the chosen language waits for a restart: Restart now is beside it)
+            note(fx, y - scale(4), L"The new language shows after a restart");
+            y += scale(20);
+        }
         // Graphics (Windows): the driver that draws the program (a computer that stopped with an old video card's
         // Direct3D 12, 0.8.5); the one in use under it.
         if (v.gpuRow) {
             label(L"Graphics");
-            segmented(y, gpuSeg_, 3, "graphics");
+            segmented(y, gpuSeg_, 4, "graphics");
             y += rowH;
-            note(fx, y - scale(4), shellTr(L"In use") + L": " + v.gpuInUse);  // (the driver and card: their names)
-            y += scale(20);
-            note(fx, y - scale(4), L"The change applies after a restart");
+            note(fx, y - scale(4), shellTr(L"In use") + L": " + v.gpuInUse);  // (the driver and card: their names; a new choice shows here after a restart)
             y += scale(20);
         }
         // The accent: the swatches (a ring around the chosen one and the one under the mouse).
@@ -710,9 +739,6 @@ void OptionsView::paint(draw::Canvas& c) {
         }
         note(x0, y - scale(4), L"StarCraft without mods takes at most 3400 units in a map.");
         y += scale(20) + pad;
-        header(L"Placing units");
-        checkRow(y, manyStarts_, "manystartlocations");
-        y += rowH + pad;
         header(L"Saving maps");
         checkRow(y, askStart_, "askstartlocations");
         y += rowH + pad;

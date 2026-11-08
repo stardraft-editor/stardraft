@@ -64,6 +64,7 @@ struct AppState {
     bool snapBuildings = true;      // Options > Units: buildings snap to tile edges (on every path; other units: snapUnits)
     bool animate = true;             // Options: units play their idle animations
     bool dragSnapBack = true;        // Options: dragged units go back to the last position where they fit
+    bool dragObjects = true;         // Options: a drag moves units, doodads, sprites and locations (off: a click only selects)
     bool randomFacing = true;        // Options > Units: units with a random units.dat facing each face their own way
     float lastValidDX = 0, lastValidDY = 0;  // offset of that spot from where the drag started
     bool correction = false, doodadCheck = true, showLocations = false;  // units: Place only where it fits (the default)

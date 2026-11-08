@@ -76,27 +76,82 @@ bool terrainStampNameOk(const std::string& name, std::string& why) {
     return true;
 }
 
-std::string terrainStampFileName(const std::string& name) {
+namespace {
+// A name on the disk (terrainStampFileName; a folder's name keeps its case: `lower` false).
+std::string diskName(const std::string& name, bool lower) {
     static const char* const kHex = "0123456789ABCDEF";
     std::string out;
     for (const char ch : name) {
         const unsigned char c = static_cast<unsigned char>(ch);
         if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-') out += char(c);
-        else if (c >= 'A' && c <= 'Z') out += char(c - 'A' + 'a');  // (one file for names that differ in case only)
+        else if (c >= 'A' && c <= 'Z') out += lower ? char(c - 'A' + 'a') : char(c);  // (a file: one for names that differ in case only)
         else out += '%', out += kHex[c >> 4], out += kHex[c & 15];
     }
-    // Windows' device names (with any extension): CON, PRN, AUX, NUL, COM0 to COM9, LPT0 to LPT9.
-    const std::string base = out.substr(0, out.find('%'));
-    const bool device = base == out && (out == "con" || out == "prn" || out == "aux" || out == "nul" ||
-                                        (out.size() == 4 && (out.compare(0, 3, "com") == 0 || out.compare(0, 3, "lpt") == 0) && out[3] >= '0' && out[3] <= '9'));
+    // Windows' device names (with any extension, any case): CON, PRN, AUX, NUL, COM0 to COM9, LPT0 to LPT9.
+    std::string low = out;
+    std::transform(low.begin(), low.end(), low.begin(), [](char c) { return c >= 'A' && c <= 'Z' ? char(c - 'A' + 'a') : c; });
+    const std::string base = low.substr(0, low.find('%'));
+    const bool device = base == low && (low == "con" || low == "prn" || low == "aux" || low == "nul" ||
+                                        (low.size() == 4 && (low.compare(0, 3, "com") == 0 || low.compare(0, 3, "lpt") == 0) && low[3] >= '0' && low[3] <= '9'));
     if (device) out = std::string("%") + kHex[(out[0] & 0xDF) >> 4] + kHex[(out[0] & 0xDF) & 15] + out.substr(1);
     return out;
 }
+}  // namespace
+
+std::string terrainStampFileName(const std::string& name) { return diskName(name, true); }
 
 bool terrainStampSameName(const std::string& a, const std::string& b) { return terrainStampFileName(a) == terrainStampFileName(b); }
 
-fs::path terrainStampPath(const fs::path& folder, uint16_t era, const std::string& name) {
-    return folder / tilesetName(era) / fs::path(terrainStampFileName(name) + ".scterrain");
+fs::path terrainStampFolderPath(const fs::path& folder, uint16_t era, const std::string& sub) {
+    fs::path dir = folder / tilesetName(era);
+    std::stringstream in(sub);
+    std::error_code ec;
+    for (std::string part; std::getline(in, part, '/');) {
+        if (part.empty()) continue;
+        fs::path next = dir / fs::path(diskName(part, false));
+        if (!fs::exists(next, ec))  // (a folder made in another program: its own name on the disk, as the list read it)
+            for (fs::directory_iterator it(dir, fs::directory_options::skip_permission_denied, ec), end; !ec && it != end; it.increment(ec))
+                if (it->is_directory(ec) && terrainStampNameFromFile(pathText(it->path().filename())) == part) {
+                    next = it->path();
+                    break;
+                }
+        dir = next;
+    }
+    return dir;
+}
+
+fs::path terrainStampPath(const fs::path& folder, uint16_t era, const std::string& name, const std::string& sub) {
+    return terrainStampFolderPath(folder, era, sub) / fs::path(terrainStampFileName(name) + ".scterrain");
+}
+
+std::string terrainStampNameFromFile(const std::string& fileName) {
+    std::string out;
+    auto hex = [](char c) { return c >= '0' && c <= '9' ? c - '0' : c >= 'A' && c <= 'F' ? c - 'A' + 10 : c >= 'a' && c <= 'f' ? c - 'a' + 10 : -1; };
+    for (size_t i = 0; i < fileName.size(); ++i) {
+        if (fileName[i] == '%' && i + 2 < fileName.size() && hex(fileName[i + 1]) >= 0 && hex(fileName[i + 2]) >= 0) {
+            out += char(hex(fileName[i + 1]) * 16 + hex(fileName[i + 2]));
+            i += 2;
+        } else {
+            out += fileName[i];
+        }
+    }
+    return out;
+}
+
+std::vector<std::string> terrainStampFolders(const fs::path& folder, uint16_t era) {
+    std::vector<std::string> out;
+    std::error_code ec;
+    const fs::path dir = folder / tilesetName(era);
+    if (folder.empty() || !fs::is_directory(dir, ec)) return out;
+    for (fs::recursive_directory_iterator it(dir, fs::directory_options::skip_permission_denied, ec), end; !ec && it != end; it.increment(ec)) {
+        if (!it->is_directory(ec)) continue;
+        std::string sub;
+        for (const fs::path& part : fs::relative(it->path(), dir, ec)) sub += (sub.empty() ? "" : "/") + terrainStampNameFromFile(pathText(part));
+        if (!sub.empty()) out.push_back(sub);
+    }
+    std::sort(out.begin(), out.end());
+    out.erase(std::unique(out.begin(), out.end()), out.end());  // (two folders on the disk with one name: one folder)
+    return out;
 }
 
 // (no "format": the fields say what it is; the mask only when some tiles are not in it: else every tile is)
@@ -158,7 +213,7 @@ bool parseTerrainStamp(const std::string& text, TerrainStamp& out, std::string& 
 bool writeTerrainStamp(const fs::path& folder, TerrainStamp& s, std::string& error) {
     std::string why;
     if (!terrainStampNameOk(s.name, why)) return error = why, false;
-    const fs::path file = terrainStampPath(folder, s.era, s.name);
+    const fs::path file = terrainStampPath(folder, s.era, s.name, s.folder);
     std::error_code ec;
     fs::create_directories(file.parent_path(), ec);
     if (ec) return error = "cannot make the folder " + pathText(file.parent_path()) + " (" + ec.message() + ")", false;
@@ -177,15 +232,17 @@ std::vector<TerrainStamp> terrainStamps(const fs::path& folder, uint16_t era) {
     const fs::path dir = folder / tilesetName(era);
     if (folder.empty() || !fs::is_directory(dir, ec)) return out;
     std::vector<fs::path> files;  // (listed first: an old file's move adds a file to the folder)
-    for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
+    for (fs::recursive_directory_iterator it(dir, fs::directory_options::skip_permission_denied, ec), end; !ec && it != end; it.increment(ec)) {
         const fs::path ext = it->path().extension();
-        if ((ext == ".scterrain" || ext == ".sdstamp") && it->is_regular_file(ec)) files.push_back(it->path());
+        if ((ext == ".scterrain" || (ext == ".sdstamp" && it.depth() == 0)) && it->is_regular_file(ec)) files.push_back(it->path());
     }
     for (const fs::path& file : files) {
         const fs::path ext = file.extension();
         TerrainStamp s;
         std::string err;
         if (!readTerrainStamp(file, s, err) || s.era != (era & 7)) continue;  // (one that cannot be read: left out)
+        for (const fs::path& part : fs::relative(file.parent_path(), dir, ec))  // (its folder: the folders between)
+            if (const std::string p = pathText(part); !p.empty() && p != ".") s.folder += (s.folder.empty() ? "" : "/") + terrainStampNameFromFile(p);
         // (a file of StarDraft 0.8 and before: written again under the new name, when there is none of that name yet)
         if (ext == ".sdstamp" && !fs::exists(terrainStampPath(folder, s.era, s.name), ec)) {
             const fs::path old = s.file;

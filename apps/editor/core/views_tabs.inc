@@ -84,7 +84,7 @@ void stashActive() {
     panelsStash();  // (its active panel keeps its state for when the tab is back: panel_state.inc)
     d.ed = std::move(app.ed);
 }
-// Program options > Placing units > Many start locations for each player (ManyStartLocations; off: a player's new start
+// Options > Units > Many start locations for each player (ManyStartLocations; off: a player's new start
 // location moves the one that the player has).
 bool manyStartLocations() {
     bool many = false;
@@ -99,9 +99,11 @@ void applyManyStartLocations() {
     if (shellState().ed) shellState().ed->setManyStartLocations(many);
 }
 
+void mapLayersDragStop();  // (core/map_layers.inc)
 // Shows the active editor: renderer sources, palette (the tileset may differ), title and tabs.
 void showActive() {
     AppState& app = shellState();
+    mapLayersDragStop();  // (core/map_layers.inc)
     app.drag = Drag::None;
     app.ed->setAllowIllegalUnits(app.allowIllegalUnits);
     app.ed->setAllowStacking(app.allowStacking);
@@ -148,6 +150,7 @@ bool closeDoc(int i) {
     protectedTerrainSync();  // (its protected terrain kept when its question saved it: core/protected_layer.inc)
     const std::wstring closed = docTitle(i);
     mapPageClose();
+    mapLayersDragStop();  // (before its editor goes)
     app.ed.reset();
     shellForgetAnims();  // they held that editor's sprites (a new editor can get the same address)
     const auto pr = gDocs[size_t(i)].project;
@@ -345,7 +348,7 @@ struct TabsView final : stardraft::draw::View {
         switch (e.kind) {
         case MouseKind::Move: {
             if (gTabDrag >= 0) {  // a tab is dragged: past the middle of another tab, it takes that place
-                if (!gTabDragging && std::abs(pt.x - gTabDragX) > scale(6)) gTabDragging = true;
+                if (!gTabDragging && std::abs(pt.x - gTabDragX) > scale(4)) gTabDragging = true;  // (4 px: as every drag)
                 if (gTabDragging)
                     for (int i = 0; i < int(gTabHits.size()); ++i) {
                         const RECT& r = gTabHits[size_t(i)].tab;
