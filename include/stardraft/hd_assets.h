@@ -55,11 +55,14 @@ struct HdTiles {
     DdsTexture::Format format = DdsTexture::BC1;
     std::vector<Bytes> tiles;  // compressed blocks of each megatile
 };
-bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, HdTiles& out, std::string& error, bool carbot = false);
+// `offThread`: a worker reads them (GameData::readFileOffThread).
+bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, HdTiles& out, std::string& error, bool carbot = false,
+                 bool offThread = false);
 // The same, read once for all who use them (the renderer's atlas, the palette, the Tiles grid, the pictures): they
 // stay while one holds them, and the last ones read stay for the next (a map of the same tileset). nullptr: not there.
+// `busy` (not nullptr): no wait while another thread reads them (the renderer's worker); *busy is true, and nullptr back.
 std::shared_ptr<const HdTiles> sharedHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, bool carbot = false,
-                                             std::string* error = nullptr);
+                                             std::string* error = nullptr, bool* busy = nullptr, bool offThread = false);
 // The last ones read go (no map is open): only the holders keep theirs.
 void releaseSharedHdTiles();
 

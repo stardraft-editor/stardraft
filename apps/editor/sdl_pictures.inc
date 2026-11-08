@@ -105,8 +105,11 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
     } else if (!unitKind) {
         if (mode && !gPaletteArt.hdTilesLoaded) {
             std::string err;
+            bool busy = false;  // (the renderer's worker reads them now: this picture in a next frame, no wait)
+            auto tiles = sharedHdTiles(ed.gameData(), ed.era(), GraphicsQuality::HD2, mode == 2, &err, &busy);
+            if (busy) return ++gPaletteArtLeft, nullptr;
             gPaletteArt.hdTilesLoaded = true, gPaletteArt.hdTilesEra = int(ed.era()), gPaletteArt.hdTilesMode = mode;
-            gPaletteArt.hdTiles = sharedHdTiles(ed.gameData(), ed.era(), GraphicsQuality::HD2, mode == 2, &err);
+            gPaletteArt.hdTiles = std::move(tiles);
         }
         const HdTiles* hd = mode && gPaletteArt.hdTiles && !gPaletteArt.hdTiles->tiles.empty() ? gPaletteArt.hdTiles.get() : nullptr;
         if (what == Mode::Terrain) {

@@ -1204,7 +1204,11 @@ int main(int argc, char** argv) {
             // The map's sprites and the palettes' pictures load over a few frames: frames until they are all there (as
             // the Windows program paints while images are pending).
             extern int gPaletteArtLeft;  // (sdl_pictures.inc)
-            for (int k = 0; k < 100 && (renderer.stats().imagesPending > 0 || gPaletteArtLeft > 0); ++k)
+            // (100 frames, and at least 3 s: the HD tiles read on a worker, whatever a frame takes)
+            const auto waitStart = std::chrono::steady_clock::now();
+            for (int k = 0; (k < 100 || std::chrono::steady_clock::now() - waitStart < std::chrono::seconds(3)) &&
+                            (renderer.stats().imagesPending > 0 || gPaletteArtLeft > 0);
+                 ++k)
                 gPaletteArtLeft = 0, host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             const bool ok = writeSnapshot(device, tex, width, height, snapshot);

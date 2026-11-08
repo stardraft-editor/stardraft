@@ -136,13 +136,16 @@ void releaseSharedHdTiles() {
     gHdTilesLast = {};
 }
 
-std::shared_ptr<const HdTiles> sharedHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, bool carbot, std::string* error) {
+std::shared_ptr<const HdTiles> sharedHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, bool carbot, std::string* error, bool* busy,
+                                             bool offThread) {
     using Key = HdTilesKey;
     auto& lock = gHdTilesLock;
     auto& held = gHdTilesHeld;
     auto& last = gHdTilesLast;
     const Key key{&data, era, int(quality), carbot};
-    std::lock_guard<std::mutex> guard(lock);
+    std::unique_lock<std::mutex> guard(lock, std::defer_lock);
+    if (!busy) guard.lock();
+    else if (!guard.try_lock()) return *busy = true, nullptr;
     if (last.second && last.first == key) return last.second;
     std::erase_if(held, [](const auto& h) { return h.second.expired(); });
     for (const auto& [k, w] : held)
@@ -150,7 +153,7 @@ std::shared_ptr<const HdTiles> sharedHdTiles(const GameData& data, uint16_t era,
             if (auto s = w.lock()) return last = {key, s}, s;
     auto tiles = std::make_shared<HdTiles>();
     std::string err;
-    if (!loadHdTiles(data, era, quality, *tiles, err, carbot)) {
+    if (!loadHdTiles(data, era, quality, *tiles, err, carbot, offThread)) {
         if (error) *error = err;
         return nullptr;
     }
@@ -159,13 +162,14 @@ std::shared_ptr<const HdTiles> sharedHdTiles(const GameData& data, uint16_t era,
     return s;
 }
 
-bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, HdTiles& out, std::string& error, bool carbot) {
+bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, HdTiles& out, std::string& error, bool carbot, bool offThread) {
     const std::string hd2 = quality == GraphicsQuality::HD2 ? "HD2\\" : "";
     std::string name = hd2 + "Carbot\\TileSet\\" + tilesetName(era) + ".dds.vr4";
     Bytes d;
-    if (!carbot || !data.readFile(name, d, error)) {
+    const auto read = [&](const std::string& n) { return offThread ? data.readFileOffThread(n, d, error) : data.readFile(n, d, error); };
+    if (!carbot || !read(name)) {
         name = hd2 + "TileSet\\" + tilesetName(era) + ".dds.vr4";
-        if (!data.readFile(name, d, error)) return false;
+        if (!read(name)) return false;
     }
     if (d.size() < 8) {
         error = name + ": too small";

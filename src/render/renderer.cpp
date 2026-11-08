@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <future>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -270,6 +271,12 @@ struct Renderer::Impl {
     void reloadTileset();
     void buildSdAtlas();
     bool buildHdAtlas();
+    // The HD megatiles are read on a worker (76 ms for a 256 x 256 map's tileset, in its first frame before): the SD
+    // atlas draws until they are there; then the HD atlas is made from them (finishHdAtlas, at the start of a frame).
+    std::future<std::shared_ptr<const HdTiles>> hdReading;
+    std::string hdReadError;
+    bool finishHdAtlas(const HdTiles& tiles);
+    void takeHdTiles(bool wait);
     void ensureDepth(uint32_t w, uint32_t h);
     bool ensureBackdrop(uint32_t w, uint32_t h);
     bool ensureBuffer(SDL_GPUBuffer*& buf, uint32_t& cap, uint32_t bytes);
@@ -652,6 +659,8 @@ void Renderer::Impl::sendPageUploads(SDL_GPUCommandBuffer* cmd) {
 void Renderer::shutdown() {
     Impl& r = *impl_;
     if (!r.device) return;
+    if (r.hdReading.valid()) r.hdReading.wait();
+    r.hdReading = {};
     SDL_WaitForGPUIdle(r.device);
     r.freeImages();
     for (SDL_GPUTexture* t : {r.offscreen, r.depth, r.backdrop, r.blackTex, r.tileIndex, r.hdAtlas, r.hdDown, r.sdAtlas})
@@ -742,14 +751,29 @@ void Renderer::Impl::buildSdAtlas() {
 bool Renderer::Impl::buildHdAtlas() {
     if (hdAtlas) SDL_ReleaseGPUTexture(device, hdAtlas), hdAtlas = nullptr;
     if (hdDown) SDL_ReleaseGPUTexture(device, hdDown), hdDown = nullptr;
+    if (hdReading.valid()) hdReading.wait();  // (another tileset's read that is still running: its result is not used)
+    hdReading = {};
     if (artQuality() == GraphicsQuality::SD) return true;
-    std::string err;
-    const std::shared_ptr<const HdTiles> held = sharedHdTiles(*data, era, artQuality(), carbot, &err);  // (the palette's too)
-    if (!held) {
-        error = err;
-        return false;
-    }
-    const HdTiles& tiles = *held;
+    // (the game data reads under its own lock: a worker may read while the program reads its sprites)
+    const GameData* d = data;
+    const uint16_t e = era;
+    const GraphicsQuality q = artQuality();
+    const bool cb = carbot;
+    hdReading = std::async(std::launch::async, [this, d, e, q, cb] { return sharedHdTiles(*d, e, q, cb, &hdReadError, nullptr, true); });
+    takeHdTiles(loadBudgetMs >= 1e6);  // (a picture of the whole map, the map image: it waits for them)
+    return true;
+}
+
+// The worker's HD megatiles, when they are there (`wait`: until they are): the HD atlas from them.
+void Renderer::Impl::takeHdTiles(bool wait) {
+    if (!hdReading.valid()) return;
+    if (!wait && hdReading.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
+    const std::shared_ptr<const HdTiles> held = hdReading.get();
+    if (!held) error = hdReadError;
+    else finishHdAtlas(*held);
+}
+
+bool Renderer::Impl::finishHdAtlas(const HdTiles& tiles) {
     // Lay megatiles out in a square grid; copy whole 4x4 blocks (no decoding).
     const uint32_t tile = uint32_t(tiles.tileSize), blocks = tile / 4, blockBytes = tiles.format == DdsTexture::BC1 ? 8 : 16;
     size_t n = tiles.tiles.size();
@@ -845,6 +869,8 @@ void Renderer::reloadImages() { impl_->freeImages(); }
 void Renderer::releaseMapData() {
     Impl& r = *impl_;
     if (!r.device) return;
+    if (r.hdReading.valid()) r.hdReading.wait();
+    r.hdReading = {};
     r.freeImages();
     for (SDL_GPUTexture** t : {&r.sdAtlas, &r.hdAtlas, &r.hdDown, &r.tileIndex})
         if (*t) SDL_ReleaseGPUTexture(r.device, *t), *t = nullptr;
@@ -1007,6 +1033,8 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     stats = {};
     if (pagesFull) freePages();
     if (tilesetDirty) reloadTileset();
+    takeHdTiles(loadBudgetMs >= 1e6);
+    if (hdReading.valid()) ++stats.imagesPending;  // (the HD tiles still reading: the program paints again, as for the sprites)
     ensureDepth(w, h);
     const Camera& cam = scene.camera;
     const float mapPxH = std::max<float>((realH ? realH : mapH) * 32.0f, 1);

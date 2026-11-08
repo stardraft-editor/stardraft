@@ -64,6 +64,7 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
         releaseMapCaches();   // (the map copies, the scratch maps, the game's sprites: core/recent.inc)
         void releasePaletteArtData();
         releasePaletteArtData();  // (the palette's and the Tiles grid's HD icons and tiles: sdl_pictures.inc)
+        if (gState.data.isOpen()) gState.data.releaseWorkerHandle();  // (the second game data handle: renderer's HD reads)
         shellForgetAnims();   // (the units' idle animations)
         gMapEd = nullptr;
     }
