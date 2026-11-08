@@ -9,7 +9,10 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <condition_variable>
 #include <deque>
+#include <mutex>
+#include <thread>
 #include <map>
 #include <tuple>
 #include <unordered_map>
@@ -105,6 +108,7 @@ float kPlayerRgb[12][3] = {{0.957f, 0.016f, 0.016f}, {0.047f, 0.282f, 0.8f},   {
 
 struct ImageTex {
     bool loaded = false, failed = false;
+    bool queued = false;  // (its HD art is with the renderer's worker)
     bool team = false;  // (SD: it has player color pixels)
     SDL_GPUTexture* diffuse = nullptr;
     SDL_GPUTexture* mask = nullptr;
@@ -221,6 +225,45 @@ struct Renderer::Impl {
         return list[at];
     }
     int imagesResident = 0;  // (the images with a texture or SD frames: Stats)
+    // The HD images are read and decoded on a worker (a big one, the creep edges, took 58 ms of a map's first frame):
+    // the frame asks for an image, it comes in a later frame (uploaded at the frame's start, takeImages). The images'
+    // generation: a change of the art (freeImages) drops what the worker made before it.
+    struct ImageJob {
+        int id = 0;
+        uint64_t generation = 0;
+        const GameData* data = nullptr;  // (the job's own: the renderer's may change while it runs)
+        GraphicsQuality quality = GraphicsQuality::HD2;
+        bool carbot = false;
+        std::string extraPath;  // (UnitSprites::extraImage: its GRP's path; its SD frames copied)
+        Grp extraSd;
+    };
+    struct ImageMade {
+        int id = 0;
+        uint64_t generation = 0;
+        bool hd = false;
+        AnimImage art;
+    };
+    std::thread imageWorker;
+    std::mutex imageJobsLock;
+    std::condition_variable imageJobsReady;
+    std::deque<ImageJob> imageJobs;
+    std::vector<ImageMade> imagesMade;
+    bool imageWorkerStop = false;
+    uint64_t imageGeneration = 1;
+    bool imagesOffThread() const { return loadBudgetMs < 1e6 && artQuality() != GraphicsQuality::SD && data; }
+    void queueImage(int id, ImageTex& t);
+    void takeImages(Clock::time_point frameStart);
+    void finishImage(ImageTex& t, bool hd, AnimImage& a, int id, int row);
+    void stopImageWorker() {
+        {
+            std::lock_guard<std::mutex> lock(imageJobsLock);
+            imageWorkerStop = true, imageJobs.clear();
+        }
+        imageJobsReady.notify_all();
+        if (imageWorker.joinable()) imageWorker.join();
+        imageWorkerStop = false, imagesMade.clear();
+    }
+    ~Impl() { stopImageWorker(); }
     // (setExactTeamColors: an image in a color row's shades; the key: the image's id << 16 | the row)
     std::unordered_map<uint64_t, ImageTex> teamImages;
     // The frame's lists, kept from frame to frame (their memory too).
@@ -246,6 +289,7 @@ struct Renderer::Impl {
     };
     std::vector<PageUpload> pageUploads;  // (sent in the frame's own copy pass)
     double loadBudgetMs = 30;
+    double frameBudgetMs = 30;  // (this frame's: a map's first frame has less, its terrain shows at once)
 
     // Dynamic buffers
     SDL_GPUBuffer* instanceBuf = nullptr;
@@ -547,6 +591,10 @@ void Renderer::Impl::freeImages() {
     for (auto& [key, t] : teamImages) release(t);
     images.clear(), extraImages.clear(), teamImages.clear();
     imagesResident = 0;
+    {  // (what the worker makes for the old art: dropped when it comes)
+        std::lock_guard<std::mutex> lock(imageJobsLock);
+        ++imageGeneration, imageJobs.clear(), imagesMade.clear();
+    }
     freePages();
 }
 
@@ -658,6 +706,7 @@ void Renderer::Impl::sendPageUploads(SDL_GPUCommandBuffer* cmd) {
 
 void Renderer::shutdown() {
     Impl& r = *impl_;
+    r.stopImageWorker();
     if (!r.device) return;
     if (r.hdReading.valid()) r.hdReading.wait();
     r.hdReading = {};
@@ -674,7 +723,7 @@ void Renderer::shutdown() {
         if (p) SDL_ReleaseGPUGraphicsPipeline(r.device, p);
     if (r.window) SDL_ReleaseWindowFromGPUDevice(r.device, r.window);
     SDL_DestroyGPUDevice(r.device);
-    r = Impl{};
+    impl_ = std::make_unique<Impl>();  // (all as new; a worker and its lock are not copied)
 }
 
 // --- Resources ---------------------------------------------------------------------------------
@@ -869,6 +918,7 @@ void Renderer::reloadImages() { impl_->freeImages(); }
 void Renderer::releaseMapData() {
     Impl& r = *impl_;
     if (!r.device) return;
+    r.stopImageWorker();  // (its read ends first: the game data's handle for workers can go after this)
     if (r.hdReading.valid()) r.hdReading.wait();
     r.hdReading = {};
     r.freeImages();
@@ -979,6 +1029,12 @@ void Renderer::Impl::loadImage(int id, ImageTex& t, int row) {
     const bool hd = artQuality() != GraphicsQuality::SD && data &&
                     (extra ? extraSd && loadHdGrp(*data, *extra, *extraSd, artQuality(), a, err, carbot)
                            : loadAnimImage(*data, id, artQuality(), a, err, carbot));
+    finishImage(t, hd, a, id, row);
+}
+
+// An image's textures (HD) or its SD frames' places (the SD art, or no HD art for it).
+void Renderer::Impl::finishImage(ImageTex& t, bool hd, AnimImage& a, int id, int row) {
+    t.loaded = true;
     if (hd) {
         auto fmt = [](const DdsTexture& d) {
             return d.format == DdsTexture::BC1 ? SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM : SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM;
@@ -1011,12 +1067,76 @@ void Renderer::Impl::loadImage(int id, ImageTex& t, int row) {
         t.frames.push_back({0, 0, 0, 0, float(fr.x), float(fr.y), float(fr.width), float(fr.height)});
 }
 
+// The worker's next image: the HD art read through the game data's own handle for workers.
+void Renderer::Impl::queueImage(int id, ImageTex& t) {
+    ImageJob job;
+    job.id = id, job.data = data, job.quality = artQuality(), job.carbot = carbot;
+    if (const std::string* extra = unitSprites ? unitSprites->extraPath(id) : nullptr) {
+        const Grp* sd = unitSprites->grp(id);
+        if (!sd) return loadImage(id, t);  // (no SD frames: nothing to read)
+        job.extraPath = *extra, job.extraSd = *sd;
+    }
+    t.queued = true;
+    {
+        std::lock_guard<std::mutex> lock(imageJobsLock);
+        job.generation = imageGeneration;
+        imageJobs.push_back(std::move(job));
+    }
+    if (!imageWorker.joinable())
+        imageWorker = std::thread([this] {
+            for (;;) {
+                ImageJob job;
+                {
+                    std::unique_lock<std::mutex> lock(imageJobsLock);
+                    imageJobsReady.wait(lock, [&] { return imageWorkerStop || !imageJobs.empty(); });
+                    if (imageWorkerStop) return;
+                    job = std::move(imageJobs.front());
+                    imageJobs.pop_front();
+                }
+                const GameData* d = job.data;
+                ImageMade made;
+                made.id = job.id, made.generation = job.generation;
+                std::string err;
+                made.hd = d && (job.extraPath.empty() ? loadAnimImage(*d, job.id, job.quality, made.art, err, job.carbot, true)
+                                                      : loadHdGrp(*d, job.extraPath, job.extraSd, job.quality, made.art, err, job.carbot, true));
+                std::lock_guard<std::mutex> lock(imageJobsLock);
+                if (made.generation == imageGeneration) imagesMade.push_back(std::move(made));
+            }
+        });
+    imageJobsReady.notify_one();
+}
+
+// The worker's images of this art: their textures, while the frame has time (the rest at the next frame).
+void Renderer::Impl::takeImages(Clock::time_point frameStart) {
+    std::vector<ImageMade> made;
+    {
+        std::lock_guard<std::mutex> lock(imageJobsLock);
+        made.swap(imagesMade);
+    }
+    size_t i = 0;
+    for (; i < made.size() && (i == 0 || msSince(frameStart) < frameBudgetMs); ++i) {
+        if (made[i].generation != imageGeneration) continue;
+        ImageTex& t = imageSlot(made[i].id);
+        if (t.loaded) continue;
+        finishImage(t, made[i].hd, made[i].art, made[i].id, -1);
+        imagesResident += t.diffuse != nullptr || t.sd;
+    }
+    if (i < made.size()) {
+        std::lock_guard<std::mutex> lock(imageJobsLock);
+        imagesMade.insert(imagesMade.begin(), std::make_move_iterator(made.begin() + std::ptrdiff_t(i)), std::make_move_iterator(made.end()));
+    }
+}
+
 ImageTex* Renderer::Impl::image(int id, Clock::time_point frameStart, bool& pending) {
     pending = false;
     if (id < 0) return nullptr;
     ImageTex& t = imageSlot(id);
+    if (!t.loaded && imagesOffThread()) {  // (the worker reads it; a later frame shows it)
+        if (!t.queued) queueImage(id, t);
+        if (!t.loaded) return pending = true, nullptr;
+    }
     if (!t.loaded) {
-        if (msSince(frameStart) > loadBudgetMs) {
+        if (msSince(frameStart) > frameBudgetMs) {
             pending = true;
             return nullptr;
         }
@@ -1032,8 +1152,13 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     auto frameStart = Clock::now();
     stats = {};
     if (pagesFull) freePages();
-    if (tilesetDirty) reloadTileset();
+    frameBudgetMs = loadBudgetMs;
+    if (tilesetDirty) {  // (a map's first frame: the terrain at once, the sprites from the next frames)
+        reloadTileset();
+        if (loadBudgetMs < 1e6) frameStart = Clock::now(), frameBudgetMs = std::min(loadBudgetMs, 8.0);
+    }
     takeHdTiles(loadBudgetMs >= 1e6);
+    takeImages(frameStart);
     if (hdReading.valid()) ++stats.imagesPending;  // (the HD tiles still reading: the program paints again, as for the sprites)
     ensureDepth(w, h);
     const Camera& cam = scene.camera;
@@ -1060,7 +1185,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         size_t warpFrame = 0;  // (the Warp Texture's frame: the level)
         if (warp) {
             warpFrame = size_t(std::clamp(s.level, 0, int(warp->frames.size()) - 1));
-            if (warp->sd && warp->frames[warpFrame].page < 0 && (msSince(frameStart) > loadBudgetMs || !atlasFrame(*warp, 210, warpFrame))) {
+            if (warp->sd && warp->frames[warpFrame].page < 0 && (msSince(frameStart) > frameBudgetMs || !atlasFrame(*warp, 210, warpFrame))) {
                 ++stats.imagesPending;
                 continue;
             }
@@ -1077,7 +1202,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         // An SD frame on its page: within the frame's load budget, as image().
         auto onPage = [&](ImageTex& im, int id, size_t k) {
             if (im.frames[k].page >= 0) return true;
-            if (msSince(frameStart) > loadBudgetMs) return ++stats.imagesPending, false;
+            if (msSince(frameStart) > frameBudgetMs) return ++stats.imagesPending, false;
             return atlasFrame(im, id, k);
         };
         if (t->sd && !onPage(*t, s.image, fi)) continue;

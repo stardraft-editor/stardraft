@@ -43,6 +43,8 @@ namespace {
 int animReference(const GameData& data, int image) {
     static const GameData* cachedFor = nullptr;
     static std::vector<int> refs;
+    static std::mutex lock;  // (the renderer's worker asks too)
+    std::lock_guard<std::mutex> guard(lock);
     if (cachedFor != &data) {
         cachedFor = &data;
         refs.assign(999, -1);
@@ -59,7 +61,7 @@ int animReference(const GameData& data, int image) {
 
 }  // namespace
 
-bool loadAnimImage(const GameData& data, int image, GraphicsQuality quality, AnimImage& out, std::string& error, bool carbot) {
+bool loadAnimImage(const GameData& data, int image, GraphicsQuality quality, AnimImage& out, std::string& error, bool carbot, bool offThread) {
     for (int hops = 0; hops < 4; ++hops) {
         int ref = animReference(data, image);
         if (ref < 0 || ref == image) break;
@@ -68,10 +70,11 @@ bool loadAnimImage(const GameData& data, int image, GraphicsQuality quality, Ani
     char name[64];
     const char* hd2 = quality == GraphicsQuality::HD2 ? "HD2\\" : "";
     Bytes d;
+    const auto read = [&](const std::string& n) { return offThread ? data.readFileOffThread(n, d, error) : data.readFile(n, d, error); };
     std::snprintf(name, sizeof name, "%sanim\\Carbot\\main_%03d.anim", hd2, image);
-    if (!carbot || !data.readFile(name, d, error)) {
+    if (!carbot || !read(name)) {
         std::snprintf(name, sizeof name, "%sanim\\main_%03d.anim", hd2, image);
-        if (!data.readFile(name, d, error)) return false;
+        if (!read(name)) return false;
     }
     if (d.size() < 332 + 12 || std::memcmp(d.data(), "ANIM", 4) != 0) {
         error = std::string(name) + ": not an ANIM file";
@@ -198,15 +201,16 @@ bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, Hd
 }
 
 bool loadHdGrp(const GameData& data, const std::string& sdPath, const Grp& sd, GraphicsQuality quality, AnimImage& out,
-               std::string& error, bool carbot) {
+               std::string& error, bool carbot, bool offThread) {
     if (sdPath.size() < 4 || sd.frames.empty()) return error = sdPath + ": no SD frames", false;
     const std::string base = sdPath.substr(0, sdPath.size() - 4) + ".dds.grp";  // ("tileset\badlands.grp")
     const std::string hd2 = quality == GraphicsQuality::HD2 ? "HD2\\" : "";
     std::string name = hd2 + "Carbot\\" + base;
     Bytes d;
-    if (!carbot || !data.readFile(name, d, error)) {
+    const auto read = [&](const std::string& n) { return offThread ? data.readFileOffThread(n, d, error) : data.readFile(n, d, error); };
+    if (!carbot || !read(name)) {
         name = hd2 + base;
-        if (!data.readFile(name, d, error)) return false;
+        if (!read(name)) return false;
     }
     // u32 file size, u16 frame count, u16 version, then each frame: u32 0, u16 width, u16 height, u32 size, a DDS file.
     if (d.size() < 8) return error = name + ": too small", false;

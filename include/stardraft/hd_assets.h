@@ -46,7 +46,9 @@ struct AnimImage {
 // Load images.dat image `image` ("anim\main_NNN.anim", or "HD2\anim\..." for HD2).
 // `carbot`: the Cartooned (Carbot) skin, anim\Carbot\ and Carbot\TileSet\; images it does not
 // cover fall back to the normal art.
-bool loadAnimImage(const GameData& data, int image, GraphicsQuality quality, AnimImage& out, std::string& error, bool carbot = false);
+// `offThread`: a worker reads (GameData::readFileOffThread).
+bool loadAnimImage(const GameData& data, int image, GraphicsQuality quality, AnimImage& out, std::string& error, bool carbot = false,
+                   bool offThread = false);
 
 // HD megatile graphics ("TileSet\<name>.dds.vr4" or "HD2\..."): one texture per megatile, indexed like
 // the SD megatiles (VX4EX).
@@ -72,7 +74,7 @@ void releaseSharedHdTiles();
 // GRP) sits, kept inside the box.
 struct Grp;
 bool loadHdGrp(const GameData& data, const std::string& sdPath, const Grp& sd, GraphicsQuality quality, AnimImage& out,
-               std::string& error, bool carbot = false);
+               std::string& error, bool carbot = false, bool offThread = false);
 
 // Previews drawn without the GPU (src/hd_preview.cpp).
 // Decodes the region (x0, y0, w, h) of a block-compressed texture to RGBA (straight alpha).
@@ -85,7 +87,7 @@ struct TerrainLayer;
 Image renderHdTerrain(const Tileset& ts, const HdTiles& hd, const TerrainLayer& terrain, int downscale);
 // The HD2 command-card icons of units 0..227 (HD2\unit\cmdicons\cmdicons.dds.grp, or the Carbot
 // skin's), decoded; units without an icon (the game's placeholder) get an empty Sprite.
-bool loadHdCommandIcons(const GameData& data, bool carbot, std::vector<Sprite>& icons, std::string& error);
+bool loadHdCommandIcons(const GameData& data, bool carbot, std::vector<Sprite>& icons, std::string& error, bool offThread = false);
 // A unit in HD2 (or Carbot) art: its image and subunit in their default frames, centered on the
 // largest frame box, team color applied as the renderer does. Texture pixels.
 bool hdUnitPicture(const GameData& data, const UnitSprites& sprites, uint16_t unitType, uint32_t teamRgb, bool carbot, Sprite& out,

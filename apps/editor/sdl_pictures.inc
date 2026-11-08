@@ -11,6 +11,7 @@ struct PaletteArt {
     int era = -1, mode = -1;
     int rulesRev = 0;  // (gTerrainRulesRev of the pictures: terrain rules loaded again draw the terrains again)
     std::vector<Sprite> hdIcons;  // HD2 (or Carbot) command icons, for the mode
+    std::future<std::vector<Sprite>> hdIconsReading;  // (read on a worker: a map's first frame does not wait for them)
     std::shared_ptr<const HdTiles> hdTiles;  // HD2 (or Carbot) megatiles, for terrain and doodad pictures (sharedHdTiles)
     bool hdTilesLoaded = false;
     int hdTilesEra = -1, hdTilesMode = -1;  // (the era and mode of hdTiles: another map of that tileset uses them too)
@@ -25,6 +26,8 @@ void releasePaletteArt() { gPaletteArt = PaletteArt{}; }
 // them this frame). The next map loads them again.
 void releasePaletteArtData() {
     gPaletteArt.ed = nullptr, gPaletteArt.data = nullptr, gPaletteArt.mode = -1;
+    if (gPaletteArt.hdIconsReading.valid()) gPaletteArt.hdIconsReading.wait();
+    gPaletteArt.hdIconsReading = {};
     gPaletteArt.hdIcons.clear(), gPaletteArt.hdIcons.shrink_to_fit();
     gPaletteArt.hdTiles.reset(), gPaletteArt.hdTilesLoaded = false, gPaletteArt.hdTilesEra = gPaletteArt.hdTilesMode = -1;
     gTilesArt.hdByData.clear();
@@ -48,7 +51,7 @@ uint16_t terrainGround(const Editor& ed, uint16_t value) {
 
 // A palette's paint makes at most kPaletteArtBudgetMs of new pictures (a map's first frame had all of them: 190 ms);
 // the others come in the next frames (the view paints again; the snapshots' frames wait for them, as for the sprites).
-constexpr double kPaletteArtBudgetMs = 12;
+constexpr double kPaletteArtBudgetMs = 8;
 std::chrono::steady_clock::time_point gPaletteArtDeadline{};  // (set only while a palette paints)
 int gPaletteArtLeft = 0;                                       // pictures left for a next frame
 
@@ -65,29 +68,47 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
     if (gPaletteArt.ed != &ed || gPaletteArt.era != int(ed.era()) || gPaletteArt.mode != mode || gPaletteArt.rulesRev != gTerrainRulesRev) {
         gPaletteArt.bitmaps.clear(), gPaletteArt.pieBitmaps.clear(), gPaletteArt.blanks.clear(), gPaletteArt.rulesRev = gTerrainRulesRev;
         if (gPaletteArt.mode != mode || gPaletteArt.data != &ed.gameData()) {
+            if (gPaletteArt.hdIconsReading.valid()) gPaletteArt.hdIconsReading.wait();
+            gPaletteArt.hdIconsReading = {};
             gPaletteArt.hdIcons.clear();
             gPaletteArt.data = &ed.gameData();
-            std::string err;
-            if (mode) loadHdCommandIcons(ed.gameData(), mode == 2, gPaletteArt.hdIcons, err);
-            if (mode == 1)  // the HD icons take the SD icon's color (ticon.pcx), scaled by their gray
+            // the HD icons take the SD icon's color (ticon.pcx), scaled by their gray (HD; Carbot's keep theirs)
+            bool tinted = false;
+            uint8_t tint[3] = {255, 255, 255};
+            if (mode == 1)
                 if (const Sprite* sd = ed.unitSprites().commandIcon(0)) {
-                    uint8_t tint[3] = {255, 255, 255};
                     int best = -1;
+                    tinted = true;
                     for (size_t i = 0; i + 3 < sd->rgba.size(); i += 4)
                         if (sd->rgba[i + 3] && sd->rgba[i] + sd->rgba[i + 1] + sd->rgba[i + 2] > best)
                             best = sd->rgba[i] + sd->rgba[i + 1] + sd->rgba[i + 2], std::copy_n(&sd->rgba[i], 3, tint);
-                    for (Sprite& icon : gPaletteArt.hdIcons)
-                        for (size_t i = 0; i + 3 < icon.rgba.size(); i += 4) {
-                            const int gray = std::max({icon.rgba[i], icon.rgba[i + 1], icon.rgba[i + 2]});
-                            for (int k = 0; k < 3; ++k) icon.rgba[i + k] = uint8_t(tint[k] * gray / 255);
-                        }
                 }
+            if (mode)  // (read on a worker through the game data's handle for workers)
+                gPaletteArt.hdIconsReading = std::async(std::launch::async, [data = &ed.gameData(), carbot = mode == 2, tinted, t0 = tint[0], t1 = tint[1], t2 = tint[2]] {
+                    std::vector<Sprite> icons;
+                    std::string err;
+                    loadHdCommandIcons(*data, carbot, icons, err, true);
+                    const uint8_t tint[3] = {t0, t1, t2};
+                    if (tinted)
+                        for (Sprite& icon : icons)
+                            for (size_t i = 0; i + 3 < icon.rgba.size(); i += 4) {
+                                const int gray = std::max({icon.rgba[i], icon.rgba[i + 1], icon.rgba[i + 2]});
+                                for (int k = 0; k < 3; ++k) icon.rgba[i + k] = uint8_t(tint[k] * gray / 255);
+                            }
+                    return icons;
+                });
         }
         // (the HD tiles come from the game data by the era and mode only: a tab of another map of the same tileset keeps them)
         if (gPaletteArt.hdTilesEra != int(ed.era()) || gPaletteArt.hdTilesMode != mode) gPaletteArt.hdTilesLoaded = false;
         gPaletteArt.ed = &ed, gPaletteArt.era = int(ed.era()), gPaletteArt.mode = mode;
     }
     if (!unitKind) sprite = false;
+    if (gPaletteArt.hdIconsReading.valid()) {  // (the HD icons: there now, or a next frame's)
+        const bool inPalette = gPaletteArtDeadline != std::chrono::steady_clock::time_point{};  // (another view: it waits for them)
+        if (!inPalette || gPaletteArt.hdIconsReading.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+            gPaletteArt.hdIcons = gPaletteArt.hdIconsReading.get();
+        else if (iconFrame || (unitKind && !sprite)) return ++gPaletteArtLeft, nullptr;
+    }
     // (a unit's picture is its player's color: the key has it, so a color changed on the Players page shows; players 1
     // to 8: the colors kept for the map's revision, core/map_scene.inc playerRgba)
     const uint32_t ownerRgb = !unitKind ? 0 : owner >= 0 && owner < 8 ? playerRgba(owner, 0) >> 8 : ed.playerRgb(owner);

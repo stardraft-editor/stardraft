@@ -71,12 +71,12 @@ void decodeDds(const DdsTexture& t, int x0, int y0, int w, int h, std::vector<ui
         }
 }
 
-bool loadHdCommandIcons(const GameData& data, bool carbot, std::vector<Sprite>& out, std::string& error) {
+bool loadHdCommandIcons(const GameData& data, bool carbot, std::vector<Sprite>& out, std::string& error, bool offThread) {
     // cmdicons.dds.grp: u32 file size, u16 frame count, u16 version, then per frame u32 0, u16 width,
     // u16 height, u32 size and a DDS file.
     const std::string name = std::string("HD2\\") + (carbot ? "Carbot\\" : "") + "unit\\cmdicons\\cmdicons.dds.grp";
     Bytes d;
-    if (!data.readFile(name, d, error)) return false;
+    if (!(offThread ? data.readFileOffThread(name, d, error) : data.readFile(name, d, error))) return false;
     if (d.size() < 8) {
         error = name + ": too small";
         return false;
