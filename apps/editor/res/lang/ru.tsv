@@ -3033,3 +3033,9 @@ Vulkan. If the video card cannot use it: Direct3D 12, then software drawing	Vulk
 Graphics: Vulkan after a restart	Графика: Vulkan после перезапуска
 Search upgrades	Поиск улучшений
 Search technologies	Поиск технологий
+&Show terrain outside of map boundaries	&Показывать местность за границами карты
+Map layers: terrain outside of map boundaries shows	Слои карты: местность за границами карты показана
+Map layers: terrain outside of map boundaries is hidden	Слои карты: местность за границами карты скрыта
+To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries	Чтобы рисовать за пределами карты, включите Слои карты > Настройки > Показывать местность за границами карты
+To paint outside of the map, select a layer in Map layers (the Background stays on the map)	Чтобы рисовать за пределами карты, выберите слой в Слоях карты (Фон остаётся на карте)
+The layer is hidden	Слой скрыт

@@ -3063,3 +3063,9 @@ Vulkan. If the video card cannot use it: Direct3D 12, then software drawing	Vulk
 Graphics: Vulkan after a restart	그래픽: 다시 시작한 후 Vulkan
 Search upgrades	업그레이드 검색
 Search technologies	기술 검색
+&Show terrain outside of map boundaries	지도 경계 밖의 지형 표시(&S)
+Map layers: terrain outside of map boundaries shows	지도 레이어: 지도 경계 밖의 지형이 표시됩니다
+Map layers: terrain outside of map boundaries is hidden	지도 레이어: 지도 경계 밖의 지형이 숨겨집니다
+To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries	지도 밖에 칠하려면 지도 레이어 > 설정 > 지도 경계 밖의 지형 표시를 켜세요
+To paint outside of the map, select a layer in Map layers (the Background stays on the map)	지도 밖에 칠하려면 지도 레이어에서 레이어를 선택하세요 (배경은 지도에 남습니다)
+The layer is hidden	레이어가 숨겨져 있습니다

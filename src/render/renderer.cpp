@@ -278,7 +278,7 @@ struct Renderer::Impl {
     std::vector<Raw> raw;
     std::vector<uint32_t> rawOrder;  // (raw's indexes by batch)
     std::vector<Batch> batches;
-    std::vector<GpuRect> rects;
+    std::vector<GpuRect> rects, underRects;
     uint16_t exactTeam = 0;  // (a bit per owner)
     std::vector<AtlasPage> pages;
     bool pagesFull = false;  // (the next frame starts them again)
@@ -296,6 +296,8 @@ struct Renderer::Impl {
     uint32_t instanceCap = 0;
     SDL_GPUBuffer* rectBuf = nullptr;
     uint32_t rectCap = 0;
+    SDL_GPUBuffer* underBuf = nullptr;  // (Scene::underRects)
+    uint32_t underCap = 0;
     SDL_GPUTransferBuffer* uploadBuf = nullptr;
     uint32_t uploadCap = 0;
 
@@ -727,7 +729,7 @@ void Renderer::shutdown() {
     r.freeImages();
     for (SDL_GPUTexture* t : {r.offscreen, r.depth, r.backdrop, r.blackTex, r.tileIndex, r.hdAtlas, r.hdDown, r.sdAtlas})
         if (t) SDL_ReleaseGPUTexture(r.device, t);
-    for (SDL_GPUBuffer* b : {r.instanceBuf, r.rectBuf})
+    for (SDL_GPUBuffer* b : {r.instanceBuf, r.rectBuf, r.underBuf})
         if (b) SDL_ReleaseGPUBuffer(r.device, b);
     if (r.uploadBuf) SDL_ReleaseGPUTransferBuffer(r.device, r.uploadBuf);
     for (SDL_GPUSampler* s : {r.pointClamp, r.linearClamp, r.linearMip})
@@ -1333,6 +1335,17 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
             pushRect(x1 - t, y0 + t, x1, y1 - t, rd.rgba);
         }
     }
+    underRects.clear();  // (fills only, in the view)
+    for (const RectDraw& rd : scene.underRects) {
+        float x0, y0, x1, y1;
+        toScreen(std::min(rd.x0, rd.x1), std::min(rd.y0, rd.y1), rd.world, x0, y0);
+        toScreen(std::max(rd.x0, rd.x1), std::max(rd.y0, rd.y1), rd.world, x1, y1);
+        if (x1 < 0 || y1 < 0 || x0 > w || y0 > h) continue;
+        GpuRect r{};
+        r.rect[0] = x0, r.rect[1] = y0, r.rect[2] = x1, r.rect[3] = y1;
+        color(rd.rgba, r.color);
+        underRects.push_back(r);
+    }
     static std::vector<char> glyphBuf(1 << 18);  // (textWidth: stb_easy_font_width)
     for (const TextDraw& td : scene.texts) {
         float sx, sy;
@@ -1354,7 +1367,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
 
     // Uploads: terrain indices (if changed), instances, rects.
     uint32_t instBytes = uint32_t(raw.size() * sizeof(GpuInstance));
-    uint32_t rectBytes = uint32_t(rects.size() * sizeof(GpuRect));
+    uint32_t rectBytes = uint32_t(rects.size() * sizeof(GpuRect)), underBytes = uint32_t(underRects.size() * sizeof(GpuRect));
     if (terrainDirty && (!tileIndex || tileIndexW != mapW || tileIndexH != mapH)) {  // the map's size changed
         if (tileIndex) SDL_ReleaseGPUTexture(device, tileIndex);
         tileIndex = createTexture(SDL_GPU_TEXTUREFORMAT_R16_UINT, mapW, mapH, 1, SDL_GPU_TEXTUREUSAGE_SAMPLER);
@@ -1369,7 +1382,8 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     if (terrainDirty && terrainBytes == 0) terrainDirty = false;  // (an empty box)
     if (instBytes) ensureBuffer(instanceBuf, instanceCap, instBytes);
     if (rectBytes) ensureBuffer(rectBuf, rectCap, rectBytes);
-    uint32_t total = instBytes + rectBytes + terrainBytes;
+    if (underBytes) ensureBuffer(underBuf, underCap, underBytes);
+    uint32_t total = instBytes + rectBytes + terrainBytes + underBytes;
     if (total && ensureUpload(total)) {
         uint8_t* p = static_cast<uint8_t*>(SDL_MapGPUTransferBuffer(device, uploadBuf, true));
         GpuInstance* inst = reinterpret_cast<GpuInstance*>(p);
@@ -1380,6 +1394,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
                 std::memcpy(p + instBytes + rectBytes + size_t(y) * tw * 2, pendingTerrain.data() + size_t(ty0 + y) * mapW + tx0, size_t(tw) * 2);
         else if (terrainBytes)
             std::memcpy(p + instBytes + rectBytes, pendingTerrain.data(), terrainBytes);
+        std::memcpy(p + instBytes + rectBytes + terrainBytes, underRects.data(), underBytes);  // (after the terrain: last)
         SDL_UnmapGPUTransferBuffer(device, uploadBuf);
         SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
         if (instBytes) {
@@ -1402,6 +1417,11 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
             dst.x = uint32_t(tx0), dst.y = uint32_t(ty0), dst.w = uint32_t(tw), dst.h = uint32_t(th), dst.d = 1;
             SDL_UploadToGPUTexture(copy, &src, &dst, false);
             terrainDirty = false, terrainAll = false;
+        }
+        if (underBytes) {
+            SDL_GPUTransferBufferLocation src{uploadBuf, instBytes + rectBytes + terrainBytes};
+            SDL_GPUBufferRegion dst{underBuf, 0, underBytes};
+            SDL_UploadToGPUBuffer(copy, &src, &dst, true);
         }
         SDL_EndGPUCopyPass(copy);
     }
@@ -1445,6 +1465,16 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         SDL_BindGPUFragmentSamplers(pass, 0, b, 2);
         SDL_PushGPUFragmentUniformData(cmd, 0, &u, sizeof u);
         SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
+        ++stats.drawCalls;
+    }
+
+    if (!underRects.empty() && underBuf) {  // (Scene::underRects: on the terrain, under the sprites)
+        SDL_BindGPUGraphicsPipeline(pass, solidPipe);
+        SDL_BindGPUVertexStorageBuffers(pass, 0, &underBuf, 1);
+        SolidUniforms su{};
+        su.viewport[0] = float(w), su.viewport[1] = float(h);
+        SDL_PushGPUVertexUniformData(cmd, 0, &su, sizeof su);
+        SDL_DrawGPUPrimitives(pass, 6, uint32_t(underRects.size()), 0, 0);
         ++stats.drawCalls;
     }
 

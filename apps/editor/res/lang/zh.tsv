@@ -3033,3 +3033,9 @@ Vulkan. If the video card cannot use it: Direct3D 12, then software drawing	Vulk
 Graphics: Vulkan after a restart	图形：重启后使用 Vulkan
 Search upgrades	搜索升级
 Search technologies	搜索科技
+&Show terrain outside of map boundaries	显示地图边界外的地形(&S)
+Map layers: terrain outside of map boundaries shows	地图图层：显示地图边界外的地形
+Map layers: terrain outside of map boundaries is hidden	地图图层：已隐藏地图边界外的地形
+To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries	要在地图外绘制，请打开 地图图层 > 设置 > 显示地图边界外的地形
+To paint outside of the map, select a layer in Map layers (the Background stays on the map)	要在地图外绘制，请在地图图层中选择一个图层（背景留在地图上）
+The layer is hidden	图层已隐藏

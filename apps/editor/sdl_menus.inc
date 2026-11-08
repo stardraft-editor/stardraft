@@ -922,7 +922,8 @@ bool sdlShotInputNext() {
 // odd one a click: SdlHost). Quick in a click's mods: the click comes quickly after the click before it (SDL's clicks 2, anywhere: the
 // system counts it as a double click when it is near the first). Undo in a drag's mods: Ctrl+Z is pressed halfway,
 // while the button is held. Right in a click's mods: the right button; Menu<n>: a right click, and the menu that opens
-// runs its item n (its items go to the output, as --rclick's: sdlMenuShot).
+// runs its item n (its items go to the output, as --rclick's: sdlMenuShot); Pick<n>: the same with a left click (a
+// button that opens a menu, as a panel's Settings).
 // The points are the main window's, as a user's mouse is on the screen: a pop-out that an input opened takes the
 // events when the first point is on it, and a press outside it closes it; a dialog takes them in its own pixels.
 // A drag can go on through more points: x0,y0-x1,y1-x2,y2... (the mouse moves to each in turn, in steps). Hold in a
@@ -984,7 +985,8 @@ void sdlMouseShot(const std::string& spec, char kind) {
         else if (m == "Right" && !drag && !moveOnly) right = true;
         else if (m == "Middle" && !drag && !moveOnly) middle = true;
         else if (m.rfind("Menu", 0) == 0 && m.size() > 4 && !drag && !moveOnly) right = true, menuPick = std::atoi(m.c_str() + 4);
-        else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl, Alt, Double, Quick, Repeat<n>, Right, Middle, Menu<n>, Undo or Hold\n", name.c_str(), spec.c_str(), m.c_str()));
+        else if (m.rfind("Pick", 0) == 0 && m.size() > 4 && !drag && !moveOnly) menuPick = std::atoi(m.c_str() + 4);
+        else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl, Alt, Double, Quick, Repeat<n>, Right, Middle, Menu<n>, Pick<n>, Undo or Hold\n", name.c_str(), spec.c_str(), m.c_str()));
     }
     std::vector<SDL_Event> events;
     float px = float(x0), py = float(y0);

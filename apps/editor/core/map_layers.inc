@@ -13,8 +13,9 @@ struct LayersOutside {
     uint64_t gen = 0;
 };
 const LayersOutside& mapLayersOutside(const Editor& ed);
-bool& mapLayersHideOutside();
-void setMapLayersHideOutside(bool hide);
+bool& mapLayersShowOutside();
+void setMapLayersShowOutside(bool show);
+constexpr int kOutsideReach = 256;  // (tiles: how far outside of the map a layer's terrain shows; the grid stays small)
 
 struct MapLayersState {
     const Editor* ed = nullptr;
@@ -47,7 +48,8 @@ struct MapLayersState {
     LayerOwners owners;
     // A drag on the map.
     Editor* dragEd = nullptr;
-    bool erasing = false, moving = false, dragChanged = false;
+    bool erasing = false, moving = false, painting = false, dragChanged = false;
+    uint16_t paintTerrain = 0;  // painting: the terrain (a Brush stroke started outside of the map)
     int startX = 0, startY = 0, moveDX = 0, moveDY = 0, nowX = 0, nowY = 0;
     std::map<int, MapLayer> moveFrom;
     std::optional<LayerStack> dragStart;  // the stack before the drag (Esc)
@@ -289,7 +291,7 @@ void mapLayersSync() {
 // While a terrain stroke goes on: the other layers stay as they are on the map, not only at its end.
 void mapLayersLiveStroke(AppState& app) {
     MapLayersState& s = gMapLayers;
-    if (!s.on || s.filesPending || !app.ed || s.ed != app.ed.get() || !app.ed->inStroke() || s.erasing || s.moving || app.mode != Mode::Terrain) return;
+    if (!s.on || s.filesPending || !app.ed || s.ed != app.ed.get() || !app.ed->inStroke() || s.erasing || s.moving || s.painting || app.mode != Mode::Terrain) return;
     if (app.drag != Drag::Paint && app.drag != Drag::Spray && app.drag != Drag::Jumble) return;
     Editor& ed = *app.ed;
     if (ed.revision() == s.revision) return;
@@ -924,17 +926,56 @@ bool mapLayersEraseOn(AppState& app) {
     return gMapLayers.on && gMapLayers.active >= 0 && app.mode == Mode::Terrain && currentTool(app) == TErase;
 }
 
-static void layersEraseAt(Editor& ed, const Brush& brush, int wx, int wy) {
+// The ISOM corners under a brush at a map pixel, also outside of the map (a layer's terrain can be there:
+// mapLayersOutside; the map's own brushCorners stops at its edge), as far as it shows (kOutsideReach).
+static std::vector<std::pair<int, int>> layerBrushCorners(const Editor& ed, int px, int py, const Brush& brush) {
+    std::vector<std::pair<int, int>> out;
+    // (a corner covers tiles 2x-2 to 2x+1, rows y-1 to y: it shows when one of them is in kOutsideReach)
+    const int W = int(ed.width()), H = int(ed.height());
+    const auto shows = [&](int x, int y) {
+        return 2 * x + 1 >= -kOutsideReach && 2 * x - 2 < W + kOutsideReach && y >= -kOutsideReach && y - 1 < H + kOutsideReach;
+    };
+    if (brush.starEdit()) {  // StarEdit's brush: the corners of its diamonds, as IsomGrid::brushCorners (the preview's)
+        for (auto [dx, dy] : starEditBrushAt(px, py, int(brush.size)))
+            for (auto [cx, cy] : {std::pair{dx - 1, dy}, {dx, dy - 1}, {dx + 1, dy}, {dx, dy + 1}})
+                if (((cx + cy) & 1) && shows(cx, cy) && std::find(out.begin(), out.end(), std::make_pair(cx, cy)) == out.end()) out.push_back({cx, cy});
+        if (!out.empty()) return out;
+    }
+    const double w = std::max(0.5, double(brush.size)) * 64, h = std::max(0.5, double(brush.height())) * 32;  // half extents in pixels
+    const int x0 = int(std::floor((px - w) / 64)) - 1, x1 = int(std::ceil((px + w) / 64)) + 1;
+    const int y0 = int(std::floor((py - h) / 32)) - 1, y1 = int(std::ceil((py + h) / 32)) + 1;
+    double best = 1e18;
+    std::pair<int, int> nearest{INT_MIN, 0};
+    for (int y = y0; y <= y1; ++y)
+        for (int x = x0; x <= x1; ++x) {
+            if (!((x + y) & 1) || !shows(x, y)) continue;  // (a corner: x + y odd, as IsomGrid::isCorner)
+            const double dx = std::abs(x * 64.0 - px) / w, dy = std::abs(y * 32.0 - py) / h;
+            const bool in = brush.shape == Brush::Diamond ? dx + dy <= 1.0001
+                          : brush.shape == Brush::Square  ? dx <= 1.0001 && dy <= 1.0001
+                                                          : dx * dx + dy * dy <= 1.0001;
+            if (in) out.push_back({x, y});
+            if (const double d = dx * dx + dy * dy; d < best) best = d, nearest = {x, y};
+        }
+    if (out.empty() && nearest.first != INT_MIN) out.push_back(nearest);
+    return out;
+}
+
+static bool layersEraseAt(Editor& ed, const Brush& brush, int wx, int wy) {
     MapLayersState& s = gMapLayers;
     MapLayer& layer = s.stack.layers[size_t(s.active)];
     bool any = false;
-    for (const auto& at : ed.isomGrid().brushCorners(wx, wy, brush)) {
+    const bool outsideShows = mapLayersShowOutside();
+    const int W = int(ed.width()), H = int(ed.height());
+    for (const auto& at : layerBrushCorners(ed, wx, wy, brush)) {
+        // (hidden terrain outside of the map stays: a corner with no tile on the map, while it does not show)
+        if (!outsideShows && (2 * at.first + 1 < 0 || 2 * at.first - 2 >= W || at.second < 0 || at.second - 1 >= H)) continue;
         any |= layer.corners.erase(at) > 0;
         // (the placed tiles of the rects around the corner)
         for (int ty = at.second - 1; ty <= at.second; ++ty)
             for (int tx = (at.first - 1) * 2; tx <= at.first * 2 + 1; ++tx) any |= layer.tiles.erase({tx, ty}) > 0;
     }
-    if (any) s.dragChanged = true, layersCompose(ed);
+    if (any) s.dragChanged = true;
+    return any;
 }
 
 void mapLayersEraseDown(AppState& app, float wx, float wy) {
@@ -947,13 +988,53 @@ void mapLayersEraseDown(AppState& app, float wx, float wy) {
     s.dragEd = app.ed.get();
     s.dragStart = s.stack;
     s.erasing = true, s.dragChanged = false;
-    layersEraseAt(*app.ed, currentBrush(app), int(wx), int(wy));
+    s.nowX = int(wx), s.nowY = int(wy);
+    if (layersEraseAt(*app.ed, currentBrush(app), int(wx), int(wy))) layersCompose(*app.ed);
+    app.drag = Drag::LayerTool;
+}
+
+// Terrain's Brush (Isometric) pressed outside of the map: the stroke paints the active layer's corners there (the map's
+// own Brush stops at its edge). Show terrain outside of map boundaries must be on, to see it.
+bool mapLayersPaintOutsideOn(AppState& app, float wx, float wy, unsigned mods) {
+    const MapLayersState& s = gMapLayers;
+    if (app.mode != Mode::Terrain || currentTool(app) != TBrush || app.terrainRect || app.palette <= 0 || !app.ed || (mods & draw::kCtrl)) return false;
+    if (!s.on || s.ed != app.ed.get() || s.active < 0) return false;  // (no layer: the map's Brush, as before)
+    // (near the map, the map's own Brush paints its edge corners: IsomGrid::isCorner goes a corner past the edge)
+    const float W = app.ed->width() * 32.0f, H = app.ed->height() * 32.0f;
+    return wx < -64 || wy < -32 || wx > W + 64 || wy > H + 32;
+}
+static bool layersPaintAt(Editor& ed, const Brush& brush, int wx, int wy) {
+    MapLayersState& s = gMapLayers;
+    MapLayer& layer = s.stack.layers[size_t(s.active)];
+    bool any = false;
+    for (const auto& at : layerBrushCorners(ed, wx, wy, brush)) {
+        auto [it, fresh] = layer.corners.try_emplace(at, s.paintTerrain);
+        if (fresh || it->second != s.paintTerrain) it->second = s.paintTerrain, any = true;
+    }
+    if (any) s.dragChanged = true;
+    return any;
+}
+void mapLayersPaintDown(AppState& app, float wx, float wy) {
+    MapLayersState& s = gMapLayers;
+    if (!mapLayersShowOutside()) return setMessage(L"To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries");
+    mapLayersSync();
+    if (!s.on || s.active < 0 || s.active >= int(s.stack.layers.size()))
+        return setMessage(L"To paint outside of the map, select a layer in Map layers (the Background stays on the map)");
+    if (s.stack.layers[size_t(s.active)].locked) return setMessage(L"The layer is locked");
+    if (!s.stack.layers[size_t(s.active)].visible) return setMessage(L"The layer is hidden");
+    app.selDoodads.clear(), app.selSprites.clear(), app.ed->clearSelection();  // (the lists change in the drag)
+    app.ed->beginLayerEdit();
+    s.dragEd = app.ed.get();
+    s.dragStart = s.stack;
+    s.painting = true, s.dragChanged = false, s.paintTerrain = uint16_t(app.palette);
+    s.nowX = int(wx), s.nowY = int(wy);
+    if (layersPaintAt(*app.ed, currentBrush(app), int(wx), int(wy))) layersCompose(*app.ed);
     app.drag = Drag::LayerTool;
 }
 
 static void layersDragEnd(Editor& ed) {
     MapLayersState& s = gMapLayers;
-    s.erasing = s.moving = false;
+    s.erasing = s.moving = s.painting = false;
     s.dragEd = nullptr;
     s.moveFrom.clear();
     ed.endLayerEdit(s.dragChanged, s.dragChanged ? layersFiles(false) : std::vector<ArchiveFile>{});
@@ -1009,8 +1090,15 @@ void mapLayersMoveDown(AppState& app, float wx, float wy) {
 
 void mapLayersDragMove(AppState& app, float wx, float wy) {
     MapLayersState& s = gMapLayers;
-    if (s.erasing) {
-        layersEraseAt(*app.ed, currentBrush(app), int(wx), int(wy));
+    if (s.erasing || s.painting) {  // (along the way from the last point, a step at most each 16 px: no gaps in a fast drag)
+        const int steps = std::max(1, int(std::hypot(wx - s.nowX, wy - s.nowY) / 16));
+        bool any = false;
+        for (int k = 1; k <= steps; ++k) {
+            const int x = s.nowX + int((wx - s.nowX) * k / steps), y = s.nowY + int((wy - s.nowY) * k / steps);
+            any |= s.erasing ? layersEraseAt(*app.ed, currentBrush(app), x, y) : layersPaintAt(*app.ed, currentBrush(app), x, y);
+        }
+        s.nowX = int(wx), s.nowY = int(wy);
+        if (any) layersCompose(*app.ed);  // (once for all the steps)
     } else if (s.moving) {
         int dx, dy;
         snapLayerMove(int(wx) - s.startX, int(wy) - s.startY, dx, dy);
@@ -1029,7 +1117,7 @@ void mapLayersDragMove(AppState& app, float wx, float wy) {
 void mapLayersDragUp(AppState& app) {
     MapLayersState& s = gMapLayers;
     app.drag = Drag::None;
-    if ((s.erasing || s.moving) && s.dragEd) layersDragEnd(*s.dragEd);
+    if ((s.erasing || s.moving || s.painting) && s.dragEd) layersDragEnd(*s.dragEd);
     app.dirty = true;
 }
 
@@ -1037,7 +1125,7 @@ void mapLayersDragUp(AppState& app) {
 void mapLayersDragCancel(AppState& app) {
     MapLayersState& s = gMapLayers;
     app.drag = Drag::None;
-    if ((s.erasing || s.moving) && s.dragEd && s.dragStart) {
+    if ((s.erasing || s.moving || s.painting) && s.dragEd && s.dragStart) {
         const bool composed = s.dragChanged;
         s.stack = *s.dragStart;
         if (composed) layersCompose(*s.dragEd);
@@ -1051,7 +1139,7 @@ void mapLayersDragCancel(AppState& app) {
 // The tab shows another map or the mode changes while a drag is on: it ends where it is.
 void mapLayersDragStop() {
     MapLayersState& s = gMapLayers;
-    if ((s.erasing || s.moving) && s.dragEd) layersDragEnd(*s.dragEd);
+    if ((s.erasing || s.moving || s.painting) && s.dragEd) layersDragEnd(*s.dragEd);
 }
 
 // --- Over the map: the edges, the active layer's outline ----------------------------------------------------------
@@ -1107,19 +1195,20 @@ static std::vector<std::array<int, 4>> layerOutline(const MapLayer& l) {
 // A layer's terrain can be outside of the map, up to 256 tiles from it: a place to try things out (Move Layer takes it
 // there; units, doodads and sprites stay on the map). The map's file has none of it. The map view shows it on a grid larger than the map
 // (sdl_main_view.inc), with tiles that a scratch map makes from the layers as the map makes them, and the view scrolls to
-// it (clampCamera). Layers panel > Settings > Hide what is outside of the map.
-bool& mapLayersHideOutside() {
-    static bool hide = [] {
+// it (clampCamera). Map layers panel > Settings > Show terrain outside of map boundaries (default value: off). Where no
+// layer has terrain, the grid shows the view's background color (addMapLayersOverlay).
+bool& mapLayersShowOutside() {
+    static bool show = [] {
         bool v = false;
-        if (!gSelfTest && !gSettingsOff) prefs::flag(L"LayersHideOutside", v);
+        if (!gSelfTest && !gSettingsOff) prefs::flag(L"LayersShowOutside", v);
         return v;
     }();
-    return hide;
+    return show;
 }
-void setMapLayersHideOutside(bool hide) {
-    mapLayersHideOutside() = hide;
-    if (!gSelfTest && !gSettingsOff) prefs::setNumber(L"LayersHideOutside", hide ? 1 : 0);
-    setMessage(hide ? L"Layers: what is outside of the map is hidden" : L"Layers: what is outside of the map shows");
+void setMapLayersShowOutside(bool show) {
+    mapLayersShowOutside() = show;
+    if (!gSelfTest && !gSettingsOff) prefs::setNumber(L"LayersShowOutside", show ? 1 : 0);
+    setMessage(show ? L"Map layers: terrain outside of map boundaries shows" : L"Map layers: terrain outside of map boundaries is hidden");
     shellState().dirty = true;
 }
 
@@ -1139,11 +1228,11 @@ const LayersOutside& mapLayersOutside(const Editor& ed) {
     static uint64_t forRevision = ~0ull, forHash = 0, gen = 0;
     static bool forHide = false, forOn = false;
     const MapLayersState& m = gMapLayers;
-    const bool hide = mapLayersHideOutside(), on = m.on && m.ed == &ed;
+    const bool hide = !mapLayersShowOutside(), on = m.on && m.ed == &ed;
     if (forEd == &ed && forRevision == ed.revision() && forHide == hide && forOn == on) return out;
     forEd = &ed, forRevision = ed.revision(), forHide = hide, forOn = on;
     const int W = ed.width(), H = ed.height();
-    constexpr int kReach = 256;  // (tiles: how far outside of the map a layer's terrain shows; the grid stays small)
+    constexpr int kReach = kOutsideReach;
     // The visible layers with terrain outside of the map: a scan of their corners and tiles (no sets: this runs at each
     // edit), and a hash of their terrain (the scratch maps' work only when it changes).
     std::vector<const MapLayer*> layers;
@@ -1271,7 +1360,42 @@ void addMapLayersOverlay(const Editor& ed, render::Scene& s) {
             s.rects.push_back(d);
         }
     }
-    if (mapLayersOutside(ed).any) layerBox(s, 0, 0, ed.width() * 32, ed.height() * 32, 0xFFFFFF50u);  // (terrain outside: the map's edge)
+    if (const LayersOutside& o = mapLayersOutside(ed); o.any) {
+        // The larger grid's tiles with no terrain (not the map's, no layer's): the view's background color (the terrain
+        // shader's, past the grid), in runs of a row.
+        const int W = ed.width(), H = ed.height();
+        static std::vector<render::RectDraw> runs;  // (made again when the terrain outside or the map's size changes)
+        static uint64_t runsGen = 0;
+        static int runsW = 0, runsH = 0;
+        if (runsGen != o.gen || runsW != W || runsH != H) {
+            runsGen = o.gen, runsW = W, runsH = H, runs.clear();
+            const int gx0 = std::min(0, o.x0), gy0 = std::min(0, o.y0), gx1 = std::max(W, o.x0 + o.w), gy1 = std::max(H, o.y0 + o.h);
+            const auto empty = [&](int x, int y) {
+                if (x >= 0 && y >= 0 && x < W && y < H) return false;
+                const int ox = x - o.x0, oy = y - o.y0;
+                return ox < 0 || oy < 0 || ox >= o.w || oy >= o.h || o.tiles[size_t(oy) * size_t(o.w) + size_t(ox)] == 0xFFFF;
+            };
+            for (int y = gy0; y < gy1; ++y)
+                for (int x = gx0; x < gx1;) {
+                    if (y >= 0 && y < H && x >= 0 && x < W) {  // (the map's row: past it at once)
+                        x = W;
+                        continue;
+                    }
+                    if (!empty(x, y)) {
+                        ++x;
+                        continue;
+                    }
+                    int e = x + 1;
+                    while (e < gx1 && empty(e, y) && !(y >= 0 && y < H && e == 0)) ++e;
+                    render::RectDraw k;
+                    k.x0 = x * 32.0f, k.y0 = y * 32.0f, k.x1 = e * 32.0f, k.y1 = (y + 1) * 32.0f, k.rgba = 0x121214FFu, k.fill = true;
+                    runs.push_back(k);
+                    x = e;
+                }
+        }
+        s.underRects.insert(s.underRects.end(), runs.begin(), runs.end());  // (under the sprites: art over the edge shows)
+        layerBox(s, 0, 0, W * 32, H * 32, 0xFFFFFF50u);  // (terrain outside: the map's edge)
+    }
     const AppState& app = shellState();
     const bool here = app.mode == Mode::Layers;
     if (!m.on || m.ed != &ed || (!here && !gFloatPal[int(Mode::Layers)].floating)) return;  // (in the mode, or with its window)

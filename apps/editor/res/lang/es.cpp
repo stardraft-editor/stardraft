@@ -3035,6 +3035,12 @@ constexpr UiText kRows[] = {
     {L"Graphics: Vulkan after a restart", L"Gr\u00E1ficos: Vulkan tras reiniciar"},
     {L"Search upgrades", L"Buscar mejoras"},
     {L"Search technologies", L"Buscar tecnolog\u00EDas"},
+    {L"&Show terrain outside of map boundaries", L"&Mostrar el terreno fuera de los l\u00EDmites del mapa"},
+    {L"Map layers: terrain outside of map boundaries shows", L"Capas del mapa: se muestra el terreno fuera de los l\u00EDmites del mapa"},
+    {L"Map layers: terrain outside of map boundaries is hidden", L"Capas del mapa: el terreno fuera de los l\u00EDmites del mapa est\u00E1 oculto"},
+    {L"To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries", L"Para pintar fuera del mapa, active Capas del mapa > Ajustes > Mostrar el terreno fuera de los l\u00EDmites del mapa"},
+    {L"To paint outside of the map, select a layer in Map layers (the Background stays on the map)", L"Para pintar fuera del mapa, seleccione una capa en Capas del mapa (el Fondo se queda en el mapa)"},
+    {L"The layer is hidden", L"La capa est\u00E1 oculta"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

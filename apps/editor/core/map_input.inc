@@ -13,6 +13,8 @@ bool trigUnitPickClick(float wx, float wy);
 int sprayAt(float wx, float wy);
 void tilesMouseMove(float wx, float wy);
 bool mapLayersEraseOn(AppState& app);  // (core/map_layers.inc)
+bool mapLayersPaintOutsideOn(AppState& app, float wx, float wy, unsigned mods);
+void mapLayersPaintDown(AppState& app, float wx, float wy);
 void mapLayersSync();
 void mapLayersLiveStroke(AppState& app);
 struct LayersLiveAfter {  // (when the mouse's event ends: what it painted is under the layers over it)
@@ -304,6 +306,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     if (modeLayerHidden()) return modeLayerHiddenClick();  // (core/map_edit.inc)
     if (trigUnitPickClick(wx, wy)) return;
     if (mapLayersEraseOn(app)) return mapLayersEraseDown(app, wx, wy);
+    if (mapLayersPaintOutsideOn(app, wx, wy, mods)) return mapLayersPaintDown(app, wx, wy);  // (Brush outside of the map: on the layer)
     if (app.mode == Mode::Layers) return mapLayersMoveDown(app, wx, wy);
     if (app.pasting) {
         // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted

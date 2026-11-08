@@ -147,14 +147,14 @@ private:
     draw::Rect deleteRect() const { return {scale(28), scale(2), scale(52), scale(26)}; }
     draw::Rect helpRect() const { return {width() - scale(26), scale(2), width() - scale(2), scale(26)}; }
     draw::Rect settingsRect() const { return {width() - scale(52), scale(2), width() - scale(28), scale(26)}; }
-    // Settings: Hide what is outside of the map (a layer's terrain can be outside of it: core/map_layers.inc).
+    // Settings: Show terrain outside of map boundaries (a layer's terrain can be outside of it: core/map_layers.inc).
     void settingsMenu() {
         MenuModel m;
-        m.push_back(menuItem(1, L"&Hide what is outside of the map", {}, false, mapLayersHideOutside()));
+        m.push_back(menuItem(1, L"&Show terrain outside of map boundaries", {}, false, mapLayersShowOutside()));
         void shellMenuAt(draw::View& from, draw::Point at, const MenuModel& m, const std::wstring& on, std::function<void(int)> pick);
         const draw::Rect r = settingsRect();
         shellMenuAt(*this, {r.left, r.bottom + scale(2)}, m, L"the Layers settings", [](int id) {
-            if (id == 1) setMapLayersHideOutside(!mapLayersHideOutside());
+            if (id == 1) setMapLayersShowOutside(!mapLayersShowOutside());
         });
     }
     draw::Rect eyeRect(int y) const { return {scale(4), y + scale(3), scale(26), y + scale(25)}; }

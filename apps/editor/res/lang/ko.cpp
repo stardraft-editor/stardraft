@@ -3065,6 +3065,12 @@ constexpr UiText kRows[] = {
     {L"Graphics: Vulkan after a restart", L"\uADF8\uB798\uD53D: \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4 Vulkan"},
     {L"Search upgrades", L"\uC5C5\uADF8\uB808\uC774\uB4DC \uAC80\uC0C9"},
     {L"Search technologies", L"\uAE30\uC220 \uAC80\uC0C9"},
+    {L"&Show terrain outside of map boundaries", L"\uC9C0\uB3C4 \uACBD\uACC4 \uBC16\uC758 \uC9C0\uD615 \uD45C\uC2DC(&S)"},
+    {L"Map layers: terrain outside of map boundaries shows", L"\uC9C0\uB3C4 \uB808\uC774\uC5B4: \uC9C0\uB3C4 \uACBD\uACC4 \uBC16\uC758 \uC9C0\uD615\uC774 \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
+    {L"Map layers: terrain outside of map boundaries is hidden", L"\uC9C0\uB3C4 \uB808\uC774\uC5B4: \uC9C0\uB3C4 \uACBD\uACC4 \uBC16\uC758 \uC9C0\uD615\uC774 \uC228\uACA8\uC9D1\uB2C8\uB2E4"},
+    {L"To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries", L"\uC9C0\uB3C4 \uBC16\uC5D0 \uCE60\uD558\uB824\uBA74 \uC9C0\uB3C4 \uB808\uC774\uC5B4 > \uC124\uC815 > \uC9C0\uB3C4 \uACBD\uACC4 \uBC16\uC758 \uC9C0\uD615 \uD45C\uC2DC\uB97C \uCF1C\uC138\uC694"},
+    {L"To paint outside of the map, select a layer in Map layers (the Background stays on the map)", L"\uC9C0\uB3C4 \uBC16\uC5D0 \uCE60\uD558\uB824\uBA74 \uC9C0\uB3C4 \uB808\uC774\uC5B4\uC5D0\uC11C \uB808\uC774\uC5B4\uB97C \uC120\uD0DD\uD558\uC138\uC694 (\uBC30\uACBD\uC740 \uC9C0\uB3C4\uC5D0 \uB0A8\uC2B5\uB2C8\uB2E4)"},
+    {L"The layer is hidden", L"\uB808\uC774\uC5B4\uAC00 \uC228\uACA8\uC838 \uC788\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

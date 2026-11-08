@@ -3035,6 +3035,12 @@ constexpr UiText kRows[] = {
     {L"Graphics: Vulkan after a restart", L"\u56FE\u5F62\uFF1A\u91CD\u542F\u540E\u4F7F\u7528 Vulkan"},
     {L"Search upgrades", L"\u641C\u7D22\u5347\u7EA7"},
     {L"Search technologies", L"\u641C\u7D22\u79D1\u6280"},
+    {L"&Show terrain outside of map boundaries", L"\u663E\u793A\u5730\u56FE\u8FB9\u754C\u5916\u7684\u5730\u5F62(&S)"},
+    {L"Map layers: terrain outside of map boundaries shows", L"\u5730\u56FE\u56FE\u5C42\uFF1A\u663E\u793A\u5730\u56FE\u8FB9\u754C\u5916\u7684\u5730\u5F62"},
+    {L"Map layers: terrain outside of map boundaries is hidden", L"\u5730\u56FE\u56FE\u5C42\uFF1A\u5DF2\u9690\u85CF\u5730\u56FE\u8FB9\u754C\u5916\u7684\u5730\u5F62"},
+    {L"To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries", L"\u8981\u5728\u5730\u56FE\u5916\u7ED8\u5236\uFF0C\u8BF7\u6253\u5F00 \u5730\u56FE\u56FE\u5C42 > \u8BBE\u7F6E > \u663E\u793A\u5730\u56FE\u8FB9\u754C\u5916\u7684\u5730\u5F62"},
+    {L"To paint outside of the map, select a layer in Map layers (the Background stays on the map)", L"\u8981\u5728\u5730\u56FE\u5916\u7ED8\u5236\uFF0C\u8BF7\u5728\u5730\u56FE\u56FE\u5C42\u4E2D\u9009\u62E9\u4E00\u4E2A\u56FE\u5C42\uFF08\u80CC\u666F\u7559\u5728\u5730\u56FE\u4E0A\uFF09"},
+    {L"The layer is hidden", L"\u56FE\u5C42\u5DF2\u9690\u85CF"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

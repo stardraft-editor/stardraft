@@ -66,6 +66,7 @@ struct Scene {
     Camera camera;
     std::vector<SpriteDraw> sprites;
     std::vector<RectDraw> rects;  // drawn after sprites, in order
+    std::vector<RectDraw> underRects;  // fills drawn on the terrain, under every sprite (the color past a larger grid's terrain)
     std::vector<TextDraw> texts;  // drawn last
 };
 

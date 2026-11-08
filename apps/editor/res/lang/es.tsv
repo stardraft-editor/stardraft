@@ -3033,3 +3033,9 @@ Vulkan. If the video card cannot use it: Direct3D 12, then software drawing	Vulk
 Graphics: Vulkan after a restart	Gráficos: Vulkan tras reiniciar
 Search upgrades	Buscar mejoras
 Search technologies	Buscar tecnologías
+&Show terrain outside of map boundaries	&Mostrar el terreno fuera de los límites del mapa
+Map layers: terrain outside of map boundaries shows	Capas del mapa: se muestra el terreno fuera de los límites del mapa
+Map layers: terrain outside of map boundaries is hidden	Capas del mapa: el terreno fuera de los límites del mapa está oculto
+To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries	Para pintar fuera del mapa, active Capas del mapa > Ajustes > Mostrar el terreno fuera de los límites del mapa
+To paint outside of the map, select a layer in Map layers (the Background stays on the map)	Para pintar fuera del mapa, seleccione una capa en Capas del mapa (el Fondo se queda en el mapa)
+The layer is hidden	La capa está oculta

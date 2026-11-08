@@ -3035,6 +3035,12 @@ constexpr UiText kRows[] = {
     {L"Graphics: Vulkan after a restart", L"Graphismes : Vulkan apr\u00E8s un red\u00E9marrage"},
     {L"Search upgrades", L"Rechercher des am\u00E9liorations"},
     {L"Search technologies", L"Rechercher des technologies"},
+    {L"&Show terrain outside of map boundaries", L"&Afficher le terrain hors des limites de la carte"},
+    {L"Map layers: terrain outside of map boundaries shows", L"Calques de la carte : le terrain hors des limites de la carte s'affiche"},
+    {L"Map layers: terrain outside of map boundaries is hidden", L"Calques de la carte : le terrain hors des limites de la carte est masqu\u00E9"},
+    {L"To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries", L"Pour peindre hors de la carte, activez Calques de la carte > Param\u00E8tres > Afficher le terrain hors des limites de la carte"},
+    {L"To paint outside of the map, select a layer in Map layers (the Background stays on the map)", L"Pour peindre hors de la carte, s\u00E9lectionnez un calque dans Calques de la carte (l'Arri\u00E8re-plan reste sur la carte)"},
+    {L"The layer is hidden", L"Le calque est masqu\u00E9"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }
