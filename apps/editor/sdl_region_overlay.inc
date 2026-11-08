@@ -200,7 +200,7 @@ bool regionOverlayCheck(const std::string& name,std::string& out) {
             for(size_t i=0;same&&i<data->regions.size();++i) {
                 const auto& a=data->regions[i];const auto& b=expected.entries()[i];
                 same=a.category==b.category&&a.group==b.group&&a.tileCount==b.tileCount&&a.reserved==b.reserved&&
-                    a.center==b.center&&a.bounds.left==b.bounds.left&&a.bounds.top==b.bounds.top&&a.bounds.right==b.bounds.right&&a.bounds.bottom==b.bounds.bottom&&
+                    a.center.x==b.center.x&&a.center.y==b.center.y&&a.bounds.left==b.bounds.left&&a.bounds.top==b.bounds.top&&a.bounds.right==b.bounds.right&&a.bounds.bottom==b.bounds.bottom&&
                     a.walking==b.walking&&a.blocked==b.blocked;
             }
             test(same,"region graph differs from original terrain tables");
