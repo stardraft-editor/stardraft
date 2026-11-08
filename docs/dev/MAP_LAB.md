@@ -95,3 +95,24 @@ The normal StarDraft build also includes those tests. Run `python -I
 tools/ui_text_lint.py` after UI changes. For real-map validation, retain local
 input hashes, race/spawn/count settings, frame horizons and comparison output;
 do not commit maps, game assets or traces.
+
+
+## Measurement UI and playback
+
+The floating widgets share an accessible +/- stepper. Mining Lab's 0 worker
+setting still means one per nearby mineral patch; the first step resolves that
+count before changing it, and clicking the value restores automatic assignment.
+Its base preview uses the current terrain and the map's actual player colors.
+
+Mining guide labels set TextDraw::smooth. The SDL map frame separates those
+labels from bitmap map text and paints them through the UI canvas at screen size,
+using measured rounded backplates and the same camera as the rendered map frame.
+Other scene consumers retain their bitmap-text fallback. Guide coordinates and
+simulation data are unchanged.
+
+Session advances and publishes individual simulation frames, at steady deadlines
+42/speed milliseconds apart, rather than publishing speed-frame bursts every
+42 ms. Pause still polls searches without advancing game time. The game script
+waits and animation frames are unchanged; a private Hatchery body/shadow trace
+matched the optional OpenBW reference at 96 frame endpoints. The snapshot helper
+includes map-mining-controls for the steppers and automatic worker-count reset.

@@ -5230,7 +5230,7 @@ for _lab in ("mining", "rush"):
 
 SCRIPTS["mining_multi_base"] = (
     "history\ncommand edit.measure.mining\nwait 200\nclick 350,202\nwait 2000\n"
-    "click 100,166\nkey Down\nkey Enter\nclick 350,202\nwait 2000\nclick 350,238\nhistory\n"
+    "click 200,166\nkey Down\nkey Enter\nclick 350,202\nwait 2000\nclick 429,238\nhistory\n"
 )
 CASES.append(("map-mining-multi-base", ["--script", "{script:mining_multi_base}"], "map"))
 def check_mining_multi(output):
@@ -5242,9 +5242,9 @@ CHECKS["map-mining-multi-base"] = check_mining_multi
 
 for _kind, _name in enumerate(("position", "cargo", "cycle")):
     _budget_x = 516
-    _budget_y = 300 + _kind * 92
-    _button_x = 100
-    _button_y = 332 + _kind * 92
+    _budget_y = 308 + _kind * 88
+    _button_x = 510
+    _button_y = 340 + _kind * 88
     SCRIPTS["mining_boost_" + _name] = (
         "history\ncommand edit.measure.mining\nwait 200\nclick 350,202\nwait 2000\n"
         + f"click {_budget_x},{_budget_y}\nkey Ctrl+A\ntype {_kind + 2}\nclick {_button_x},{_button_y}\nwait 22000\n"
@@ -5285,6 +5285,27 @@ def check_rush_widget(output):
     states = re.findall(r"history: (\d+) done, (\d+) to redo, map ([0-9a-f]+)", output)
     return None if len(states) == 2 and states[0] == states[1] else "the Rush widget changed the map or undo history"
 CHECKS["map-rush-widget-controls"] = check_rush_widget
+
+
+SCRIPTS["mining_controls"] = (
+    "history\ncommand edit.measure.mining\nwait 200\n"
+    "click 320,202\nclick 320,202\nclick 249,202\n"
+    "click 170,238\nclick 170,238\nclick 70,238\n"
+    "click 350,202\nwait 2000\nclick 320,202\nhistory\n"
+)
+CASES.append(("map-mining-controls",["--script","{script:mining_controls}"],"map"))
+def check_mining_controls(output):
+    steps=re.findall(r"mining-lab: workers=(\d+) default=(\d+)",output)
+    if len(steps)!=2 or any(int(n)!=int(default)+i+1 for i,(n,default) in enumerate(steps)):
+        return "worker +/- did not step from one worker per patch, or changed during a running test"
+    if not re.search(r"mining-lab: workers=auto default=[1-9]\d*",output):
+        return "clicking the worker value did not restore one worker per patch"
+    if re.findall(r"mining-lab: playback=(\d+)",output)!=['2','4','2']:
+        return "speed +/- did not produce 2x, 4x, then 2x"
+    if "map-lab: ready mining" not in output:return "the test did not start"
+    states=re.findall(r"history: (\d+) done, (\d+) to redo, map ([0-9a-f]+)",output)
+    return None if len(states)==2 and states[0]==states[1] else "controls changed the map or undo history"
+CHECKS["map-mining-controls"]=check_mining_controls
 
 
 def main():

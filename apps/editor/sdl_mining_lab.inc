@@ -6,6 +6,9 @@
 #include "../kit/label.h"
 #include "../kit/list_view.h"
 #include "../kit/progress_bar.h"
+#include "lab_base_preview.h"
+#include "lab_stepper.h"
+#include <mapeditor/simulation/geometry.h>
 
 namespace {
 class MiningLabPanel final : public draw::View {
@@ -21,7 +24,39 @@ class MiningLabPanel final : public draw::View {
     uint64_t revision_=0;
     std::vector<Base> bases_;
     std::vector<Test> tests_;
-    stardraft::kit::Dropdown base_, race_, workers_, speed_;
+    stardraft::kit::Dropdown base_, race_;
+    LabStepper workers_, speed_;
+    LabBasePreview preview_;
+    std::chrono::steady_clock::time_point copiedUntil_{};
+    void chooseBase(int n) {
+      base_.setValue(n);
+      select();
+      if (n >= 0 && n < int(bases_.size()))
+        center(bases_[size_t(n)]);
+    }
+    std::wstring location(const Base &b) const {
+      if (!editor_)
+        return L"";
+      const int col = std::clamp(b.x * 3 / (editor_->width() * 32), 0, 2),
+                row = std::clamp(b.y * 3 / (editor_->height() * 32), 0, 2);
+      const wchar_t *names[]{L"Top left",    L"Top",    L"Top right",
+                             L"Left",        L"Center", L"Right",
+                             L"Bottom left", L"Bottom", L"Bottom right"};
+      return names[row * 3 + col];
+    }
+    int defaultWorkers() const {
+      const int n = base_.value();
+      if (!editor_ || n < 0 || n >= int(bases_.size()))
+        return 1;
+      const auto &b = bases_[size_t(n)];
+      int count = 0;
+      for (const auto &u : editor_->units())
+        if (u.type >= 176 && u.type <= 178 &&
+            mapeditor::simulation::distance({int(u.x) - b.x, int(u.y) - b.y}) <=
+                384)
+          ++count;
+      return std::max(1, count);
+    }
     stardraft::kit::Button run_, stopAll_, pause_, close_, copy_, detailsButton_, search_[3];
     stardraft::kit::CheckBox guides_[3];
     stardraft::kit::TextField budget_[3];
@@ -63,6 +98,12 @@ class MiningLabPanel final : public draw::View {
             const int index=int(t-tests_.data());
             selecting_=true; table_.selectOnly(index); selecting_=false;
         } else table_.clearSelection();
+        preview_.setValue(base_.value());
+        if (base_.value() >= 0 && base_.value() < int(bases_.size())) {
+          const auto &b = bases_[size_t(base_.value())];
+          base_.setTip(location(b) + L" / map coordinates " +
+                       std::to_wstring(b.x) + L", " + std::to_wstring(b.y));
+        }
         controls();
     }
     void controls() {
@@ -72,6 +113,10 @@ class MiningLabPanel final : public draw::View {
         run_.setText(t?L"Stop test":L"Start mining");
         run_.setEnabled(!bases_.empty());
         stopAll_.setEnabled(!tests_.empty());
+        copy_.setEnabled(!tests_.empty());
+        copy_.setText(std::chrono::steady_clock::now() < copiedUntil_
+                          ? L"Copied"
+                          : L"Copy report");
         race_.setEnabled(!t); workers_.setEnabled(!t);
         pause_.setEnabled(live && !busy);
         pause_.setText(t && t->paused?L"Resume":L"Pause");
@@ -81,8 +126,19 @@ class MiningLabPanel final : public draw::View {
             search_[k].setEnabled(live && !busy && !s.exhausted);
             search_[k].setText(s.running ? (s.validating?L"Verifying\u2026":L"Searching\u2026") :
                                s.exhausted?L"Exhausted":s.finished?L"Continue":L"Search");
-            status_[k].setText(std::to_wstring(s.found)+L" faster"+
-                              (s.seconds>0?L" / "+number(s.seconds)+L" s":L""));
+            const wchar_t *hints[]{L"Find a faster return starting point",
+                                   L"Time the return-cargo command",
+                                   L"Improve the route between mining trips"};
+            status_[k].setText(
+                s.running
+                    ? (s.validating ? L"Verifying the full worker lineup\u2026"
+                                    : L"Searching \u00b7 mining is paused")
+                : s.finished ? std::to_wstring(s.found) +
+                                   (s.found == 1 ? L" worker faster \u00b7 "
+                                                 : L" workers faster \u00b7 ") +
+                                   number(s.seconds) + L" s searched"
+                             : hints[k]);
+            progress_[k].setVisible(!details_ && (s.running || s.finished));
             progress_[k].setBusy(s.running && s.validating);
             progress_[k].setValue(float(s.running?s.progress:s.finished?1:0));
         }
@@ -91,15 +147,25 @@ class MiningLabPanel final : public draw::View {
         std::wostringstream out;
         out << L"Base\tRace\tWorkers\tMinerals/min\tGame seconds\tStatus\r\n";
         for (const auto& t:tests_)
-            out << t.base.owner+1 << L": " << t.base.x << L", " << t.base.y << L'\t'
-                << race_.items()[size_t(t.race)].label << L'\t' << t.workers << L'\t'
-                << number(t.value.mining.income,2) << L'\t' << number(t.value.mining.frame*.042)
-                << L'\t' << (t.value.searching?L"Searching":t.paused?L"Paused":L"Running") << L"\r\n";
+          out << t.base.owner + 1 << L": " << t.base.x << L", " << t.base.y
+              << L'\t' << race_.items()[size_t(t.race)].label << L'\t'
+              << (t.workers
+                      ? std::to_wstring(t.workers)
+                      : L"1 / patch (" +
+                            std::to_wstring(t.value.mining.patches.size()) +
+                            L")")
+              << L'\t' << number(t.value.mining.income, 2) << L'\t'
+              << number(t.value.mining.frame * .042) << L'\t'
+              << (t.value.searching ? L"Searching"
+                  : t.paused        ? L"Paused"
+                                    : L"Running")
+              << L"\r\n";
         if (auto* t=const_cast<MiningLabPanel*>(this)->selected()) {
             out << L"\r\nField X\tField Y\tCycle frames\tMinerals/min\r\n";
             for (const auto& p:t->value.mining.patches)
                 out << p.x << L'\t' << p.y << L'\t' << p.lastCycle << L'\t' << number(p.perMinute,2) << L"\r\n";
-            const wchar_t* names[]{L"Position boost",L"Return cargo",L"Cycle boost"};
+            const wchar_t *names[]{L"Position boost", L"Cargo boost",
+                                   L"Cycle boost"};
             for (int k=0;k<3;++k) {
                 const auto& s=t->value.mining.searches[k];
                 out << names[k] << L'\t' << s.found << L" faster\t" << number(s.seconds)
@@ -114,12 +180,40 @@ public:
     bool current() const { return gState.ed && editor_==gState.ed.get() && editor_->revision()==revision_; }
     MiningLabPanel() {
         race_.setItems({{L"Zerg"},{L"Terran"},{L"Protoss"}}); race_.setValue(1);
-        std::vector<stardraft::kit::DropdownItem> counts{{L"One / field"}};
-        for (int n=1;n<=64;++n) counts.push_back({std::to_wstring(n)+L" workers"});
-        workers_.setItems(std::move(counts)); workers_.setValue(0);
-        speed_.setItems({{L"1x speed"},{L"2x speed"},{L"4x speed"}}); speed_.setValue(0);
-        speed_.onChange=[this](int) { for (auto& t:tests_) t.session->speed(t.paused?0:speed()); };
-        base_.onChange=[this](int) { select(); if (auto* t=selected()) center(t->base); };
+        workers_.setMaximum(64);
+        workers_.format = [](int n) {
+          return n ? std::to_wstring(n) + L" workers \u21ba" : L"1 / patch";
+        };
+        workers_.setValue(0);
+        workers_.setTip(L"Number of workers. Default: one per mineral patch. "
+                        L"Click the value (or Home) to reset.");
+        workers_.onReset = [this] {
+          workers_.setValue(0);
+          if (gNoBoxes)
+            std::printf("mining-lab: workers=auto default=%d\n",
+                        defaultWorkers());
+        };
+        workers_.onStep = [this](int d) {
+          workers_.setValue(std::clamp(
+              (workers_.value() ? workers_.value() : defaultWorkers()) + d, 1,
+              64));
+          if (gNoBoxes)
+            std::printf("mining-lab: workers=%d default=%d\n", workers_.value(),
+                        defaultWorkers());
+        };
+        speed_.format = [](int n) {
+          return std::to_wstring(1 << n) + L"\u00d7";
+        };
+        speed_.setValue(0);
+        speed_.setTip(L"Playback speed. Use minus/plus or the arrow keys.");
+        speed_.onChange = [this](int) {
+          for (auto &t : tests_)
+            t.session->speed(t.paused ? 0 : speed());
+          if (gNoBoxes)
+            std::printf("mining-lab: playback=%d\n", speed());
+        };
+        base_.onChange = [this](int n) { chooseBase(n); };
+        preview_.onSelect = [this](int n) { chooseBase(n); };
         run_.setText(L"Start mining"); run_.setTone(stardraft::kit::Tone::Primary);
         run_.onClick=[this] {
             if (auto* t=selected()) {
@@ -137,10 +231,25 @@ public:
             details_=!details_; table_.setVisible(details_);
             detailsButton_.setText(details_?L"Boosts":L"Tests");
             for(int k=0;k<3;++k)for(auto* v:std::initializer_list<draw::View*>{&guides_[k],&budget_[k],&search_[k],&status_[k],&progress_[k]})v->setVisible(!details_);
+            controls();
             invalidate();
         };
-        copy_.setText(L"Copy"); copy_.onClick=[this] { if (host()) host()->setClipboardText(narrow(report())); };
-        for (auto* v : std::initializer_list<draw::View*>{&base_,&race_,&workers_,&speed_,&run_,&stopAll_,&pause_,&close_,&copy_,&detailsButton_,&stats_,&table_}) add(*v,{});
+        copy_.setText(L"Copy report");
+        copy_.setTip(L"Copy all base summaries, selected mineral cycles and "
+                     L"boost results as spreadsheet-ready text");
+        copy_.onClick = [this] {
+          if (host()) {
+            host()->setClipboardText(narrow(report()));
+            copiedUntil_ =
+                std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            controls();
+          }
+        };
+        for (auto *v : std::initializer_list<draw::View *>{
+                 &preview_, &base_, &race_, &workers_, &speed_, &run_,
+                 &stopAll_, &pause_, &close_, &copy_, &detailsButton_, &stats_,
+                 &table_})
+          add(*v, {});
         table_.setVisible(false);
         table_.setColumns({{L"Base",150},{L"Race",70},{L"Workers",70},{L"Minerals/min",90,stardraft::kit::ColAlign::Right},
                            {L"Time",65,stardraft::kit::ColAlign::Right},{L"Status",0}});
@@ -168,7 +277,8 @@ public:
                     base_.setValue(int(i)); select(); center(t.base); break;
                 }
         };
-        const wchar_t* names[]{L"Position boost",L"Return cargo",L"Cycle boost"};
+        const wchar_t *names[]{L"Position boost", L"Cargo boost",
+                               L"Cycle boost"};
         for (int k=0;k<3;++k) {
             guides_[k].setLabel(names[k]); guides_[k].setOn(true);
             guides_[k].setTip(L"Show the guides. Search results are applied with the guides on or off.");
@@ -183,23 +293,40 @@ public:
             for (auto* v:std::initializer_list<draw::View*>{&guides_[k],&budget_[k],&search_[k],&status_[k],&progress_[k]}) add(*v,{});
         }
         stats_.setTone(stardraft::kit::LabelTone::Dim);
-        stats_.setText(L"Select a base. Each test uses a separate copy of the current map.");
+        stats_.setText(L"Select a base, then start mining");
         controls();
     }
     void setup() {
         stop(); editor_=gState.ed.get(); revision_=editor_?editor_->revision():0;
-        bases_.clear(); std::vector<stardraft::kit::DropdownItem> items;
+        bases_.clear();
+        preview_.markers.clear();
+        std::vector<stardraft::kit::DropdownItem> items;
         if (editor_) for (const auto& u:editor_->units())
             if (u.type==214 || u.type==106 || u.type==131 || u.type==132 || u.type==133 || u.type==154) {
                 bases_.push_back({u.x,u.y,u.owner,u.type});
-                items.push_back({L"P"+std::to_wstring(u.owner+1)+L" / "+(u.type==214?L"Start":L"Depot")+
-                                 L" / "+std::to_wstring(u.x)+L", "+std::to_wstring(u.y)});
+                const auto rgba = playerRgba(u.owner, 255);
+                const auto color =
+                    draw::rgb(rgba >> 24, rgba >> 16 & 255, rgba >> 8 & 255);
+                items.push_back({L"Player " + std::to_wstring(u.owner + 1) +
+                                     L" \u00b7 " + location(bases_.back()) +
+                                     L" \u00b7 " +
+                                     (u.type == 214 ? L"Start" : L"Depot"),
+                                 -1, -1, color});
+                preview_.markers.push_back(
+                    {float(u.x) / (editor_->width() * 32),
+                     float(u.y) / (editor_->height() * 32), color});
             }
+        if (editor_)
+          minimapPixels(preview_.terrain,
+                        minimapTileColors(editor_->tileset(),
+                                          megatileColors(editor_->tileset()),
+                                          editor_->terrain()),
+                        editor_->width(), editor_->height());
         base_.setItems(std::move(items)); base_.setValue(bases_.empty()?-1:0); select();
     }
     void stop() {
         tests_.clear(); table_.setCount(0); controls(); simRedraw();
-        stats_.setText(L"Select a base. Each test uses a separate copy of the current map.");
+        stats_.setText(L"Select a base, then start mining");
     }
     void close() {
         open=false; if (host()) host()->closeWindow(*this);
@@ -246,44 +373,75 @@ public:
         }
         if (!tests_.empty()) {
             auto* t=selected();
-            stats_.setText(std::to_wstring(tests_.size())+L" tests / "+number(income,0)+L" minerals/min total / selected: "+
-                           std::to_wstring(t?t->value.mining.patches.size():0)+L" fields"+
-                           (t && t->value.searching?L" / Selected test paused while searching":L""));
+            stats_.setText(
+                number(income, 0) + L" minerals/min \u00b7 " +
+                std::to_wstring(tests_.size()) +
+                (tests_.size() == 1 ? L" test" : L" tests") + L" \u00b7 " +
+                std::to_wstring(t ? t->value.mining.patches.size() : 0) +
+                L" selected patches");
         }
         table_.invalidate(); controls();
         if (!tests_.empty()) simRedraw();
     }
     void paint(draw::Canvas& c) override {
-        update(); c.fill({0,0,width(),height()},kPanel); c.fill({0,0,width(),1},kBorder);
-        c.text({scale(16),scale(4),scale(130),scale(26)},L"MINING LAB",kText,draw::kMiddle);
-        if(details_)return;
-        const int top=168;
-        for(int k=0;k<3;++k) {
-            const int y=scale(top+k*92);
-            c.fill({scale(16),y-scale(5),width()-scale(16),y-scale(4)},kBorder);
-            c.text({width()-scale(32),y,width()-scale(16),y+scale(24)},L"s",kDim,draw::kMiddle);
+      update();
+      const auto &th = stardraft::kit::theme();
+      c.fill({0, 0, width(), height()}, kPanel);
+      c.text({scale(80), 0, width() - scale(16), scale(20)}, L"Base", kDim,
+             draw::kMiddle);
+      if (details_)
+        return;
+      const draw::Color colors[]{draw::rgb(232, 190, 89),
+                                 draw::rgb(103, 199, 173),
+                                 draw::rgb(176, 154, 232)};
+      for (int k = 0; k < 3; ++k) {
+        const int y = scale(168 + k * 88);
+        c.roundBox({scale(16), y, width() - scale(16), y + scale(80)},
+                   th.chipDim, th.rowLine, scale(5));
+        c.fill({scale(16), y + scale(10), scale(19), y + scale(70)}, colors[k]);
+        c.text({width() - scale(150), y + scale(8), width() - scale(104),
+                y + scale(32)},
+               L"Limit", kDim, draw::kMiddle);
+        c.text({width() - scale(42), y + scale(8), width() - scale(22),
+                y + scale(32)},
+               L"sec", kDim, draw::kMiddle);
         }
     }
     void resized() override {
-        const int pad=scale(16), gap=scale(8), fh=scale(24), bh=scale(28);
-        int x=pad,y=scale(32);
-        auto field=[&](draw::View& v,int w) { v.setFrame({x,y,x+scale(w),y+bh});x+=scale(w)+gap; };
-        base_.setFrame({pad,y,width()-pad,y+bh});
-        x=pad;y=scale(68);
-        field(race_,100); field(workers_,115); field(run_,110); field(stopAll_,85);
-        x=pad;y=scale(104);
-        field(speed_,100); field(pause_,80); field(copy_,70); field(detailsButton_,70); field(close_,70);
-        stats_.setFrame({pad,scale(136),width()-pad,scale(160)});
-        table_.setFrame({pad,scale(168),width()-pad,height()-pad});
-        const int top=168;
-        for(int k=0;k<3;++k) {
-            const int sy=scale(top+k*92);
-            guides_[k].setFrame({pad,sy,width()-scale(98),sy+fh});
-            budget_[k].setFrame({width()-scale(90),sy,width()-scale(36),sy+fh});
-            search_[k].setFrame({pad,sy+scale(30),pad+scale(100),sy+scale(30)+bh});
-            status_[k].setFrame({pad+scale(108),sy+scale(30),width()-pad,sy+scale(30)+bh});
-            progress_[k].setFrame({pad,sy+scale(65),width()-pad,sy+scale(69)});
-        }
+      const int pad = scale(16), gap = scale(8), bh = scale(28);
+      int x = pad, y = scale(68);
+      auto field = [&](draw::View &v, int w) {
+        v.setFrame({x, y, x + scale(w), y + bh});
+        x += scale(w) + gap;
+      };
+      preview_.setFrame({pad, scale(6), pad + scale(52), scale(58)});
+      base_.setFrame({scale(80), scale(20), width() - pad, scale(48)});
+      field(race_, 100);
+      field(workers_, 170);
+      field(run_, 110);
+      field(stopAll_, 104);
+      x = pad;
+      y = scale(104);
+      field(speed_, 128);
+      field(pause_, 80);
+      field(copy_, 105);
+      field(detailsButton_, 72);
+      field(close_, 76);
+      stats_.setFrame({pad, scale(136), width() - pad, scale(160)});
+      table_.setFrame({pad, scale(168), width() - pad, height() - pad});
+      for (int k = 0; k < 3; ++k) {
+        const int sy = scale(168 + k * 88);
+        guides_[k].setFrame(
+            {scale(28), sy + scale(8), width() - scale(160), sy + scale(32)});
+        budget_[k].setFrame({width() - scale(98), sy + scale(8),
+                             width() - scale(48), sy + scale(32)});
+        search_[k].setFrame({width() - scale(124), sy + scale(38),
+                             width() - pad, sy + scale(66)});
+        status_[k].setFrame(
+            {scale(28), sy + scale(36), width() - scale(132), sy + scale(66)});
+        progress_[k].setFrame(
+            {scale(28), sy + scale(72), width() - scale(28), sy + scale(75)});
+      }
     }
     void scene(render::Scene& scene) {
         if (!editor_ || editor_!=gState.ed.get()) return;
@@ -295,11 +453,18 @@ public:
                 d.owner=uint8_t(t.base.owner); d.flip=image.flip; d.shadow=image.shadow;
                 d.drawFunction=editor_->unitSprites().drawFunction(image.image); scene.sprites.push_back(d);
             }
-            maplab::appendMiningGuides(scene,t.value.mining,mask,gState.zoom,[&](const auto& guide) {
-                if (guide.type<0 || guide.type>=int(editor_->unitTypes().size())) return;
-                auto unit=makeUnit(editor_->unitTypes()[size_t(guide.type)],uint8_t(t.base.owner),uint16_t(guide.x),uint16_t(guide.y));
-                addUnitSprites(scene,unit,0,0,.4f);
-            });
+            maplab::appendMiningGuides(
+                scene, t.value.mining, mask, gState.zoom,
+                [&](const auto &guide) {
+                  if (guide.type < 0 ||
+                      guide.type >= int(editor_->unitTypes().size()))
+                    return;
+                  auto unit = makeUnit(editor_->unitTypes()[size_t(guide.type)],
+                                       uint8_t(t.base.owner), uint16_t(guide.x),
+                                       uint16_t(guide.y));
+                  addUnitSprites(scene, unit, 0, 0, .4f);
+                },
+                true);
         }
     }
 };

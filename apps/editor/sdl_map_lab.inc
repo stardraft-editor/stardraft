@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Compact Rush widget. Mining Lab uses a separate floating tool window.
-#include "../../tools/map_lab/session.h"
 #include "../../tools/map_lab/guide_geometry.h"
+#include "../../tools/map_lab/session.h"
 #include "../kit/label.h"
 #include "../kit/list_view.h"
+#include "lab_stepper.h"
 #include <iomanip>
 #include <sstream>
 void showMiningLabPanel();
@@ -19,9 +20,19 @@ class RushWidget final : public draw::View {
     maplab::RushPoint start_,end_;
     maplab::Snapshot latest_;
     std::unique_ptr<maplab::Session> session_;
-    stardraft::kit::Dropdown race_,speed_;
+    stardraft::kit::Dropdown race_;
+    LabStepper speed_;
     stardraft::kit::TextField interval_,retained_;
-    stardraft::kit::Button choose_,pickStart_,pickEnd_,measure_,pause_,clear_,copy_,hide_;
+    class EndpointButton final : public stardraft::kit::Button {
+    public:
+      draw::Color color = draw::rgb(100, 210, 239);
+      void paint(draw::Canvas &c) override {
+        stardraft::kit::Button::paint(c);
+        const int x = scale(10), y = height() / 2, k = scale(3);
+        c.ellipse({x - k, y - k, x + k + 1, y + k + 1}, color, draw::kNone);
+      }
+    } pickStart_, pickEnd_;
+    stardraft::kit::Button choose_, measure_, pause_, clear_, copy_, hide_;
     stardraft::kit::Label status_;
     stardraft::kit::ListView results_;
     std::vector<const maplab::RushPath*> rows_;
@@ -55,13 +66,31 @@ class RushWidget final : public draw::View {
     std::wstring state(const maplab::RushPath& path) const {
         return path.reached?L"Reached":path.finished?L"Not reached":L"Moving";
     }
+    std::wstring pointName(maplab::RushPoint p) const {
+      if (!gState.ed)
+        return L"";
+      const wchar_t *names[]{L"Top left",    L"Top",    L"Top right",
+                             L"Left",        L"Center", L"Right",
+                             L"Bottom left", L"Bottom", L"Bottom right"};
+      const int col = std::clamp(p.x * 3 / (gState.ed->width() * 32), 0, 2),
+                row = std::clamp(p.y * 3 / (gState.ed->height() * 32), 0, 2);
+      return names[row * 3 + col];
+    }
     void controls() {
-        pickStart_.setText(haveStart_?L"A: "+std::to_wstring(start_.x)+L", "+std::to_wstring(start_.y):L"Set start");
-        pickEnd_.setText(haveEnd_?L"B: "+std::to_wstring(end_.x)+L", "+std::to_wstring(end_.y):L"Set end");
-        measure_.setEnabled(haveStart_&&haveEnd_);
-        pause_.setEnabled(session_ && latest_.ready && !latest_.done);
-        pause_.setText(paused_?L"Resume":L"Pause");
-        clear_.setEnabled(bool(session_) || haveStart_ || haveEnd_);
+      pickStart_.setText(haveStart_ ? L"A: " + pointName(start_)
+                                    : L"Set start");
+      pickEnd_.setText(haveEnd_ ? L"B: " + pointName(end_) : L"Set end");
+      pickStart_.setTip(haveStart_
+                            ? L"Starting point: " + std::to_wstring(start_.x) +
+                                  L", " + std::to_wstring(start_.y)
+                            : L"Select the starting point on the map");
+      pickEnd_.setTip(haveEnd_ ? L"Destination: " + std::to_wstring(end_.x) +
+                                     L", " + std::to_wstring(end_.y)
+                               : L"Select the destination on the map");
+      measure_.setEnabled(haveStart_ && haveEnd_);
+      pause_.setEnabled(session_ && latest_.ready && !latest_.done);
+      pause_.setText(paused_ ? L"Resume" : L"Pause");
+      clear_.setEnabled(bool(session_) || haveStart_ || haveEnd_);
     }
     void rowSelection() {
         rows_.clear();
@@ -79,7 +108,11 @@ public:
     int picking=0;
     RushWidget() {
         race_.setItems({{L"Zerg Drone"},{L"Terran SCV"},{L"Protoss Probe"}});race_.setValue(1);
-        speed_.setItems({{L"1x speed"},{L"2x speed"},{L"4x speed"}});speed_.setValue(0);
+        speed_.format = [](int n) {
+          return std::to_wstring(1 << n) + L"\u00d7";
+        };
+        speed_.setValue(0);
+        speed_.setTip(L"Playback speed. Use minus/plus or the arrow keys.");
         speed_.onChange=[this](int){if(session_)session_->speed(paused_?0:speed());};
         race_.onChange=[this](int){if(session_)start();};
         interval_.setText(L"2");interval_.setMaxLength(5);
@@ -88,18 +121,28 @@ public:
         retained_.setFilter([](wchar_t c){return c>=L'0'&&c<=L'9';});
         interval_.onFocusLost=[this]{interval();configure();};retained_.onFocusLost=[this]{retained();configure();};
         interval_.onEnter=interval_.onFocusLost;retained_.onEnter=retained_.onFocusLost;
+        pickEnd_.color = draw::rgb(240, 174, 109);
         choose_.setText(L"Set endpoints");choose_.onClick=[this]{beginPick();};
         pickStart_.onClick=[this]{stop();both_=false;picking=1;gLabScene=labScene;status_.setText(L"Click the starting point. Esc cancels.");};
         pickEnd_.onClick=[this]{stop();both_=false;picking=2;gLabScene=labScene;status_.setText(L"Click the destination. Esc cancels.");};
         measure_.setText(L"Measure");measure_.setTone(stardraft::kit::Tone::Primary);measure_.onClick=[this]{start();};
         pause_.setText(L"Pause");pause_.onClick=[this]{paused_=!paused_;if(session_)session_->speed(paused_?0:speed());controls();};
         clear_.setText(L"Clear");clear_.onClick=[this]{stop();haveStart_=haveEnd_=false;controls();status_.setText(L"Measurement cleared.");};
-        copy_.setText(L"Copy");copy_.onClick=[this]{
-            std::wstring text=L"Rush distance / "+race_.items()[size_t(race_.value())].label+
-                L"\r\nA: "+std::to_wstring(start_.x)+L", "+std::to_wstring(start_.y)+
-                L"\r\nB: "+std::to_wstring(end_.x)+L", "+std::to_wstring(end_.y)+L"\r\nRun\tSeconds\tPixels\tResult\r\n";
-            for(const auto& p:latest_.rush.paths)text+=std::to_wstring(p.id)+L'\t'+number(p.seconds())+L'\t'+number(distance(p))+L'\t'+state(p)+L"\r\n";
-            if(host())host()->setClipboardText(narrow(text));
+        copy_.setText(L"Copy report");
+        copy_.setTip(L"Copy run times, traveled distances and results as "
+                     L"spreadsheet-ready text");
+        copy_.onClick = [this] {
+          std::wstring text =
+              L"Rush distance / " + race_.items()[size_t(race_.value())].label +
+              L"\r\nA: " + std::to_wstring(start_.x) + L", " +
+              std::to_wstring(start_.y) + L"\r\nB: " + std::to_wstring(end_.x) +
+              L", " + std::to_wstring(end_.y) +
+              L"\r\nRun\tSeconds\tPixels\tResult\r\n";
+          for (const auto &p : latest_.rush.paths)
+            text += std::to_wstring(p.id) + L'\t' + number(p.seconds()) +
+                    L'\t' + number(distance(p)) + L'\t' + state(p) + L"\r\n";
+          if (host())
+            host()->setClipboardText(narrow(text));
         };
         hide_.setText(L"Hide");hide_.onClick=[this]{hide();};
         status_.setTone(stardraft::kit::LabelTone::Dim);
@@ -211,7 +254,12 @@ public:
         auto marker=[&](maplab::RushPoint point,const char* label){
             const float half=5/std::max(.01f,gState.zoom);
             render::RectDraw box;box.x0=float(point.x)-half;box.y0=float(point.y)-half;box.x1=float(point.x)+half;box.y1=float(point.y)+half;
-            box.rgba=0x9CEBD0FF;scene.rects.push_back(box);scene.texts.push_back({float(point.x),float(point.y)-16/std::max(.01f,gState.zoom),label,0x9CEBD0FF});
+            box.rgba = label[0] == 'A' ? 0x64D2EFFF : 0xF0AE6DFF;
+            scene.rects.push_back(box);
+            scene.texts.push_back(
+                {float(point.x),
+                 float(point.y) - 16 / std::max(.01f, gState.zoom), label,
+                 box.rgba, true, 1.5f, true});
         };
         if(haveStart_)marker(start_,"A");if(haveEnd_)marker(end_,"B");
         int newest=0;for(const auto& p:latest_.rush.paths)newest=std::max(newest,p.id);
@@ -232,8 +280,15 @@ public:
                 }
             }
             if((!path.finished||path.id==hovered_)&&!path.points.empty()){
-                const auto p=path.points.back();scene.texts.push_back({float(p.x)+8/std::max(.01f,gState.zoom),float(p.y)-22/std::max(.01f,gState.zoom),
-                    (path.id==hovered_?"#"+std::to_string(path.id)+" / ":std::string())+narrow(number(path.seconds()))+" s",0xC8F5E8FF});
+                const auto p=path.points.back();
+                scene.texts.push_back(
+                    {float(p.x) + 8 / std::max(.01f, gState.zoom),
+                     float(p.y) - 22 / std::max(.01f, gState.zoom),
+                     (path.id == hovered_
+                          ? "#" + std::to_string(path.id) + " / "
+                          : std::string()) +
+                         narrow(number(path.seconds())) + " s",
+                     0xC8F5E8FF, true, 1.5f, true});
             }
         }
     }

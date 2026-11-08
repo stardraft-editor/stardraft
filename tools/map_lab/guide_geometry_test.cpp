@@ -25,6 +25,13 @@ int main() {
             }
             for(const auto& line:scene.rects) check(std::isfinite(line.x0) && std::isfinite(line.y1));
         }
+        {
+          stardraft::render::Scene smooth;
+          maplab::appendMiningGuides(
+              smooth, frame, 0, 1.25f, [](const auto &) {}, true);
+          check(smooth.rects.empty() && smooth.texts.size() == 1);
+          check(smooth.texts[0].smooth && smooth.texts[0].text == "123");
+        }
         stardraft::render::Scene scene;
         frame.guides={{100,100,100,100,2,1,7,44},{100,100,0,0,9,0,7,44}};
         maplab::appendMiningGuides(scene,frame,7,0,[](const auto&){});

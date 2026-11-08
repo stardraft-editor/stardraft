@@ -2,7 +2,12 @@
 
 Open **Tools > Mining Lab** for the compact, movable popup. Select a start location
 or a placed depot, a race, and a worker count, then select **Start mining**.
-**One / field** assigns one worker to each nearby mineral field. You can also
+The picker shows each player's color and the base's position on the map. You can
+also select a colored dot in its map preview. Hover the picker for exact coordinates.
+
+Workers default to **1 / patch**. The **− / +** buttons adjust the total worker
+count; select the value, or press Home while it has focus, to restore one worker
+per mineral patch. Set the count before starting the test. You can also
 right-click a start location or depot in Units mode and select **Mining Lab**.
 
 Start another base to compare independent tests. **Tests** switches to the table;
@@ -24,7 +29,7 @@ Results are applied automatically. For combined plans, run position, cargo, then
 cycle searches. Updating an earlier plan clears the later plans.
 
 - **Position boost:** translucent workers and yellow boxes mark starting positions.
-- **Return cargo:** translucent workers and yellow return arrows mark cargo commands.
+- **Cargo boost:** translucent workers and yellow return arrows mark cargo commands.
 - **Cycle boost:** translucent workers, colored arrows and numbers show the two
   command stages. Each worker keeps its own arrow color.
 
@@ -38,8 +43,9 @@ They do not include gas or worker production.
 
 Open **Tools > Measure rush distance** for the small Rush widget. Select a worker
 and use **Set endpoints**, then click the start and destination on the map.
-The two coordinate buttons can change one endpoint. **Measure** also runs the
-displayed endpoints.
+The colored **A** and **B** buttons show map positions and can change one endpoint.
+Their tooltips show precise coordinates. The markers on the map use matching
+colors. **Measure** also runs the displayed endpoints.
 
 **Launch (s)** sets the interval between workers (0.5 to 60 seconds). **Keep**
 sets how many completed results and recent trails to retain (1 to 50). These
@@ -52,9 +58,15 @@ average. **Clear** ends the measurement. **Hide** leaves it running.
 
 ## Playback and map data
 
-Both widgets have playback speed, pause and copy controls. Times are game times
-at Fastest: one frame is 42 ms. Tests run until you stop them; a boost plan can
-restart the mining clock when it is applied. Copy uses tabs between columns.
+Use **− / +** beside the speed value to switch between 1×, 2× and 4× playback.
+Pause stops playback. Faster playback also speeds up building animations.
+Times are game times at Fastest: one frame is 42 ms. Tests run until you stop them;
+a boost plan can restart the mining clock when it is applied.
+
+**Copy report** puts a tab-separated report on the clipboard, ready to paste into
+a spreadsheet. Mining Lab copies all base summaries, the selected base's mineral
+cycles and income, and its boost-search summaries. Rush copies endpoints, run
+times, traveled distances and results. The button does not copy or edit the map.
 
 The tools use a copy of the current map, including unsaved edits. They do not
 change the map or its undo history. Editing the map, changing map tabs or starting

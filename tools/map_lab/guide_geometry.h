@@ -26,62 +26,90 @@ inline std::uint32_t workerGuideColor(int worker,int saturation=110,int alpha=15
 // Matches the source editor's display contract: ghosts for all three kinds,
 // return markers for cargo, per-worker colors and numbered arrows for cycles.
 // Ghost rendering is supplied by the editor so its own unit image data is used.
-template<class Ghost>
-void appendMiningGuides(stardraft::render::Scene& scene, const MiningFrame& frame,
-                        unsigned mask, float zoom, Ghost ghost) {
-    zoom = std::max(.01f, zoom);
-    auto line = [&](float ax, float ay, float bx, float by, std::uint32_t color) {
-        stardraft::render::RectDraw d;
-        d.x0=ax; d.y0=ay; d.x1=bx; d.y1=by; d.line=true; d.rgba=color;
-        d.thickness=4; d.rgba=0x101014F0;
-        scene.rects.push_back(d);
-        d.thickness=2; d.rgba=color;
-        scene.rects.push_back(d);
-    };
-    auto label = [&](float x,float y,const std::string& text,std::uint32_t color) {
-        stardraft::render::RectDraw plate;
-        // Fixed screen-size backplate keeps text legible on bright minerals,
-        // snow, terrain and workers at any map zoom.
-        plate.x0=x-2/zoom;plate.y0=y-2/zoom;
-        plate.x1=x+(text.size()*10.f+2)/zoom;plate.y1=y+14/zoom;
-        plate.fill=true;plate.rgba=0x101014E8;scene.rects.push_back(plate);
-        scene.texts.push_back({x,y,text,color});
-    };
-    for (const auto& guide : frame.guides) {
-        if (guide.kind < 0 || guide.kind > 2 || !(mask & (1u << guide.kind))) continue;
-        ghost(guide);
-        const auto color=miningGuideColor(guide.worker);
-        const float x = float(guide.x), y = float(guide.y);
-        if(guide.kind==0) {
-            stardraft::render::RectDraw ring;
-            ring.x0=x-10/zoom;ring.y0=y-10/zoom;ring.x1=x+10/zoom;ring.y1=y+10/zoom;
-            ring.rgba=0x101014F0;ring.thickness=4;scene.rects.push_back(ring);
-            ring.rgba=0xFFDA65FF;ring.thickness=2;scene.rects.push_back(ring);
-        }
-        if (guide.kind == 1) {
-            // The map's text renderer is ASCII. Draw the return glyph as lines.
-            const float k=1/zoom;
-            line(x+7*k,y-19*k,x+7*k,y-13*k,0xFFDA65FF);
-            line(x+7*k,y-13*k,x-6*k,y-13*k,0xFFDA65FF);
-            line(x-6*k,y-13*k,x-2*k,y-17*k,0xFFDA65FF);
-            line(x-6*k,y-13*k,x-2*k,y-9*k,0xFFDA65FF);
-        }
-        if (guide.kind == 2) {
-            const float dx=float(guide.targetX)-x, dy=float(guide.targetY)-y;
-            const float length=std::hypot(dx,dy);
-            if (length * zoom > 1) {
-                const float ux=dx/length, uy=dy/length;
-                const float tx=float(guide.targetX)-ux*9/zoom;
-                const float ty=float(guide.targetY)-uy*9/zoom;
-                line(x,y,tx,ty,color);
-                line(tx,ty,tx-ux*7/zoom-uy*4/zoom,ty-uy*7/zoom+ux*4/zoom,color);
-                line(tx,ty,tx-ux*7/zoom+uy*4/zoom,ty-uy*7/zoom-ux*4/zoom,color);
-            }
-            label(x,y-14/zoom,std::to_string(guide.stage),color);
-        }
+template <class Ghost>
+void appendMiningGuides(stardraft::render::Scene &scene,
+                        const MiningFrame &frame, unsigned mask, float zoom,
+                        Ghost ghost, bool smoothLabels = false) {
+  zoom = std::max(.01f, zoom);
+  auto line = [&](float ax, float ay, float bx, float by, std::uint32_t color) {
+    stardraft::render::RectDraw d;
+    d.x0 = ax;
+    d.y0 = ay;
+    d.x1 = bx;
+    d.y1 = by;
+    d.line = true;
+    d.rgba = color;
+    d.thickness = 4;
+    d.rgba = 0x101014F0;
+    scene.rects.push_back(d);
+    d.thickness = 2;
+    d.rgba = color;
+    scene.rects.push_back(d);
+  };
+  auto label = [&](float x, float y, const std::string &text,
+                   std::uint32_t color) {
+    if (smoothLabels) {
+      scene.texts.push_back({x, y, text, color, true, 1.5f, true});
+      return;
     }
-    for (const auto& patch : frame.patches)
-        if (patch.lastCycle)
-            label(float(patch.x),float(patch.y),std::to_string(patch.lastCycle),0xFFF2B8FF);
+    stardraft::render::RectDraw plate;
+    // Fixed screen-size backplate keeps text legible on bright minerals,
+    // snow, terrain and workers at any map zoom.
+    plate.x0 = x - 2 / zoom;
+    plate.y0 = y - 2 / zoom;
+    plate.x1 = x + (text.size() * 10.f + 2) / zoom;
+    plate.y1 = y + 14 / zoom;
+    plate.fill = true;
+    plate.rgba = 0x101014E8;
+    scene.rects.push_back(plate);
+    scene.texts.push_back({x, y, text, color});
+  };
+  for (const auto &guide : frame.guides) {
+    if (guide.kind < 0 || guide.kind > 2 || !(mask & (1u << guide.kind)))
+      continue;
+    ghost(guide);
+    const auto color = miningGuideColor(guide.worker);
+    const float x = float(guide.x), y = float(guide.y);
+    if (guide.kind == 0) {
+      stardraft::render::RectDraw ring;
+      ring.x0 = x - 10 / zoom;
+      ring.y0 = y - 10 / zoom;
+      ring.x1 = x + 10 / zoom;
+      ring.y1 = y + 10 / zoom;
+      ring.rgba = 0x101014F0;
+      ring.thickness = 4;
+      scene.rects.push_back(ring);
+      ring.rgba = 0xFFDA65FF;
+      ring.thickness = 2;
+      scene.rects.push_back(ring);
+    }
+    if (guide.kind == 1) {
+      // The map's text renderer is ASCII. Draw the return glyph as lines.
+      const float k = 1 / zoom;
+      line(x + 7 * k, y - 19 * k, x + 7 * k, y - 13 * k, 0xFFDA65FF);
+      line(x + 7 * k, y - 13 * k, x - 6 * k, y - 13 * k, 0xFFDA65FF);
+      line(x - 6 * k, y - 13 * k, x - 2 * k, y - 17 * k, 0xFFDA65FF);
+      line(x - 6 * k, y - 13 * k, x - 2 * k, y - 9 * k, 0xFFDA65FF);
+    }
+    if (guide.kind == 2) {
+      const float dx = float(guide.targetX) - x, dy = float(guide.targetY) - y;
+      const float length = std::hypot(dx, dy);
+      if (length * zoom > 1) {
+        const float ux = dx / length, uy = dy / length;
+        const float tx = float(guide.targetX) - ux * 9 / zoom;
+        const float ty = float(guide.targetY) - uy * 9 / zoom;
+        line(x, y, tx, ty, color);
+        line(tx, ty, tx - ux * 7 / zoom - uy * 4 / zoom,
+             ty - uy * 7 / zoom + ux * 4 / zoom, color);
+        line(tx, ty, tx - ux * 7 / zoom + uy * 4 / zoom,
+             ty - uy * 7 / zoom - ux * 4 / zoom, color);
+      }
+      label(x, y - 14 / zoom, std::to_string(guide.stage), color);
+    }
+  }
+  for (const auto &patch : frame.patches)
+    if (patch.lastCycle)
+      label(float(patch.x), float(patch.y), std::to_string(patch.lastCycle),
+            0xFFF2B8FF);
 }
 }

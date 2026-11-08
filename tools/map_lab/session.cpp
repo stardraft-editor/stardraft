@@ -17,7 +17,10 @@ Snapshot Session::snapshot() const {
     std::lock_guard lock(mutex_);
     return state_;
 }
-void Session::speed(int value) { speed_ = std::clamp(value, 0, 16); }
+void Session::speed(int value) {
+  speed_ = std::clamp(value, 0, 16);
+  wake_.notify_all();
+}
 void Session::configureRush(double interval,int retained) {
     if (!std::isfinite(interval) || interval < .5 || interval > 60 || retained < 1 || retained > 50)
         throw std::invalid_argument("Invalid rush settings");
@@ -45,6 +48,9 @@ void Session::run(Request request) {
                                       request.end, request.race);
             rush->configure(request.launchInterval,request.retained);
         }
+        using Clock = std::chrono::steady_clock;
+        auto nextTick = Clock::now();
+        int previousSpeed = -1;
         while (!stop_) {
             int technique;
             double seconds;
@@ -52,12 +58,21 @@ void Session::run(Request request) {
                 std::lock_guard lock(mutex_);
                 technique = std::exchange(search_, -1);
                 seconds = budget_;
-                if (rush && configure_) { rush->configure(interval_,retained_); configure_=false; }
+                if (configure_) {
+                  if (rush)
+                    rush->configure(interval_, retained_);
+                  configure_ = false;
+                }
             }
             if (mining && technique >= 0) mining->search(technique, seconds);
             const int frames = speed_.load();
-            if (mining) mining->advance(frames);
-            else rush->advance(frames);
+            // Publish individual game frames even at faster playback. Advancing
+            // four frames in each 42-ms burst skips idle-animation poses and
+            // makes Zerg buildings visibly jerk. Simulation rules stay intact.
+            if (mining)
+              mining->advance(frames > 0 ? 1 : 0);
+            else
+              rush->advance(frames > 0 ? 1 : 0);
             // Searches pause the mining clock; use the engine's clock in its snapshot.
             Snapshot next;
             next.ready = true;
@@ -71,8 +86,20 @@ void Session::run(Request request) {
                 next.searching = (mining && mining->searching()) || search_ >= 0;
                 state_ = std::move(next);
             }
+            const auto period =
+                std::chrono::microseconds(42000 / std::max(1, frames));
+            const auto now = Clock::now();
+            if (frames != previousSpeed)
+              nextTick = now;
+            nextTick += period;
+            if (nextTick < now - period * 4)
+              nextTick = now + period;
+            previousSpeed = frames;
             std::unique_lock lock(mutex_);
-            wake_.wait_for(lock, std::chrono::milliseconds(42), [&] { return stop_.load(); });
+            wake_.wait_until(lock, nextTick, [&] {
+              return stop_.load() || speed_.load() != frames || search_ >= 0 ||
+                     configure_;
+            });
         }
     } catch (const std::exception& e) {
         std::lock_guard lock(mutex_);
