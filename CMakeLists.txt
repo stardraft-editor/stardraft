@@ -123,6 +123,8 @@ add_library(stardraft
     src/import_ee2_triggers.cpp
     src/import_ee3_classic.cpp
     src/import_ee3_blocks.cpp
+    src/import_ee3_macros.cpp
+    src/import_ee3_media.cpp
     src/terrain_gen.cpp
     src/terrain_stamp.cpp
     src/passages.cpp
@@ -179,6 +181,10 @@ add_executable(import_ee3_classic_test tools/tests/import_ee3_classic_test.cpp) 
 target_link_libraries(import_ee3_classic_test PRIVATE stardraft)
 add_executable(import_ee3_blocks_test tools/tests/import_ee3_blocks_test.cpp)  # EUD Editor 3's block scripts to code
 target_link_libraries(import_ee3_blocks_test PRIVATE stardraft)
+add_executable(import_ee3_macros_test tools/tests/import_ee3_macros_test.cpp)  # EUD Editor 3's Lua macros
+target_link_libraries(import_ee3_macros_test PRIVATE stardraft)
+add_executable(import_ee3_media_test tools/tests/import_ee3_media_test.cpp)  # EUD Editor 3's dot images and BGM player
+target_link_libraries(import_ee3_media_test PRIVATE stardraft)
 add_executable(cmbw_test tools/plugins/cmbw/tests/cmbw_test.cpp)  # Cosmonarchy maps: learned tile terrains, the brush, CRIG words, races
 target_link_libraries(cmbw_test PRIVATE stardraft)
 
