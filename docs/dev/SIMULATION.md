@@ -31,10 +31,15 @@ left of it). The editor and the command line use one engine for them, `maplab::c
 - **Rush distance.** From each start location to each other start location, a worker of the start location's race
   (its player's race in the map, or the race of the bar's gear) walks from the start location's center to the other
   one, in a game of its own (the map's neutral units only). It stops at the other center (within 1 pixel), when it
-  has not moved for 480 frames, or at 24000 frames. The result is each walk's game time and length. The bar's eye
-  shows the fog of war of one player at a time (no fog, then each start location's player in turn): the engine's own
-  vision of that player's scouts (their sight ranges, high ground), black where they have not been, darker where they
-  saw before, clear where they see now; only that player's ways show.
+  has not moved for 480 frames, or at 24000 frames. The result is each walk's game time and length. The gear's Units
+  sends other units on each route too, or in place of the worker (one or more of: the worker of the race, Marine,
+  Vulture, Firebat, Zealot, Dragoon, Corsair, Zergling, Hydralisk, Overlord; setting SimRushUnits), each in a game of
+  its own. The gear's Start and end, or Tools > Simulate rush distance between two points, takes two points of the map
+  in place of the start locations: the bar asks for the start point, then the end point (a click on the map each; Esc
+  stops; the game waits meanwhile); the map marks them (green, red) while the rush runs, and the report gives their
+  tiles. The bar's eye shows the fog of war (no fog, then all players together, then each start location's player in
+  turn): the engine's own vision of the units (their sight ranges, high ground), black where they have not been,
+  darker where they saw before, clear where they see now; with one player, only that player's ways show.
 - **Boost searches** (mining, the gear's panel): the pull request's three searches, at each base at the same time
   (each base's search gets its share of the processor's threads), for the panel's search time (default 15 seconds;
   again: that much more, from where it stopped). Position: better start places for the workers. Cargo: where a worker

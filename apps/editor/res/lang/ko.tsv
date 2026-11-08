@@ -3337,3 +3337,15 @@ minute	분
 minutes	분
 second	초
 Could not search	검색할 수 없음
+Fog of war: what all players see	전장의 안개: 모든 플레이어의 시야
+No unit reached its end	도착한 유닛 없음
+Rush distance: no unit reached its end	러시 거리: 도착한 유닛 없음
+Each unit goes from the start point to the end point, at Fastest	각 유닛이 시작 지점에서 끝 지점까지 이동, 가장 빠름
+Each unit goes from each start location to each other start location, at Fastest	각 유닛이 각 시작 위치에서 다른 시작 위치까지 이동, 가장 빠름
+Click the start point	시작 지점을 클릭하세요
+Click the end point	끝 지점을 클릭하세요
+Worker of the race	종족의 일꾼
+Start and end	시작과 끝
+Two points of the map…	맵의 두 지점…
+Units, start and end	유닛, 시작과 끝
+Simulate rush distance between &two points… (experimental)	두 지점 사이의 러시 거리 시뮬레이션(&T)… (실험적)

@@ -3307,3 +3307,15 @@ minute	分钟
 minutes	分钟
 second	秒
 Could not search	无法搜索
+Fog of war: what all players see	战争迷雾：所有玩家看到的范围
+No unit reached its end	没有单位到达终点
+Rush distance: no unit reached its end	Rush 距离：没有单位到达终点
+Each unit goes from the start point to the end point, at Fastest	每个单位从起点走到终点，最快速度
+Each unit goes from each start location to each other start location, at Fastest	每个单位从每个出生点走到其他每个出生点，最快速度
+Click the start point	点击起点
+Click the end point	点击终点
+Worker of the race	该种族的农民
+Start and end	起点和终点
+Two points of the map…	地图上的两个点…
+Units, start and end	单位、起点和终点
+Simulate rush distance between &two points… (experimental)	模拟两点之间的 Rush 距离(&T)…（实验性）

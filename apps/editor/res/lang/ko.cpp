@@ -3336,6 +3336,18 @@ constexpr UiText kRows[] = {
     {L"minutes", L"\uBD84"},
     {L"second", L"\uCD08"},
     {L"Could not search", L"\uAC80\uC0C9\uD560 \uC218 \uC5C6\uC74C"},
+    {L"Fog of war: what all players see", L"\uC804\uC7A5\uC758 \uC548\uAC1C: \uBAA8\uB4E0 \uD50C\uB808\uC774\uC5B4\uC758 \uC2DC\uC57C"},
+    {L"No unit reached its end", L"\uB3C4\uCC29\uD55C \uC720\uB2DB \uC5C6\uC74C"},
+    {L"Rush distance: no unit reached its end", L"\uB7EC\uC2DC \uAC70\uB9AC: \uB3C4\uCC29\uD55C \uC720\uB2DB \uC5C6\uC74C"},
+    {L"Each unit goes from the start point to the end point, at Fastest", L"\uAC01 \uC720\uB2DB\uC774 \uC2DC\uC791 \uC9C0\uC810\uC5D0\uC11C \uB05D \uC9C0\uC810\uAE4C\uC9C0 \uC774\uB3D9, \uAC00\uC7A5 \uBE60\uB984"},
+    {L"Each unit goes from each start location to each other start location, at Fastest", L"\uAC01 \uC720\uB2DB\uC774 \uAC01 \uC2DC\uC791 \uC704\uCE58\uC5D0\uC11C \uB2E4\uB978 \uC2DC\uC791 \uC704\uCE58\uAE4C\uC9C0 \uC774\uB3D9, \uAC00\uC7A5 \uBE60\uB984"},
+    {L"Click the start point", L"\uC2DC\uC791 \uC9C0\uC810\uC744 \uD074\uB9AD\uD558\uC138\uC694"},
+    {L"Click the end point", L"\uB05D \uC9C0\uC810\uC744 \uD074\uB9AD\uD558\uC138\uC694"},
+    {L"Worker of the race", L"\uC885\uC871\uC758 \uC77C\uAFBC"},
+    {L"Start and end", L"\uC2DC\uC791\uACFC \uB05D"},
+    {L"Two points of the map\u2026", L"\uB9F5\uC758 \uB450 \uC9C0\uC810\u2026"},
+    {L"Units, start and end", L"\uC720\uB2DB, \uC2DC\uC791\uACFC \uB05D"},
+    {L"Simulate rush distance between &two points\u2026 (experimental)", L"\uB450 \uC9C0\uC810 \uC0AC\uC774\uC758 \uB7EC\uC2DC \uAC70\uB9AC \uC2DC\uBBAC\uB808\uC774\uC158(&T)\u2026 (\uC2E4\uD5D8\uC801)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

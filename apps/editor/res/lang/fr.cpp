@@ -3306,6 +3306,18 @@ constexpr UiText kRows[] = {
     {L"minutes", L"minutes"},
     {L"second", L"seconde"},
     {L"Could not search", L"Impossible de rechercher"},
+    {L"Fog of war: what all players see", L"Brouillard de guerre : ce que voient tous les joueurs"},
+    {L"No unit reached its end", L"Aucune unit\u00E9 n'a atteint son arriv\u00E9e"},
+    {L"Rush distance: no unit reached its end", L"Distance de rush : aucune unit\u00E9 n'a atteint son arriv\u00E9e"},
+    {L"Each unit goes from the start point to the end point, at Fastest", L"Chaque unit\u00E9 va du point de d\u00E9part au point d'arriv\u00E9e, en vitesse maximale"},
+    {L"Each unit goes from each start location to each other start location, at Fastest", L"Chaque unit\u00E9 va de chaque position de d\u00E9part \u00E0 chaque autre position de d\u00E9part, en vitesse maximale"},
+    {L"Click the start point", L"Cliquez sur le point de d\u00E9part"},
+    {L"Click the end point", L"Cliquez sur le point d'arriv\u00E9e"},
+    {L"Worker of the race", L"Ouvrier de la race"},
+    {L"Start and end", L"D\u00E9part et arriv\u00E9e"},
+    {L"Two points of the map\u2026", L"Deux points de la carte\u2026"},
+    {L"Units, start and end", L"Unit\u00E9s, d\u00E9part et arriv\u00E9e"},
+    {L"Simulate rush distance between &two points\u2026 (experimental)", L"Simuler la distance de rush entre &deux points\u2026 (exp\u00E9rimental)"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

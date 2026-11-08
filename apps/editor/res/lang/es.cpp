@@ -3306,6 +3306,18 @@ constexpr UiText kRows[] = {
     {L"minutes", L"minutos"},
     {L"second", L"segundo"},
     {L"Could not search", L"No se pudo buscar"},
+    {L"Fog of war: what all players see", L"Niebla de guerra: lo que ven todos los jugadores"},
+    {L"No unit reached its end", L"Ninguna unidad lleg\u00F3 a su destino"},
+    {L"Rush distance: no unit reached its end", L"Distancia de rush: ninguna unidad lleg\u00F3 a su destino"},
+    {L"Each unit goes from the start point to the end point, at Fastest", L"Cada unidad va del punto de inicio al punto final, a la m\u00E1xima velocidad"},
+    {L"Each unit goes from each start location to each other start location, at Fastest", L"Cada unidad va de cada ubicaci\u00F3n inicial a cada otra ubicaci\u00F3n inicial, a la m\u00E1xima velocidad"},
+    {L"Click the start point", L"Haga clic en el punto de inicio"},
+    {L"Click the end point", L"Haga clic en el punto final"},
+    {L"Worker of the race", L"Obrero de la raza"},
+    {L"Start and end", L"Inicio y final"},
+    {L"Two points of the map\u2026", L"Dos puntos del mapa\u2026"},
+    {L"Units, start and end", L"Unidades, inicio y final"},
+    {L"Simulate rush distance between &two points\u2026 (experimental)", L"Simular la distancia de rush entre &dos puntos\u2026 (experimental)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

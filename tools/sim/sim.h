@@ -21,7 +21,8 @@ enum Race { Zerg = 0, Terran = 1, Protoss = 2 };
 struct MiningOptions {
     std::vector<std::pair<int, int>> bases;  // more bases (map pixels), besides the start locations and placed depots
     bool startLocations = true, placedDepots = true;
-    std::vector<int> workers = {9, 18, 27};  // mineral workers of each run
+    std::vector<int> workers = {9, 18, 27};  // mineral workers of each run (0: 1 for each mineral field)
+    int workersPerField = 0;                 // 1 or more: that many for each mineral field of a base, in place of `workers`
     std::vector<Race> races = {Terran, Protoss, Zerg};
     int warmupFrames = 720, frames = 4286;  // 30 s, then 3 minutes measured (Fastest)
     bool gas = false;                       // a finished refinery on the nearest geyser, with 3 more workers
@@ -108,6 +109,8 @@ struct CombatResult {
     int winnerUnit = -1;            // (placed units) the index in `placed` of the last unit left; -1: none
 };
 
+constexpr int kAllPlayers = -2;  // Simulator::vision: what all players see
+
 // A boost search's state (Simulator::boostStatus), all bases together.
 struct BoostStatus {
     bool running = false, finished = false, exhausted = false;  // exhausted: nothing more to search
@@ -129,9 +132,15 @@ struct RushOptions {
     // A start location's worker: its player's race in the map (as MiningOptions::mapRaces); off: races[0].
     bool mapRaces = false;
     uint32_t seed = 0;
+    // The units that go on each route (units.dat ids; -1: a worker of the race); empty: a worker.
+    std::vector<int> units;
+    // On: one route, from (fromX, fromY) to (toX, toY) (map pixels), in place of the start locations' routes.
+    bool points = false;
+    int fromX = 0, fromY = 0, toX = 0, toY = 0;
 };
 struct RushRoute {
-    int from = 0, to = 0;  // the players of the two start locations (0 to 11)
+    int from = 0, to = 0;  // the players of the two start locations (0 to 11); -1: a point (RushOptions::points)
+    int unit = 0;          // the unit that goes (units.dat id)
     int fromX = 0, fromY = 0, toX = 0, toY = 0;
     Race race = Terran;
     int frames = 0;                             // the game frames of the walk, to its end or to where it stopped
@@ -231,8 +240,12 @@ public:
         return {};
     }
     virtual bool boosting() const { return false; }
+    // A boost turned off: the bases without it (and without the later boosts, which were found with it), from the
+    // game's start.
+    virtual void clearBoost(int kind) { (void)kind; }
     virtual std::vector<MiningGuide> miningGuides() const { return {}; }
-    // Rush distance: what `player` (a start location's player, 0 to 11) sees now, as the game's fog of war: each map
+    // Rush distance: what `player` (a start location's player, 0 to 11; kAllPlayers: all the routes' units) sees now,
+    // as the game's fog of war: each map
     // tile (row by row, `width` x `height`) 0 not seen yet, 1 seen before, 2 seen now. False: no such game.
     virtual bool vision(int player, int& width, int& height, std::vector<uint8_t>& tiles) const {
         (void)player, (void)width, (void)height, (void)tiles;

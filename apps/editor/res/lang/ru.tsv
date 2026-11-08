@@ -3307,3 +3307,15 @@ minute	мин
 minutes	мин
 second	секунда
 Could not search	Не удалось выполнить поиск
+Fog of war: what all players see	Туман войны: что видят все игроки
+No unit reached its end	Ни один юнит не дошёл до конца
+Rush distance: no unit reached its end	Дистанция раша: ни один юнит не дошёл до конца
+Each unit goes from the start point to the end point, at Fastest	Каждый юнит идёт от начальной точки до конечной, на самой быстрой скорости
+Each unit goes from each start location to each other start location, at Fastest	Каждый юнит идёт от каждой стартовой позиции к каждой другой, на самой быстрой скорости
+Click the start point	Щёлкните начальную точку
+Click the end point	Щёлкните конечную точку
+Worker of the race	Рабочий расы
+Start and end	Начало и конец
+Two points of the map…	Две точки карты…
+Units, start and end	Юниты, начало и конец
+Simulate rush distance between &two points… (experimental)	Симулировать дистанцию раша между &двумя точками… (экспериментально)

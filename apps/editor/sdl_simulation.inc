@@ -48,7 +48,8 @@ struct LiveSim {
     std::map<int, std::wstring> unitNames;
     int bases = 0, workers = 0;
     uint32_t seed = 0;  // mining: the random races' seed (a new game time keeps it)
-    int fog = -1;  // rush distance: the player whose vision the map shows (the fog of war; the bar's eye); -1 none
+    int fog = -1;  // rush distance: the player whose vision the map shows (the fog of war; the bar's eye); -1 none,
+                   // sim::kAllPlayers all
     std::wstring endText, report;
     std::wstring result;  // the bar's few words at the end (Player 2 wins, 4066 minerals a minute)
     // How the game started (Restart and the timeline start it again: the game is the same each time).
@@ -166,14 +167,41 @@ const std::vector<sim::LiveImage>& simImages() {
     return gSimLastImages;
 }
 
+// Rush distance's units (the gear's Units; the setting SimRushUnits: a bit for each, the first one by default): -1 the
+// worker of the race, then units of each race that go by ground or by air, as units.dat numbers them.
+constexpr int kRushUnits[] = {-1, 0, 2, 32, 65, 66, 60, 37, 38, 42};  // Marine, Vulture, Firebat, Zealot, Dragoon, Corsair, Zergling, Hydralisk, Overlord
+// Rush distance between two points (Tools > Simulate rush distance between two points, the gear's Start and end): the
+// points (map pixels) on the map that they were picked on, kept while the rush starts again; on: the rush uses them.
+struct RushPoints {
+    bool on = false;
+    const Editor* ed = nullptr;
+    std::pair<int, int> from, to;
+} gRushPoints;
+int gRushPick = 0;  // the point that a click on the map sets: 1 the start point, 2 the end point; 0 none
+std::pair<int, int> gRushPickFrom;  // the start point clicked while the end point is picked
+std::wstring simUnitName(int type);  // (below: the unit's name in the map)
+
 // Rush distance: each worker's way so far (a place each 8 pixels), a line in its player's color (a copy, kept while a
 // skip runs).
 std::vector<sim::RushRoute> gSimRoutes;
 void simTrails(render::Scene& s) {
     if (!simSkipRunning()) gSimRoutes = simEngine().rushResult();
+    const float k = 1 / std::max(0.01f, gState.zoom);
+    auto ring = [&](std::pair<int, int> at, uint32_t rgba) {
+        render::RectDraw d;
+        d.x0 = float(at.first) - 12 * k, d.y0 = float(at.second) - 12 * k, d.x1 = float(at.first) + 12 * k, d.y1 = float(at.second) + 12 * k;
+        d.rgba = 0x101014F0u, d.thickness = 5;
+        s.rects.push_back(d);
+        d.rgba = rgba, d.thickness = 3;
+        s.rects.push_back(d);
+    };
+    const bool points = gRushPoints.on && gRushPoints.ed == gState.ed.get();
+    if (gRushPick == 2) ring(gRushPickFrom, 0x4CD964FFu);
+    else if (points) ring(gRushPoints.from, 0x4CD964FFu), ring(gRushPoints.to, 0xFF5A5AFFu);
     for (const sim::RushRoute& r : gSimRoutes) {
         if (r.path.empty() || (gSim.fog >= 0 && r.from != gSim.fog)) continue;
-        const uint32_t color = playerRgba(std::clamp(r.from, 0, 11), 230);
+        // (a start location's route: its player's color; the routes between two points: each unit its own)
+        const uint32_t color = playerRgba(r.from >= 0 ? std::clamp(r.from, 0, 11) : int(&r - gSimRoutes.data()) % 12, 230);
         std::pair<int, int> from = r.path.front();
         for (size_t k = 1; k < r.path.size(); ++k) {
             const std::pair<int, int>& to = r.path[k];
@@ -323,17 +351,19 @@ void simFog(render::Scene& s) {
 std::vector<int> simFogPlayers() {
     std::vector<int> out;
     for (const sim::RushRoute& r : simSkipRunning() ? gSimRoutes : simEngine().rushResult())
-        if (std::find(out.begin(), out.end(), r.from) == out.end()) out.push_back(r.from);
+        if (r.from >= 0 && std::find(out.begin(), out.end(), r.from) == out.end()) out.push_back(r.from);
     std::sort(out.begin(), out.end());
     return out;
 }
 void simNextFog() {
-    const std::vector<int> players = simFogPlayers();
+    std::vector<int> players = simFogPlayers();  // (off, then all players, then each player: the order of the eye)
+    players.insert(players.begin(), {-1, sim::kAllPlayers});
     auto at = std::find(players.begin(), players.end(), gSim.fog);
-    gSim.fog = at == players.end() ? (players.empty() ? -1 : players.front()) : at + 1 == players.end() ? -1 : *(at + 1);
+    gSim.fog = at == players.end() || at + 1 == players.end() ? -1 : *(at + 1);
 }
 std::wstring simFogTip() {
-    if (gSim.fog < 0) return tr(L"Fog of war: off");
+    if (gSim.fog == -1) return tr(L"Fog of war: off");
+    if (gSim.fog == sim::kAllPlayers) return tr(L"Fog of war: what all players see");
     wchar_t t[128];
     std::swprintf(t, 128, tr(L"Fog of war: what %ls sees"), simPlayer(gSim.fog).c_str());
     return t;
@@ -369,7 +399,7 @@ void simScene(render::Scene& s) {
         if (li.order == 0 && !d.shadow) addImage(s, d);
         else s.sprites.push_back(d);
     }
-    if (gSim.rush && gSim.fog >= 0) simFog(s);
+    if (gSim.rush && gSim.fog != -1) simFog(s);
     if (gSim.rush) simTrails(s);
     else if (!gSim.combat) simGuides(s), simFieldLabels(s);
 }
@@ -575,6 +605,7 @@ std::wstring simOf(int part, int all) {
 std::wstring simUnitName(int type) {
     const auto n = gSim.unitNames.find(type);
     if (n != gSim.unitNames.end()) return n->second;
+    if (gState.ed && type >= 0 && type < 228) return widen(gState.ed->unitTypes().statText(uint32_t(type)));  // (the map's name of it)
     wchar_t b[64];
     std::swprintf(b, 64, tr(L"Unit %d"), type);
     return b;
@@ -790,17 +821,19 @@ void simEnd() {
         double fastest = -1, slowest = -1;
         for (const sim::RushRoute& r : routes) {
             const double secs = r.frames * 0.042;
-            const wchar_t* race = r.race == sim::Zerg ? tr(L"Zerg") : r.race == sim::Protoss ? tr(L"Protoss") : tr(L"Terran");
-            rows.push_back({simPlayer(r.from), simPlayer(r.to), race, r.reached ? tr(L"Reached") : tr(L"Not reached"), simNum(secs, 1),
-                            simNum(r.distance)});
+            auto end = [](int player, int x, int y) {  // (a start location's player, or a point's tile)
+                return player >= 0 ? simPlayer(player) : std::to_wstring(x / 32) + L", " + std::to_wstring(y / 32);
+            };
+            rows.push_back({end(r.from, r.fromX, r.fromY), end(r.to, r.toX, r.toY), simUnitName(r.unit), r.reached ? tr(L"Reached") : tr(L"Not reached"),
+                            simNum(secs, 1), simNum(r.distance)});
             if (!r.reached) continue;
             fastest = fastest < 0 ? secs : std::min(fastest, secs);
             slowest = std::max(slowest, secs);
         }
         wchar_t txt[1024];
         if (fastest < 0) {
-            gSim.result = tr(L"No worker reached the other start location");
-            gSimTitle = tr(L"Rush distance: no worker reached the other start location");
+            gSim.result = tr(L"No unit reached its end");
+            gSimTitle = tr(L"Rush distance: no unit reached its end");
         } else {
             std::swprintf(txt, 1024, tr(L"%ls to %ls game seconds"), simNum(fastest, 1).c_str(), simNum(slowest, 1).c_str());
             gSim.result = txt;
@@ -808,8 +841,9 @@ void simEnd() {
             gSimTitle = txt;
         }
         gSim.endText = gSim.result;
-        gSimLine = tr(L"A worker walks from each start location to each other start location, at Fastest");
-        d.table({tr(L"From"), tr(L"To"), tr(L"Race"), tr(L"Result"), tr(L"Game seconds"), tr(L"Distance (pixels)")}, rows, 4);
+        gSimLine = gRushPoints.on ? tr(L"Each unit goes from the start point to the end point, at Fastest")
+                                  : tr(L"Each unit goes from each start location to each other start location, at Fastest");
+        d.table({tr(L"From"), tr(L"To"), tr(L"Unit"), tr(L"Result"), tr(L"Game seconds"), tr(L"Distance (pixels)")}, rows, 4);
         gSim.report = gSimTitle + L"\r\n" + gSimLine + L"\r\n" + d.text;
     } else {
         const std::vector<sim::MiningBase> bases = e.miningResult();
@@ -949,6 +983,7 @@ void simClose() {
     gSimRoutes.clear(), gSimFields.clear(), gSimGuides.clear();
     gSim = LiveSim{};
     gSimPanel = SimPanel{};
+    gRushPick = 0;
     simRelease();
     simRedraw();
 }
@@ -1438,7 +1473,10 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
     // The info icon (its tooltip: an early preview).
     c.icon(l.chip, int(UiIcon::Info), gSim.hot == 3 ? kText : kDim, scale(16));
     // What runs and the game time; at the end the result.
-    if (gSim.done) {
+    if (gRushPick && gSim.rush) {
+        c.text(l.text, gRushPick == 1 ? tr(L"Click the start point") : tr(L"Click the end point"), kAccent,
+               draw::kMiddle | draw::kEllipsis);
+    } else if (gSim.done) {
         c.text(l.text, gSim.result, kText, draw::kMiddle | draw::kEllipsis);
     } else {
         const bool boosting = !simSkipRunning() && !gSim.combat && !gSim.rush && e.boosting();
@@ -1491,7 +1529,7 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
     };
     iconButton(2, l.third, UiIcon::ToStart);
     iconButton(8, l.feedback, UiIcon::Feedback);
-    if (gSim.rush) c.icon(l.fog, int(UiIcon::Show), face(9, l.fog, false) || gSim.fog >= 0 ? (gSim.fog >= 0 ? kAccent : kText) : kDim, scale(16));
+    if (gSim.rush) c.icon(l.fog, int(UiIcon::Show), face(9, l.fog, false) || gSim.fog != -1 ? (gSim.fog != -1 ? kAccent : kText) : kDim, scale(16));
     iconButton(7, l.gear, UiIcon::Settings);
     if (gSim.done) {
         textButton(1, l.second, L"Report", true);
@@ -1574,19 +1612,45 @@ void simCombatSettingsMenu() {
 // The rush distance's settings (the bar's gear): the workers' race, as Program options > Simulate mining has it (Races);
 // a pick saves it and starts the rush again with it.
 void simulateRushCommand();
+void simRushStart(const RushPoints& p);
+void simRushAgain() { simRushStart(gRushPoints); }  // (the gear's changes: the same start and end)
 void simRushSettingsMenu() {
     if (!gRoot || !gHost) return;
-    int races = 0;
-    prefs::number(L"SimRaces", races, 0, 3);
+    int races = 0, units = 1;
+    prefs::number(L"SimRaces", races, 0, 3), prefs::number(L"SimRushUnits", units, 1, (1 << int(std::size(kRushUnits))) - 1);
     std::vector<stardraft::kit::MenuItem> items;
-    items.push_back(stardraft::kit::MenuItem{}), items.back().label = L"Worker race", items.back().enabled = false;
-    items.push_back(stardraft::kit::MenuItem{}), items.back().separator = true;
+    auto header = [&](const wchar_t* t) {
+        if (!items.empty()) items.push_back(stardraft::kit::MenuItem{}), items.back().separator = true;
+        items.push_back(stardraft::kit::MenuItem{}), items.back().label = t, items.back().enabled = false;
+    };
+    // The units (each a check: one or more go on each route; the last one stays).
+    header(L"Units");
+    for (size_t k = 0; k < std::size(kRushUnits); ++k) {
+        items.push_back(stardraft::kit::MenuItem{});
+        items.back().label = kRushUnits[k] < 0 ? std::wstring(tr(L"Worker of the race")) : simUnitName(kRushUnits[k]);
+        items.back().checked = (units & (1 << k)) != 0;
+        const int bit = 1 << int(k);
+        items.back().run = [units, bit] {
+            if ((units ^ bit) == 0) return;
+            prefs::setNumber(L"SimRushUnits", units ^ bit);
+            shellPost([] { simRushAgain(); });
+        };
+    }
+    // Where they go: from the start locations to each other, or between two points of the map.
+    header(L"Start and end");
+    items.push_back(stardraft::kit::MenuItem{});
+    items.back().label = L"Start locations", items.back().checked = !gRushPoints.on;
+    items.back().run = [] { shellPost([] { simulateRushCommand(); }); };
+    items.push_back(stardraft::kit::MenuItem{});
+    items.back().label = L"Two points of the map\x2026", items.back().checked = gRushPoints.on;
+    items.back().run = [] { gRushPick = 1, simRedraw(); };
+    header(L"Worker race");
     for (int k = 0; k < 4; ++k) {
         items.push_back(stardraft::kit::MenuItem{});
         items.back().label = kSimRaceNames[k], items.back().checked = k == races;
         items.back().run = [k] {
             prefs::setNumber(L"SimRaces", k);
-            shellPost([] { simulateRushCommand(); });  // (again with the new race)
+            shellPost([] { simRushAgain(); });  // (again with the new race)
         };
     }
     ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
@@ -1609,6 +1673,23 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
         if (e.kind == draw::MouseKind::Move) seekAt();
         if (e.kind == draw::MouseKind::Up && e.button == 0) gSim.seeking = false;
         return true;
+    }
+    if (gRushPick && gSim.rush && !hit(l.bar)) {
+        if ((e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick) && e.button == 0 && gState.ed) {
+            float wx = 0, wy = 0;
+            toWorld(e.pt.x, e.pt.y, wx, wy);
+            const std::pair<int, int> at{std::clamp(int(wx), 0, gState.ed->width() * 32 - 1), std::clamp(int(wy), 0, gState.ed->height() * 32 - 1)};
+            if (gRushPick == 1) {
+                gRushPickFrom = at, gRushPick = 2;
+            } else {  // (the points are the rush's only when it starts with them)
+                RushPoints p{true, gState.ed.get(), gRushPickFrom, at};
+                gRushPick = 0;
+                shellPost([p] { simRushStart(p); });
+            }
+            simRedraw();
+            return true;
+        }
+        if (e.kind == draw::MouseKind::Up && e.button == 0) return true;  // (the press's release stays off the map)
     }
     if (simPanelMouse(e, l, r)) {
         if (gSim.hot != -1) gSim.hot = -1, simRedraw();
@@ -1665,7 +1746,7 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
     if (in(l.minus)) return L"Slower";
     if (in(l.plus)) return L"Faster";
     if (in(l.skip)) return L"Skip to the end";
-    if (in(l.gear)) return gSim.combat ? L"Who fights whom" : gSim.rush ? L"Worker race" : L"Settings and boost searches";
+    if (in(l.gear)) return gSim.combat ? L"Who fights whom" : gSim.rush ? L"Units, start and end" : L"Settings and boost searches";
     if (in(l.feedback)) return L"Report feedback on the simulation";
     if (in(l.fog)) return simFogTip();
     if (in(l.second)) return gSim.done ? L"Show the report" : L"Speed";
@@ -1675,6 +1756,10 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
 
 bool simKey(const draw::KeyEvent& e) {
     if (!gSim.shown || !e.down || e.key != draw::Key::Escape) return false;
+    if (gRushPick) {  // (Esc: the picking of the points first, then the panel, then the simulation)
+        gRushPick = 0, simRedraw();
+        return true;
+    }
     if (gSimPanel.open) {  // (Esc: the panel first, then the simulation)
         gSimPanel.open = false, simRedraw();
         return true;
@@ -1691,7 +1776,7 @@ void simFrame() {
     const double ms = std::chrono::duration<double, std::milli>(now - gSim.last).count();
     gSim.last = now;
     simHold();  // (the shields follow the panels: a window resized, a panel opened)
-    if (gSim.done || gSimShotStepping) return;
+    if (gSim.done || gSimShotStepping || gRushPick) return;  // (the game waits while a point is picked)
     // The game's frames due (Fastest: 42 ms a frame, times the speed), run in small steps for at most 12 ms of each
     // window frame, so the program stays usable at any speed: the frames that do not fit are dropped (the game goes
     // slower than the speed, and the bar's spinner says so). Skip to the end: as many as fit, until the end.
@@ -1762,17 +1847,36 @@ void simMiningNewTime() {
 // Tools > Simulate rush distance: a worker walks from each start location to each other start location (each route
 // a game of its own, all at the same time), until all arrive or stop; the races as Simulate mining has them (the bar's
 // gear). The result: the shortest and longest walk in game seconds; the report: each route's time and length.
-void simulateRushCommand() {
-    int races = 0;
-    prefs::number(L"SimRaces", races, 0, 3);
+// The rush with these points (off: the start locations); they are the rush's when it starts.
+void simRushStart(const RushPoints& p) {
+    int races = 0, units = 1;
+    prefs::number(L"SimRaces", races, 0, 3), prefs::number(L"SimRushUnits", units, 1, (1 << int(std::size(kRushUnits))) - 1);
     sim::RushOptions o;
     static const sim::Race kRace[4] = {sim::Terran, sim::Terran, sim::Protoss, sim::Zerg};
     o.races = {kRace[races]};
     o.mapRaces = races == 0;
     o.seed = uint32_t(std::chrono::steady_clock::now().time_since_epoch().count());  // (Random: another race each time)
+    for (size_t k = 0; k < std::size(kRushUnits); ++k)
+        if (units & (1 << k)) o.units.push_back(kRushUnits[k]);
+    const bool points = p.on && gState.ed && p.ed == gState.ed.get();
+    if (points) o.points = true, o.fromX = p.from.first, o.fromY = p.from.second, o.toX = p.to.first, o.toY = p.to.second;
+    const int fog = gSim.rush ? gSim.fog : -1;  // (the eye stays as it was when the rush starts again)
     if (!simBegin(false, [o](std::string& err) { return simEngine().startRush(o, err); }, true)) return;
+    gRushPoints = p, gRushPoints.on = points;
     gState.ed->clearSelection();  // (the map's selection does not show over the game)
     gSim.speed = 1;
+    const std::vector<int> players = simFogPlayers();  // (a player of the eye that has no routes now: off)
+    gSim.fog = fog == -1 || fog == sim::kAllPlayers || std::find(players.begin(), players.end(), fog) != players.end() ? fog : -1;
+}
+// Tools > Simulate rush distance: from the start locations.
+void simulateRushCommand() { simRushStart(RushPoints{}); }
+// Tools > Simulate rush distance between two points: the rush shows, and the bar asks for its start point, then its
+// end point, each a click on the map (Esc stops); then the units go from the one to the other.
+void simulateRushPointsCommand() {
+    if (!gSim.shown || !gSim.rush) simRushAgain();
+    if (!gSim.shown || !gSim.rush) return;
+    gRushPick = 1;
+    simRedraw();
 }
 
 // Tools > Simulate combat of the selected units: the selected units of all players fight where they stand (each unit

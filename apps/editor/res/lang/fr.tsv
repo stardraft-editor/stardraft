@@ -3307,3 +3307,15 @@ minute	minute
 minutes	minutes
 second	seconde
 Could not search	Impossible de rechercher
+Fog of war: what all players see	Brouillard de guerre : ce que voient tous les joueurs
+No unit reached its end	Aucune unité n'a atteint son arrivée
+Rush distance: no unit reached its end	Distance de rush : aucune unité n'a atteint son arrivée
+Each unit goes from the start point to the end point, at Fastest	Chaque unité va du point de départ au point d'arrivée, en vitesse maximale
+Each unit goes from each start location to each other start location, at Fastest	Chaque unité va de chaque position de départ à chaque autre position de départ, en vitesse maximale
+Click the start point	Cliquez sur le point de départ
+Click the end point	Cliquez sur le point d'arrivée
+Worker of the race	Ouvrier de la race
+Start and end	Départ et arrivée
+Two points of the map…	Deux points de la carte…
+Units, start and end	Unités, départ et arrivée
+Simulate rush distance between &two points… (experimental)	Simuler la distance de rush entre &deux points… (expérimental)

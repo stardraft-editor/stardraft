@@ -3306,6 +3306,18 @@ constexpr UiText kRows[] = {
     {L"minutes", L"\u5206\u949F"},
     {L"second", L"\u79D2"},
     {L"Could not search", L"\u65E0\u6CD5\u641C\u7D22"},
+    {L"Fog of war: what all players see", L"\u6218\u4E89\u8FF7\u96FE\uFF1A\u6240\u6709\u73A9\u5BB6\u770B\u5230\u7684\u8303\u56F4"},
+    {L"No unit reached its end", L"\u6CA1\u6709\u5355\u4F4D\u5230\u8FBE\u7EC8\u70B9"},
+    {L"Rush distance: no unit reached its end", L"Rush \u8DDD\u79BB\uFF1A\u6CA1\u6709\u5355\u4F4D\u5230\u8FBE\u7EC8\u70B9"},
+    {L"Each unit goes from the start point to the end point, at Fastest", L"\u6BCF\u4E2A\u5355\u4F4D\u4ECE\u8D77\u70B9\u8D70\u5230\u7EC8\u70B9\uFF0C\u6700\u5FEB\u901F\u5EA6"},
+    {L"Each unit goes from each start location to each other start location, at Fastest", L"\u6BCF\u4E2A\u5355\u4F4D\u4ECE\u6BCF\u4E2A\u51FA\u751F\u70B9\u8D70\u5230\u5176\u4ED6\u6BCF\u4E2A\u51FA\u751F\u70B9\uFF0C\u6700\u5FEB\u901F\u5EA6"},
+    {L"Click the start point", L"\u70B9\u51FB\u8D77\u70B9"},
+    {L"Click the end point", L"\u70B9\u51FB\u7EC8\u70B9"},
+    {L"Worker of the race", L"\u8BE5\u79CD\u65CF\u7684\u519C\u6C11"},
+    {L"Start and end", L"\u8D77\u70B9\u548C\u7EC8\u70B9"},
+    {L"Two points of the map\u2026", L"\u5730\u56FE\u4E0A\u7684\u4E24\u4E2A\u70B9\u2026"},
+    {L"Units, start and end", L"\u5355\u4F4D\u3001\u8D77\u70B9\u548C\u7EC8\u70B9"},
+    {L"Simulate rush distance between &two points\u2026 (experimental)", L"\u6A21\u62DF\u4E24\u70B9\u4E4B\u95F4\u7684 Rush \u8DDD\u79BB(&T)\u2026\uFF08\u5B9E\u9A8C\u6027\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

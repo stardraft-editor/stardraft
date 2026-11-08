@@ -230,6 +230,7 @@ MenuModel buildMenuModel() {
         tools.push_back(menuSeparator());  // (experimental: the game simulated)
         menuCommand(tools, "edit.simulate.mining");
         menuCommand(tools, "edit.simulate.rush");
+        menuCommand(tools, "edit.simulate.rushpoints");
         menuCommand(tools, "edit.simulate.combat");
 #endif
     }

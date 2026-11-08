@@ -3307,3 +3307,15 @@ minute	minuto
 minutes	minutos
 second	segundo
 Could not search	No se pudo buscar
+Fog of war: what all players see	Niebla de guerra: lo que ven todos los jugadores
+No unit reached its end	Ninguna unidad llegó a su destino
+Rush distance: no unit reached its end	Distancia de rush: ninguna unidad llegó a su destino
+Each unit goes from the start point to the end point, at Fastest	Cada unidad va del punto de inicio al punto final, a la máxima velocidad
+Each unit goes from each start location to each other start location, at Fastest	Cada unidad va de cada ubicación inicial a cada otra ubicación inicial, a la máxima velocidad
+Click the start point	Haga clic en el punto de inicio
+Click the end point	Haga clic en el punto final
+Worker of the race	Obrero de la raza
+Start and end	Inicio y final
+Two points of the map…	Dos puntos del mapa…
+Units, start and end	Unidades, inicio y final
+Simulate rush distance between &two points… (experimental)	Simular la distancia de rush entre &dos puntos… (experimental)
