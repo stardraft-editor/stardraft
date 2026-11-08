@@ -252,6 +252,8 @@ std::string mapSaveRoundTrip(const fs::path& path) {
 // program's (sdl_palette_float.inc).
 void shellFloatPalette(Mode m, bool on);
 
+bool commandMapEdit(AppState&, int);
+
 void registerMapCommands() {
     // Mode
     addCommand(ID_MODE_TERRAIN, "mode.terrain", L"&Terrain", "Mode", L"T", [] { setMode(Mode::Terrain); });
@@ -278,6 +280,8 @@ void registerMapCommands() {
             if (gWorkspace == Workspace::Map && shellState().ed && shellState().mode == Mode::Terrain) setTerrainKind(nextTerrainKind(terrainKind()));
         }, {}, false, false);
     // View: the graphics (one of four)
+    addCommand(ID_CREATE_MIRRORED, "edit.terrain.mirrored", L"Create mirrored version", "Edit/Terrain", L"Ctrl+Shift+M",
+               [] { commandMapEdit(appState(), ID_CREATE_MIRRORED); });
     addCommand(ID_VIEW_HD2, "view.hd2", L"&High definition (2x, default)", "View", L"", [] { setGraphics(GraphicsQuality::HD2, false); },
                [] { return !shellState().carbot && shellState().quality == GraphicsQuality::HD2; }, true);
     addCommand(ID_VIEW_HD, "view.hd", L"High definition (&4x)", "View", L"", [] { setGraphics(GraphicsQuality::HD, false); },

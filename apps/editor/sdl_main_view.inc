@@ -706,6 +706,11 @@ struct MainView final : draw::View {
         const bool arrow = e.key == draw::Key::Left || e.key == draw::Key::Right || e.key == draw::Key::Up || e.key == draw::Key::Down;
         if (!map.open() || (e.mods & draw::kAlt) || ((e.mods & draw::kCtrl) && !arrow)) return false;
         const bool shift = (e.mods & draw::kShift) != 0, ctrl = (e.mods & draw::kCtrl) != 0;
+        if (e.key == draw::Key::Escape && gMirroredCopyJob.valid()) {
+            cancelMirroredCopy();
+            return true;
+        }
+
         switch (e.key) {
         case draw::Key::Escape:
             if (mapCancelStep(gState))

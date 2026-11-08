@@ -7,6 +7,7 @@ The same pages are in the program (Help > Documentation, or F1) and on the web.
 
 - [Getting started](getting-started.md): open a map, edit it, and save it.
 - [Values and units](values-and-units.md): frames, pixels, tiles and the other units of the game's data.
+- [Create a mirrored terrain version](terrain-mirror.md): reflect selected tile artwork into the paste clipboard.
 - [Keyboard shortcuts](keyboard-shortcuts.md): the keys of the menus, the map, the trigger editors and the lists.
 
 ## Triggers

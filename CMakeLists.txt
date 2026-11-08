@@ -93,6 +93,7 @@ add_library(stardraft
     src/mods/terrain_rules.cpp
     src/tileset.cpp
     src/terrain.cpp
+    src/terrain_mirror.cpp
     src/isom.cpp
     src/isom_core.cpp
     src/units.cpp
@@ -154,6 +155,9 @@ target_link_libraries(chk_sections PRIVATE stardraft)
 
 add_executable(isom_test tools/tests/isom_test.cpp)
 target_link_libraries(isom_test PRIVATE stardraft)
+
+add_executable(terrain_mirror_test tools/tests/terrain_mirror_test.cpp)
+target_link_libraries(terrain_mirror_test PRIVATE stardraft)
 # The isometric terrain core against StarEdit: IsomTerrain's reference brush tests (needs the game data).
 add_executable(isomterrain_test tools/tests/isomterrain_test.cpp)
 target_include_directories(isomterrain_test PRIVATE third_party/IsomTerrain/IsomTerrain)

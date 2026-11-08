@@ -224,6 +224,7 @@ MenuModel mapMenuModel(float wx, float wy) {
     if (canSnapToGrid(app)) item(ID_EDIT_SNAPGRID, L"Snap to the &grid", L"", true);
     if (terrain && app.terrainRect)  // (#114; Solid: the tiles inside its terrain)
         item(ID_MAPMENU_FILLSEL, gTiles->solid ? L"&Fill selection with the selected terrain" : L"&Fill selection with the selected tiles", L"", has && tilesHavePick());
+    if (terrain && has) item(ID_CREATE_MIRRORED, L"Create mirrored version", L"Ctrl+Shift+M", true);
     if (terrain) item(ID_MAPMENU_SAVESTAMP, L"Save as custom &terrain\x2026", L"", has);  // (core/stamps.inc)
     // (the selection's tiles: no terrain edit changes them; core/protected_layer.inc)
     if (terrain && has) {
