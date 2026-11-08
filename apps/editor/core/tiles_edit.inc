@@ -72,7 +72,7 @@ struct TilesArt {
     // HD2 or Carbot megatiles (pixelsMode 1, 2) for each game data (a Cosmonarchy tab has its own; the game's stay
     // loaded while one is open), with the era and mode they are of.
     struct HdSlot {
-        HdTiles hd;
+        std::shared_ptr<const HdTiles> hd;  // (sharedHdTiles: the palette's and the renderer's)
         int era = -1, mode = -1;
     };
     std::map<const GameData*, HdSlot> hdByData;

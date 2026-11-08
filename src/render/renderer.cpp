@@ -743,12 +743,13 @@ bool Renderer::Impl::buildHdAtlas() {
     if (hdAtlas) SDL_ReleaseGPUTexture(device, hdAtlas), hdAtlas = nullptr;
     if (hdDown) SDL_ReleaseGPUTexture(device, hdDown), hdDown = nullptr;
     if (artQuality() == GraphicsQuality::SD) return true;
-    HdTiles tiles;
     std::string err;
-    if (!loadHdTiles(*data, era, artQuality(), tiles, err, carbot)) {
+    const std::shared_ptr<const HdTiles> held = sharedHdTiles(*data, era, artQuality(), carbot, &err);  // (the palette's too)
+    if (!held) {
         error = err;
         return false;
     }
+    const HdTiles& tiles = *held;
     // Lay megatiles out in a square grid; copy whole 4x4 blocks (no decoding).
     const uint32_t tile = uint32_t(tiles.tileSize), blocks = tile / 4, blockBytes = tiles.format == DdsTexture::BC1 ? 8 : 16;
     size_t n = tiles.tiles.size();

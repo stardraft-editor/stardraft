@@ -61,6 +61,10 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     if (gRenderer && gMapEd && !gState.ed && gDocs.empty()) {  // (the last map closed: its GPU memory goes; the next map makes it again)
         gRenderer->releaseMapData();
         releaseMapTexture();
+        releaseMapCaches();   // (the map copies, the scratch maps, the game's sprites: core/recent.inc)
+        void releasePaletteArtData();
+        releasePaletteArtData();  // (the palette's and the Tiles grid's HD icons and tiles: sdl_pictures.inc)
+        shellForgetAnims();   // (the units' idle animations)
         gMapEd = nullptr;
     }
     if (!gRenderer || !gState.ed || !gState.ed->isOpen() || w <= 0 || h <= 0) return;

@@ -1190,6 +1190,8 @@ const LayersOutside& mapLayersOutside(const Editor& ed) {
             Bytes base;
         };
         static std::map<std::pair<const GameData*, uint32_t>, Scratch> scratches;  // (by the game data and era << 16 | ground)
+        static const bool released = (mapCacheReleases().push_back(+[] { scratches.clear(); }), true);
+        (void)released;
         const auto floorDiv = [](int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); };
         uint16_t mapGround = ed.terrainAt(16, 16);  // (no ISOM: the era's first terrain that has tiles, for placed tiles only)
         for (uint16_t t = 1; !mapGround && t < 64; ++t)

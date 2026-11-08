@@ -1501,6 +1501,8 @@ void syncMapUnitGraphics() {
     gGameUnitImage.clear(), gGameSubunitImage.clear();
     if (on) {
         static std::unique_ptr<UnitSprites> game;
+        static const bool released = (mapCacheReleases().push_back(+[] { game.reset(); }), true);
+        (void)released;
         std::string err;
         if (!game && !(game = std::make_unique<UnitSprites>())->load(app.data, err)) game.reset();
         for (uint16_t t = 0; game && t < app.ed->unitTypes().size(); ++t)

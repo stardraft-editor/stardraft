@@ -72,13 +72,13 @@ draw::Bitmap& tilesPixels(uint16_t value, draw::Rect& src) {
     if (mode && (slot.era != app.ed->era() || slot.mode != mode)) {
         std::string err;
         slot.era = app.ed->era(), slot.mode = mode;
-        if (!loadHdTiles(app.ed->gameData(), app.ed->era(), GraphicsQuality::HD2, slot.hd, err, mode == 2)) slot.hd = {};
+        slot.hd = sharedHdTiles(app.ed->gameData(), app.ed->era(), GraphicsQuality::HD2, mode == 2, &err);
     }
     auto [it, fresh] = gTilesArt.pixels.try_emplace(uint16_t(value >> 4));
     draw::Bitmap& b = it->second.bitmap;
     it->second.used = gTilesArt.paints;
     if (fresh) {
-        const HdTiles* hd = mode && !slot.hd.tiles.empty() ? &slot.hd : nullptr;
+        const HdTiles* hd = mode && slot.hd && !slot.hd->tiles.empty() ? slot.hd.get() : nullptr;
         std::vector<uint16_t> row(16);
         for (int s = 0; s < 16; ++s) row[size_t(s)] = uint16_t((value & 0xFFF0) | s);
         const Sprite pic = mapTilesPicture(app.ed->tileset(), row, 16, 0, 0, 16, 1, hd);

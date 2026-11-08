@@ -11,7 +11,7 @@ struct PaletteArt {
     int era = -1, mode = -1;
     int rulesRev = 0;  // (gTerrainRulesRev of the pictures: terrain rules loaded again draw the terrains again)
     std::vector<Sprite> hdIcons;  // HD2 (or Carbot) command icons, for the mode
-    HdTiles hdTiles;              // HD2 (or Carbot) megatiles, for terrain and doodad pictures
+    std::shared_ptr<const HdTiles> hdTiles;  // HD2 (or Carbot) megatiles, for terrain and doodad pictures (sharedHdTiles)
     bool hdTilesLoaded = false;
     int hdTilesEra = -1, hdTilesMode = -1;  // (the era and mode of hdTiles: another map of that tileset uses them too)
     std::map<std::tuple<int, int, int, bool>, std::unique_ptr<draw::Bitmap>> bitmaps;  // (mode of the row, value, owner, sprite)
@@ -21,6 +21,15 @@ struct PaletteArt {
 PaletteArt gPaletteArt;
 // The pictures' textures go before the GPU device does (main_sdl.cpp's shutdown); a later release would use a freed device.
 void releasePaletteArt() { gPaletteArt = PaletteArt{}; }
+// No map is open: the HD icons and tiles go (the pictures' textures stay until the next map's: the GPU may still draw
+// them this frame). The next map loads them again.
+void releasePaletteArtData() {
+    gPaletteArt.ed = nullptr, gPaletteArt.data = nullptr, gPaletteArt.mode = -1;
+    gPaletteArt.hdIcons.clear(), gPaletteArt.hdIcons.shrink_to_fit();
+    gPaletteArt.hdTiles.reset(), gPaletteArt.hdTilesLoaded = false, gPaletteArt.hdTilesEra = gPaletteArt.hdTilesMode = -1;
+    gTilesArt.hdByData.clear();
+    releaseSharedHdTiles();
+}
 
 // The terrain that terrain `value` stands on ("X (Y)": Y; a mod terrain's ground), or 0: the palette's picture shows it
 // as a square at its bottom right, the pie palette as the end of the slice.
@@ -36,6 +45,12 @@ uint16_t terrainGround(const Editor& ed, uint16_t value) {
         if (t->isTerrain(i) && ed.terrainName(i).rfind(y + " (", 0) == 0) return i;
     return 0;
 }
+
+// A palette's paint makes at most kPaletteArtBudgetMs of new pictures (a map's first frame had all of them: 190 ms);
+// the others come in the next frames (the view paints again; the snapshots' frames wait for them, as for the sprites).
+constexpr double kPaletteArtBudgetMs = 12;
+std::chrono::steady_clock::time_point gPaletteArtDeadline{};  // (set only while a palette paints)
+int gPaletteArtLeft = 0;                                       // pictures left for a next frame
 
 // The picture of one item (value) of a palette mode, or nullptr when it has none (the Win32 palette's blank case: the
 // game's "BLANK" icon). Terrains and doodads: their tiles; units: the command icon (HD in the HD modes); sprites: their
@@ -78,6 +93,8 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
     const uint32_t ownerRgb = !unitKind ? 0 : owner >= 0 && owner < 8 ? playerRgba(owner, 0) >> 8 : ed.playerRgb(owner);
     const auto key = std::make_tuple(iconFrame ? 100 : int(what), value, unitKind ? int(owner) << 24 | int(ownerRgb & 0xFFFFFF) : 0, sprite);
     if (auto it = gPaletteArt.bitmaps.find(key); it != gPaletteArt.bitmaps.end()) return it->second.get();
+    if (gPaletteArtDeadline != std::chrono::steady_clock::time_point{} && std::chrono::steady_clock::now() > gPaletteArtDeadline)
+        return ++gPaletteArtLeft, nullptr;  // (the paint's time for new pictures is over: a next frame)
 
     // The picture: a sprite of the game data (straight alpha), cropped to its opaque pixels below.
     Sprite art;
@@ -89,10 +106,9 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
         if (mode && !gPaletteArt.hdTilesLoaded) {
             std::string err;
             gPaletteArt.hdTilesLoaded = true, gPaletteArt.hdTilesEra = int(ed.era()), gPaletteArt.hdTilesMode = mode;
-            if (!loadHdTiles(ed.gameData(), ed.era(), GraphicsQuality::HD2, gPaletteArt.hdTiles, err, mode == 2))
-                gPaletteArt.hdTiles = {};
+            gPaletteArt.hdTiles = sharedHdTiles(ed.gameData(), ed.era(), GraphicsQuality::HD2, mode == 2, &err);
         }
-        const HdTiles* hd = mode && !gPaletteArt.hdTiles.tiles.empty() ? &gPaletteArt.hdTiles : nullptr;
+        const HdTiles* hd = mode && gPaletteArt.hdTiles && !gPaletteArt.hdTiles->tiles.empty() ? gPaletteArt.hdTiles.get() : nullptr;
         if (what == Mode::Terrain) {
             art = terrainPicture(ed.tileset(), uint16_t(value), hd);
             // The terrain it stands on ("X (Y)": Y) as a small square at the bottom right, half the picture's height.

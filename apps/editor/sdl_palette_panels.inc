@@ -385,6 +385,7 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
     v.onSort = [pv] { paletteSortMenuSdl(pv->mode, pv->sortButton, pv); };
     v.onCollapse = [pv] { shellPost([pv] { palettePanelCollapse(*pv, !pv->collapsed); }); };
     v.list.picture = panelPicture;
+    v.list.pictureBudget = panelPictureBudget;
     // A pick picks in the panel's mode: the active mode becomes it (as a click in the mode's own palette).
     v.list.picked = [pv](int row, unsigned mods) {
         if (row < 0 || row >= int(pv->list.rows.size())) return;

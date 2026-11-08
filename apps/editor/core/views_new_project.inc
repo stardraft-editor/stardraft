@@ -124,7 +124,7 @@ public:
         output_.setFrame(r(kLabelW, 2 * kRowStep, kBoxW - kBrowseW - kGap, kFieldH));
         browseOut_.setFrame(r(kLabelW + kBoxW - kBrowseW, 2 * kRowStep, kBrowseW, kFieldH));
         start_.setFrame(r(kLabelW, 3 * kRowStep, kBoxW, kComboH));
-        const int y0 = 4 * kRowStep + 4, rowH = 20, nameW = 136;
+        const int y0 = 4 * kRowStep + 4, rowH = 20, nameW = 216;  // (the names' column: a project name of about 24 letters)
         intro_.setFrame(r(0, y0, kContentW, rowH));
         for (int i = 0; i < kSketchRows; ++i) {
             fileNames_[i].setFrame(r(16, y0 + 26 + i * rowH, nameW - 24, rowH));

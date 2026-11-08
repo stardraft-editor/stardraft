@@ -375,12 +375,14 @@ const Sprite& stageGround(int k) {
     Sprite& g = ground[n];
     if (!shellState().ed || (madeFor[n] == shellState().ed.get() && madeMode[n] == mode)) return g;
     madeFor[n] = shellState().ed.get(), madeMode[n] = mode;
-    static HdTiles hd;
+    static std::shared_ptr<const HdTiles> hd;  // (sharedHdTiles)
     static std::pair<int, int> hdFor{-1, -1};
+    static const bool released = (mapCacheReleases().push_back(+[] { hd.reset(), hdFor = {-1, -1}; }), true);
+    (void)released;
     if (n > 1 && hdFor != std::pair<int, int>{shellState().ed->era(), mode}) {
         std::string err;
         hdFor = {shellState().ed->era(), mode};
-        if (!loadHdTiles(shellState().data, shellState().ed->era(), GraphicsQuality::HD2, hd, err, shellState().carbot)) hd = {};
+        hd = sharedHdTiles(shellState().data, shellState().ed->era(), GraphicsQuality::HD2, shellState().carbot, &err);
     }
     // The middle 4 x 4 tiles (what the stage shows) where the map has the most different megatiles (cliffs,
     // doodads), so that what bends shows; the middle of the map when all are the same.
@@ -394,7 +396,7 @@ const Sprite& stageGround(int k) {
                 for (int tx = x + 6; tx < x + 10; ++tx) kinds.insert(shellState().ed->tileset().megatileFor(tiles[size_t(ty) * w + tx]));
             if (int(kinds.size()) > most) most = int(kinds.size()), bx = x, by = y;
         }
-    g = mapTilesPicture(shellState().ed->tileset(), tiles, w, bx, by, 16, 16, n > 1 && !hd.tiles.empty() ? &hd : nullptr);
+    g = mapTilesPicture(shellState().ed->tileset(), tiles, w, bx, by, 16, 16, n > 1 && hd && !hd->tiles.empty() ? hd.get() : nullptr);
     if (g.width != 512 * n) g = {};  // no HD2 tiles: no ground in HD
     return g;
 }

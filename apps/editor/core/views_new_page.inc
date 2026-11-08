@@ -464,7 +464,7 @@ public:
     void showLargePreview();
     int largePreviews = 0;  // (the self-tests read it)
     // The HD2 tiles of the tileset for the larger preview (loaded the first time it opens, for its era and skin).
-    HdTiles hdTiles;
+    std::shared_ptr<const HdTiles> hdTiles;  // (sharedHdTiles)
     int hdFor = -1;  // era * 2 + carbot of hdTiles; -1: none
 
     // The page was shown again: it starts at the top.
@@ -620,11 +620,10 @@ void NewPageView::showLargePreview() {
         const int want = era * 2 + (app.carbot ? 1 : 0);
         if (hdFor != want) {
             std::string err;
-            hdTiles = HdTiles{};
-            if (!loadHdTiles(app.data, era, GraphicsQuality::HD2, hdTiles, err, app.carbot)) hdTiles = HdTiles{};
+            hdTiles = sharedHdTiles(app.data, era, GraphicsQuality::HD2, app.carbot, &err);
             hdFor = want;
         }
-        if (!hdTiles.tiles.empty()) hd = &hdTiles;
+        if (hdTiles && !hdTiles->tiles.empty()) hd = hdTiles.get();
     }
     TerrainLayer t;
     t.width = uint16_t(tilesW), t.height = uint16_t(tilesH), t.tiles = tiles;

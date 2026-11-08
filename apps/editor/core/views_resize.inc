@@ -68,6 +68,8 @@ inline uint64_t gResizeCopySerial = 0;  // the preview that the copy holds (0: n
 inline Editor& resizeCopy(const GameData& data) {
     static std::unique_ptr<Editor> copy;
     static const GameData* of = nullptr;
+    static const bool released = (mapCacheReleases().push_back(+[] { copy.reset(), of = nullptr, gResizeCopySerial = 0; }), true);
+    (void)released;
     if (!copy || of != &data) copy = std::make_unique<Editor>(data), of = &data;
     return *copy;
 }

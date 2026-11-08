@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
+#include <tuple>
 
 #include "byteio.h"
 #include "stardraft/game_data.h"
@@ -120,6 +122,41 @@ bool loadAnimImage(const GameData& data, int image, GraphicsQuality quality, Ani
         for (const auto& fr : out.frames)
             out.boxWidth = std::max(out.boxWidth, 2 * fr.xOff + fr.width), out.boxHeight = std::max(out.boxHeight, 2 * fr.yOff + fr.height);
     return true;
+}
+
+namespace {
+using HdTilesKey = std::tuple<const GameData*, uint16_t, int, bool>;
+std::mutex gHdTilesLock;
+std::vector<std::pair<HdTilesKey, std::weak_ptr<const HdTiles>>> gHdTilesHeld;  // (each set someone holds)
+std::pair<HdTilesKey, std::shared_ptr<const HdTiles>> gHdTilesLast;             // (the last set read: kept for the next)
+}  // namespace
+
+void releaseSharedHdTiles() {
+    std::lock_guard<std::mutex> guard(gHdTilesLock);
+    gHdTilesLast = {};
+}
+
+std::shared_ptr<const HdTiles> sharedHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, bool carbot, std::string* error) {
+    using Key = HdTilesKey;
+    auto& lock = gHdTilesLock;
+    auto& held = gHdTilesHeld;
+    auto& last = gHdTilesLast;
+    const Key key{&data, era, int(quality), carbot};
+    std::lock_guard<std::mutex> guard(lock);
+    if (last.second && last.first == key) return last.second;
+    std::erase_if(held, [](const auto& h) { return h.second.expired(); });
+    for (const auto& [k, w] : held)
+        if (k == key)
+            if (auto s = w.lock()) return last = {key, s}, s;
+    auto tiles = std::make_shared<HdTiles>();
+    std::string err;
+    if (!loadHdTiles(data, era, quality, *tiles, err, carbot)) {
+        if (error) *error = err;
+        return nullptr;
+    }
+    std::shared_ptr<const HdTiles> s = std::move(tiles);
+    held.push_back({key, s}), last = {key, s};
+    return s;
 }
 
 bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, HdTiles& out, std::string& error, bool carbot) {

@@ -182,9 +182,21 @@ void fillSectionBox(const std::vector<std::wstring>& names) {
 // A palette item's picture (the palette's pictures, sdl_pictures.inc): false when it has none.
 bool panelPicture(draw::Canvas& c, Mode what, int value, bool sprites, draw::Rect box) {
     if (what == Mode::Locations) return false;  // (a location has no picture)
+    const int left = gPaletteArtLeft;
     draw::Bitmap* b = paletteBitmap(what, value, gState.playerOwner, false, sprites);
     if (b) drawPaletteArt(c, *b, box);
-    return b != nullptr;
+    return b != nullptr || gPaletteArtLeft != left;  // (a picture of a next frame: its place stays empty until then)
+}
+// A palette's paint: its time for new pictures starts (start), or ends; true: pictures are left for a next frame.
+bool panelPictureBudget(bool start) {
+    static int leftAtStart = 0;
+    if (start) {
+        gPaletteArtDeadline = std::chrono::steady_clock::now() + std::chrono::microseconds(int64_t(kPaletteArtBudgetMs * 1000));
+        leftAtStart = gPaletteArtLeft;
+        return false;
+    }
+    gPaletteArtDeadline = {};
+    return gPaletteArtLeft != leftAtStart;
 }
 
 // The View menu (core/palette_view.inc: paletteMenuModel) of the palette `pal` at `at` of `from`: on its item of `row`
@@ -508,6 +520,7 @@ void initPanels() {
     gPal2List.second = gPal3List.second = true;
     gPalList.chosen = &shellPaletteChosen();
     gPalList.picture = gPal2List.picture = gPal3List.picture = panelPicture;
+    gPalList.pictureBudget = gPal2List.pictureBudget = gPal3List.pictureBudget = panelPictureBudget;
     // A click picks the item (Ctrl adds to the pick; Shift picks every item from the last pick, as on Windows); the second
     // and the third palette pick in their own mode (pickInOtherMode). The keyboard goes to the map after a pick (Windows:
     // SetFocus on the view), so the map's keys and undo run.

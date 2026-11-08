@@ -3,6 +3,16 @@
 // (shellRecentMenu). Portable: included by core.inc and by main.cpp after ids.inc.
 
 bool gSelfTest = false;             // the self-test runs (its settings are not the user's)
+
+// The caches of the maps (copies of a map, scratch maps, decoded sprites): each adds its release the first time it
+// fills; releaseMapCaches runs them when the last map closes (sdl_main_view.inc), so their memory goes with the maps.
+inline std::vector<void (*)()>& mapCacheReleases() {
+    static std::vector<void (*)()> all;
+    return all;
+}
+inline void releaseMapCaches() {
+    for (void (*release)() : mapCacheReleases()) release();
+}
 bool gSettingsOff = false;          // tests and screenshot runs: the defaults, and nothing saved (the lists, the layout, the options)
 std::wstring gProjectsFolder;         // Program options > Projects folder
 

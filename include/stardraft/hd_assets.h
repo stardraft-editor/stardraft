@@ -3,6 +3,7 @@
 // StarCraft: Remastered HD assets, decoded to GPU-ready (still compressed) data. GPU-free.
 
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <string>
 #include <vector>
@@ -55,6 +56,12 @@ struct HdTiles {
     std::vector<Bytes> tiles;  // compressed blocks of each megatile
 };
 bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, HdTiles& out, std::string& error, bool carbot = false);
+// The same, read once for all who use them (the renderer's atlas, the palette, the Tiles grid, the pictures): they
+// stay while one holds them, and the last ones read stay for the next (a map of the same tileset). nullptr: not there.
+std::shared_ptr<const HdTiles> sharedHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, bool carbot = false,
+                                             std::string* error = nullptr);
+// The last ones read go (no map is open): only the holders keep theirs.
+void releaseSharedHdTiles();
 
 // The HD or HD2 art of a GRP that no images.dat entry names (UnitSprites::extraImage: "tileset\<name>.grp", the creep
 // edges): "<path>.dds.grp" (or "HD2\..."; with `carbot`, the Carbot skin's first), one DDS a frame, its frames put into

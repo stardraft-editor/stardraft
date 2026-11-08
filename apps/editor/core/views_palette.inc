@@ -18,6 +18,8 @@ struct PaletteGridView : draw::View {
     std::wstring searchWords;  // the search's text (lower case): its words are in the accent in a list
     // The item's picture in `box` (false: none; a terrain then gets an empty swatch).
     std::function<bool(draw::Canvas&, Mode, int value, bool sprites, draw::Rect box)> picture;
+    // The paint's time for new pictures: start (true), end (false; true back: pictures are left, the view paints again).
+    std::function<bool(bool start)> pictureBudget;
     // A left click on an item (row index), with the keys held.
     std::function<void(int row, unsigned mods)> picked;
     // A right click (the row under it, or -1), at `pt` (the view's coordinates).
@@ -27,7 +29,10 @@ struct PaletteGridView : draw::View {
         add(bar_, draw::Rect{});
         bar_.onScroll = [this](int p) { scrollTo(p); };
     }
-    ~PaletteGridView() override { remove(bar_); }
+    ~PaletteGridView() override {
+        if (againTimer_ && againHost_) againHost_->cancelTimer(againTimer_);  // (the host the timer is on: a floating palette has left it by now)
+        remove(bar_);
+    }
 
     const PaletteView* ownView = nullptr;  // a palette panel's own view (else the mode's: gViewByMode)
     const PaletteView& view() const { return ownView ? *ownView : gViewByMode[int(mode)]; }
@@ -81,6 +86,14 @@ struct PaletteGridView : draw::View {
 
     void resized() override { layout(); }
     void paint(draw::Canvas& c) override {
+        if (pictureBudget) pictureBudget(true);
+        struct BudgetEnd {  // (at each way out of the paint: the pictures left come in a next frame)
+            PaletteGridView& v;
+            ~BudgetEnd() {
+                if (v.pictureBudget && v.pictureBudget(false) && v.host() && !v.againTimer_)
+                    v.againHost_ = v.host(), v.againTimer_ = v.host()->timer(1, [&v = v] { v.againTimer_ = 0, v.againHost_ = nullptr, v.invalidate(); });
+            }
+        } budgetEnd{*this};
         const MutedAccent muted(state && state != gActivePanel);  // (no focus: gray)
         const PanelScope scope(state);  // (its panel's picks)
         const bool own = state != nullptr;
@@ -284,6 +297,8 @@ struct PaletteGridView : draw::View {
     std::wstring focusedItem() const override { return isItem(keys_.at) ? rows[size_t(keys_.at)].label : std::wstring(); }
 
 private:
+    int againTimer_ = 0;  // (pictures left by a paint: the timer of the next one)
+    draw::Host* againHost_ = nullptr;  // (the host that timer is on)
     int px(int v100) const { return scale(v100); }
     bool isItem(int i) const { return i >= 0 && i < int(rows.size()) && i < int(rects_.size()) && rows[size_t(i)].value >= 0; }
     // The next item after row `i` (dir -1: before it), or -1.
