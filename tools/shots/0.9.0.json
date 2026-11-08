@@ -1,0 +1,60 @@
+{
+  "runs": [
+    {
+      "map": "Maps/(2)Bottleneck.scm",
+      "cases": [
+        "map-layers-shot",
+        "dialog-import-3",
+        "assets-media-lists",
+        "map-sim-mining-cycle",
+        "map-sim-rush-end",
+        "dialog-options-tab-appearance",
+        "map-terrain-mask"
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "from": "map-layers-shot.png",
+      "to": "map-layers.png",
+      "crop": [64, 96, 1196, 856],
+      "alt": "Map layers: a layer with Solar Array painted on it, and its linked duplicate moved down the map"
+    },
+    {
+      "from": "dialog-import-3.png",
+      "to": "import-project.png",
+      "crop": [0, 0, 880, 584],
+      "alt": "File > Import a project: the parts of an EUD Editor 2 project, each with what it holds"
+    },
+    {
+      "from": "assets-media-lists.png",
+      "to": "music-dot-images.png",
+      "crop": [64, 96, 1264, 464],
+      "alt": "Assets: the Music and Dot images lists of an EUD project"
+    },
+    {
+      "from": "map-sim-mining-cycle.png",
+      "to": "simulation-mining.png",
+      "crop": [344, 96, 976, 856],
+      "alt": "Tools > Simulation: mining with each mineral field's round trip, the cycle boost's numbered commands and the settings"
+    },
+    {
+      "from": "map-sim-rush-end.png",
+      "to": "simulation-rush.png",
+      "crop": [404, 96, 856, 856],
+      "alt": "Rush distance between the start locations: each player's way and its time"
+    },
+    {
+      "from": "dialog-options-tab-appearance.png",
+      "to": "options-appearance.png",
+      "crop": [0, 0, 720, 480],
+      "alt": "Program options by topic: Appearance with unit icons in the accent color and Show system diagnostics"
+    },
+    {
+      "from": "map-terrain-mask.png",
+      "to": "terrain-mask.png",
+      "crop": [64, 96, 1196, 856],
+      "alt": "The terrain mask on the map: a chip names the masked terrain, with a button that clears it"
+    }
+  ]
+}
