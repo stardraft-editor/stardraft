@@ -50,6 +50,17 @@ struct PathingLayer {
     int shown = -1;
 };
 PathingLayer gPathing;
+// The SDL editor supplies the shared simulation engine's static region view.
+// Connected areas and pathing-problem analysis retain their existing code.
+void (*gEngineRegionScene)(render::Scene&) = nullptr;
+std::wstring (*gEngineRegionHover)(float,float) = nullptr;
+void (*gShowRegionOptions)() = nullptr;
+int gRegionOpacity = 35;
+void pathingSetVisible(bool value) { gPathing.on=value; }
+void pathingSetAreas(bool value) { gPathing.areas=value; }
+int regionOpacity() { return gRegionOpacity; }
+void setRegionOpacity(int value) { gRegionOpacity=std::clamp(value,0,100); }
+void showRegionOptions() { if(gShowRegionOptions)gShowRegionOptions(); }
 
 bool pathingLayerOn() { return gPathing.on; }
 bool pathingLayerAreas() { return gPathing.areas; }
@@ -262,19 +273,20 @@ const wchar_t* pathingSection(PathingProblemKind k) {
 
 void addPathingLayer(render::Scene& s) {
     if (!gPathing.on) return;
-    pathingLayerPoll();
+    const bool engine = !gPathing.areas && gEngineRegionScene;
+    if (engine) gEngineRegionScene(s);
+    if (!engine || gPathing.checkFor == appState().ed.get()) pathingLayerPoll();
     const PathingLayerResult* res = pathingResult();
-    if (!res) return;
-    const PathingRegions* r = &res->regions;
-    colorPathingShapes(*res);
+    if (!engine && !res) return;
+    if (!engine) colorPathingShapes(*res);
     const AppState& app = appState();
     int vw, vh;
     viewSize(vw, vh);
     const float vx0 = app.camX, vy0 = app.camY, vx1 = app.camX + vw / app.zoom, vy1 = app.camY + vh / app.zoom;
     auto visible = [&](const render::RectDraw& d) { return d.x1 >= vx0 && d.x0 <= vx1 && d.y1 >= vy0 && d.y0 <= vy1; };
-    for (const render::RectDraw& d : gPathing.fills)
+    if (!engine) for (const render::RectDraw& d : gPathing.fills)
         if (visible(d)) s.rects.push_back(d);
-    if (app.zoom * 8 >= 3)  // (the borders while a minitile is 3 screen pixels or more)
+    if (!engine && app.zoom * 8 >= 3)  // (the borders while a minitile is 3 screen pixels or more)
         for (const render::RectDraw& d : gPathing.borders)
             if (visible(d)) s.rects.push_back(d);
     // The problems of the check: a box around each, the one picked with its minitiles filled.
@@ -291,7 +303,7 @@ void addPathingLayer(render::Scene& s) {
         d.rgba = rgbaOf(hot ? kFeedback : kWarn, 0xFF), d.thickness = hot ? 3.0f : 2.0f;
         s.rects.push_back(d);
         if (!hot) continue;
-        const int w = r->walkW();
+        const int w = app.ed->width()*4;
         for (size_t k = 0; k < p.cells.size();) {  // (runs of the cells on a row)
             size_t e = k + 1;
             while (e < p.cells.size() && p.cells[e] == p.cells[e - 1] + 1 && p.cells[e] / w == p.cells[k] / w) ++e;
@@ -307,11 +319,13 @@ void addPathingLayer(render::Scene& s) {
 // The status bar's text for the place under the mouse (map pixels): a problem, else the region.
 std::wstring pathingHover(float wx, float wy) {
     const PathingRegions* r = gPathing.on ? pathingRegions() : nullptr;
-    if (!r) return {};
+    if (!gPathing.on) return {};
     if (const PathingCheck* c = pathingCheck())
         for (const PathingProblem& p : c->problems)
             if (wx >= p.x0 * 8.0f - 4 && wx < p.x1 * 8.0f + 4 && wy >= p.y0 * 8.0f - 4 && wy < p.y1 * 8.0f + 4)
                 return pathingProblemText(p) + L". " + pathingFixText(p);
+    if (!gPathing.areas && gEngineRegionHover) return gEngineRegionHover(wx,wy);
+    if (!r) return {};
     const int mx = int(std::floor(wx / 8)), my = int(std::floor(wy / 8));
     const int ri = r->regionAt(mx, my);
     if (ri < 0) return {};
@@ -332,13 +346,15 @@ void pathingLayerMouseMove(float wx, float wy) {
 }
 
 std::wstring pathingLegendText() {
+    if (!gPathing.areas && gEngineRegionScene)
+        return tr(L"Pathing: each pathing region of the game has its own color. Ground without color: units cannot walk here");
     return gPathing.areas ? tr(L"Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here")
                           : tr(L"Pathing: each pathing region of the game has its own color. Dark: units cannot walk here");
 }
 
 void pathingLayerToggle() {
     gPathing.on = !gPathing.on;
-    pathingLayerPoll();
+    if (gPathing.on && (gPathing.areas || !gEngineRegionScene)) pathingLayerPoll();
     shellMenusChanged();
     appState().dirty = true;
     setMessage(gPathing.on ? pathingLegendText() : tr(L"Pathing is hidden (View > Overlays)"));
@@ -346,7 +362,7 @@ void pathingLayerToggle() {
 
 void pathingLayerMode(bool areas) {
     gPathing.areas = areas, gPathing.on = true;
-    pathingLayerPoll();
+    if (areas || !gEngineRegionScene) pathingLayerPoll();
     shellMenusChanged();
     appState().dirty = true;
     setMessage(pathingLegendText());

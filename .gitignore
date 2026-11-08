@@ -1,4 +1,5 @@
 build/
+build-lab/
 /StarDraft-latest.exe
 /.issues-token
 out/

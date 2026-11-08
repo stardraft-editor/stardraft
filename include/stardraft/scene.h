@@ -60,6 +60,8 @@ struct TextDraw {
     uint32_t rgba = 0xFFFFFFFF;
     bool world = true;
     float scale = 1.5f;
+    bool smooth = false; // SDL map overlay: use the antialiased UI font and a
+                         // fitted backplate
 };
 
 struct Scene {
