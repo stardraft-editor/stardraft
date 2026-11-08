@@ -91,9 +91,10 @@ CASES += [
     ("dialog-message", ["--dialog", "message"], ""),  # the message box (msgbox::ask: questions, updates, crash reports)
     ("dialog-error", ["--dialog", "error"], ""),
     # The game data, no map.
-    ("data-units", ["--workspace", "data", "--data", "units:0"], "data"),
-    ("data-images", ["--workspace", "data", "--data", "images:239"], "data"),
-    ("data-strings", ["--workspace", "data", "--data", "strings:5"], "data"),
+    # (the Data workspace needs a project: a new unsaved one; with no tab the start page shows)
+    ("data-units", ["--untitled", "--workspace", "data", "--data", "units:0"], "data"),
+    ("data-images", ["--untitled", "--workspace", "data", "--data", "images:239"], "data"),
+    ("data-strings", ["--untitled", "--workspace", "data", "--data", "strings:5"], "data"),
 ]
 # A map open.
 CASES += [("map-ws-" + w, ["--workspace", w], "map") for w in WORKSPACES]

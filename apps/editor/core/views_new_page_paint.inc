@@ -187,7 +187,7 @@ void NewPageView::paint(draw::Canvas& c) {
             const std::wstring map = fromMapText();
             sub = map.empty() ? L"an imported map" : L"imported from " + fs::path(map).filename().wstring();
         }
-        y = kitpaint::drawTitle(c, x1, y, x3 + w3, {}, true, proj ? UiIcon::NewProject : UiIcon::New, cosmonarchy ? kCosmonarchyName : kKindNames[proj ? 1 : 0],
+        y = kitpaint::drawTitle(c, x1, y, x3 + w3, {}, true, proj ? UiIcon::Project : UiIcon::Map, cosmonarchy ? kCosmonarchyName : kKindNames[proj ? 1 : 0],
                                 sub, false)
                 .next;
     }

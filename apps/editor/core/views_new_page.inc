@@ -569,6 +569,8 @@ uint16_t NewPageView::terrainId() {
 
 // Makes the view's preview picture from its tiles (at the size it has on the page).
 void NewPageView::paintPreview(draw::Canvas& c, draw::Rect pv) {
+    // (the first paint: a blank map's picture at once, not a black box until the timer; a generated one takes longer)
+    if (tilesW <= 0 && !generate && !importing()) regenerate();
     c.fill(pv, RGB(0, 0, 0));  // a picture of the game: dark in both themes
     // The last picture stays until the new one is made (a change makes it again a moment later; no black frames).
     if (tilesW > 0 && tilesH > 0) {
