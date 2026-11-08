@@ -4962,6 +4962,28 @@ def check_custom_other_tileset(output):
     return None
 
 
+# Nonmodal symmetry controls: immediate settings, live map input, toggle and document close.
+CASES.append(('symmetry-options-panel',['--dialog','symmetry-options','--size','420x344','--check','symmetry-options'],'map'))
+def check_panel(s):
+ return None if 'symmetry-options: 17 checks, 0 failed' in s else 'quick controls failed'
+CHECKS['symmetry-options-panel']=check_panel
+SCRIPTS['symmetry_options_live']='history\nkey Alt+1\ncommand mode.symmetry.options\nwait 200\nclick 125,200\nclick 180,340\nclick 60,300\nclick 60,300\nclick 1000,800\nwait 200\nclick 77,200\ncommand mode.symmetry.options\nwait 200\ncommand mode.symmetry.options\nwait 200\nhistory\nclick 1000,800\nclick 160,43\nwait 200\n'
+CASES.append(('symmetry-options-live',['--script','{script:symmetry_options_live}','--check','menus'],'map'))
+def check_live(s):
+ import re
+ if s.count('symmetry-options: opened')!=2:return 'toggle did not reopen the nonmodal panel'
+ if len(re.findall('symmetry-options: applied',s))<4:return 'live control changes did not apply'
+ if 'enabled=0' not in s:return 'copy checkbox was not applied'
+ states=re.findall(r'history: (\d+) done, (\d+) to redo, map ([0-9a-f]+)',s)
+ return None if len(states)==2 and states[0]==states[1] else 'quick options changed the map or undo history'
+CHECKS['symmetry-options-live']=check_live
+
+
+CASES.append(("symmetry-source-profiles",["--check","symmetry-source-profiles"],"map"))
+def check_source_profiles(output):
+    return None if re.search(r"symmetry-source-profiles: [1-9]\d* checks, 0 failed",output) else "source profiles did not pass"
+CHECKS["symmetry-source-profiles"]=check_source_profiles
+
 CHECKS.update({
     "map-custom-terrain": check_custom_terrain, "map-custom-other-tileset": check_custom_other_tileset,
     "map-solid-brush": check_solid_brush, "map-solid-size3": check_solid_size3, "map-solid-mirror": check_solid_mirror,

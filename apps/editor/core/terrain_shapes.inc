@@ -97,6 +97,7 @@ void shapeCopySettings(Editor& c, const Editor& ed) {
     c.setMirrors(ed.mirrors()), c.setTurns(ed.turns());
     c.copySymmetryCenter(ed);
     c.setTerrainMask(ed.terrainMask());
+    c.setCopyOptions(ed.copyOptions());
     c.setAllowIllegalUnits(ed.allowIllegalUnits()), c.setAllowStacking(ed.allowStacking());
     c.setResourceDistance(ed.resourceDistance()), c.setManyStartLocations(ed.manyStartLocations()), c.setUnitLimit(ed.unitLimit());
 }
@@ -183,8 +184,23 @@ void shapeMakeTiles(const std::vector<std::pair<int, int>>& pts) {
 std::vector<int64_t> shapeSettingsKey() {
     const AppState& app = appState();
     const Brush b = currentBrush(app);
-    std::vector<int64_t> key{int64_t(app.ed->revision()), terrainKind(), app.palette, gTiles->picked, int64_t(gTiles->chosen.size()), int64_t(gTiles->stamp.size()),
-                             int64_t(b.shape), int64_t(b.size * 64), int64_t(b.height() * 64), app.ed->mirrors(), app.ed->turns()};
+    std::vector<int64_t> key{int64_t(app.ed->revision()),
+                             terrainKind(),
+                             app.palette,
+                             gTiles->picked,
+                             int64_t(gTiles->chosen.size()),
+                             int64_t(gTiles->stamp.size()),
+                             int64_t(b.shape),
+                             int64_t(b.size * 64),
+                             int64_t(b.height() * 64),
+                             app.ed->mirrors(),
+                             app.ed->turns()};
+    const auto& options = app.ed->copyOptions();
+    key.insert(key.end(), {options.direct, options.mirroredRotations, options.opposite, options.terrain, options.rawTile});
+    for (const auto& c : options.choices) {
+        for (unsigned char ch : c.key) key.push_back(ch);
+        key.insert(key.end(), {-100, c.enabled, c.terrain, c.rawTile});
+    }
     for (const std::vector<uint16_t>* mask : {&app.ed->terrainMask(), &app.ed->tileMask()}) {
         key.push_back(int64_t(mask->size()));
         key.insert(key.end(), mask->begin(), mask->end());

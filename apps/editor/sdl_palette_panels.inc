@@ -509,8 +509,10 @@ std::vector<std::string> palettePanelsText(int doc) {
 // The tab's side bar panels ("SidePanels"): each mode's state.
 std::vector<std::string> sidePanelsText(int doc) {
     std::vector<std::string> out;
+    if(doc==activeDocKey()){syncTerrainCopies();rememberTerrainCopies();}
     DockedPanels& d = dockedPanelsOf(doc);
     for (PanelState& st : d.modes) out.push_back(panelStateText(st));
+    for(auto& line:d.terrainCopies.text())out.push_back(std::move(line));
     return out;
 }
 
@@ -533,9 +535,19 @@ void palettePanelsLoad(int doc) {
             size_t a = 0;
             for (size_t b; (b = line.find('\t', a)) != std::string::npos; a = b + 1) part.push_back(line.substr(a, b - a));
             part.push_back(line.substr(a));
+            if(d.terrainCopies.read(part))continue;
             const int m = part.empty() ? -1 : std::atoi(part[0].c_str());
             if (m >= 0 && m < kModeCount) panelStateRead(d.modes[size_t(m)], part, 0, Mode(m));
         }
+        // The previous version kept one configuration. Associate that legacy
+        // setup only with the last selected source, never with every terrain.
+        if(d.terrainCopies.values.empty()){
+            const auto& terrain=d.modes[size_t(Mode::Terrain)];
+            const auto at=std::find_if(gDocs.begin(),gDocs.end(),[&](const auto& item){return item.key==doc;});
+            const auto* ed=doc==activeDocKey()?gState.ed.get():at==gDocs.end()?nullptr:at->ed.get();
+            if(ed)d.terrainCopies.remember(ed->era(),terrain.palette,terrain.copyOptions);
+        }
+        d.terrainCopySource=-1;d.terrainCopyEra=-1;
         if (doc == activeDocKey()) panelsReloaded();
     }
     if (!list) {

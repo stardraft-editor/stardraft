@@ -375,7 +375,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
                 break;
             }
             ed.beginTerrainStroke();
-            ed.paintBrush(int(wx), int(wy), eraseTerrain(ed), currentBrush(app));
+            ed.paintBrush(int(wx), int(wy), eraseTerrain(ed), currentBrush(app), false);
             gPaintX = wx, gPaintY = wy, gRerollX = wx, gRerollY = wy;
             gPaintCorners = brushPlace(ed, wx, wy, currentBrush(app)), gPaintTerrain = eraseTerrain(ed);
             app.drag = Drag::Paint;
@@ -654,7 +654,7 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         auto paintAt = [&](float x, float y) {
             std::vector<std::pair<int, int>> place = brushPlace(*app.ed, x, y, currentBrush(app));
             if (place == gPaintCorners && paint == gPaintTerrain) return;
-            app.ed->paintBrush(int(x), int(y), paint, currentBrush(app));
+            app.ed->paintBrush(int(x), int(y), paint, currentBrush(app), currentTool(app) != TErase);
             gPaintCorners = std::move(place), gPaintTerrain = paint;
         };
         for (int k = 1; k <= n; ++k) paintAt(gPaintX + dx * k / (n + 1), gPaintY + dy * k / (n + 1));

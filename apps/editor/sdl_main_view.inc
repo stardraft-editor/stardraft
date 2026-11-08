@@ -1146,9 +1146,11 @@ void registerWorkspaceView(Workspace w, draw::View& v) {
 }
 
 // The frame hook's map work (the window's map view size, in pixels).
+void symmetryOptionsFrame();
 void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     gState.dirty = false;  // (a change that sets it gets this frame; one in this frame, the next: sdlFrameClock)
     if (!gRoot) return;
+    symmetryOptionsFrame();
     menusIfDirty();
     const int w = gRoot->map.width(), h = gRoot->map.height();
     if (gFitPending && w > 0 && h > 0) fitMap(), updateStatus();  // (the map opened before the view had its size: the zoom it fit)

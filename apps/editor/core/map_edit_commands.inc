@@ -388,13 +388,20 @@ bool commandMapEdit(AppState& app, int id) {
         setMessage(L"Grid: " + std::to_wstring(g.px) + L" pixels");
         return done();
     }
+    if (id == ID_SYMMETRY_COPIES) { void showSymmetryCopiesDialog(); showSymmetryCopiesDialog(); return true; }
+    if (id == ID_SYMMETRY_OPTIONS) { toggleSymmetryOptions(); return true; }
     if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) {  // (as the tool strip's mirror buttons: in the modes that have them)
         if (!app.ed || !app.ed->isOpen() || !stripHasMirrors()) return done();
         static const int kFlags[5] = {0, Mirror::LeftRight, Mirror::TopBottom, Mirror::Diagonal, Mirror::AntiDiagonal};
         static const wchar_t* const kNames[5] = {L"none", L"left and right", L"top and bottom", L"top left to bottom right", L"top right to bottom left"};
         const int k = id - ID_MIRROR_KEY, flag = kFlags[k];
         app.ed->setMirrors(flag ? app.ed->mirrors() ^ flag : 0);
-        if (!flag) app.ed->setTurns(1);  // (none: the turns off too)
+        if (!flag) {
+            app.ed->setTurns(1);
+            auto options = app.ed->copyOptions();
+            options.opposite = options.mirroredRotations = false;
+            app.ed->setCopyOptions(options);
+        }
         shellToolsChanged();
         app.dirty = true;
         setMessage(!flag ? std::wstring(L"Symmetry: none")

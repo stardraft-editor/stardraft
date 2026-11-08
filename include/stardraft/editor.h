@@ -32,6 +32,7 @@
 #include "stardraft/strings.h"
 #include "stardraft/terrain.h"
 #include "stardraft/tileset.h"
+#include "stardraft/symmetry_copies.h"
 #include "stardraft/units.h"
 
 namespace stardraft {
@@ -80,8 +81,9 @@ constexpr uint16_t kMapRevealerUnit = 101;
 namespace Mirror {
 constexpr int LeftRight = 1, TopBottom = 2, Diagonal = 4, AntiDiagonal = 8, All = 15;
 }
-constexpr int kMaxTurns = 8;
-constexpr size_t kMaxSymmetricPlaces = 32;
+constexpr int kMaxTurns = 16;
+constexpr size_t kMaxSymmetricPlaces = 64;
+const char* symmetryName(Symmetry s);
 
 class Editor {
 public:
@@ -175,7 +177,8 @@ public:
     // --- Terrain tools (phase 1) --------------------------------------------------------------
     // All of these go through the terrain correction engine and the symmetry setting. Brush and
     // spray belong to a stroke (begin/endTerrainStroke); fill, replace and paste are one undo step.
-    bool paintBrush(int px, int py, uint16_t terrain, const Brush& brush);
+    // Erase passes false to paint the same ground at every enabled copy.
+    bool paintBrush(int px, int py, uint16_t terrain, const Brush& brush, bool useCopyTerrain = true);
     // New random tile variants (subtiles) under the brush, terrain unchanged: repainting a terrain on
     // itself. Cliff stacks re-roll from their top piece down, so they stay continuous. Returns tiles
     // changed; one undo step.
@@ -325,6 +328,11 @@ public:
 
     // --- Symmetry -------------------------------------------------------------------------------
     void setSymmetry(Symmetry s);
+    const CopyOptions& copyOptions() const { return copyOptions_; }
+    void setCopyOptions(CopyOptions o) { copyOptions_ = std::move(o); }
+    std::vector<CopyTransform> availableCopies() const {
+        return copyTransforms(mirrors_, turns_, copyOptions_.direct, copyOptions_.mirroredRotations, copyOptions_.opposite);
+    }
     Symmetry symmetry() const;
     void setMirrors(int mask) { mirrors_ = mask & Mirror::All; }
     int mirrors() const { return mirrors_; }
@@ -349,6 +357,11 @@ public:
     void setTileMask(std::vector<uint16_t> tiles) { tileMask_ = std::move(tiles); }
     // The point itself followed by its mirror images (duplicates removed).
     std::vector<std::pair<int, int>> symmetricPoints(int px, int py) const;
+    struct SymmetryTarget {
+        int x, y, terrain, rawTile;
+    };
+    std::vector<SymmetryTarget> symmetryTargets(int px, int py) const;
+    std::vector<TileAt> symmetricRawTiles(int tx, int ty, uint16_t value) const;
     // The points a terrain brush paints at (a StarEdit brush is centered on its lattice point first; see editor.cpp).
     std::vector<std::pair<int, int>> terrainSymmetricPoints(int px, int py, const Brush& brush) const;
 
@@ -870,8 +883,13 @@ private:
     void holdMasked(const std::vector<CornerValue>& corners);  // (the corners near them that the mask keeps: for the next isom_.apply)
     struct SymmetricPlace {
         int x, y;
-        bool flipX, flipY;  // a mirror image across a vertical (horizontal) axis: a pasted copy flips that way
+        CopyTransform transform;
+        int terrain = -1;
+        bool flipX = false, flipY = false;
+        int rawTile = -1; // a mirror image across a vertical (horizontal) axis: a pasted copy flips that way
     };
+    CopyOptions copyOptions_;
+    bool symmetrySuppressed_ = false;
     // margin: how far past the map's edges a place may be (terrain: a brush or a copy there still reaches the map).
     std::vector<SymmetricPlace> symmetricPlaces(int px, int py, int margin = 0) const;
 

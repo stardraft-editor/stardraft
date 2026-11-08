@@ -792,7 +792,7 @@ render::Scene buildScene() {
     if (gRangeKinds && app.mode == Mode::Units) rangesScene(s, moveDX, moveDY);  // (they follow a unit being moved)
 
     // Symmetry axes.
-    if (const int mm = ed.mirrors(); mm || ed.turns() > 1) {
+    if (const int mm = ed.mirrors(); mm || ed.turns() > 1 || ed.copyOptions().opposite) {
         float W = ed.width() * 32.0f, H = ed.height() * 32.0f, t = 1.5f / app.zoom;
         const float cx = float(ed.symmetryCenter().first), cy = float(ed.symmetryCenter().second);  // (through the center)
         uint32_t c = 0x80C0FF70u;
@@ -808,7 +808,7 @@ render::Scene buildScene() {
         if (mm & Mirror::TopBottom) hline();
         if (mm & Mirror::Diagonal) diag(false);
         if (mm & Mirror::AntiDiagonal) diag(true);
-        if (ed.turns() > 1) {  // a turn: a mark at the center
+        if (ed.turns() > 1 || ed.copyOptions().opposite) {  // a turn: a mark at the middle
             const float r = 10 / app.zoom;
             s.rects.push_back({cx - r, cy - r, cx + r, cy + r, c, true});
         }

@@ -321,3 +321,21 @@ is kept in the settings.
   and weapon previews, the button card.
 - Every text token has a contrast of at least 4.5:1 to the grounds it is drawn on, in both themes and with every
   accent.
+
+## Symmetry options
+
+Mode > Show symmetry options toggles a modeless 420x344 tool window for per-copy
+terrain and placement. Two compact thumbnail grids reuse the palette's terrain
+pictures and support mouse, keyboard, tooltips and scrolling. Changes use the active document and palette immediately;
+the full symmetry composer remains under Configure copies. Terrain and copy
+placement profiles are shared by the map's palettes and keyed by tileset/source
+terrain; mirror generators remain palette settings. The visibility toggle
+is stored with application settings, and the panel follows document/tool changes.
+
+The `--check symmetry-source-profiles` snapshot check covers palette switching,
+profile encoding, map/tileset isolation and geometry preservation. The real-editor
+restart test uses an empty output directory and locally supplied Twilight map:
+
+```
+python -I tools/tests/symmetry_source_persistence.py --exe <editor> --install <game> --map <Twilight.scx> --out <empty-directory>
+```
