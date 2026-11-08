@@ -122,7 +122,7 @@ enum class UiIcon : int {
   MirrorLeftRight = 116,  // Top bar: mirror left and right (added by hand)
   MirrorTopBottom = 117,  // Top bar: mirror top and bottom (added by hand)
   Layers = 118,  // Modes: Map Layers (added by hand)
-  MoveAll = 119,  // Tools: Move Layer (added by hand)
+  MoveAll = 119,  // Tools: Terrain's Move (added by hand)
   Lock = 120,  // Layers: locked (added by hand)
   Unlock = 121,  // Layers: not locked (added by hand)
   ShowOff = 122,  // Layers: hidden (added by hand)
@@ -130,10 +130,11 @@ enum class UiIcon : int {
   Lasso = 124,  // Tools: Lasso (added by hand)
   Sort = 125,  // Lists: the Sort button (added by hand)
   Pie = 126,  // Terrain: the pie palette (added by hand)
-  Count = 127,
+  MoveLayer = 127,  // Map layers: Move layer (added by hand)
+  Count = 128,
 };
 inline const char* uiIconId(UiIcon i) {
-  static const char* const ids[] = {"map", "data", "triggers", "briefing", "assets", "project", "build", "new-project", "terrain", "units", "doodads", "locations", "brush", "spray", "fill", "replace", "select", "shape-diamond", "shape-square", "shape-circle", "owner", "filter", "new", "open", "save", "save-as", "close", "recent", "generate", "folder", "open-external", "undo", "redo", "cut", "copy", "paste", "duplicate", "delete", "select-all", "rename", "search", "align-right", "align-center", "zoom-in", "zoom-out", "actual-size", "fit", "grid", "show", "log", "code", "control-kit", "play", "pause", "stop", "to-start", "to-end", "loop", "sound", "mute", "attack", "timeline", "dat-units", "dat-weapons", "dat-flingy", "dat-sprites", "dat-images", "dat-upgrades", "dat-tech", "dat-orders", "dat-sfx", "dat-portraits", "dat-strings", "dat-buttons", "add", "remove", "check", "edit", "back", "forward", "move-up", "move-down", "dropdown", "chevron-up", "chevron-down", "power", "error", "warning", "help", "tag", "settings", "feedback", "update", "issue", "debug", "align-left", "chevron-right", "info", "pin", "link", "line", "contour", "polygon", "jumble", "erase", "rect", "rect-fill", "ellipse", "ellipse-fill", "diamond", "diamond-fill", "bridge", "ramp", "wand", "turn-right", "turn-left", "mirror-left-right", "mirror-top-bottom", "layers", "move-all", "lock", "unlock", "show-off", "pipette", "lasso", "sort", "pie"};
+  static const char* const ids[] = {"map", "data", "triggers", "briefing", "assets", "project", "build", "new-project", "terrain", "units", "doodads", "locations", "brush", "spray", "fill", "replace", "select", "shape-diamond", "shape-square", "shape-circle", "owner", "filter", "new", "open", "save", "save-as", "close", "recent", "generate", "folder", "open-external", "undo", "redo", "cut", "copy", "paste", "duplicate", "delete", "select-all", "rename", "search", "align-right", "align-center", "zoom-in", "zoom-out", "actual-size", "fit", "grid", "show", "log", "code", "control-kit", "play", "pause", "stop", "to-start", "to-end", "loop", "sound", "mute", "attack", "timeline", "dat-units", "dat-weapons", "dat-flingy", "dat-sprites", "dat-images", "dat-upgrades", "dat-tech", "dat-orders", "dat-sfx", "dat-portraits", "dat-strings", "dat-buttons", "add", "remove", "check", "edit", "back", "forward", "move-up", "move-down", "dropdown", "chevron-up", "chevron-down", "power", "error", "warning", "help", "tag", "settings", "feedback", "update", "issue", "debug", "align-left", "chevron-right", "info", "pin", "link", "line", "contour", "polygon", "jumble", "erase", "rect", "rect-fill", "ellipse", "ellipse-fill", "diamond", "diamond-fill", "bridge", "ramp", "wand", "turn-right", "turn-left", "mirror-left-right", "mirror-top-bottom", "layers", "move-all", "lock", "unlock", "show-off", "pipette", "lasso", "sort", "pie", "move-layer"};
   return ids[static_cast<int>(i)];
 }
 constexpr int kUiIconSizes[] = {16, 20, 24, 32};
