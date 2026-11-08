@@ -3315,3 +3315,35 @@ Unit icons	Значки юнитов
 Unit icons: in the accent color	Значки юнитов: в цвете акцента
 Unit icons: in the game's yellow	Значки юнитов: в жёлтом цвете игры
 Duplicate &linked	Дублировать со &связью
+Fog of war: what all players see	Туман войны: что видят все игроки
+No unit reached its end	Ни один юнит не дошёл до конца
+Rush distance: no unit reached its end	Дистанция раша: ни один юнит не дошёл до конца
+Each unit goes from the start point to the end point, at Fastest	Каждый юнит идёт от начальной точки до конечной, на самой быстрой скорости
+Each unit goes from each start location to each other start location, at Fastest	Каждый юнит идёт от каждой стартовой позиции к каждой другой, на самой быстрой скорости
+Click the start point	Щёлкните начальную точку
+Click the end point	Щёлкните конечную точку
+Worker of the race	Рабочий расы
+Start and end	Начало и конец
+Two points of the map…	Две точки карты…
+Units, start and end	Юниты, начало и конец
+Simulate rush distance between &two points… (experimental)	Симулировать дистанцию раша между &двумя точками… (экспериментально)
+Looking for boosts…	Поиск ускорений…
+Each field	На поле
+In all	Всего
+For each mineral field	На каждое минеральное поле
+Position boost	Ускорение позиции
+Cargo boost	Ускорение груза
+Cycle boost	Ускорение цикла
+A number of workers for each mineral field of a base	Число рабочих на каждое минеральное поле базы
+A number of workers for each base	Число рабочих на каждую базу
+%d workers for each mineral field at each base, %d game minute at Fastest	%d рабочих на каждое минеральное поле на каждой базе, %d игровая минута на самой быстрой скорости
+%d workers for each mineral field at each base, %d game minutes at Fastest	%d рабочих на каждое минеральное поле на каждой базе, %d игровых минут на самой быстрой скорости
+&Play or pause	&Запуск или пауза
+&Restart	&Начать заново
+S&kip to the end	Перейти к &концу
+S&lower	&Медленнее
+&Faster	&Быстрее
+Simulation &settings	&Настройки симуляции
+Simulation &options…	&Параметры симуляции…
+&Close the simulation	&Закрыть симуляцию
+&Simulation	&Симуляция

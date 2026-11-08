@@ -3315,3 +3315,35 @@ Unit icons	Icônes des unités
 Unit icons: in the accent color	Icônes des unités : dans la couleur d'accent
 Unit icons: in the game's yellow	Icônes des unités : dans le jaune du jeu
 Duplicate &linked	Dupliquer &lié
+Fog of war: what all players see	Brouillard de guerre : ce que voient tous les joueurs
+No unit reached its end	Aucune unité n'a atteint son arrivée
+Rush distance: no unit reached its end	Distance de rush : aucune unité n'a atteint son arrivée
+Each unit goes from the start point to the end point, at Fastest	Chaque unité va du point de départ au point d'arrivée, en vitesse maximale
+Each unit goes from each start location to each other start location, at Fastest	Chaque unité va de chaque position de départ à chaque autre position de départ, en vitesse maximale
+Click the start point	Cliquez sur le point de départ
+Click the end point	Cliquez sur le point d'arrivée
+Worker of the race	Ouvrier de la race
+Start and end	Départ et arrivée
+Two points of the map…	Deux points de la carte…
+Units, start and end	Unités, départ et arrivée
+Simulate rush distance between &two points… (experimental)	Simuler la distance de rush entre &deux points… (expérimental)
+Looking for boosts…	Recherche d'optimisations…
+Each field	Chaque champ
+In all	Au total
+For each mineral field	Pour chaque champ de minerai
+Position boost	Optimisation de position
+Cargo boost	Optimisation de cargaison
+Cycle boost	Optimisation de cycle
+A number of workers for each mineral field of a base	Un nombre d'ouvriers pour chaque champ de minerai d'une base
+A number of workers for each base	Un nombre d'ouvriers pour chaque base
+%d workers for each mineral field at each base, %d game minute at Fastest	%d ouvriers pour chaque champ de minerai à chaque base, %d minute de jeu en vitesse maximale
+%d workers for each mineral field at each base, %d game minutes at Fastest	%d ouvriers pour chaque champ de minerai à chaque base, %d minutes de jeu en vitesse maximale
+&Play or pause	&Lecture ou pause
+&Restart	&Recommencer
+S&kip to the end	Aller à la &fin
+S&lower	Plus &lent
+&Faster	Plus &rapide
+Simulation &settings	&Réglages de la simulation
+Simulation &options…	&Options de simulation…
+&Close the simulation	&Fermer la simulation
+&Simulation	&Simulation

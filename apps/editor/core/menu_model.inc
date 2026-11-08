@@ -227,10 +227,17 @@ MenuModel buildMenuModel() {
         menuCommand(tools, "edit.revealers.place");
         menuCommand(tools, "edit.revealers.removeAll");
 #ifdef STARDRAFT_SIMULATION
-        tools.push_back(menuSeparator());  // (experimental: the game simulated)
-        menuCommand(tools, "edit.simulate.mining");
-        menuCommand(tools, "edit.simulate.rush");
-        menuCommand(tools, "edit.simulate.combat");
+        tools.push_back(menuSeparator());  // (experimental: the game simulated, in a submenu with the bar's commands)
+        MenuModel simulation;
+        menuCommand(simulation, "edit.simulate.mining");
+        menuCommand(simulation, "edit.simulate.rush");
+        menuCommand(simulation, "edit.simulate.rushpoints");
+        menuCommand(simulation, "edit.simulate.combat");
+        simulation.push_back(menuSeparator());
+        for (const char* id : {"sim.play", "sim.restart", "sim.skip", "sim.slower", "sim.faster"}) menuCommand(simulation, id);
+        simulation.push_back(menuSeparator());
+        for (const char* id : {"sim.settings", "sim.options", "sim.close"}) menuCommand(simulation, id);
+        tools.push_back(menuPopup(L"&Simulation", simulation));
 #endif
     }
     // The View menu in groups: the graphics, the grid, what shows on the map (overlays, layers), the zoom, the panels,

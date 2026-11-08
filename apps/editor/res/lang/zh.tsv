@@ -3315,3 +3315,35 @@ Unit icons	单位图标
 Unit icons: in the accent color	单位图标：强调色
 Unit icons: in the game's yellow	单位图标：游戏的黄色
 Duplicate &linked	链接复制(&L)
+Fog of war: what all players see	战争迷雾：所有玩家看到的范围
+No unit reached its end	没有单位到达终点
+Rush distance: no unit reached its end	Rush 距离：没有单位到达终点
+Each unit goes from the start point to the end point, at Fastest	每个单位从起点走到终点，最快速度
+Each unit goes from each start location to each other start location, at Fastest	每个单位从每个出生点走到其他每个出生点，最快速度
+Click the start point	点击起点
+Click the end point	点击终点
+Worker of the race	该种族的农民
+Start and end	起点和终点
+Two points of the map…	地图上的两个点…
+Units, start and end	单位、起点和终点
+Simulate rush distance between &two points… (experimental)	模拟两点之间的 Rush 距离(&T)…（实验性）
+Looking for boosts…	正在寻找优化…
+Each field	每块矿
+In all	总计
+For each mineral field	每块矿
+Position boost	位置优化
+Cargo boost	回矿优化
+Cycle boost	循环优化
+A number of workers for each mineral field of a base	基地每块矿的农民数量
+A number of workers for each base	每个基地的农民数量
+%d workers for each mineral field at each base, %d game minute at Fastest	每个基地每块矿 %d 个农民，最快速度下游戏时间 %d 分钟
+%d workers for each mineral field at each base, %d game minutes at Fastest	每个基地每块矿 %d 个农民，最快速度下游戏时间 %d 分钟
+&Play or pause	播放或暂停(&P)
+&Restart	重新开始(&R)
+S&kip to the end	跳到结尾(&K)
+S&lower	更慢(&L)
+&Faster	更快(&F)
+Simulation &settings	模拟设置(&S)
+Simulation &options…	模拟选项(&O)…
+&Close the simulation	关闭模拟(&C)
+&Simulation	模拟(&S)

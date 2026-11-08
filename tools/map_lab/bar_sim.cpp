@@ -32,7 +32,7 @@ constexpr int kMineralFirst = 176, kMineralLast = 178;
 constexpr int kFieldRange = 384, kFieldAmount = 50000, kMineralsPerTrip = 8;
 // Rush: a worker that has not moved for 480 frames stops; no walk is longer than 24000 frames; the worker is at the
 // end within 1 pixel; it starts within 8 pixels of its start.
-constexpr int kRushStall = 480, kRushMost = 24000, kRushStartSlack = 8;
+constexpr int kRushStall = 480, kRushMost = 24000, kRushStartSlack = 8, kRushMostGames = 64;
 constexpr int kMaxBases = 8;
 
 int workerOf(int race) { return race == sim::Zerg ? kZergDrone : race == sim::Terran ? kTerranScv : kProtossProbe; }
@@ -108,7 +108,8 @@ public:
         std::vector<sim::MiningBase> bases = classic_->miningBases(o, races);
         if (bases.empty()) return error = "The map has no base to mine at", false;
         if (firstBases && bases.size() > size_t(kMaxBases)) bases.resize(size_t(kMaxBases)), races.resize(size_t(kMaxBases));
-        const int count = o.workers.empty() ? 9 : o.workers[0];
+        // (the workers: a count for each base, or -n: n for each mineral field)
+        const int count = o.workersPerField > 0 ? -o.workersPerField : o.workers.empty() ? 9 : o.workers[0];
         std::string key = std::to_string(count);
         for (size_t k = 0; k < bases.size(); ++k)
             key += "," + std::to_string(bases[k].x) + ":" + std::to_string(bases[k].y) + ":" + std::to_string(int(races[k]));
@@ -216,6 +217,22 @@ public:
         out.progress = progress;
         return out;
     }
+    void clearBoost(int kind) override {
+        if (mode_ != Mode::Mining || kind < 0 || kind > 2) return;
+        for (const auto& sp : setups_) {
+            Setup& s = *sp;
+            if (!s.seed) continue;
+            // (a later boost was found with the earlier ones: it goes too)
+            if (kind <= 2) s.jobs[2].reset(), s.cycle.clear(), s.status[2] = {};
+            if (kind <= 1) s.jobs[1].reset(), s.cargo.clear(), s.status[1] = {};
+            if (kind == 0) {
+                s.positionJob.reset(), s.fixed.clear(), s.status[0] = {};
+                if (s.origin) s.seed = std::make_unique<ms::World>(*s.origin);
+            }
+        }
+        changed_ = false;
+        restartPlay();
+    }
     bool boosting() const override {
         for (const auto& s : setups_)
             for (const sim::BoostStatus& st : s->status)
@@ -258,34 +275,54 @@ public:
         sim::MiningOptions starts;
         starts.placedDepots = false, starts.mineralClusters = false;
         starts.races = o.races, starts.mapRaces = o.mapRaces, starts.seed = o.seed;
-        std::vector<sim::Race> races;
-        const std::vector<sim::MiningBase> bases = classic_->miningBases(starts, races);
-        if (bases.size() < 2) return error = "The map has fewer than 2 start locations", false;
+        // The routes: from each start location to each other one, or the one route between the two points.
+        struct Way {
+            int from, to, fromX, fromY, toX, toY;
+            sim::Race race;
+        };
+        std::vector<Way> ways;
+        if (o.points) {
+            ways.push_back({-1, -1, o.fromX, o.fromY, o.toX, o.toY, o.races.empty() ? sim::Terran : o.races[0]});
+        } else {
+            std::vector<sim::Race> races;
+            const std::vector<sim::MiningBase> bases = classic_->miningBases(starts, races);
+            if (bases.size() < 2) return error = "The map has fewer than 2 start locations", false;
+            for (size_t a = 0; a < bases.size(); ++a)
+                for (size_t b = 0; b < bases.size(); ++b)
+                    if (a != b) ways.push_back({bases[a].player, bases[b].player, bases[a].x, bases[a].y, bases[b].x, bases[b].y, races[a]});
+        }
+        const std::vector<int> units = o.units.empty() ? std::vector<int>{-1} : o.units;
+        // (each route and unit is a game of the whole map: at most 64, as the window stays usable with them)
+        if (ways.size() * units.size() > size_t(kRushMostGames))
+            return error = "Too many games: " + std::to_string(ways.size()) + " routes with " + std::to_string(units.size()) +
+                           " units each. Select fewer units (at most " + std::to_string(kRushMostGames) + " games)",
+                   false;
         try {
             if (!loadSeed(error)) return false;
-            for (size_t a = 0; a < bases.size(); ++a)
-                for (size_t b = 0; b < bases.size(); ++b) {
-                    if (a == b) continue;
+            for (const Way& w : ways)
+                for (int unit : units) {
                     Runner r;
-                    r.route.from = bases[a].player, r.route.to = bases[b].player;
-                    r.route.fromX = bases[a].x, r.route.fromY = bases[a].y, r.route.toX = bases[b].x, r.route.toY = bases[b].y;
-                    r.route.race = races[a];
+                    r.route.from = w.from, r.route.to = w.to;
+                    r.route.fromX = w.fromX, r.route.fromY = w.fromY, r.route.toX = w.toX, r.route.toY = w.toY;
+                    r.route.race = w.race;
+                    r.route.unit = unit >= 0 ? unit : workerOf(w.race);
                     r.world = std::make_unique<ms::World>(*seed_);
-                    r.worker = r.world->createFinished(workerOf(races[a]), {bases[a].x, bases[a].y}, 0);
+                    r.worker = r.world->createFinished(r.route.unit, {w.fromX, w.fromY}, 0);
                     const ms::UnitState* u = r.world->get(r.worker);
-                    if (!u || !u->visible || u->dead || std::abs(u->position.x - bases[a].x) > kRushStartSlack ||
-                        std::abs(u->position.y - bases[a].y) > kRushStartSlack)
-                        continue;  // (a blocked start location: no walk from it)
+                    if (!u || !u->visible || u->dead || !u->motion || std::abs(u->position.x - w.fromX) > kRushStartSlack ||
+                        std::abs(u->position.y - w.fromY) > kRushStartSlack)
+                        continue;  // (a blocked start: no walk from it for this unit)
                     r.route.path.push_back({u->position.x, u->position.y});
                     r.last = r.route.path.back();
-                    r.world->move(r.worker, {bases[b].x, bases[b].y});
+                    r.world->move(r.worker, {w.toX, w.toY});
                     runners_.push_back(std::move(r));
                 }
         } catch (const std::exception& e) {
             runners_.clear();
             return error = e.what(), false;
         }
-        if (runners_.empty()) return error = "A worker cannot stand at any start location", false;
+        if (runners_.empty())
+            return error = o.points ? "The units cannot stand at the start point" : "A unit cannot stand at any start location", false;
         last_ = kRushMost;
         mode_ = Mode::Rush;
         return true;
@@ -413,7 +450,7 @@ public:
         if (mode_ != Mode::Rush) return false;
         bool any = false;
         for (const Runner& r : runners_) {
-            if (r.route.from != player) continue;
+            if (player != sim::kAllPlayers && r.route.from != player) continue;
             const ms::World& w = *r.world;
             if (!any) {
                 width = w.map().terrain.width(), height = w.map().terrain.height();
@@ -498,6 +535,7 @@ private:
         sim::Race race = sim::Terran;
         int owner = 0;
         std::unique_ptr<ms::World> seed;  // the world at the start; none: no room at the base for its depot and workers
+        std::unique_ptr<ms::World> origin;  // the same before a position boost (turned off: back to it)
         std::vector<std::pair<ms::UnitHandle, ms::UnitHandle>> assign;  // each worker and its field
         std::vector<ms::UnitHandle> patches;                            // nearest first
         std::map<int, int> amount;                                      // by the field's unit index: its minerals in the map
@@ -565,7 +603,7 @@ private:
         });
         if (b.patches.empty()) throw std::runtime_error("A base has no mineral field within 12 tiles");
         for (const ms::UnitHandle& p : b.patches) b.amount[p.index] = world.get(p)->resources;
-        count = count > 0 ? count : int(b.patches.size());
+        count = count > 0 ? count : int(b.patches.size()) * std::max(1, -count);  // (0 or -n: 1 or n for each field)
         while (int(workers.size()) < count) {
             const ms::UnitHandle h = world.createFinished(workerOf(race), depotAt, owner);
             const ms::UnitState* w = world.get(h);
@@ -580,6 +618,7 @@ private:
             b.assign.push_back({workers[i], patch});
         }
         world.prepareNavigation(workers.front());
+        b.origin = std::make_unique<ms::World>(world);
     }
     // The game of a base from its setup.
     Base play(const Setup& s) const {

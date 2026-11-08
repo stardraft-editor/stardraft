@@ -31,17 +31,31 @@ left of it). The editor and the command line use one engine for them, `maplab::c
 - **Rush distance.** From each start location to each other start location, a worker of the start location's race
   (its player's race in the map, or the race of the bar's gear) walks from the start location's center to the other
   one, in a game of its own (the map's neutral units only). It stops at the other center (within 1 pixel), when it
-  has not moved for 480 frames, or at 24000 frames. The result is each walk's game time and length. The bar's eye
-  shows the fog of war of one player at a time (no fog, then each start location's player in turn): the engine's own
-  vision of that player's scouts (their sight ranges, high ground), black where they have not been, darker where they
-  saw before, clear where they see now; only that player's ways show.
-- **Boost searches** (mining, the gear's panel): the pull request's three searches, at each base at the same time
-  (each base's search gets its share of the processor's threads), for the panel's search time (default 15 seconds;
-  again: that much more, from where it stopped). Position: better start places for the workers. Cargo: where a worker
-  returns its cargo before it gets to the depot's usual place. Cycle: a trip to the next mineral field and back that
-  ends sooner (mineral walking). While a search runs, the game waits at its start; at its end the bases that it made
-  better start again with it. The boosts stay for Restart, the timeline and a new game time; a change of the workers
-  or the races drops them. The map shows them as the pull request's guides: a ring at a worker's start place, a
+  has not moved for 480 frames, or at 24000 frames. The result is each walk's game time and length. The gear's Units
+  sends other units on each route too, or in place of the worker (one or more of: the worker of the race, Marine,
+  Vulture, Firebat, Zealot, Dragoon, Corsair, Zergling, Hydralisk, Overlord; setting SimRushUnits), each in a game of
+  its own. The gear's Start and end, or Tools > Simulate rush distance between two points, takes two points of the map
+  in place of the start locations: the bar asks for the start point, then the end point (a click on the map each; Esc
+  stops; the game waits meanwhile); the map marks them (green, red) while the rush runs, and the report gives their
+  tiles. The bar's eye shows the fog of war (no fog, then all players together, then each start location's player in
+  turn): the engine's own vision of the units (their sight ranges, high ground), black where they have not been,
+  darker where they saw before, clear where they see now; with one player, only that player's ways show.
+- **Boost searches** (mining: check boxes in the gear's panel and in Program options > Simulation; settings
+  SimBoostPosition, SimBoostCargo, SimBoostCycle): the pull request's three searches, at each base at the same time
+  (each base's search gets its share of the processor's threads), for the search time (default 15 seconds). The ones
+  that are on run when the mining starts, one after another (position, cargo, cycle: each later one is found with the
+  earlier ones); a check box turned off takes its boost out (and the later ones, which run again if they are on).
+  Position: better start places for the workers. Cargo: where a worker returns its cargo before it gets to the
+  depot's usual place. Cycle: a trip to the next mineral field and back that ends sooner (mineral walking). While a
+  search runs, the bar says "Looking for boosts..." with a spinner and the game waits at its start; at its end the
+  bases that it made better start again with it, and the panel says how many workers got faster. The boosts stay for
+  Restart, the timeline and a new game time; a change of the workers or the races searches again.
+- **Workers** (mining): a number for each mineral field of a base (1 to 8; SimWorkerKind 0, SimWorkersPerField), or a
+  number for each base in all (1 to 60; SimWorkerKind 1, SimWorkers, default 9).
+- **The bar**: a new game waits at its start until Play (the Play button has a ring: Space plays it, and pauses it);
+  a new game of the bar's own settings keeps the play as it was. Tools > Simulation has each simulation and the bar's
+  commands (Play or pause, Restart, Skip to the end, Slower, Faster, Simulation settings, Simulation options, Close
+  the simulation). The map shows them as the pull request's guides: a ring at a worker's start place, a
   turn-back mark where a worker returns its cargo, and each cycle's two commands as numbered arrows.
 
 The two tests do not use the pull request's launch intervals or its windows: the bar has the same controls for each
