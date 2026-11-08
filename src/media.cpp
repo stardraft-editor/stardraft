@@ -1227,7 +1227,7 @@ bool writeMediaCodeImpl(const EudProject& pr, const ProjectMedia& media, MediaBu
             if (ec) return error = "Could not read " + what + ": the file is not found", false;
             const auto time = fs::last_write_time(src, ec).time_since_epoch().count();
             // The parts stay while the source is the same file (its name, size and time): encoding takes a few seconds.
-            const std::string key = tr.file + "\n" + std::to_string(size) + "\n" + std::to_string(time) + "\n";
+            const std::string key = tr.file + "\n" + std::to_string(uint64_t(size)) + "\n" + std::to_string(int64_t(time)) + "\n";  // (the time: 128 bits on macOS)
             std::string oldKey, count;
             std::vector<std::string> names;
             int parts = -1;

@@ -130,7 +130,7 @@ static void nrbfTest() {
 
 // A TEFile (EUD Editor 3's trigger editor file or folder).
 static N teFile(const std::string& name, int type, const std::string& text, std::vector<N> files = {}, std::vector<N> folders = {}, std::string label = {}) {
-    std::vector<std::pair<std::string, N>> m = {{"_FileName", str(name)}, {"_FileType", enumOf(type)}, {"_Files", list(std::move(files))},
+    std::vector<NMember> m = {{"_FileName", str(name)}, {"_FileType", enumOf(type)}, {"_Files", list(std::move(files))},
                                                  {"_Folders", list(std::move(folders))}};
     if (type != 0 && type != 5) m.push_back({"_Scripter", obj("CUIScriptEditor", {{"_String", str(text)}, {"_ConnectFile", null()}})});
     else m.push_back({"_Scripter", null()});

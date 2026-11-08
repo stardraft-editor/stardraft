@@ -10,21 +10,28 @@
 
 // --- A small BinaryFormatter writer: classes with typed members, arrays, strings, references ([MS-NRBF]) --------------
 
+// (a member is a struct of its own, not a std::pair: libstdc++ refuses a pair of the type it is in, N, while N is
+// incomplete; a vector of an incomplete struct is fine)
+struct NMember;
 struct N {
     enum T { I32, I64, Bool, U8, Str, Null, Obj, Arr, Bytes, Bools, Ref } t = Null;
     long long i = 0;
     std::string s;  // Str; Obj: the class; Ref: the label
-    std::vector<std::pair<std::string, N>> members;  // Obj
+    std::vector<NMember> members;  // Obj
     std::vector<N> items;                            // Arr
     std::vector<uint8_t> bytes;                      // Bytes, Bools
     std::string label;                               // Obj: the name a Ref uses
+};
+struct NMember {
+    std::string first;
+    N second;
 };
 inline N i32(long long v) { N n; n.t = N::I32, n.i = v; return n; }
 inline N i64(long long v) { N n; n.t = N::I64, n.i = v; return n; }
 inline N boolean(bool v) { N n; n.t = N::Bool, n.i = v; return n; }
 inline N str(std::string v) { N n; n.t = N::Str, n.s = std::move(v); return n; }
 inline N null() { return N{}; }
-inline N obj(std::string cls, std::vector<std::pair<std::string, N>> m, std::string label = {}) {
+inline N obj(std::string cls, std::vector<NMember> m, std::string label = {}) {
     N n;
     n.t = N::Obj, n.s = "EUD_Editor_3." + cls, n.members = std::move(m), n.label = std::move(label);
     return n;

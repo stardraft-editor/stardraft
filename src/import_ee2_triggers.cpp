@@ -19,8 +19,11 @@
 // and `problems` gets a line.
 
 #include <cctype>
+#include <cerrno>
 #include <charconv>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <map>
 #include <memory>
 #include <set>
@@ -88,9 +91,17 @@ bool vbNumber(std::string_view text, double& out) {
         out = double(v);
         return true;
     }
-    const char* b = s.data() + (s[0] == '+' ? 1 : 0);
-    const auto r = std::from_chars(b, s.data() + s.size(), out);
-    return r.ec == std::errc() && r.ptr == s.data() + s.size() && std::isfinite(out);
+    // strtod and not from_chars: Apple's libc++ has no from_chars for double before macOS 26 (as src/json.h). The
+    // library never calls setlocale, so the decimal point is '.'. strtod also takes what from_chars does not (a space
+    // first, "0x", "inf", "nan"): those are refused first.
+    const std::string b = s.substr(s[0] == '+' ? 1 : 0);
+    if (b.empty() || !(std::isdigit(static_cast<unsigned char>(b[0])) || b[0] == '-' || b[0] == '.') ||
+        b.find_first_of("xXiInN") != std::string::npos)
+        return false;
+    char* stop = nullptr;
+    errno = 0;
+    out = std::strtod(b.c_str(), &stop);
+    return errno != ERANGE && stop == b.c_str() + b.size() && std::isfinite(out);
 }
 
 double vbDouble(std::string_view s) {
@@ -111,9 +122,14 @@ int vbInt(std::string_view s) {
 // A Double as Visual Basic writes it ("4", "4.5").
 std::string vbText(double d) {
     if (d == std::floor(d) && std::fabs(d) < 1e15) return std::to_string(int64_t(d));
+    // (the shortest text that reads back as the same number, as to_chars writes it: macOS before 13.3 has no to_chars
+    // for double)
     char buf[64];
-    const auto r = std::to_chars(buf, buf + sizeof buf, d);
-    return std::string(buf, r.ptr);
+    for (int precision = 1; precision <= 17; ++precision) {
+        std::snprintf(buf, sizeof buf, "%.*g", precision, d);
+        if (std::strtod(buf, nullptr) == d) break;
+    }
+    return buf;
 }
 
 // CBool of a saved flag ("True", "False", or a number).
