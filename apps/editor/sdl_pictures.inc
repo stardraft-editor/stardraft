@@ -18,14 +18,23 @@ struct PaletteArt {
     std::map<std::tuple<int, int, int, bool>, std::unique_ptr<draw::Bitmap>> bitmaps;  // (mode of the row, value, owner, sprite)
     std::map<std::pair<uint16_t, int>, std::unique_ptr<draw::Bitmap>> pieBitmaps;  // the pie palette's terrains (pieBitmap)
     std::set<const draw::Bitmap*> blanks;  // the pictures that are the game's placeholder icon (drawPaletteArt: a neutral icon)
+    // The HD pictures of units with no command icon (hdUnitPicture: 5 to 15 ms each), made on workers while a palette
+    // paints; by the key of `bitmaps`.
+    std::map<std::tuple<int, int, int, bool>, std::future<Sprite>> unitPictures;
+    void waitUnitPictures() {
+        for (auto& [k, f] : unitPictures)
+            if (f.valid()) f.wait();
+        unitPictures.clear();
+    }
 };
 PaletteArt gPaletteArt;
 // The pictures' textures go before the GPU device does (main_sdl.cpp's shutdown); a later release would use a freed device.
-void releasePaletteArt() { gPaletteArt = PaletteArt{}; }
+void releasePaletteArt() { gPaletteArt.waitUnitPictures(), gPaletteArt = PaletteArt{}; }
 // No map is open: the HD icons and tiles go (the pictures' textures stay until the next map's: the GPU may still draw
 // them this frame). The next map loads them again.
 void releasePaletteArtData() {
     gPaletteArt.ed = nullptr, gPaletteArt.data = nullptr, gPaletteArt.mode = -1;
+    gPaletteArt.waitUnitPictures();  // (they read the game data: before it goes)
     if (gPaletteArt.hdIconsReading.valid()) gPaletteArt.hdIconsReading.wait();
     gPaletteArt.hdIconsReading = {};
     gPaletteArt.hdIcons.clear(), gPaletteArt.hdIcons.shrink_to_fit();
@@ -66,6 +75,7 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
     const int mode = gState.carbot ? 2 : gState.quality == GraphicsQuality::SD ? 0 : 1;
     const bool unitKind = what == Mode::Units && !iconFrame;
     if (gPaletteArt.ed != &ed || gPaletteArt.era != int(ed.era()) || gPaletteArt.mode != mode || gPaletteArt.rulesRev != gTerrainRulesRev) {
+        gPaletteArt.waitUnitPictures();  // (of the map before, or another mode)
         gPaletteArt.bitmaps.clear(), gPaletteArt.pieBitmaps.clear(), gPaletteArt.blanks.clear(), gPaletteArt.rulesRev = gTerrainRulesRev;
         if (gPaletteArt.mode != mode || gPaletteArt.data != &ed.gameData()) {
             if (gPaletteArt.hdIconsReading.valid()) gPaletteArt.hdIconsReading.wait();
@@ -165,9 +175,26 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
             if (!mode) s = ed.unitSprites().commandIcon(uint16_t(value));
             else if (value < int(gPaletteArt.hdIcons.size()) && gPaletteArt.hdIcons[size_t(value)].width) s = &gPaletteArt.hdIcons[size_t(value)];
         }
-        if (!s && mode) {  // no icon: the unit's picture of the HD art
-            std::string err;
-            if (hdUnitPicture(ed.gameData(), ed.unitSprites(), uint16_t(value), ed.playerRgb(owner), mode == 2, art, err) && art.width) s = &art;
+        if (!s && mode) {  // no icon: the unit's picture of the HD art (a palette's paint: made on a worker, shown a next frame)
+            const bool inPalette = gPaletteArtDeadline != std::chrono::steady_clock::time_point{};
+            auto it = gPaletteArt.unitPictures.find(key);
+            if (it == gPaletteArt.unitPictures.end()) {
+                // (4 workers at most: the pictures still being made; made ones wait for their next paint, as a scroll leaves them)
+                int busy = 0;
+                for (auto& [k, f] : gPaletteArt.unitPictures) busy += f.wait_for(std::chrono::seconds(0)) != std::future_status::ready;
+                if (inPalette && busy >= 4) return ++gPaletteArtLeft, nullptr;
+                const HdUnitPictureJob job = hdUnitPictureJob(ed.unitSprites(), uint16_t(value));  // (the sprites: here, on this thread)
+                it = gPaletteArt.unitPictures.emplace(key, std::async(std::launch::async, [data = &ed.gameData(), job, rgb = ed.playerRgb(owner), carbot = mode == 2] {
+                    Sprite out;
+                    std::string err;
+                    if (!hdUnitPictureFrom(*data, job, rgb, carbot, out, err, true)) out = {};
+                    return out;
+                })).first;
+            }
+            if (inPalette && it->second.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return ++gPaletteArtLeft, nullptr;
+            art = it->second.get();  // (another view waits for it)
+            gPaletteArt.unitPictures.erase(it);
+            if (art.width) s = &art;
         }
         if (!s) s = ed.unitSprites().unitSprite(uint16_t(value), uint8_t(owner), ed.tileset());
     }

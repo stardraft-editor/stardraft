@@ -92,5 +92,20 @@ bool loadHdCommandIcons(const GameData& data, bool carbot, std::vector<Sprite>& 
 // largest frame box, team color applied as the renderer does. Texture pixels.
 bool hdUnitPicture(const GameData& data, const UnitSprites& sprites, uint16_t unitType, uint32_t teamRgb, bool carbot, Sprite& out,
                    std::string& error);
+// The same in two parts, for a worker: what the unit's sprites say (its images, their default frames, the turret's place:
+// on the thread that owns `sprites`), then the picture from the game data only (offThread: through its handle for workers,
+// GameData::readFileOffThread).
+struct HdUnitPictureJob {
+    struct Part {
+        int image = -1, frame = 0;
+        bool flip = false;
+    };
+    std::vector<Part> parts;  // the unit's image, then its subunit's
+    int turretX = 0, turretY = 0;  // the subunit's place: the base's special-overlay offset for the base's frame (map pixels)
+    int turret0X = 0, turret0Y = 0;  // the same for the base's frame 0 (the HD art has fewer frames: the base draws frame 0)
+};
+HdUnitPictureJob hdUnitPictureJob(const UnitSprites& sprites, uint16_t unitType);
+bool hdUnitPictureFrom(const GameData& data, const HdUnitPictureJob& job, uint32_t teamRgb, bool carbot, Sprite& out, std::string& error,
+                       bool offThread = false);
 
 }  // namespace stardraft

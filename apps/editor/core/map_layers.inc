@@ -1076,14 +1076,20 @@ static void layerBox(render::Scene& s, int x0, int y0, int x1, int y1, uint32_t 
     }
 }
 
-// The outline of a layer's tiles (those of the rects round its corners, and its placed tiles), in tile corners: the sides
-// between a tile of the layer and the outside. The holes in it have none.
-static std::vector<std::array<int, 4>> layerOutline(const MapLayer& l) {
+// The tiles of a layer: those of the rects round its corners, and its placed tiles.
+static std::set<std::pair<int, int>> layerTileCells(const MapLayer& l) {
     std::set<std::pair<int, int>> tiles;
     for (const auto& [at, terrain] : l.corners)
         for (int ry = at.second - 1; ry <= at.second; ++ry)
             for (int rx = at.first - 1; rx <= at.first; ++rx) tiles.insert({rx * 2, ry}), tiles.insert({rx * 2 + 1, ry});
     for (const auto& [at, tile] : l.tiles) tiles.insert(at);
+    return tiles;
+}
+
+// The outline of a layer's tiles (layerTileCells), in tile corners: the sides between a tile of the layer and the
+// outside. The holes in it have none.
+static std::vector<std::array<int, 4>> layerOutline(const MapLayer& l) {
+    const std::set<std::pair<int, int>> tiles = layerTileCells(l);
     std::vector<std::array<int, 4>> out;
     if (tiles.empty()) return out;
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
@@ -1132,16 +1138,6 @@ void setMapLayersShowOutside(bool show) {
     if (!gSelfTest && !gSettingsOff) prefs::setNumber(L"LayersShowOutside", show ? 1 : 0);
     setMessage(show ? L"Map layers: terrain outside of map boundaries shows" : L"Map layers: terrain outside of map boundaries is hidden");
     shellState().dirty = true;
-}
-
-// The tiles of a layer: those of the rects round its corners, and its placed tiles.
-static std::set<std::pair<int, int>> layerTileCells(const MapLayer& l) {
-    std::set<std::pair<int, int>> tiles;
-    for (const auto& [at, terrain] : l.corners)
-        for (int ry = at.second - 1; ry <= at.second; ++ry)
-            for (int rx = at.first - 1; rx <= at.first; ++rx) tiles.insert({rx * 2, ry}), tiles.insert({rx * 2 + 1, ry});
-    for (const auto& [at, tile] : l.tiles) tiles.insert(at);
-    return tiles;
 }
 
 const LayersOutside& mapLayersOutside(const Editor& ed) {
