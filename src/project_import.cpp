@@ -13,6 +13,7 @@
 #include "stardraft/editor.h"
 #include "stardraft/game_data.h"
 #include "stardraft/import_codegen.h"
+#include "stardraft/import_ee3_extras.h"
 #include "stardraft/nrbf.h"
 
 namespace fs = std::filesystem;
@@ -243,6 +244,12 @@ struct Model {
     bool e2Triggers = false;  // EUD Editor 2's trigger editor has triggers
     bool e2PluginsFromBuild = false;  // EUD Editor 2 plugins whose sections only its build has (MurakamiShiinaQC, ...)
     std::vector<std::string> codeProblems;  // what the code generators (import_codegen.h) could not make
+    // EUD Editor 3's Lua macros, expanded here (import_ee3_extras.h): the [MSQC] and [chatEvent] lines and PluginVariables.py
+    // they need; and the dot images' and the BGM player's files.
+    bool macrosExpanded = false;
+    std::vector<std::string> macroMsqc, macroChat;
+    std::string pluginVariables;
+    std::vector<ImportFile> mediaFiles;
     std::vector<Script> e2Partial;           // EUD Editor 2's TriggerEditor.eps and modules, made in part (for when there is no build)
     std::vector<std::string> e2PartialProblems;
 };
@@ -518,11 +525,13 @@ bool readE3s(const fs::path& file, const GameData& data, Model& m, std::string& 
     const int32_t mainId = mainRef.kind == nrbf::Value::Kind::Object ? mainRef.ref : 0;
     std::set<std::string> macroNames(std::begin(kEe3MacroNames), std::end(kEe3MacroNames));
     std::set<std::string> taken;
+    std::vector<size_t> buildOrder;  // indexes of m.scripts in the order EUD Editor 3 builds them (its macros count in that order)
     ImportCodeContext ctx;  // (made when a file needs it: it opens the map)
     bool ctxMade = false;
     std::set<int32_t> seen;  // (a folder or file once: references can make cycles)
     std::function<void(const nrbf::Object*, const std::string&, int)> walk = [&](const nrbf::Object* folder, const std::string& at, int depth) {
         if (!folder || depth > 64 || !seen.insert(folder->id).second) return;
+        std::vector<size_t> mains;
         for (const nrbf::Value& fv : g.items(g.get(folder, "Files"))) {
             const nrbf::Object* f = g.get(fv);
             if (!f || !seen.insert(f->id).second) continue;
@@ -571,8 +580,9 @@ bool readE3s(const fs::path& file, const GameData& data, Model& m, std::string& 
                 if (s.text.find("TriggerEditor.") != std::string::npos) m.libraryUsed = true;
             }
             if (type == 7 || type == 8) m.files.push_back(std::move(s));
-            else m.scripts.push_back(std::move(s));
+            else (s.main ? mains : buildOrder).push_back(m.scripts.size()), m.scripts.push_back(std::move(s));
         }
+        buildOrder.insert(buildOrder.end(), mains.begin(), mains.end());
         for (const nrbf::Value& dv : g.items(g.get(folder, "Folders"))) {
             const nrbf::Object* d = g.get(dv);
             if (!d || g.number(d, "FileType") == 5) continue;  // (EUD Editor 3's settings node)
@@ -581,13 +591,50 @@ bool readE3s(const fs::path& file, const GameData& data, Model& m, std::string& 
         }
     };
     walk(g.get(te, "ProjectFile"), "TriggerEditor/", 0);
+    // The Lua macros, expanded as EUD Editor 3's build expands them: each epScript file in the build's order (a macro's
+    // keys and chats are numbered in that order), with the msqcvar import that the build puts before each.
+    if (std::any_of(m.scripts.begin(), m.scripts.end(), [](const Script& s) { return s.generated == "macros"; })) {
+        if (!ctxMade) ctx = codeContext(m.map, data), ctxMade = true;
+        Ee3Macros macros(g, te, ctx);
+        bool all = true;
+        for (size_t i : buildOrder) {
+            Script& sc = m.scripts[i];
+            if (sc.type == 2 && sc.generated != "macros") continue;  // (a Python file with no macro: as written)
+            const std::string head = "import PluginVariables as msqcvar;\r\n";
+            const std::string in = sc.text.rfind("import PluginVariables as msqcvar;", 0) == 0 ? sc.text : head + sc.text;
+            std::string out;
+            std::vector<std::string> probs;
+            const bool ok = macros.apply(in, sc.main, u8(pathOf(sc.path).stem()), out, probs);
+            for (const std::string& pl : probs) m.codeProblems.push_back(sc.path + ": " + pl);
+            if (ok) {
+                sc.text = out;
+                if (sc.generated == "macros") sc.generated.clear();
+            } else {
+                all = false;
+            }
+        }
+        m.macrosExpanded = all;
+        m.macroMsqc = macros.msqcLines(), m.macroChat = macros.chatEventLines(), m.pluginVariables = macros.pluginVariables();
+    }
     std::stable_partition(m.scripts.begin(), m.scripts.end(), [](const Script& s) { return s.main; });
     for (const Script& s : m.scripts)
         if (!s.generated.empty()) m.generated.push_back(s.path + " (" + s.generated + ")");
-    // BGM and dot images: their code is made by EUD Editor 3's build.
+    // BGM and dot images: their code and files, made here (import_ee3_extras.h); the build folder's when they cannot be.
     if (const nrbf::Object* bgm = g.get(te, "BGMData"))
-        if (const size_t n = g.items(g.get(bgm, "BGMList")).size()) m.generated.push_back("the BGM player (" + std::to_string(n) + (n == 1 ? " sound)" : " sounds)"));
-    if (const size_t n = g.items(g.get(te, "DotDatas")).size()) m.generated.push_back("the dot images (" + std::to_string(n) + ")");
+        if (const size_t n = g.items(g.get(bgm, "BGMList")).size()) {
+            std::vector<ImportFile> files;
+            std::vector<std::string> probs;
+            if (ee3BgmPlayer(g, te, u8(file.parent_path()), files, probs)) m.mediaFiles.insert(m.mediaFiles.end(), files.begin(), files.end());
+            else m.generated.push_back("the BGM player (" + std::to_string(n) + (n == 1 ? " sound)" : " sounds)"));
+            for (const std::string& pl : probs) m.codeProblems.push_back("the BGM player: " + pl);
+        }
+    if (const size_t n = g.items(g.get(te, "DotDatas")).size()) {
+        std::vector<ImportFile> files;
+        std::vector<std::string> probs;
+        if (ee3DotImages(g, te, files, probs)) m.mediaFiles.insert(m.mediaFiles.end(), files.begin(), files.end());
+        else m.generated.push_back("the dot images (" + std::to_string(n) + ")");
+        for (const std::string& pl : probs) m.codeProblems.push_back("the dot images: " + pl);
+    }
     if (const nrbf::Object* sca = g.get(te, "SCArchive"); sca && g.value(sca, "IsUsed").asBool())
         m.unsupported.push_back("SC Archive (its online save and load): StarDraft has no online service");
 
@@ -608,7 +655,7 @@ bool readE3s(const fs::path& file, const GameData& data, Model& m, std::string& 
     }
     m.turbo = std::any_of(m.plugins.begin(), m.plugins.end(), [](const auto& p) { return p.first == "eudTurbo"; });
     // MSQC and chatEvent: EUD Editor 3 writes their lines from the macros (KeyDown, ChatEvent, ...).
-    const bool macros = std::any_of(m.scripts.begin(), m.scripts.end(), [](const Script& s) { return s.generated == "macros"; });
+    const bool macros = std::any_of(m.scripts.begin(), m.scripts.end(), [](const Script& s) { return s.generated == "macros"; });  // (not expanded)
     if (macros && g.value(te, "UseMSQC").asBool()) m.generated.push_back("the MSQC keys and mouse of the macros");
     if (macros && g.value(te, "UseChatEvent").asBool()) m.generated.push_back("the chat events of the macros");
 
@@ -1131,7 +1178,14 @@ bool applyScripts(const Model& m, const ImportChoices& c, const fs::path& build,
                 if (!s.generated.empty()) rep.notImported.push_back(s.path + ": its " + s.generated + " need EUD Editor 3's build; the file holds the text as it was");
             }
             if (std::any_of(m.scripts.begin(), m.scripts.end(), [](const Script& s) { return s.text.find("msqcvar") != std::string::npos; }))
-                if (!writeText(dir / "TriggerEditor" / "PluginVariables.py", kPluginVariables, error)) return false;
+                if (!writeText(dir / "TriggerEditor" / "PluginVariables.py", m.pluginVariables.empty() ? std::string(kPluginVariables) : m.pluginVariables, error))
+                    return false;
+            if (m.macrosExpanded) rep.imported.push_back("EUD Editor 3's Lua macros, expanded as its build expands them");
+            if (on("generated"))
+                for (const ImportFile& f : m.mediaFiles) {
+                    if (!writeText(dir / pathOf(f.path), f.bytes, error)) return false;
+                    rep.imported.push_back("the file " + f.path + " (the dot images or the BGM player)");
+                }
             if (m.libraryUsed)
                 for (const Ee3LibraryFile& f : kEe3Library)
                     if (!writeText(dir / "TriggerEditor" / "TriggerEditor" / f.name, f.text, error)) return false;
@@ -1255,6 +1309,16 @@ bool applyPlugins(const Model& m, const ImportChoices& c, const fs::path& build,
                     if (std::find(keep.begin(), keep.end(), l) == keep.end()) keep.push_back(l);
                 if (!keep.empty()) pr.setSectionLines(sec, keep), rep.imported.push_back("the " + sec + " lines of EUD Editor 3's last build");
             }
+    // The MSQC and chatEvent lines of the macros expanded here, before the user's own lines of those sections.
+    if (m.kind == "e3s" && !(c.scriptsFromBuild && !build.empty()) && !c.skip.count("scripts"))
+        for (const auto& [sec, made] : {std::pair<std::string, const std::vector<std::string>*>{"MSQC", &m.macroMsqc}, {"chatEvent", &m.macroChat}}) {
+            if (made->empty()) continue;
+            std::vector<std::string> keep = *made;
+            for (const std::string& l : pr.sectionLines(sec))
+                if (std::find(keep.begin(), keep.end(), l) == keep.end()) keep.push_back(l);
+            pr.setSectionLines(sec, keep);
+            rep.imported.push_back("the " + sec + " lines of the macros");
+        }
     return true;
 }
 
