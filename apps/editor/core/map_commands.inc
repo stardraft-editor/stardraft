@@ -255,7 +255,6 @@ void shellFloatPalette(Mode m, bool on);
 bool commandMapEdit(AppState&, int);
 
 void registerMapCommands() {
-
     // Mode
     addCommand(ID_MODE_TERRAIN, "mode.terrain", L"&Terrain", "Mode", L"T", [] { setMode(Mode::Terrain); });
     addCommand(ID_MODE_UNITS, "mode.units", L"&Units", "Mode", L"U", [] { setMode(Mode::Units); });
