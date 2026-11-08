@@ -128,6 +128,8 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
 // the system does not say).
 struct SdlMemory {
     double workingSet = -1, peak = -1, privateBytes = -1, gpuLocal = -1, gpuShared = -1;
+    double heap = -1;  // the process heap's allocated bytes (Windows: HeapSummary; the C++ allocations are there): a leak
+                       // shows here, while the private bytes also keep what the heap freed
 };
 
 SdlMemory sdlMemory() {
@@ -137,6 +139,16 @@ SdlMemory sdlMemory() {
     PROCESS_MEMORY_COUNTERS_EX pmc{};
     if (GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc), sizeof pmc))
         m.workingSet = double(pmc.WorkingSetSize) / kMb, m.peak = double(pmc.PeakWorkingSetSize) / kMb, m.privateBytes = double(pmc.PrivateUsage) / kMb;
+    {  // (HeapSummary: Windows 10 and newer, looked up: kernel32's headers have it only for newer targets)
+        struct Summary {
+            DWORD cb;
+            SIZE_T allocated, committed, reserved, maxReserve;
+        };
+        using HeapSummaryFn = BOOL(WINAPI*)(HANDLE, DWORD, Summary*);
+        static const auto heapSummary = reinterpret_cast<HeapSummaryFn>(reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "HeapSummary")));
+        Summary s{sizeof(Summary), 0, 0, 0, 0};
+        if (heapSummary && heapSummary(GetProcessHeap(), 0, &s)) m.heap = double(s.allocated) / kMb;
+    }
     // The GPU memory of this process (DXGI: the video memory the system's scheduler counts for it), on every adapter.
     using CreateFactory = HRESULT(WINAPI*)(REFIID, void**);
     static HMODULE dxgi = LoadLibraryW(L"dxgi.dll");
@@ -304,9 +316,9 @@ void sdlSoakStats() {
     int bitmaps = 0;
     size_t bitmapBytes = 0;
     kit_sdl::bitmapTextureStats(bitmaps, bitmapBytes);
-    std::printf("stats: loop %d, step %d: working set %.1f MB (peak %.1f), private %.1f MB, GPU %.1f MB (shared %.1f), %d bitmaps %.1f MB; %zu tabs; %s; "
+    std::printf("stats: loop %d, step %d: working set %.1f MB (peak %.1f), private %.1f MB, GPU %.1f MB (shared %.1f), heap %.1f MB, %d bitmaps %.1f MB; %zu tabs; %s; "
                 "frames %d, %.1f ms on average, %.1f ms at most; inputs %d, %.1f ms on average, %.1f ms at most\n",
-                gSoakFrames.loop, gSoakFrames.steps, m.workingSet, m.peak, m.privateBytes, m.gpuLocal, m.gpuShared, bitmaps,
+                gSoakFrames.loop, gSoakFrames.steps, m.workingSet, m.peak, m.privateBytes, m.gpuLocal, m.gpuShared, m.heap, bitmaps,
                 double(bitmapBytes) / (1024.0 * 1024.0), gDocs.size(), map.c_str(), gSoakFrames.count, avg, gSoakFrames.max,
                 gSoakFrames.inputs, gSoakFrames.inputs ? gSoakFrames.inputTotal / gSoakFrames.inputs : 0.0, gSoakFrames.inputMax);
     gSoakFrames.count = 0, gSoakFrames.total = 0, gSoakFrames.max = 0;

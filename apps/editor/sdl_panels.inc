@@ -580,7 +580,7 @@ void initPanels() {
 
     gFilterSdl.setPlaceholder(paletteSearchCue(Mode::Locations));
     gFilterSdl.onChange = [] { rebuildList(gState); };
-    gSearchSdl.setPlaceholder(L"Search");
+    gSearchSdl.setPlaceholder(paletteSearchCue(Mode::Units));  // (each mode sets its own: rebuildList)
     gSearchSdl.onChange = [] {
         if (gPalRestoring) return;  // (a mode's search set back: rebuildPaletteRows goes on)
         gPalList.scrollTo(0);

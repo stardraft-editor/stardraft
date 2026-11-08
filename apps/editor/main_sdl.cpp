@@ -537,6 +537,22 @@ int sdlFrameClock() {
 }
 
 // STARDRAFT_START_TIME=1 prints how long each stage of the start took (for speed work).
+// --kpi (tools/kpi.py): "kpi: startup <ms>" when the first frame is there (from the process's start), and after each
+// input of a script "kpi: <verb> input <ms> frame <ms>" (the input's time without its input lines, then the frame's).
+bool gKpi = false;
+double processAgeMs() {
+#ifdef _WIN32
+    FILETIME created{}, exited{}, kernel{}, user{}, now{};
+    if (GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user)) {
+        GetSystemTimePreciseAsFileTime(&now);
+        const auto ticks = [](const FILETIME& f) { return (uint64_t(f.dwHighDateTime) << 32) | f.dwLowDateTime; };
+        return double(ticks(now) - ticks(created)) / 10000.0;  // (100 ns ticks)
+    }
+#endif
+    static const auto start = std::chrono::steady_clock::now();  // (else: since the first call, early in main)
+    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+}
+
 void startLap(const char* stage) {
     static const bool on = std::getenv("STARDRAFT_START_TIME") != nullptr;
     static auto last = std::chrono::steady_clock::now();
@@ -548,6 +564,7 @@ void startLap(const char* stage) {
 
 int main(int argc, char** argv) {
     startLap("before main");
+    processAgeMs();  // (its clock's start, where the system does not say when the process started: --kpi)
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     // --update-test <zip> [options]: the update's install with a zip on this computer (sdl_updates.inc), then the end.
     if (argc > 2 && std::string(argv[1]) == "--update-test")
@@ -618,6 +635,7 @@ int main(int argc, char** argv) {
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
         else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or blockpick, blockhelp:<block id>, unitprops, locprops, quick, valuepop[:number|:colors|:text], about, message, message:build, message:delete, error or tip: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
+        else if (a == "--kpi") gKpi = true;  // the startup's and each scripted input's times (tools/kpi.py)
         else if (a == "--custom") customArg = true;  // Terrain mode's Custom (the Custom list), for a snapshot
         else if (a == "--histbox") {  // tiles (or mouse,rx,ry): the state line's tilehist=, for a test
             const std::string v = next();
@@ -1164,19 +1182,24 @@ int main(int argc, char** argv) {
                 // A second frame first: a view that places its parts from the last paint's size (the New page's block)
                 // is where the user sees it, as a window has painted more than once before a user's first input.
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+                if (gKpi) std::printf("kpi: startup %.1f\n", processAgeMs());
                 gShotInputs.assign(inputArgs.begin(), inputArgs.end());
                 host.setSnapshotModalHook([](draw::View&) { return sdlShotInputNext(); });
                 for (;;) {
                     // (each input's time without its input lines, for --script's stats)
                     const double linesBefore = gInputLineMs;
+                    const char kind = gShotInputs.empty() ? '-' : gShotInputs.front().first;
                     const auto i0 = std::chrono::steady_clock::now();
                     if (!sdlShotInputNext()) break;
-                    sdlSoakInput(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - i0).count() - (gInputLineMs - linesBefore));
+                    const double inputMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - i0).count() - (gInputLineMs - linesBefore);
+                    sdlSoakInput(inputMs);
                     // (a frame after each: the views lay out and the map's scene takes the change, as between a user's inputs)
                     host.snapshotTimers(20);
                     const auto t0 = std::chrono::steady_clock::now();
                     host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
-                    sdlSoakFrame(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());  // (--script stats)
+                    const double frameMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+                    sdlSoakFrame(frameMs);  // (--script stats)
+                    if (gKpi) std::printf("kpi: %c input %.2f frame %.2f\n", kind, inputMs, frameMs);
                     if (!gShotFrameFile.empty()) {  // (--script's frame <file>: this frame's picture)
                         if (!writeSnapshot(device, tex, width, height, gShotFrameFile)) std::printf("frame: could not write %s\n", gShotFrameFile.c_str());
                         gShotFrameFile.clear();
