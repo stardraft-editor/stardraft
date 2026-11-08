@@ -31,8 +31,8 @@ left of it). The editor and the command line use one engine for them, `maplab::c
 - **Rush distance.** From each start location to each other start location, a worker of the start location's race
   (its player's race in the map, or the race of the bar's gear) walks from the start location's center to the other
   one, in a game of its own (the map's neutral units only). It stops when its move ends (it is there when it stops within a tile of the
-  center: a fast unit stops a little past it, and a point where it cannot stand ends its way next to it), when it comes
-  to no new part of the map (a 128 pixel square) for 480 frames (it stands, or goes back and forth: the path search
+  center: a fast unit stops a little past it, and a point where it cannot stand ends its way next to it), when for 480
+  frames it comes neither to a new part of the map (a 128 pixel square) nor nearer to the end (it stands, or goes back and forth: the path search
   finds no way on), or at 24000 frames. The result is each walk's game time and length. The gear's Race
   comes first; its Unit row names the unit that walks each route in place of the worker (setting SimRushUnit), and
   a click opens the searchable list of the units that can walk or fly, with their icons: the worker, the race's
