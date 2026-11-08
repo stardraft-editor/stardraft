@@ -3289,7 +3289,6 @@ Searching… %d s	Поиск… %d с
 None found	Ничего не найдено
 1 worker faster	1 рабочий быстрее
 %d workers faster	Рабочих быстрее: %d
-Boost search time	Время поиска ускорений
 As defined in map	Как на карте
 Boost searches	Поиск ускорений
 Simulation options	Параметры симуляции
@@ -3360,7 +3359,10 @@ Search for better start places of the workers at each base. The search runs befo
 Search for the places where a worker returns its cargo sooner. The search runs before the game starts.	Найти места, где рабочий раньше возвращает груз. Поиск выполняется до начала игры.
 Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.	Найти пути к соседнему минеральному полю и обратно (mineral walking). Поиск выполняется до начала игры.
 Boost searches: they run before the game starts	Поиск ускорений: выполняется до начала игры
-Each boost search runs before the game starts, for up to the boost search time.	Каждый поиск ускорения выполняется до начала игры, не дольше времени поиска.
+Each boost search runs before the game starts, for up to its search time.	Каждый поиск ускорения выполняется до начала игры, не дольше своего времени поиска.
 Play again from the start	Воспроизвести снова с начала
 Language and sound	Язык и звук
 Graphics and diagnostics	Графика и диагностика
+Continue	Продолжить
+Search again for its search time, on from where it stopped	Искать снова в течение времени поиска, с того места, где поиск остановился
+Search now, for its search time	Искать сейчас в течение времени поиска

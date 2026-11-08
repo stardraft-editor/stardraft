@@ -57,7 +57,8 @@ struct OptionsValues {
     // Tools > Simulate mining (experimental): the workers on minerals (simKind 0: simPerField for each mineral field;
     // 1: simWorkers at each base), the measured game minutes, the races (0: as in the map, 1 Terran, 2 Protoss, 3 Zerg)
     // and a boost search's seconds.
-    int simKind = 1, simPerField = 1, simWorkers = 9, simMinutes = 3, simRace = 0, simSearch = 15;
+    int simKind = 1, simPerField = 1, simWorkers = 9, simMinutes = 3, simRace = 0;
+    int simSearch[3] = {15, 15, 15};  // each boost search's search time in seconds: position, cargo, cycle
     bool simBoost[3] = {};  // the boost searches that are on: position, cargo, cycle
 };
 
@@ -121,8 +122,16 @@ const wchar_t* const kUnitNameForms[4] = {L"Terran Marine", L"Terran Marine (Cus
 
 // Simulate mining's races (the dropdown's items).
 const wchar_t* const kSimRaces[4] = {L"As defined in map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
-// The simulation's numbers: their ranges and default values (the settings SimWorkers, SimMinutes, SimSearchSeconds).
+// The simulation's numbers: their ranges and default values (the settings SimWorkers, SimMinutes, and each boost search's kSimSearchKeys).
 constexpr int kSimWorkersMax = 60, kSimPerFieldMax = 8, kSimMinutesMax = 60, kSimSearchMin = 1, kSimSearchMax = 600, kSimSearchDefault = 15;
+// Each boost search's own search time (position, cargo, cycle; the settings SimSearchPosition, SimSearchCargo and
+// SimSearchCycle; default value kSimSearchDefault), set here only (the gear's panel has Search and Continue).
+inline const wchar_t* const kSimSearchKeys[3] = {L"SimSearchPosition", L"SimSearchCargo", L"SimSearchCycle"};
+inline int simBoostSeconds(int kind) {
+    int s = kSimSearchDefault;
+    prefs::number(kSimSearchKeys[kind], s, kSimSearchMin, kSimSearchMax);
+    return s;
+}
 inline std::wstring simWorkersText(int n) { return std::to_wstring(n); }
 inline std::wstring simMinutesText(int n) { return std::to_wstring(n) + L" " + tr(n == 1 ? L"minute" : L"minutes"); }
 inline std::wstring simSecondsText(int n) { return std::to_wstring(n) + L" " + tr(n == 1 ? L"second" : L"seconds"); }
@@ -284,7 +293,8 @@ public:
             add(simKind_, {0, 0, 0, 0}), simKind_.setVisible(false);
         }
         simStep(simMinutes_, 2, 1, optionsview::kSimMinutesMax, optionsview::simMinutesText);
-        simStep(simSearch_, 1, optionsview::kSimSearchMin, optionsview::kSimSearchMax, optionsview::simSecondsText);
+        for (int k = 0; k < 3; ++k)  // (each boost search's own search time)
+            simStep(simSearch_[k], 9 + k, optionsview::kSimSearchMin, optionsview::kSimSearchMax, optionsview::simSecondsText);
         {
             std::vector<stardraft::kit::DropdownItem> items;
             for (const wchar_t* n : optionsview::kSimRaces) items.push_back({n});
@@ -530,7 +540,7 @@ private:
     stardraft::kit::CheckBox lastProject_, tintIcons_, diagnostics_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
-    optionsview::StepBox simWorkers_, simPerField_, simMinutes_, simSearch_;
+    optionsview::StepBox simWorkers_, simPerField_, simMinutes_, simSearch_[3];
     stardraft::kit::Dropdown simRace_{{}, -1}, simKind_{{}, -1};
     stardraft::kit::CheckBox simBoost_[3];
     stardraft::kit::Slider slider_;
@@ -618,7 +628,8 @@ void OptionsView::sync(const OptionsValues& v) {
             if (values[i] == value) at = int(i);
         if (d.value() != at) d.setValue(at);
     };
-    simWorkers_.set(v.simWorkers), simPerField_.set(v.simPerField), simMinutes_.set(v.simMinutes), simSearch_.set(v.simSearch);
+    simWorkers_.set(v.simWorkers), simPerField_.set(v.simPerField), simMinutes_.set(v.simMinutes);
+    for (int k = 0; k < 3; ++k) simSearch_[k].set(v.simSearch[k]);
     if (simKind_.value() != v.simKind) simKind_.setValue(v.simKind);
     for (int k = 0; k < 3; ++k) simBoost_[k].setOn(v.simBoost[k]);
     if (simRace_.value() != v.simRace) simRace_.setValue(v.simRace);
@@ -930,8 +941,7 @@ void OptionsView::paint(draw::Canvas& c) {
         }
         const std::pair<const wchar_t*, std::pair<draw::View*, const char*>> rows[] = {
             {L"Measured game time", {&simMinutes_, "sim.minutes"}},
-            {L"Races", {&simRace_, "sim.races"}},
-            {L"Boost search time", {&simSearch_, "sim.search"}}};
+            {L"Races", {&simRace_, "sim.races"}}};
         for (const auto& [name, view] : rows) {
             label(name);
             const int w = view.first == &simRace_ ? scale(300) : scale(180);  // (a step box: as wide as its longest value)
@@ -942,9 +952,12 @@ void OptionsView::paint(draw::Canvas& c) {
         }
         for (int k = 0; k < 3; ++k) {  // (the boost searches: when one is on, the mining starts with a search for it)
             checkRow(y, simBoost_[k], "sim.boost" + std::to_string(k));
+            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(180)), fieldTop(y) + fieldH};  // (its search time)
+            place(simSearch_[k], box, true);
+            parts_["sim.search" + std::to_string(k)] = box;
             y += rowH;
         }
-        note(x0, y - scale(4), L"Each boost search runs before the game starts, for up to the boost search time.");
+        note(x0, y - scale(4), L"Each boost search runs before the game starts, for up to its search time.");
         y += scale(20);
         note(x0, y - scale(4), L"The first 30 game seconds are not measured: the workers get to their fields.");
         y += scale(20) + pad;

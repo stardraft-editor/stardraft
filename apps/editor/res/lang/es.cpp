@@ -3288,7 +3288,6 @@ constexpr UiText kRows[] = {
     {L"None found", L"No se encontr\u00F3 ninguno"},
     {L"1 worker faster", L"1 obrero m\u00E1s r\u00E1pido"},
     {L"%d workers faster", L"%d obreros m\u00E1s r\u00E1pidos"},
-    {L"Boost search time", L"Tiempo de b\u00FAsqueda de mejoras"},
     {L"As defined in map", L"Como en el mapa"},
     {L"Boost searches", L"B\u00FAsquedas de mejoras"},
     {L"Simulation options", L"Opciones de simulaci\u00F3n"},
@@ -3359,10 +3358,13 @@ constexpr UiText kRows[] = {
     {L"Search for the places where a worker returns its cargo sooner. The search runs before the game starts.", L"Buscar los lugares donde un obrero devuelve su carga antes. La b\u00FAsqueda se hace antes de que empiece la partida."},
     {L"Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.", L"Buscar viajes que van al siguiente campo de minerales y vuelven (mineral walking). La b\u00FAsqueda se hace antes de que empiece la partida."},
     {L"Boost searches: they run before the game starts", L"B\u00FAsquedas de mejora: se hacen antes de que empiece la partida"},
-    {L"Each boost search runs before the game starts, for up to the boost search time.", L"Cada b\u00FAsqueda de mejora se hace antes de que empiece la partida, durante como m\u00E1ximo el tiempo de b\u00FAsqueda."},
+    {L"Each boost search runs before the game starts, for up to its search time.", L"Cada b\u00FAsqueda de mejora se hace antes de que empiece la partida, durante como m\u00E1ximo su tiempo de b\u00FAsqueda."},
     {L"Play again from the start", L"Volver a jugar desde el principio"},
     {L"Language and sound", L"Idioma y sonido"},
     {L"Graphics and diagnostics", L"Gr\u00E1ficos y diagn\u00F3stico"},
+    {L"Continue", L"Continuar"},
+    {L"Search again for its search time, on from where it stopped", L"Buscar otra vez durante su tiempo de b\u00FAsqueda, desde donde se detuvo"},
+    {L"Search now, for its search time", L"Buscar ahora, durante su tiempo de b\u00FAsqueda"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

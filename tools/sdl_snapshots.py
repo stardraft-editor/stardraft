@@ -5604,7 +5604,7 @@ def main():
         simfieldsettings = os.path.join(a.out, "simfield-settings.json")  # {simfieldsettings}: mining with 1 worker for each mineral field, Zerg
         simboostsettings = os.path.join(a.out, "simboost-settings.json")  # {simboostsettings}: 1 worker for each mineral field, Protoss, the cycle boost on (6 s)
         if any("{simboostsettings}" in x for x in args):
-            write_once(simboostsettings, write_text(simboostsettings, json.dumps({"SimWorkerKind": 0, "SimWorkersPerField": 1, "SimRaces": 2, "SimSearchSeconds": 6, "SimBoostCycle": 1})))
+            write_once(simboostsettings, write_text(simboostsettings, json.dumps({"SimWorkerKind": 0, "SimWorkersPerField": 1, "SimRaces": 2, "SimSearchCycle": 6, "SimBoostCycle": 1})))
         rushunitsettings = os.path.join(a.out, "rushunit-settings.json")  # {rushunitsettings}: the rush's unit: a Vulture (Terran), the fog of war: what all players see
         rushfogsettings = os.path.join(a.out, "rushfog-settings.json")  # {rushfogsettings}: the rush's fog of war: what all players see
         if any("{rushfogsettings}" in x for x in args):

@@ -3289,7 +3289,6 @@ Searching… %d s	Buscando… %d s
 None found	No se encontró ninguno
 1 worker faster	1 obrero más rápido
 %d workers faster	%d obreros más rápidos
-Boost search time	Tiempo de búsqueda de mejoras
 As defined in map	Como en el mapa
 Boost searches	Búsquedas de mejoras
 Simulation options	Opciones de simulación
@@ -3360,7 +3359,10 @@ Search for better start places of the workers at each base. The search runs befo
 Search for the places where a worker returns its cargo sooner. The search runs before the game starts.	Buscar los lugares donde un obrero devuelve su carga antes. La búsqueda se hace antes de que empiece la partida.
 Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.	Buscar viajes que van al siguiente campo de minerales y vuelven (mineral walking). La búsqueda se hace antes de que empiece la partida.
 Boost searches: they run before the game starts	Búsquedas de mejora: se hacen antes de que empiece la partida
-Each boost search runs before the game starts, for up to the boost search time.	Cada búsqueda de mejora se hace antes de que empiece la partida, durante como máximo el tiempo de búsqueda.
+Each boost search runs before the game starts, for up to its search time.	Cada búsqueda de mejora se hace antes de que empiece la partida, durante como máximo su tiempo de búsqueda.
 Play again from the start	Volver a jugar desde el principio
 Language and sound	Idioma y sonido
 Graphics and diagnostics	Gráficos y diagnóstico
+Continue	Continuar
+Search again for its search time, on from where it stopped	Buscar otra vez durante su tiempo de búsqueda, desde donde se detuvo
+Search now, for its search time	Buscar ahora, durante su tiempo de búsqueda

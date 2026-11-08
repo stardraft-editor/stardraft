@@ -3288,7 +3288,6 @@ constexpr UiText kRows[] = {
     {L"None found", L"\u672A\u627E\u5230"},
     {L"1 worker faster", L"1 \u4E2A\u519C\u6C11\u66F4\u5FEB"},
     {L"%d workers faster", L"%d \u4E2A\u519C\u6C11\u66F4\u5FEB"},
-    {L"Boost search time", L"\u4F18\u5316\u641C\u7D22\u65F6\u95F4"},
     {L"As defined in map", L"\u4E0E\u5730\u56FE\u76F8\u540C"},
     {L"Boost searches", L"\u4F18\u5316\u641C\u7D22"},
     {L"Simulation options", L"\u6A21\u62DF\u9009\u9879"},
@@ -3359,10 +3358,13 @@ constexpr UiText kRows[] = {
     {L"Search for the places where a worker returns its cargo sooner. The search runs before the game starts.", L"\u641C\u7D22\u519C\u6C11\u66F4\u65E9\u56DE\u77FF\u7684\u4F4D\u7F6E\u3002\u641C\u7D22\u5728\u6E38\u620F\u5F00\u59CB\u524D\u8FDB\u884C\u3002"},
     {L"Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.", L"\u641C\u7D22\u5148\u53BB\u76F8\u90BB\u77FF\u518D\u8FD4\u56DE\u7684\u8DEF\u7EBF\uFF08mineral walking\uFF09\u3002\u641C\u7D22\u5728\u6E38\u620F\u5F00\u59CB\u524D\u8FDB\u884C\u3002"},
     {L"Boost searches: they run before the game starts", L"\u52A0\u901F\u641C\u7D22\uFF1A\u5728\u6E38\u620F\u5F00\u59CB\u524D\u8FDB\u884C"},
-    {L"Each boost search runs before the game starts, for up to the boost search time.", L"\u6BCF\u9879\u52A0\u901F\u641C\u7D22\u90FD\u5728\u6E38\u620F\u5F00\u59CB\u524D\u8FDB\u884C\uFF0C\u6700\u957F\u4E3A\u52A0\u901F\u641C\u7D22\u65F6\u95F4\u3002"},
+    {L"Each boost search runs before the game starts, for up to its search time.", L"\u6BCF\u9879\u52A0\u901F\u641C\u7D22\u90FD\u5728\u6E38\u620F\u5F00\u59CB\u524D\u8FDB\u884C\uFF0C\u6700\u957F\u4E3A\u5176\u641C\u7D22\u65F6\u95F4\u3002"},
     {L"Play again from the start", L"\u4ECE\u5934\u518D\u6B21\u64AD\u653E"},
     {L"Language and sound", L"\u8BED\u8A00\u548C\u58F0\u97F3"},
     {L"Graphics and diagnostics", L"\u56FE\u5F62\u548C\u8BCA\u65AD"},
+    {L"Continue", L"\u7EE7\u7EED"},
+    {L"Search again for its search time, on from where it stopped", L"\u4ECE\u505C\u6B62\u5904\u7EE7\u7EED\u641C\u7D22\uFF0C\u65F6\u957F\u4E3A\u5176\u641C\u7D22\u65F6\u95F4"},
+    {L"Search now, for its search time", L"\u7ACB\u5373\u641C\u7D22\uFF0C\u65F6\u957F\u4E3A\u5176\u641C\u7D22\u65F6\u95F4"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

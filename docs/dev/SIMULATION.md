@@ -49,8 +49,10 @@ left of it). The editor and the command line use one engine for them, `maplab::c
   checked players' ways show. Before the game plays (at 0:00, waiting for Play) the whole map shows, with no fog.
 - **Boost searches** (mining: check boxes in the gear's panel and in Program options > Simulation; settings
   SimBoostPosition, SimBoostCargo, SimBoostCycle): the pull request's three searches, at each base at the same time
-  (each base's search gets its share of the processor's threads), for the search time (default 15 seconds). The ones
-  that are on run when the mining starts, one after another (position, cargo, cycle: each later one is found with the
+  (each base's search gets its share of the processor's threads), each for its own search time (Program options >
+  Simulation only; settings SimSearchPosition, SimSearchCargo, SimSearchCycle; default 15 seconds). The gear's panel has
+  a Search button for each (it turns the boost on and searches now; after a search, Continue searches on from where it
+  stopped, for its search time again). The ones that are on run when the mining starts, one after another (position, cargo, cycle: each later one is found with the
   earlier ones); a check box turned off takes its boost out (and the later ones, which run again if they are on).
   Position: better start places for the workers. Cargo: where a worker returns its cargo before it gets to the
   depot's usual place. Cycle: a trip to the next mineral field and back that ends sooner (mineral walking). While a

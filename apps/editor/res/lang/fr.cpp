@@ -3288,7 +3288,6 @@ constexpr UiText kRows[] = {
     {L"None found", L"Aucun trouv\u00E9"},
     {L"1 worker faster", L"1 ouvrier plus rapide"},
     {L"%d workers faster", L"%d ouvriers plus rapides"},
-    {L"Boost search time", L"Dur\u00E9e de recherche d'optimisations"},
     {L"As defined in map", L"Comme dans la carte"},
     {L"Boost searches", L"Recherches d'optimisations"},
     {L"Simulation options", L"Options de simulation"},
@@ -3359,10 +3358,13 @@ constexpr UiText kRows[] = {
     {L"Search for the places where a worker returns its cargo sooner. The search runs before the game starts.", L"Rechercher les endroits o\u00F9 un ouvrier rapporte sa cargaison plus t\u00F4t. La recherche se fait avant le d\u00E9but de la partie."},
     {L"Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.", L"Rechercher les trajets qui passent par le champ de minerai voisin et reviennent (mineral walking). La recherche se fait avant le d\u00E9but de la partie."},
     {L"Boost searches: they run before the game starts", L"Recherches d'optimisation : elles se font avant le d\u00E9but de la partie"},
-    {L"Each boost search runs before the game starts, for up to the boost search time.", L"Chaque recherche d'optimisation se fait avant le d\u00E9but de la partie, au plus pendant la dur\u00E9e de recherche."},
+    {L"Each boost search runs before the game starts, for up to its search time.", L"Chaque recherche d'optimisation se fait avant le d\u00E9but de la partie, au plus pendant sa dur\u00E9e de recherche."},
     {L"Play again from the start", L"Rejouer depuis le d\u00E9but"},
     {L"Language and sound", L"Langue et son"},
     {L"Graphics and diagnostics", L"Graphismes et diagnostic"},
+    {L"Continue", L"Continuer"},
+    {L"Search again for its search time, on from where it stopped", L"Rechercher \u00E0 nouveau pendant sa dur\u00E9e de recherche, \u00E0 partir de l\u00E0 o\u00F9 elle s'est arr\u00EAt\u00E9e"},
+    {L"Search now, for its search time", L"Rechercher maintenant, pendant sa dur\u00E9e de recherche"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

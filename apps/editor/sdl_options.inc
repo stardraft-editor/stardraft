@@ -320,7 +320,7 @@ public:
         prefs::number(L"SimWorkersPerField", v.simPerField, 1, optionsview::kSimPerFieldMax), prefs::number(L"SimWorkerKind", v.simKind, 0, 1);
         prefs::flag(L"SimBoostPosition", v.simBoost[0]), prefs::flag(L"SimBoostCargo", v.simBoost[1]), prefs::flag(L"SimBoostCycle", v.simBoost[2]);
         prefs::number(L"SimMinutes", v.simMinutes, 1, 60), prefs::number(L"SimRaces", v.simRace, 0, 3);
-        prefs::number(L"SimSearchSeconds", v.simSearch, optionsview::kSimSearchMin, optionsview::kSimSearchMax);
+        for (int k = 0; k < 3; ++k) v.simSearch[k] = optionsview::simBoostSeconds(k);
 #ifndef _WIN32
         v.mapsRow = false;  // (the file association is Windows only)
 #endif
@@ -365,9 +365,10 @@ void OptionsProgramSdl::setUnitLimit(int k, int value) {
 }
 // Simulate mining's settings (Tools > Simulate mining reads them when it starts).
 void OptionsProgramSdl::setSimulation(int which, int value) {
-    static const wchar_t* const names[9] = {L"SimWorkers", L"SimSearchSeconds", L"SimMinutes", L"SimRaces", L"SimWorkersPerField", L"SimWorkerKind",
-                                            L"SimBoostPosition", L"SimBoostCargo", L"SimBoostCycle"};
-    if (which < 0 || which > 8) return;
+    static const wchar_t* const names[12] = {L"SimWorkers", L"SimSearchSeconds", L"SimMinutes", L"SimRaces", L"SimWorkersPerField", L"SimWorkerKind",
+                                             L"SimBoostPosition", L"SimBoostCargo", L"SimBoostCycle", optionsview::kSimSearchKeys[0],
+                                             optionsview::kSimSearchKeys[1], optionsview::kSimSearchKeys[2]};
+    if (which < 0 || which > 11) return;
     prefs::setNumber(names[which], value);
     gOptionsView.invalidate();
 }
