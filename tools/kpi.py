@@ -59,10 +59,17 @@ BARE_SEARCH = re.compile(r'setPlaceholder\((?:tr\()?L"Search(?:\\x2026|\.\.\.)?"
 
 # --- Running the program ---------------------------------------------------------------------------------------------
 
+# The settings of each run (a file of its own, never the user's): the default values, and the one-time notes seen, so that
+# no note waits in a timed step (the first new map layer's).
+KPI_SETTINGS = {"MapLayersInfoShown": 1}
+
+
 def run_program(exe, args, script=None, timeout=600):
     """The program with no window (its output); `script`: the lines of a --script, written to a file of its own."""
     with tempfile.TemporaryDirectory() as tmp:
-        cmd = [str(exe)] + list(args) + ["--kpi", "--snapshot", str(Path(tmp) / "shot.png")]
+        settings = Path(tmp) / "settings.json"
+        settings.write_text(json.dumps(KPI_SETTINGS), encoding="utf-8")
+        cmd = [str(exe)] + list(args) + ["--settings", str(settings), "--kpi", "--snapshot", str(Path(tmp) / "shot.png")]
         if script is not None:
             sp = Path(tmp) / "script.txt"
             sp.write_text("\n".join(script) + "\n", encoding="utf-8")
