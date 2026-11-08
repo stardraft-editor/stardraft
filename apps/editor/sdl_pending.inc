@@ -35,6 +35,10 @@ void setWorkspace(Workspace w) {
     // link takes a moment to wake up when sound begins).
     if (w == Workspace::Briefing || w == Workspace::Files) playbackDeviceSdl();
     if (w == Workspace::Project) sdlProjectShown();
+    if (w == Workspace::Help) {  // (with no page yet: its contents, not an empty page)
+        void sdlHelpWorkspaceShown();
+        sdlHelpWorkspaceShown();
+    }
     if (w == Workspace::Triggers) sdlTriggersShown();
     shellStatusChanged();  // the map's parts show in Map only
     shellRelayout();

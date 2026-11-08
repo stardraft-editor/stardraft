@@ -32,6 +32,12 @@ void sdlHelpWire() {
     gHelpFeedbackName = [] { return gHelpWsView.feedbackName(); };  // (Report feedback in the Help workspace: the page)
 }
 
+// The Help workspace shows: with no page yet (a way there other than Help's commands), its contents.
+void sdlHelpWorkspaceShown() {
+    sdlHelpWire();
+    if (gHelpWsView.page().empty() && !stardraft::helpPages().empty()) gHelpWsView.show("");
+}
+
 // The help window at `topic` ("units-dat#hit-points"; "": the index). With no pages in this build: the page on the web.
 void sdlShowHelp(const std::string& topic) {
     sdlHelpWire();
