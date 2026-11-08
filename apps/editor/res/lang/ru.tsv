@@ -3019,3 +3019,10 @@ Only	Только
 Edit unit type in Data	Изменить тип юнита в Данных
 Edit unit type in Map data	Изменить тип юнита в Данных карты
 Projects	Проекты
+ item	 элемент
+ items	 элементов
+List (Ctrl+L)	Список (Ctrl+L)
+Grid (Ctrl+G)	Сетка (Ctrl+G)
+Size: small (Ctrl+wheel changes it)	Размер: маленький (Ctrl+колесо меняет его)
+Size: medium (Ctrl+wheel changes it)	Размер: средний (Ctrl+колесо меняет его)
+Size: large (Ctrl+wheel changes it)	Размер: большой (Ctrl+колесо меняет его)

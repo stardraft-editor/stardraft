@@ -3019,3 +3019,10 @@ Only	Seulement
 Edit unit type in Data	Modifier le type d'unité dans Données
 Edit unit type in Map data	Modifier le type d'unité dans Données de la carte
 Projects	Projets
+ item	 élément
+ items	 éléments
+List (Ctrl+L)	Liste (Ctrl+L)
+Grid (Ctrl+G)	Grille (Ctrl+G)
+Size: small (Ctrl+wheel changes it)	Taille : petite (Ctrl+molette la change)
+Size: medium (Ctrl+wheel changes it)	Taille : moyenne (Ctrl+molette la change)
+Size: large (Ctrl+wheel changes it)	Taille : grande (Ctrl+molette la change)

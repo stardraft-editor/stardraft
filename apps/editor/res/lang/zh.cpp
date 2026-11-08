@@ -3021,6 +3021,13 @@ constexpr UiText kRows[] = {
     {L"Edit unit type in Data", L"\u5728\u6570\u636E\u4E2D\u7F16\u8F91\u5355\u4F4D\u7C7B\u578B"},
     {L"Edit unit type in Map data", L"\u5728\u5730\u56FE\u6570\u636E\u4E2D\u7F16\u8F91\u5355\u4F4D\u7C7B\u578B"},
     {L"Projects", L"\u9879\u76EE"},
+    {L" item", L" \u9879"},
+    {L" items", L" \u9879"},
+    {L"List (Ctrl+L)", L"\u5217\u8868 (Ctrl+L)"},
+    {L"Grid (Ctrl+G)", L"\u7F51\u683C (Ctrl+G)"},
+    {L"Size: small (Ctrl+wheel changes it)", L"\u5927\u5C0F\uFF1A\u5C0F\uFF08Ctrl+\u6EDA\u8F6E\u66F4\u6539\uFF09"},
+    {L"Size: medium (Ctrl+wheel changes it)", L"\u5927\u5C0F\uFF1A\u4E2D\uFF08Ctrl+\u6EDA\u8F6E\u66F4\u6539\uFF09"},
+    {L"Size: large (Ctrl+wheel changes it)", L"\u5927\u5C0F\uFF1A\u5927\uFF08Ctrl+\u6EDA\u8F6E\u66F4\u6539\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

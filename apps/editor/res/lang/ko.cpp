@@ -3051,6 +3051,13 @@ constexpr UiText kRows[] = {
     {L"Edit unit type in Data", L"\uB370\uC774\uD130\uC5D0\uC11C \uC720\uB2DB \uC720\uD615 \uD3B8\uC9D1"},
     {L"Edit unit type in Map data", L"\uB9F5 \uB370\uC774\uD130\uC5D0\uC11C \uC720\uB2DB \uC720\uD615 \uD3B8\uC9D1"},
     {L"Projects", L"\uD504\uB85C\uC81D\uD2B8"},
+    {L" item", L"\uAC1C \uD56D\uBAA9"},
+    {L" items", L"\uAC1C \uD56D\uBAA9"},
+    {L"List (Ctrl+L)", L"\uBAA9\uB85D (Ctrl+L)"},
+    {L"Grid (Ctrl+G)", L"\uACA9\uC790 (Ctrl+G)"},
+    {L"Size: small (Ctrl+wheel changes it)", L"\uD06C\uAE30: \uC791\uAC8C (Ctrl+\uD720\uB85C \uBCC0\uACBD)"},
+    {L"Size: medium (Ctrl+wheel changes it)", L"\uD06C\uAE30: \uBCF4\uD1B5 (Ctrl+\uD720\uB85C \uBCC0\uACBD)"},
+    {L"Size: large (Ctrl+wheel changes it)", L"\uD06C\uAE30: \uD06C\uAC8C (Ctrl+\uD720\uB85C \uBCC0\uACBD)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

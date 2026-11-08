@@ -3019,3 +3019,10 @@ Only	Solo
 Edit unit type in Data	Editar el tipo de unidad en Datos
 Edit unit type in Map data	Editar el tipo de unidad en Datos del mapa
 Projects	Proyectos
+ item	 elemento
+ items	 elementos
+List (Ctrl+L)	Lista (Ctrl+L)
+Grid (Ctrl+G)	Cuadrícula (Ctrl+G)
+Size: small (Ctrl+wheel changes it)	Tamaño: pequeño (Ctrl+rueda lo cambia)
+Size: medium (Ctrl+wheel changes it)	Tamaño: mediano (Ctrl+rueda lo cambia)
+Size: large (Ctrl+wheel changes it)	Tamaño: grande (Ctrl+rueda lo cambia)

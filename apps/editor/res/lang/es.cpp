@@ -3021,6 +3021,13 @@ constexpr UiText kRows[] = {
     {L"Edit unit type in Data", L"Editar el tipo de unidad en Datos"},
     {L"Edit unit type in Map data", L"Editar el tipo de unidad en Datos del mapa"},
     {L"Projects", L"Proyectos"},
+    {L" item", L" elemento"},
+    {L" items", L" elementos"},
+    {L"List (Ctrl+L)", L"Lista (Ctrl+L)"},
+    {L"Grid (Ctrl+G)", L"Cuadr\u00EDcula (Ctrl+G)"},
+    {L"Size: small (Ctrl+wheel changes it)", L"Tama\u00F1o: peque\u00F1o (Ctrl+rueda lo cambia)"},
+    {L"Size: medium (Ctrl+wheel changes it)", L"Tama\u00F1o: mediano (Ctrl+rueda lo cambia)"},
+    {L"Size: large (Ctrl+wheel changes it)", L"Tama\u00F1o: grande (Ctrl+rueda lo cambia)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

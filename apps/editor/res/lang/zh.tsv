@@ -3019,3 +3019,10 @@ Only	仅
 Edit unit type in Data	在数据中编辑单位类型
 Edit unit type in Map data	在地图数据中编辑单位类型
 Projects	项目
+ item	 项
+ items	 项
+List (Ctrl+L)	列表 (Ctrl+L)
+Grid (Ctrl+G)	网格 (Ctrl+G)
+Size: small (Ctrl+wheel changes it)	大小：小（Ctrl+滚轮更改）
+Size: medium (Ctrl+wheel changes it)	大小：中（Ctrl+滚轮更改）
+Size: large (Ctrl+wheel changes it)	大小：大（Ctrl+滚轮更改）

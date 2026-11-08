@@ -421,6 +421,15 @@ public:
         place();
     }
 
+    // The view buttons' tips: List, Grid, the size.
+    std::wstring tip(draw::Point p) override {
+        if (!pictures()) return {};
+        static const wchar_t* const kSizeNames[3] = {L"Size: small (Ctrl+wheel changes it)", L"Size: medium (Ctrl+wheel changes it)", L"Size: large (Ctrl+wheel changes it)"};
+        for (int b = 0; b < 3; ++b)
+            if (viewButton(b).contains(p)) return std::wstring(tr(b == 0 ? L"List (Ctrl+L)" : b == 1 ? L"Grid (Ctrl+G)" : kSizeNames[size_]));
+        return {};
+    }
+
     void paint(draw::Canvas& c) override {
         using namespace quickPickLayout;
         if (focusText_ && !focused_ && host()) focused_ = true, field_.focus();
@@ -431,7 +440,7 @@ public:
         const int is = scale(kIcon);
         c.icon({sr_.left, (sr_.top + sr_.bottom - is) / 2, sr_.left + is, (sr_.top + sr_.bottom + is) / 2}, int(UiIcon::Search), kDim, is);
         const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
-        const std::wstring count = std::to_wstring(shown_.size()) + (shown_.size() >= 400 ? L"+" : L"");
+        const std::wstring count = std::to_wstring(shown_.size()) + (shown_.size() >= 400 ? L"+" : L"") + std::wstring(tr(shown_.size() == 1 ? L" item" : L" items"));
         c.text({sr_.right - scale(80), sr_.top, sr_.right, sr_.bottom}, count, kDim, draw::kRight | draw::kMiddle);
         if (pictures()) {  // (the view: List, Grid, the size)
             static const wchar_t* const kSizes[3] = {L"S", L"M", L"L"};
