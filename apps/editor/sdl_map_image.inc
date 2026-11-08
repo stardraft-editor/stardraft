@@ -75,6 +75,7 @@ public:
         Editor& ed = *gState.ed;
         gRenderer->setSources(&ed.gameData(), &ed.unitSprites(), &ed.tileset(), ed.era());
         gRenderer->updateTerrain(terrain_);
+        gRenderer->clearTerrainOverlay();  // (see-through map layers: the view's only)
         gRenderer->setTerrainPreview({});
         uint32_t team[12];
         for (int i = 0; i < 12; ++i) team[i] = playerRgba(i, 0) >> 8;

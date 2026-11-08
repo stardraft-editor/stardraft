@@ -85,32 +85,51 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     // The terrain when it changed, or a layer (View > Modes: no terrain, or no doodads' tiles) went on or off.
     // (and the creep when it changed: View > Modes > Creep, core/creep_layer.inc)
     static MapLayers uploaded;
-    static uint64_t uploadedCreep = 0, uploadedOutside = 0;
+    static uint64_t uploadedCreep = 0, uploadedOutside = 0, uploadedClear = 0;
     const uint64_t creepRev = creepRevision(ed);
     const LayersOutside& outside = mapLayersOutside(ed);  // (map layers' terrain outside of the map: core/map_layers.inc)
+    const LayersTranslucency& clear = mapLayersTranslucency(ed);  // (see-through map layers: the same)
     if (gMapEd != &ed || gTerrainRev != ed.terrainRevision() || uploaded.terrain != gLayers.terrain ||
-        uploaded.doodads != gLayers.doodads || uploaded.creep != gLayers.creep || uploadedCreep != creepRev || uploadedOutside != outside.gen) {
+        uploaded.doodads != gLayers.doodads || uploaded.creep != gLayers.creep || uploadedCreep != creepRev || uploadedOutside != outside.gen ||
+        uploadedClear != clear.gen) {
         gRenderer->setSources(&ed.gameData(), &ed.unitSprites(), &ed.tileset(), ed.era());
         const bool plain = gLayers.terrain && gLayers.doodads && !gLayers.creep;
-        if (!outside.any) {
-            if (plain) gRenderer->updateTerrain(ed.terrain());
-            else gRenderer->updateTerrain(terrainWithLayers(ed));  // (core/map_scene.inc)
-        } else {  // a grid larger than the map: the map, and the layers' tiles outside of it (tile 0 elsewhere: black)
-            const TerrainLayer map = plain ? ed.terrain() : terrainWithLayers(ed);
-            const int ex0 = std::min(0, outside.x0), ey0 = std::min(0, outside.y0);
-            const int ex1 = std::max(int(map.width), outside.x0 + outside.w), ey1 = std::max(int(map.height), outside.y0 + outside.h);
+        const TerrainLayer map = plain ? ed.terrain() : terrainWithLayers(ed);  // (core/map_scene.inc)
+        // (see-through layers, with the terrain and the doodads' tiles shown: the map without them, with its creep, and the
+        // map over it on their tiles)
+        const bool see = clear.any && gLayers.terrain && gLayers.doodads && clear.without.width == map.width && clear.without.height == map.height;
+        TerrainLayer under;
+        if (see) {
+            under = clear.without;
+            if (gLayers.creep) addCreepTiles(ed, under);
+        }
+        // A grid larger than the map when the layers have terrain outside of it: the map, and the layers' tiles there
+        // (tile 0 elsewhere; the overlay's rects are of the map: the origin moves them).
+        const int ex0 = outside.any ? std::min(0, outside.x0) : 0, ey0 = outside.any ? std::min(0, outside.y0) : 0;
+        const int ex1 = outside.any ? std::max(int(map.width), outside.x0 + outside.w) : map.width;
+        const int ey1 = outside.any ? std::max(int(map.height), outside.y0 + outside.h) : map.height;
+        auto gridOf = [&](const TerrainLayer& m) {
+            if (!outside.any) return m;
             TerrainLayer grid;
             grid.width = uint16_t(ex1 - ex0), grid.height = uint16_t(ey1 - ey0);
             grid.tiles.assign(size_t(grid.width) * grid.height, 0);
-            for (int y = 0; y < map.height; ++y)
-                std::copy_n(map.tiles.begin() + ptrdiff_t(y) * map.width, map.width, grid.tiles.begin() + ptrdiff_t(y - ey0) * grid.width - ex0);
+            for (int y = 0; y < m.height; ++y)
+                std::copy_n(m.tiles.begin() + ptrdiff_t(y) * m.width, m.width, grid.tiles.begin() + ptrdiff_t(y - ey0) * grid.width - ex0);
             for (int y = 0; y < outside.h; ++y)
                 for (int x = 0; x < outside.w; ++x)
                     if (const uint16_t v = outside.tiles[size_t(y) * outside.w + x]; v != 0xFFFF)
                         grid.tiles[size_t(outside.y0 + y - ey0) * grid.width + size_t(outside.x0 + x - ex0)] = v;
-            gRenderer->updateTerrainExtended(grid, -ex0, -ey0, map.width, map.height);
+            return grid;
+        };
+        gRenderer->updateTerrainExtended(gridOf(see ? under : map), -ex0, -ey0, map.width, map.height);
+        if (see) {
+            std::vector<render::Renderer::TerrainOverlayRect> rects;
+            for (const auto& r : clear.rects) rects.push_back({r.x0 - ex0, r.y0 - ey0, r.x1 - ex0, r.y1 - ey0, r.alpha});
+            gRenderer->setTerrainOverlay(gridOf(map), std::move(rects));
+        } else {
+            gRenderer->clearTerrainOverlay();
         }
-        gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers, uploadedCreep = creepRev, uploadedOutside = outside.gen;
+        gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers, uploadedCreep = creepRev, uploadedOutside = outside.gen, uploadedClear = clear.gen;
     }
     // The players' colors: the map's own for players 1 to 8, the fixed ones for the rest (core/map_scene.inc: playerRgba).
     uint32_t team[12];

@@ -1,5 +1,6 @@
 // The Layer List (Map Layers' list: in the side bar, or in a window of its own in every mode, View > Floating palettes;
-// a prototype; the model: map_layers.inc): a row of icons (new, delete, help), then the layers from the top down, with
+// a prototype; the model: map_layers.inc): a row of icons (new, delete, the selected layer's opacity in the view,
+// settings, help), then the layers from the top down, with
 // the Background at the bottom. Each row: the eye (show or hide), the name, and under the mouse the grip and the lock (a
 // locked layer always shows it). A click selects (Ctrl: one more; Shift: a run), a double click renames, a drag moves a
 // layer in the list, a right click opens the menu with the rest. The Background cannot be renamed or moved.
@@ -8,6 +9,15 @@ int shellContextMenuAt(draw::View& from, draw::Point at, const std::vector<std::
 
 class LayersPanelView final : public draw::View {
 public:
+    LayersPanelView() {
+        opacity_.setTip(L"Opacity of the selected layer in this view: what is under it shows through. The map does not change");
+        opacity_.onChange = [this](int v) {
+            setMapLayersOpacity(gMapLayers.active, v);
+            invalidate();
+        };
+        add(opacity_, {0, 0, 0, 0});
+    }
+    void resized() override { opacity_.setFrame({scale(58), scale(5), std::max(scale(58), width() - scale(98)), scale(25)}); }
     void changed() { invalidate(); }
     void paint(draw::Canvas& c) override {
         const MutedAccent muted(appState().mode != Mode::Layers);  // (no focus: gray)
@@ -19,6 +29,13 @@ public:
         kitpaint::drawIconFace(c, deleteRect(), UiIcon::Delete, kitpaint::Tone::Quiet, false, hot(deleteRect()), s.on && s.active >= 0);
         kitpaint::drawIconFace(c, settingsRect(), UiIcon::Settings, kitpaint::Tone::Quiet, false, hot(settingsRect()));
         kitpaint::drawIconFace(c, helpRect(), UiIcon::Help, kitpaint::Tone::Quiet, false, hot(helpRect()));
+        // The selected layer's opacity (the Background has none: it is the map under the layers)
+        const bool layer = s.on && s.active >= 0 && s.active < int(s.stack.layers.size());
+        const int percent = layer ? mapLayersOpacity(s.active) : 100;
+        if (opacity_.value() != percent) opacity_.setValue(percent);
+        if (opacity_.enabled() != layer) opacity_.setEnabled(layer);
+        c.text({width() - scale(96), 0, width() - scale(56), scale(30)}, std::to_wstring(percent) + L" %", layer ? kDim : kFaint,
+               draw::kRight | draw::kMiddle);
         rows_.clear();
         int y = listTop();
         const int rowH = scale(28);
@@ -142,6 +159,7 @@ private:
         draw::Rect r;
         int index = 0;
     };
+    stardraft::kit::Slider opacity_{0, 100, 100, 5};  // (the selected layer's opacity in %: mapLayersOpacity)
     int listTop() const { return scale(30); }
     draw::Rect newRect() const { return {scale(2), scale(2), scale(26), scale(26)}; }
     draw::Rect deleteRect() const { return {scale(28), scale(2), scale(52), scale(26)}; }

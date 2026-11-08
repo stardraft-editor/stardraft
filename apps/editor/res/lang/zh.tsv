@@ -3244,3 +3244,6 @@ draw the dot image {image} at {where} for {player} with {unit}, {px} pixels apar
 Draws a dot image of the project (Assets > Dot images) with units: one unit for each dot. The dots go row by row from the location, the given pixels apart. Each unit gets the color of its dot, as in EUD Editor 3's dot painter. White dots are the background: they get no unit. After the drawing, the location is where it was before.	用单位绘制项目中的点阵图（资源 > 点阵图）：每个点一个单位。点从该位置开始逐行排列，间隔为给定的像素。每个单位取其点的颜色，与 EUD Editor 3 的点阵绘图器相同。白色的点是背景，不放单位。绘制后，该位置回到原处。
 It first removes all the units of this type that the player owns: use a unit type that is only for the drawing. Each dot is one unit: a picture of 30 x 30 dots makes 900 units, and a map has room for 1700 units.	它会先移除该玩家拥有的这种类型的所有单位：请使用只用于绘制的单位类型。每个点是一个单位：30 x 30 点的图片需要 900 个单位，而一张地图最多容纳 1700 个单位。
 draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	为 Player 8 用 Terran Marine 在 Title 绘制点阵图 "Logo"，间隔 8 像素：在开始时显示地图的标志。
+Opacity of the selected layer in this view: what is under it shows through. The map does not change	所选图层在此视图中的不透明度：下面的内容会透出来。地图不会改变
+Map layers (experimental)	地图图层（实验性）
+Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n	地图图层是实验性功能。请保留地图的副本，并报告无法正常工作的地方（提交反馈）。\n\n

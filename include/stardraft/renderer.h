@@ -95,6 +95,16 @@ public:
     // Tiles shown instead of the map's (a doodad about to be placed): (tile index y * width + x, CV5
     // tile value). Replaces the previous preview; empty clears it.
     void setTerrainPreview(const std::vector<std::pair<int, uint16_t>>& cells);
+    // A second terrain drawn over the terrain, at each rect's alpha, only in the rects (a map layer's opacity: the
+    // terrain is the map's without the see-through layers, this one the map's with them). `tiles`: the same grid as the
+    // terrain's (its size and origin: updateTerrain, updateTerrainExtended); a rect: tiles x0..x1, y0..y1 (x1, y1 past
+    // it) of that grid. Empty rects: none.
+    struct TerrainOverlayRect {
+        int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+        float alpha = 1;
+    };
+    void setTerrainOverlay(const TerrainLayer& tiles, std::vector<TerrainOverlayRect> rects);
+    void clearTerrainOverlay();
 
     // Draw a frame. Returns false if nothing could be drawn (e.g. minimized window).
     bool render(const Scene& scene);

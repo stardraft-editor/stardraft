@@ -13,6 +13,24 @@ struct LayersOutside {
     uint64_t gen = 0;
 };
 const LayersOutside& mapLayersOutside(const Editor& ed);
+// The layers that show see-through (Map layers' Opacity under 100 %, in the view only): the map's terrain without them
+// (the view draws it, then the map's own terrain over it at each one's opacity, on its tiles: Renderer::setTerrainOverlay),
+// those tiles as rects of the map (x1, y1 past them) with their opacity, and a number that changes when they change.
+struct LayersTranslucency {
+    bool any = false;
+    TerrainLayer without;
+    struct Rect {
+        int x0, y0, x1, y1;
+        float alpha;
+        size_t layer;  // (its index in the stack: its opacity)
+    };
+    std::vector<Rect> rects;
+    uint64_t gen = 0;
+};
+const LayersTranslucency& mapLayersTranslucency(const Editor& ed);
+float mapLayersUnitAlpha(const Editor& ed, size_t unit);  // a map unit's opacity: its layer's (1: none)
+int mapLayersOpacity(int row);  // % (100: not see-through); the Background: 100
+void setMapLayersOpacity(int row, int percent);
 bool& mapLayersShowOutside();
 void setMapLayersShowOutside(bool show);
 constexpr int kOutsideReach = 256;  // (tiles: how far outside of the map a layer's terrain shows; the grid stays small)
@@ -52,6 +70,7 @@ struct MapLayersState {
     int startX = 0, startY = 0, moveDX = 0, moveDY = 0, nowX = 0, nowY = 0;
     std::map<int, MapLayer> moveFrom;
     std::optional<LayerStack> dragStart;  // the stack before the drag (Esc)
+    std::map<uint32_t, int> opacity;  // a layer's opacity in the view, %, by its id (not saved: a view setting of this run)
 } gMapLayers;
 
 void layersPanelChanged();    // (views_layers.inc)
@@ -255,6 +274,7 @@ void mapLayersSync() {
     if (s.ed != &ed || ed.loadMark() != s.loadMark) {  // another map, or an undo or a redo: the map is as the step left it
         if (s.ed != &ed) {
             s.staleCheck = true;
+            s.opacity.clear();  // (of the other map's layers: their ids start at 1 too)
             s.resized.on = false;
             s.active = -1, s.picked.clear();
             if (const auto it = s.activeOf.find(ed.path()); it != s.activeOf.end()) s.active = it->second, s.picked = {s.active};
@@ -285,6 +305,21 @@ void mapLayersSync() {
     // (a new size or tileset; or Crop or extend with the same size and another offset)
     if (ed.width() != s.width || ed.height() != s.height || ed.era() != s.era || s.resized.on) return layersFlattenForResize(ed);
     layersCapture(ed, false);
+}
+
+// An edit that belongs to the Background, whatever layer is active (the start locations that a save places: the game
+// needs them, they are not a layer's work). The edits before it go to the active layer first.
+void mapLayersOnBackground(const std::function<void()>& edit) {
+    MapLayersState& s = gMapLayers;
+    AppState& app = shellState();
+    mapLayersSync();
+    if (!s.on || !app.ed || s.ed != app.ed.get() || s.active < 0 || s.stack.background.locked || !s.stack.background.visible) return edit();
+    const int was = s.active;
+    const uint32_t selLayer = s.selLayer;  // (not another layer for the selection: it stays)
+    s.active = -1, s.selLayer = 0;
+    edit();
+    mapLayersSync();
+    s.active = was, s.selLayer = selLayer;
 }
 
 // While a terrain stroke goes on: the other layers stay as they are on the map, not only at its end.
@@ -621,9 +656,10 @@ void mapLayersFrame() {
 
 // What to do with the layers to play the map. The panel's (?), and once by itself with the first new layer.
 void mapLayersInfo() {
-    shellInfoBox(L"Layers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. "
+    shellInfoBox(L"Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n"
+                 L"Layers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. "
                  L"All layers that show become one map, and the layer data stays out of it.",
-                 L"Map layers");
+                 L"Map layers (experimental)");
 }
 
 // The map becomes the Background: its terrain in its file, its objects in the stack.
@@ -649,6 +685,7 @@ void mapLayersNew() {
         while (taken("Layer " + std::to_string(n))) ++n;
         const int at = s.active + 1;
         s.stack.add("Layer " + std::to_string(n), at);
+        s.opacity.erase(s.stack.layers[size_t(at)].id);  // (an id again after an undo: opaque, as a new layer)
         s.active = at, s.picked = {at};
         setMessage(L"New layer: the tools now change this layer");
         return true;
@@ -1263,6 +1300,109 @@ const LayersOutside& mapLayersOutside(const Editor& ed) {
         next.gen = ++gen;
         out = std::move(next);
     }
+    return out;
+}
+
+// --- See-through layers (the view only) ------------------------------------------------------------------------------
+
+int mapLayersOpacity(int row) {
+    const MapLayersState& s = gMapLayers;
+    if (row < 0 || row >= int(s.stack.layers.size())) return 100;
+    const auto it = s.opacity.find(s.stack.layers[size_t(row)].id);
+    return it == s.opacity.end() ? 100 : it->second;
+}
+void setMapLayersOpacity(int row, int percent) {
+    MapLayersState& s = gMapLayers;
+    if (row < 0 || row >= int(s.stack.layers.size())) return;
+    percent = std::clamp(percent, 0, 100);
+    if (percent == 100) s.opacity.erase(s.stack.layers[size_t(row)].id);
+    else s.opacity[s.stack.layers[size_t(row)].id] = percent;
+    shellState().dirty = true;
+}
+
+float mapLayersUnitAlpha(const Editor& ed, size_t unit) {
+    const MapLayersState& s = gMapLayers;
+    if (s.opacity.empty() || !s.on || s.ed != &ed || s.owners.units.size() != ed.units().size() || unit >= s.owners.units.size()) return 1;
+    return mapLayersOpacity(s.owners.units[unit]) / 100.0f;
+}
+
+const LayersTranslucency& mapLayersTranslucency(const Editor& ed) {
+    static LayersTranslucency out;
+    static const Editor* forEd = nullptr;
+    static uint64_t forTerrain = ~0ull, gen = 0;
+    static std::vector<uint32_t> forClear;  // (the see-through layers' ids)
+    const MapLayersState& s = gMapLayers;
+    const bool on = s.on && s.ed == &ed && !s.filesPending;
+    // (the visible layers that are see-through)
+    std::vector<size_t> clear;
+    std::vector<uint32_t> clearIds;
+    for (size_t i = 0; on && i < s.stack.layers.size(); ++i)
+        if (s.stack.layers[i].visible && mapLayersOpacity(int(i)) < 100) clear.push_back(i), clearIds.push_back(s.stack.layers[i].id);
+    // The same terrain and the same see-through layers: only their opacity can have changed (the rects' alpha). A
+    // selection, a slider's step: nothing is made again.
+    if (forEd == &ed && forTerrain == ed.terrainRevision() && forClear == clearIds) {
+        bool changed = false;
+        for (auto& r : out.rects)
+            if (const float a = mapLayersOpacity(int(r.layer)) / 100.0f; a != r.alpha) r.alpha = a, changed = true;
+        if (changed) out.gen = ++gen;
+        return out;
+    }
+    forEd = &ed, forTerrain = ed.terrainRevision(), forClear = clearIds;
+    LayersTranslucency next;
+    if (clear.empty()) {  // (none: the same as before, no new upload)
+        if (out.any) out = LayersTranslucency{}, out.gen = ++gen;
+        return out;
+    }
+    next.gen = ++gen;
+    if (!clear.empty()) {
+        // The map without them: the layers made again into a copy of the map (one for each map of a size and tileset).
+        static std::unique_ptr<Editor> scratch;
+        static std::tuple<const Editor*, const GameData*, uint64_t, int, int, int> scratchFor{};
+        static const bool released = (mapCacheReleases().push_back(+[] { scratch.reset(), scratchFor = {}; }), true);
+        (void)released;
+        // (the map: its editor, its game data (a mod's tab has its own) and its load; its size and tileset)
+        const std::tuple<const Editor*, const GameData*, uint64_t, int, int, int> key{&ed, &ed.gameData(), ed.loadMark(), ed.width(), ed.height(), ed.era()};
+        bool ready = scratch && scratchFor == key;
+        if (!ready) {
+            scratch = std::make_unique<Editor>(ed.gameData());
+            Chk chk = ed.chk();
+            std::string err;
+            ready = scratch->openChk(chk, err);
+            scratchFor = ready ? key : decltype(scratchFor){};
+        }
+        LayerStack without = s.stack;
+        for (size_t i : clear) without.layers[i].visible = false;
+        if (ready && scratch->composeLayers(s.base, without)) {
+            next.any = true;
+            next.without = scratch->terrain();
+            // Each see-through layer's tiles on the map, as rects: the runs of a row, joined with the same runs below.
+            const int W = ed.width(), H = ed.height();
+            for (size_t i : clear) {
+                const float alpha = mapLayersOpacity(int(i)) / 100.0f;
+                std::map<int, std::vector<int>> rows;
+                for (const auto& [x, y] : layerTileCells(s.stack.layers[i]))
+                    if (x >= 0 && y >= 0 && x < W && y < H) rows[y].push_back(x);
+                std::map<std::pair<int, int>, size_t> open;  // (x0, x1) -> the rect that ends at the row above
+                for (auto& [y, xs] : rows) {
+                    std::sort(xs.begin(), xs.end());
+                    std::map<std::pair<int, int>, size_t> now;
+                    for (size_t k = 0; k < xs.size();) {
+                        size_t e = k + 1;
+                        while (e < xs.size() && xs[e] == xs[e - 1] + 1) ++e;
+                        const std::pair<int, int> run{xs[k], xs[e - 1] + 1};
+                        if (const auto it = open.find(run); it != open.end() && next.rects[it->second].y1 == y) {
+                            next.rects[it->second].y1 = y + 1, now[run] = it->second;
+                        } else {
+                            next.rects.push_back({run.first, y, run.second, y + 1, alpha, i}), now[run] = next.rects.size() - 1;
+                        }
+                        k = e;
+                    }
+                    open = std::move(now);
+                }
+            }
+        }
+    }
+    out = std::move(next);
     return out;
 }
 

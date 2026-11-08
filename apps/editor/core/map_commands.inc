@@ -176,6 +176,7 @@ bool confirmTriggerComments() {
     if (problems.size() > 12) text += bullet + std::to_wstring(problems.size() - 12) + L" more" + nl;
     return shellAskTriggerComments(text) == 0;
 }
+void mapLayersOnBackground(const std::function<void()>& edit);  // (core/map_layers.inc)
 bool confirmStartLocations() {
     if (!confirmTriggerComments()) return false;
     AppState& app = shellState();
@@ -192,10 +193,12 @@ bool confirmStartLocations() {
             if (noMore) setMessage(L"A save does not ask about missing start locations. To ask again: Program options > Saving maps");
             return true;
         }
-        const int n = app.ed->placeStartLocations();
+        int n = 0;
+        mapLayersOnBackground([&] { n = app.ed->placeStartLocations(); });  // (on the Background: core/map_layers.inc)
         app.dirty = true;
         setMessage(n ? L"Placed " + std::to_wstring(n) + L" start locations" : std::wstring(tr(L"No start location fits the map")));
         if (!n) return true;  // nothing fits: asking again would only show the same question
+        if (app.ed->startLocationProblems() == problems) return true;  // (none of them stayed: a layer refused them)
         // Some may still be missing (no spot for one player): the question comes again, with the rest.
     }
 }

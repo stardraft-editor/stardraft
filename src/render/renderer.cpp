@@ -165,6 +165,7 @@ struct Renderer::Impl {
     SDL_GPUTextureFormat backdropFormat = SDL_GPU_TEXTUREFORMAT_INVALID;
 
     SDL_GPUGraphicsPipeline* terrainPipe = nullptr;
+    SDL_GPUGraphicsPipeline* terrainBlendPipe = nullptr;  // the terrain at a constant alpha (setTerrainOverlay)
     SDL_GPUGraphicsPipeline* spritePipe = nullptr;
     SDL_GPUGraphicsPipeline* glowPipe = nullptr;  // sprites added onto what is drawn (glows)
     SDL_GPUGraphicsPipeline* solidPipe = nullptr;
@@ -176,6 +177,15 @@ struct Renderer::Impl {
 
     // Terrain
     SDL_GPUTexture* tileIndex = nullptr;
+    // The terrain over the terrain (setTerrainOverlay): its megatiles on the tile index's grid, its texture, its rects.
+    std::vector<uint16_t> overlayMegas;
+    std::vector<Renderer::TerrainOverlayRect> overlayRects;
+    SDL_GPUTexture* overlayIndex = nullptr;
+    uint16_t overlayW = 0, overlayH = 0;  // (the grid the megatiles are of)
+    uint16_t overlayIndexW = 0, overlayIndexH = 0;  // (the texture's size)
+    bool overlayDirty = false;
+    SDL_GPUTransferBuffer* overlayUpload = nullptr;
+    uint32_t overlayUploadCap = 0;
     uint16_t mapW = 0, mapH = 0;  // the tile index's grid (the map, or a larger grid: updateTerrainExtended)
     int originX = 0, originY = 0;  // ... the map's tile (0, 0) in it
     uint16_t realW = 0, realH = 0;  // ... the map's own size (the previews' indices, the sprites' depth)
@@ -500,6 +510,19 @@ bool Renderer::Impl::createPipelines(std::string& err) {
     pi.vertex_shader = tvs;
     pi.fragment_shader = tps;
     terrainPipe = SDL_CreateGPUGraphicsPipeline(device, &pi);
+    {  // (the same shaders: the color times the blend constant, over what is there times one minus it)
+        SDL_GPUColorTargetDescription blended = color;
+        blended.blend_state.enable_blend = true;
+        blended.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_CONSTANT_COLOR;
+        blended.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_CONSTANT_COLOR;
+        blended.blend_state.color_blend_op = SDL_GPU_BLENDOP_ADD;
+        blended.blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+        blended.blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ZERO;
+        blended.blend_state.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
+        SDL_GPUGraphicsPipelineCreateInfo bpi = pi;
+        bpi.target_info.color_target_descriptions = &blended;
+        terrainBlendPipe = SDL_CreateGPUGraphicsPipeline(device, &bpi);
+    }
 
     SDL_GPUColorTargetBlendState blend{};
     blend.enable_blend = true;
@@ -581,7 +604,7 @@ bool Renderer::attach(SDL_Window* window, std::string& error) {
     SDL_SetGPUSwapchainParameters(r.device, window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
     const SDL_GPUTextureFormat format = SDL_GetGPUSwapchainTextureFormat(r.device, window);
     if (r.pipelinesReady && format == r.colorFormat) return true;
-    for (SDL_GPUGraphicsPipeline*& p : {std::ref(r.terrainPipe), std::ref(r.spritePipe), std::ref(r.glowPipe), std::ref(r.solidPipe), std::ref(r.downPipe)})
+    for (SDL_GPUGraphicsPipeline*& p : {std::ref(r.terrainPipe), std::ref(r.terrainBlendPipe), std::ref(r.spritePipe), std::ref(r.glowPipe), std::ref(r.solidPipe), std::ref(r.downPipe)})
         if (p) SDL_ReleaseGPUGraphicsPipeline(r.device, p), p = nullptr;
     r.colorFormat = format;
     return r.pipelinesReady = r.createPipelines(error);
@@ -734,8 +757,10 @@ void Renderer::shutdown() {
     if (r.uploadBuf) SDL_ReleaseGPUTransferBuffer(r.device, r.uploadBuf);
     for (SDL_GPUSampler* s : {r.pointClamp, r.linearClamp, r.linearMip})
         if (s) SDL_ReleaseGPUSampler(r.device, s);
-    for (SDL_GPUGraphicsPipeline* p : {r.terrainPipe, r.spritePipe, r.glowPipe, r.solidPipe, r.downPipe})
+    for (SDL_GPUGraphicsPipeline* p : {r.terrainPipe, r.terrainBlendPipe, r.spritePipe, r.glowPipe, r.solidPipe, r.downPipe})
         if (p) SDL_ReleaseGPUGraphicsPipeline(r.device, p);
+    if (r.overlayIndex) SDL_ReleaseGPUTexture(r.device, r.overlayIndex);
+    if (r.overlayUpload) SDL_ReleaseGPUTransferBuffer(r.device, r.overlayUpload);
     if (r.window) SDL_ReleaseWindowFromGPUDevice(r.device, r.window);
     SDL_DestroyGPUDevice(r.device);
     impl_ = std::make_unique<Impl>();  // (all as new; a worker and its lock are not copied)
@@ -936,17 +961,35 @@ void Renderer::releaseMapData() {
     if (r.hdReading.valid()) r.hdReading.wait();
     r.hdReading = {};
     r.freeImages();
-    for (SDL_GPUTexture** t : {&r.sdAtlas, &r.hdAtlas, &r.hdDown, &r.tileIndex})
+    for (SDL_GPUTexture** t : {&r.sdAtlas, &r.hdAtlas, &r.hdDown, &r.tileIndex, &r.overlayIndex})
         if (*t) SDL_ReleaseGPUTexture(r.device, *t), *t = nullptr;
-    r.tileIndexW = r.tileIndexH = 0;
+    r.tileIndexW = r.tileIndexH = 0, r.overlayIndexW = r.overlayIndexH = 0;
     r.data = nullptr, r.unitSprites = nullptr, r.tileset = nullptr, r.era = 0xFFFF;
     r.loadedTileset = nullptr, r.loadedEra = 0xFFFF, r.loadedTilesetSize = 0, r.tilesetDirty = true;
     r.baseTerrain.clear(), r.baseTerrain.shrink_to_fit(), r.pendingTerrain.clear(), r.pendingTerrain.shrink_to_fit();
     r.terrainPreview.clear(), r.previewNext.clear(), r.terrainDirty = false;
+    r.overlayRects.clear(), r.overlayMegas.clear(), r.overlayMegas.shrink_to_fit(), r.overlayDirty = false;
     r.mapW = r.mapH = 0, r.realW = r.realH = 0, r.originX = r.originY = 0;
 }
 
 void Renderer::updateTerrain(const TerrainLayer& mtxm) { updateTerrainExtended(mtxm, 0, 0, mtxm.width, mtxm.height); }
+
+void Renderer::setTerrainOverlay(const TerrainLayer& tiles, std::vector<TerrainOverlayRect> rects) {
+    Impl& r = *impl_;
+    r.overlayMegas.resize(tiles.tiles.size());
+    for (size_t i = 0; i < tiles.tiles.size(); ++i) {
+        const int mega = r.tileset ? r.tileset->megatileFor(tiles.tiles[i]) : -1;
+        r.overlayMegas[i] = mega < 0 ? 0 : uint16_t(mega);  // (no megatile: the first one, not the shader's purple)
+    }
+    r.overlayW = tiles.width, r.overlayH = tiles.height;
+    r.overlayRects = std::move(rects);
+    r.overlayDirty = true;
+}
+
+void Renderer::clearTerrainOverlay() {
+    Impl& r = *impl_;
+    r.overlayRects.clear(), r.overlayMegas.clear(), r.overlayMegas.shrink_to_fit();
+}
 
 void Renderer::updateTerrainExtended(const TerrainLayer& mtxm, int originX, int originY, int mapW, int mapH) {
     Impl& r = *impl_;
@@ -1426,6 +1469,38 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         SDL_EndGPUCopyPass(copy);
     }
 
+    // The terrain over the terrain (setTerrainOverlay): its tile index, when it changed.
+    const bool overlay = terrainBlendPipe && !overlayRects.empty() && overlayW == mapW && overlayH == mapH && overlayMegas.size() == size_t(mapW) * mapH;
+    if (overlay && overlayDirty) {
+        if (!overlayIndex || overlayIndexW != mapW || overlayIndexH != mapH) {
+            if (overlayIndex) SDL_ReleaseGPUTexture(device, overlayIndex);
+            overlayIndex = createTexture(SDL_GPU_TEXTUREFORMAT_R16_UINT, mapW, mapH, 1, SDL_GPU_TEXTUREUSAGE_SAMPLER);
+            overlayIndexW = mapW, overlayIndexH = mapH;
+        }
+        const uint32_t bytes = uint32_t(overlayMegas.size() * 2);
+        if (!overlayUpload || overlayUploadCap < bytes) {
+            if (overlayUpload) SDL_ReleaseGPUTransferBuffer(device, overlayUpload);
+            SDL_GPUTransferBufferCreateInfo ti{};
+            ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, ti.size = bytes;
+            overlayUpload = SDL_CreateGPUTransferBuffer(device, &ti);
+            overlayUploadCap = overlayUpload ? bytes : 0;
+        }
+        if (overlayIndex && overlayUpload) {
+            if (void* p = SDL_MapGPUTransferBuffer(device, overlayUpload, true)) {
+                std::memcpy(p, overlayMegas.data(), bytes);
+                SDL_UnmapGPUTransferBuffer(device, overlayUpload);
+                SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+                SDL_GPUTextureTransferInfo src{};
+                src.transfer_buffer = overlayUpload, src.pixels_per_row = mapW, src.rows_per_layer = mapH;
+                SDL_GPUTextureRegion dst{};
+                dst.texture = overlayIndex, dst.w = mapW, dst.h = mapH, dst.d = 1;
+                SDL_UploadToGPUTexture(copy, &src, &dst, false);
+                SDL_EndGPUCopyPass(copy);
+                overlayDirty = false;
+            }
+        }
+    }
+
     SDL_GPUColorTargetInfo ct{};
     ct.texture = bends ? backdrop : target;
     ct.clear_color = {0.07f, 0.07f, 0.08f, 1};
@@ -1466,6 +1541,27 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         SDL_PushGPUFragmentUniformData(cmd, 0, &u, sizeof u);
         SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
         ++stats.drawCalls;
+        // The terrain over it: each rect cut out of the screen (scissor), at its alpha (the blend constant).
+        if (overlay && overlayIndex && !overlayDirty && terrainPreview.empty()) {  // (a preview's tiles: not under it)
+            SDL_BindGPUGraphicsPipeline(pass, terrainBlendPipe);
+            SDL_GPUTextureSamplerBinding ob[2] = {{overlayIndex, pointClamp}, b[1]};
+            SDL_BindGPUFragmentSamplers(pass, 0, ob, 2);
+            SDL_PushGPUFragmentUniformData(cmd, 0, &u, sizeof u);
+            for (const TerrainOverlayRect& o : overlayRects) {
+                const float x0 = std::max(0.0f, ((o.x0 - originX) * 32.0f - cam.x) * cam.zoom), y0 = std::max(0.0f, ((o.y0 - originY) * 32.0f - cam.y) * cam.zoom);
+                const float x1 = std::min(float(w), ((o.x1 - originX) * 32.0f - cam.x) * cam.zoom), y1 = std::min(float(h), ((o.y1 - originY) * 32.0f - cam.y) * cam.zoom);
+                if (x1 <= x0 || y1 <= y0) continue;
+                const int ix0 = int(std::lround(x0)), iy0 = int(std::lround(y0)), ix1 = int(std::lround(x1)), iy1 = int(std::lround(y1));
+                if (ix1 <= ix0 || iy1 <= iy0) continue;
+                const SDL_Rect sc{ix0, iy0, ix1 - ix0, iy1 - iy0};  // (edges rounded alike: rects that meet share no pixel)
+                SDL_SetGPUScissor(pass, &sc);
+                SDL_SetGPUBlendConstants(pass, SDL_FColor{o.alpha, o.alpha, o.alpha, o.alpha});
+                SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
+                ++stats.drawCalls;
+            }
+            const SDL_Rect all{0, 0, int(w), int(h)};
+            SDL_SetGPUScissor(pass, &all);
+        }
     }
 
     if (!underRects.empty() && underBuf) {  // (Scene::underRects: on the terrain, under the sprites)

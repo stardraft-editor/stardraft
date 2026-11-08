@@ -758,7 +758,7 @@ render::Scene buildScene() {
             keepAnim(units[i]);
             continue;
         }
-        addUnitSprites(s, units[i], 0, 0, 1, false, true);
+        addUnitSprites(s, units[i], 0, 0, mapLayersUnitAlpha(ed, i), false, true);  // (a see-through layer's: core/map_layers.inc)
     }
     std::erase_if(gAnims, [](const auto& kv) { return kv.second.seen != gSceneNo; });
     if (gLiveScene) gLiveScene(s);  // (the live game's units and sprites)
