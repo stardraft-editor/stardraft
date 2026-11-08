@@ -498,12 +498,14 @@ private:
         if (!pictures()) return scale(quickPickLayout::kItemH);
         return grid_ ? scale(kCell[size_] + 18) : scale(kListH[size_]);
     }
-    int cellW() const {
+    // (a grid: as many cells of the size as fit, made wider to fill the line: no gap at its right)
+    int gridW() const { return std::max(1, listRect().width() - scale(quickPickLayout::kScrollW)); }
+    int cols() const {
         static const int kCell[3] = {64, 88, 120};
-        return pictures() && grid_ ? scale(kCell[size_]) : listRect().width();
+        return pictures() && grid_ ? std::max(1, gridW() / std::max(1, scale(kCell[size_]))) : 1;
     }
+    int cellW() const { return pictures() && grid_ ? gridW() / cols() : listRect().width(); }
     bool gridShown() const { return pictures() && grid_; }
-    int cols() const { return pictures() && grid_ ? std::max(1, (listRect().width() - scale(quickPickLayout::kScrollW)) / std::max(1, cellW())) : 1; }
     int lines(int n) const { return (n + cols() - 1) / cols(); }
     int visibleLines() const { return std::max(1, listRect().height() / std::max(1, itemH())); }
     int visibleRows() const { return visibleLines() * cols(); }  // (the things that show whole: a grid's lines of them)
@@ -525,8 +527,8 @@ private:
     void paintCell(draw::Canvas& c, const PaletteUnit& u, bool sel, draw::Rect r) {
         c.fill(r, kBg);
         if (sel) c.roundBox({r.left + scale(2), r.top + scale(2), r.right - scale(2), r.bottom - scale(2)}, kSel, kSel, float(scale(6)));
-        const int pic = r.width() - scale(12);
-        const draw::Rect box{r.left + scale(6), r.top + scale(4), r.left + scale(6) + pic, r.top + scale(4) + pic};
+        const int pic = std::min(r.width(), r.height() - scale(18)) - scale(12), px = r.left + (r.width() - pic) / 2;  // (a wider cell: in its middle)
+        const draw::Rect box{px, r.top + scale(4), px + pic, r.top + scale(4) + pic};
         if (!(mode_ != Mode::Locations && host_->drawPicture(c, kind_, mode_, u, box)))
             c.icon(box, int(mode_ == Mode::Locations ? UiIcon::Locations : UiIcon::Units), kFaint, scale(20));
         const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
@@ -563,6 +565,12 @@ private:
                                          : kind_ == QuickPickKind::Open || kind_ == QuickPickKind::Custom ? openRows_
                                                                                                           : quickPickItems();
         shown_ = quickPickFilter(std::move(items), words_, kind_ == QuickPickKind::Open, kind_ == QuickPickKind::Custom && gQuickCustom.exact);
+        if (pictures() && mode_ != Mode::Locations) {  // (items of one name: their number after it, as the palettes show them; core/palette_view.inc; a location's section has its number)
+            std::map<std::wstring, std::set<int>> values;
+            for (const PaletteUnit& u : shown_) values[u.label].insert(u.value);
+            for (PaletteUnit& u : shown_)
+                if (values[u.label].size() > 1) u.label += L"  #" + std::to_wstring(u.value);
+        }
         sel_ = shown_.empty() ? -1 : 0;
         top_ = 0;
         place();

@@ -337,7 +337,8 @@ struct ClassicNumber {
 class ClassicPageView final : public draw::View {
 public:
     ClassicPageView(ClassicHost& host, ClassicDialog& d, int tab) : host_(host), d_(d), tab_(tab), model_([&host](int t, int e) { return host.entryName(t, e); }) {
-        search_.setPlaceholder(L"Search");
+        static const wchar_t* const kCues[kClassicTabCount] = {L"Search units", L"Search upgrades", L"Search technologies"};
+        search_.setPlaceholder(kCues[tab_]);  // (as the other lists' cues: "Search <things>")
         search_.onChange = [this] { fillList(); };
         add(search_, {0, 0, 0, 0});
         // The Changed filter: the Data workspace's button (core/views_data_workspace.inc), at the search box's right.

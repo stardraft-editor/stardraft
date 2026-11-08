@@ -615,7 +615,7 @@ private:
     // player box, the transport and the timeline under it).
     int previewWidth() const {
         const int listW = scale(220);
-        const int byHeight = (height() - scale(12 + 34 + 10 + 32 + 8 + 64 + 12)) * 640 / 520;
+        const int byHeight = (height() - scale(12 + 34 + 10 + 32 + 8 + 74 + 12)) * 640 / 520;
         return std::max(scale(420), std::min({width() - listW - scale(440), byHeight, scale(1280)}));
     }
 
@@ -920,7 +920,7 @@ private:
                 },
                 L"The music of the preview. The game plays the briefing music of the player's race.");
         ty += bs + scale(8);
-        paintTimeline(c, {px, ty, px + previewW, ty + scale(64)});
+        paintTimeline(c, {px, ty, px + previewW, ty + scale(74)});  // (its lanes, the marks and the times under them: 69 px)
     }
 
     // A picture fitted into `box` (made smaller to fit, centered).

@@ -87,6 +87,7 @@ size_t unitStackCount(const AppState& app) {
 }
 
 bool docOpen();  // (documents.inc)
+bool newPageCovers();  // (sdl_new_page.inc)
 // The tile at map point (wx, wy) as text: its CV5 group and index, its VX4 megatile, its terrain, and the tile value
 // (the status bar; Report feedback on the selected terrain). "" outside the map.
 std::wstring tileValueText(const Editor& ed, float wx, float wy) {
@@ -198,7 +199,7 @@ std::wstring modeCountStatus(const AppState& app) {
 }
 void updateStatus(AppState& app) {
     if (!shellHasStatusBar()) return;
-    if (!docOpen()) {  // no map shows (the start page, the New page): no part of a map's status
+    if (!docOpen() || newPageCovers()) {  // no map shows (the start page, the New page): no part of a map's status
         for (int i = 0; i < int(std::size(app.statusText)); ++i)
             if (!app.statusText[i].empty()) setStatusPart(app, i, L"");
         return;
@@ -213,8 +214,9 @@ void updateStatus(AppState& app) {
                   placeTool ? (app.palette >= 0 ? L"Place" : L"Select")
                   : app.mode == Mode::Terrain ? kTerrainTools[currentTool(app)] : app.mode == Mode::Units ? kUnitTools[currentTool(app)]
                   : app.mode == Mode::Layers ? kLayersTools[currentTool(app)]
-                  : app.mode == Mode::Doodads ? kDoodadTools[currentTool(app)] : currentTool(app) == SErase || (app.mode == Mode::Locations && currentTool(app) == LErase) ? L"Erase"
-                  : L"Edit");
+                  : app.mode == Mode::Doodads ? kDoodadTools[currentTool(app)]
+                  : app.mode == Mode::Sprites ? (currentTool(app) == SErase ? L"Erase" : L"Spray")
+                  : currentTool(app) == LErase ? L"Erase" : L"Select");  // (Locations: as their tools' tips name them)
     setStatusPart(app, 0, (std::wstring(buf) + mapLayersStatusText()).c_str());  // (the layer that the tools change)
     if (!app.mouseIn) std::swprintf(buf, 256, L"\x2014");  // (the mouse is not on the map: no place)
     else std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);

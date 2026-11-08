@@ -69,7 +69,7 @@ constexpr int kNameY = kPad - 2, kNameB = kPad + 24, kSubY = kPad + 22, kSubB = 
 constexpr int kStatesY = kTop + 4 * (kRowH + kGap) + kRowH + kGap + 6;  // the state check boxes, 3 to a row
 constexpr int kStateStepX = 150, kStateColX = kColW, kStateW = 200, kStateStepY = kRowH + 2;
 constexpr int kContentW = kColW + kLabelW + kBoxW;          // 464: the window is 496 px wide inside
-constexpr int kListW = 300, kListGap = 16;                  // the Units list: the left column; the fields start after it
+constexpr int kListW = 380, kListGap = 16;                  // the Units list: the left column (a long unit type shows whole); the fields start after it
 constexpr int kRightX = kListW + kListGap;                  // the fields' column (and the picture, the name) from the left
 constexpr int kButtonH = 28;                                // ui::kButtonH: Edit unit type, Apply and Cancel
 constexpr int kButtonsGap = 24;                             // Edit unit type to Apply and Cancel

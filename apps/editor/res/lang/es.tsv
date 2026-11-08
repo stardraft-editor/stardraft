@@ -3031,3 +3031,5 @@ Exclude	Excluir
 Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)	Direct3D 12 en tarjetas gráficas nuevas, Vulkan en las antiguas. Si la tarjeta no puede usarlo: el otro, luego dibujo por software (predeterminado)
 Vulkan. If the video card cannot use it: Direct3D 12, then software drawing	Vulkan. Si la tarjeta gráfica no puede usarlo: Direct3D 12, luego dibujo por software
 Graphics: Vulkan after a restart	Gráficos: Vulkan tras reiniciar
+Search upgrades	Buscar mejoras
+Search technologies	Buscar tecnologías

@@ -3033,6 +3033,8 @@ constexpr UiText kRows[] = {
     {L"Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)", L"Direct3D 12 sur les cartes graphiques r\u00E9centes, Vulkan sur les anciennes. Si la carte ne peut pas l'utiliser : l'autre, puis le dessin logiciel (par d\u00E9faut)"},
     {L"Vulkan. If the video card cannot use it: Direct3D 12, then software drawing", L"Vulkan. Si la carte graphique ne peut pas l'utiliser : Direct3D 12, puis le dessin logiciel"},
     {L"Graphics: Vulkan after a restart", L"Graphismes : Vulkan apr\u00E8s un red\u00E9marrage"},
+    {L"Search upgrades", L"Rechercher des am\u00E9liorations"},
+    {L"Search technologies", L"Rechercher des technologies"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }
