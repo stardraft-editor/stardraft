@@ -191,6 +191,8 @@ bool gKeysFromOpener = false;
 #include "sdl_map_dialogs.inc"  // Unit and Location properties, the text prompt, the quick picker and the map's menu
 #include "sdl_simulation.inc"  // Tools > Simulate mining and combat: a live game run by StarDraft's simulation (experimental)
 #include "sdl_map_image.inc"  // File > Export map image: the picture drawn in parts with the map's renderer (core/map_image.inc)
+#include "sdl_map_lab.inc"
+#include "sdl_mining_lab.inc"
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
 #include "sdl_classic_table.inc"  // Map data's Table view (the model is core/classic_table.inc)
@@ -1043,6 +1045,14 @@ int main(int argc, char** argv) {
                 if (const size_t bar = f.rfind('|'); bar != std::string::npos) row = std::atoi(f.c_str() + bar + 1), f.resize(bar);
                 gPassagesView.openForShot(std::filesystem::u8path(f), row);
                 shown = &gPassagesView;
+            } else if (dialogArg == "mininglab") {
+                gMiningPanel.setup();
+                gMiningPanel.open = true;
+                shown = &gMiningPanel;
+            } else if (dialogArg == "rushmeasure") {
+                gMapLab.setup(true);
+                gMapLab.open = true;
+                shown = &gMapLab;
             } else if (dialogArg == "newproject") shown = &projectShot;
             else if (dialogArg == "prompt") shown = &promptShot;
             else if (dialogArg == "listpick") shown = &pickShot;

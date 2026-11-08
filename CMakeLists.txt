@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(stardraft LANGUAGES C CXX)
+include(CTest)
+add_subdirectory(tools/map_lab)
 if(APPLE)
     enable_language(OBJCXX)  # (the editor's macOS parts, apps/editor/mac_*.mm: here, before any target)
 endif()
@@ -662,7 +664,7 @@ if(STARDRAFT_RENDERER)
     add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)
     # Edit > Tools > Simulate (experimental: apps/editor/sdl_simulation.inc)
     target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_SIMULATION)
-    target_link_libraries(${sdlEditor} PRIVATE stardraft_sim)
+    target_link_libraries(${sdlEditor} PRIVATE stardraft_sim stardraft_map_lab)
     if(WIN32)
         # The program's icons (the window, the taskbar, Explorer), its manifest (per monitor DPI, UTF-8, long paths), its
         # version resource, and its files: the icon atlases, the app icon and Noto Sans (the Latin font when Segoe UI is

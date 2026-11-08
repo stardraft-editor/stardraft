@@ -25,12 +25,15 @@ bool gTilesShown = false;  // the Tiles panel shows (Rectangle mode, in the Map 
 // The map's texture: the renderer draws the open map into it each frame, and the map view shows it.
 SDL_GPUTexture* gMapTex = nullptr;
 int gMapW = 0, gMapH = 0;
+std::vector<render::TextDraw> gMapUiTexts;
+render::Camera gMapUiCamera;
 const Editor* gMapEd = nullptr;  // the editor the renderer's sources are set for
 uint64_t gTerrainRev = ~0ull;    // ... and the terrain revision they have
 
 void releaseMapTexture() {
     if (gMapTex && gDevice) SDL_ReleaseGPUTexture(gDevice, gMapTex);
     gMapTex = nullptr, gMapW = gMapH = 0;
+    gMapUiTexts.clear();
     gMapEd = nullptr;
 }
 
@@ -131,7 +134,13 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     gRenderer->setExactTeamColors(exact);
     // The scene (core/map_scene.inc), with the units' idle animations at the game's speed (View > Animate units).
     if (gState.animate) advanceAnims();
-    const render::Scene scene = buildScene();
+    render::Scene scene = buildScene();
+    gMapUiTexts.clear();
+    gMapUiCamera = scene.camera;
+    for (const auto &text : scene.texts)
+      if (text.smooth)
+        gMapUiTexts.push_back(text);
+    std::erase_if(scene.texts, [](const auto &text) { return text.smooth; });
     static const std::vector<std::pair<int, uint16_t>> kNoTiles;
     gRenderer->setTerrainPreview(gState.mouseIn ? ghostTiles : kNoTiles);  // (both lists by reference: no copy each frame)
     gRenderer->drawTo(cmd, gMapTex, uint32_t(w), uint32_t(h), scene);
@@ -191,6 +200,9 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r);
 std::wstring simBarTip(draw::Point pt, draw::Rect r);
 bool simKey(const draw::KeyEvent& e);
 void simFrame();
+void mapLabFrame();
+bool mapLabMouse(const draw::MouseEvent&);
+bool mapLabKey(const draw::KeyEvent&);
 
 // The map view: the texture of the map (drawn by the frame hook) and the core's map input.
 struct MapView final : draw::View {
@@ -212,6 +224,32 @@ struct MapView final : draw::View {
         c.fill(all, kBg);
         if (open() && gMapTex && gMapW == width() && gMapH == height()) {
             c.externalImage(gMapTex, all);
+            if (!gMapUiTexts.empty()) {
+              const auto previous =
+                  c.setFont(c.font({draw::Face::Ui, scale(13)}));
+              for (const auto &text : gMapUiTexts) {
+                const int x = int(std::round(
+                    text.world ? (text.x - gMapUiCamera.x) * gMapUiCamera.zoom
+                               : text.x));
+                const int y = int(std::round(
+                    text.world ? (text.y - gMapUiCamera.y) * gMapUiCamera.zoom
+                               : text.y));
+                const auto label = widen(text.text);
+                const draw::Point size{c.measure(label), c.metrics().height};
+                draw::Rect r{x - scale(4), y - scale(2), x + size.x + scale(4),
+                             y + size.y + scale(2)};
+                if (r.right < 0 || r.bottom < 0 || r.left >= width() ||
+                    r.top >= height())
+                  continue;
+                c.roundBox(r, draw::rgb(22, 24, 29), draw::rgb(65, 64, 59),
+                           scale(3));
+                c.text({x, y, x + size.x, y + size.y}, label,
+                       draw::rgb(int(text.rgba >> 24),
+                                 int(text.rgba >> 16 & 255),
+                                 int(text.rgba >> 8 & 255)));
+              }
+              c.setFont(previous);
+            }
             if (simBarShown()) simPaintBar(c, all);
             return;
         }
@@ -232,6 +270,7 @@ struct MapView final : draw::View {
     }
     std::wstring focusedItem() const override { return L"Map"; }
     bool mouse(const draw::MouseEvent& e) override {
+        if (mapLabMouse(e)) return true;
         if (e.kind == draw::MouseKind::Down && sdlPieClickAway()) return true;  // (a click away from the pie palette closes it)
         // While a live game shows: its bar's buttons; on the map only the view moves (middle button, wheel, pinch).
         if (simBarShown()) {
@@ -512,6 +551,7 @@ struct MainView final : draw::View {
     // The menus' keys run when no view takes the key (the focused view first, then up to here). A search box takes the
     // letters and digits it types: the map's one-letter shortcuts (T, U, G, Q...) wait while it has the keyboard.
     bool key(const draw::KeyEvent& e) override {
+        if (mapLabKey(e)) return true;
         if (simKey(e)) return true;  // (Esc ends a live game)
         if (simBarShown()) return shortcutRun(e);  // (a live game: the menus' keys only, not the map's)
         const int k = int(e.key);
@@ -1153,6 +1193,7 @@ void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     const int w = gRoot->map.width(), h = gRoot->map.height();
     if (gFitPending && w > 0 && h > 0) fitMap(), updateStatus();  // (the map opened before the view had its size: the zoom it fit)
     if (gCenterUnitPending >= 0 && w > 0 && h > 0) unitsListCenter(gCenterUnitPending), gCenterUnitPending = -1;
+    mapLabFrame();
     simFrame();  // (a live game: its frames for the time that went by)
     gRoot->map.panStep();  // (Options > Middle mouse click and hold > Pan map: the map moves toward the mouse)
     // (the other workspaces hide the map: no frame; nor when only other views paint, as a hover over the side bar or
