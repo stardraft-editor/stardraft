@@ -526,8 +526,9 @@ private:
         hit(r, [r, click] { click(r); }, tip);
     }
     // A square button with an icon glyph (boxed: a fill when on or under the mouse).
-    void glyphButton(draw::Canvas& c, draw::Rect r, kitpaint::Ico g, bool on, std::function<void()> click, const std::wstring& tip) {
+    void glyphButton(draw::Canvas& c, draw::Rect r, kitpaint::Ico g, bool on, std::function<void()> click, const std::wstring& tip, bool enabled = true) {
         r = kitpaint::square(r);
+        if (!enabled) return kitpaint::drawGlyph(c, r, g, kFaint, 14);  // (off: faint, no click)
         const bool over = hot(r);
         if (on) kitpaint::drawBox(c, r, kSel, kAccentLine);
         else if (over) kitpaint::drawBox(c, r, kCtlHot, draw::kNone);
@@ -540,11 +541,11 @@ private:
         hit(kitpaint::square(r), std::move(click), tip);
     }
     // A group's name over the side panel's parts, in the small font. Returns the y under it.
+    // A section heading, as the other pages' (Map properties' Players, the Data form's groups): the name, a line under it.
     int sideGroup(draw::Canvas& c, int x, int y, int w, const std::wstring& name) {
-        const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
-        c.text({x, y, x + w, y + scale(15)}, name, kDim, draw::kMiddle | draw::kEllipsis);
-        c.setFont(of);
-        return y + scale(18);
+        c.text({x, y, x + w, y + scale(22)}, name, kText, draw::kMiddle | draw::kEllipsis);
+        c.fill({x, y + scale(24), x + w, y + scale(25)}, kBorder);
+        return y + scale(30);
     }
     // A point under a box (where its picker opens).
     static draw::Point below(draw::Rect r) { return {r.left, r.bottom + scale(2)}; }
@@ -901,9 +902,10 @@ private:
         paintWindow(c, pv);
         int ty = pv.bottom + scale(10);
         const int bs = scale(32);
-        glyphButton(c, {px, ty, px + bs, ty + bs}, UiIcon::ToStart, false, [this] { seek(0); }, L"Go to the start");
+        const bool any = total_ > 0;  // (no actions: nothing to play)
+        glyphButton(c, {px, ty, px + bs, ty + bs}, UiIcon::ToStart, false, [this] { seek(0); }, L"Go to the start", any);
         glyphButton(c, {px + bs + scale(6), ty, px + 2 * bs + scale(6), ty + bs}, playing ? UiIcon::Pause : UiIcon::Play, false, [this] { play(!playing); },
-                    playing ? L"Pause (Space)" : L"Play (Space)");
+                    playing ? L"Pause (Space)" : L"Play (Space)", any);
         const int mw = std::min(scale(150), previewW / 2);
         c.text({px + 2 * bs + scale(18), ty, px + previewW - mw - scale(8), ty + bs}, briefTime(t) + L" / " + briefTime(total_), kDim, draw::kMiddle);
         static const wchar_t* const kRaceNames[3] = {L"Zerg", L"Terran", L"Protoss"};
@@ -1028,8 +1030,14 @@ private:
         while (span / step > 60) step *= 2;  // (a very long briefing: at most about 60 marks)
         for (uint64_t at = 0; at <= span; at += step) {
             const uint32_t ms = uint32_t(at);
-            c.line(xAt(ms), ty, xAt(ms), ty + scale(4), draw::rgb(70, 74, 80));
-            c.text({xAt(ms) - scale(30), ty + scale(4), xAt(ms) + scale(30), ty + scale(20)}, briefTime(ms), kDim, draw::kMiddle | draw::kCenter);
+            const int x = xAt(ms), w = scale(60);
+            c.line(x, ty, x, ty + scale(4), draw::rgb(70, 74, 80));
+            // (the first time from its mark rightward, the last one leftward to its mark: in the track, clear of the playhead)
+            const bool first = at == 0, last = x + w / 2 > x1;
+            const draw::Rect lr = first ? draw::Rect{x + scale(4), ty + scale(4), x + w, ty + scale(20)}
+                                  : last ? draw::Rect{x - w, ty + scale(4), x - scale(4), ty + scale(20)}
+                                         : draw::Rect{x - w / 2, ty + scale(4), x + w / 2, ty + scale(20)};
+            c.text(lr, briefTime(ms), kDim, draw::kMiddle | (first ? draw::kLeft : last ? draw::kRight : draw::kCenter));
         }
         const int ph = xAt(t);
         c.line(ph, r.top + scale(3), ph, r.bottom - scale(3), draw::rgb(240, 240, 240), 2);

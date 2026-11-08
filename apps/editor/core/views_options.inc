@@ -574,15 +574,16 @@ void OptionsView::paint(draw::Canvas& c) {
         parts_[part] = r;
         return r.right;
     };
-    // A segmented choice: one button for each choice, the chosen one Primary, 4 px apart.
+    // A segmented choice: one button for each choice, the chosen one Primary, joined (as the tool strip's choices).
     auto segmented = [&](int rowY, stardraft::kit::Button* bs, int n, const std::string& part) {
         int x = fx;
         for (int i = 0; i < n; ++i) {
             const int w = bs[i].preferredWidth(c);
             const draw::Rect r{x, fieldTop(rowY), x + w, fieldTop(rowY) + fieldH};
             place(bs[i], r, true);
+            bs[i].setJoined(i > 0, i < n - 1);
             parts_[part + "." + std::to_string(i)] = r;
-            x += w + scale(4);
+            x += w;
         }
     };
     auto checkRow = [&](int rowY, stardraft::kit::CheckBox& cb, const std::string& part) {

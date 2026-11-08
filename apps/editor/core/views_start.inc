@@ -198,13 +198,11 @@ public:
                 c.text({card.left + inPad, ty, card.right - inPad, ty + scale(26)}, cardName(k), enabled ? kText : kFaint, kMiddle | kEllipsis);
                 c.setFont(of);
             }
-            if (soon) {  // the "Coming later" mark, at the top right
-                const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
+            if (soon) {  // the "Coming later" mark, at the top right (the UI font: as the card's text)
                 const int lw = c.measure(L"Coming later") + scale(16), lh = scale(20);
                 const Rect mark{card.right - inPad - lw, card.top + inPad, card.right - inPad, card.top + inPad + lh};
                 c.roundBox(mark, kChipDim, kReadOnlyLine, float(scale(stardraft::kit::kRadius)));
                 c.text(mark, L"Coming later", kDim, kMiddle | kCenter);
-                c.setFont(of);
             }
             ty += scale(26) + scale(6);
             c.text({card.left + inPad, ty, card.right - inPad, card.bottom - inPad}, cardText(k), enabled ? kDim : kFaint, kWrap | kLeft);

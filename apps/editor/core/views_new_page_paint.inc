@@ -220,11 +220,9 @@ void NewPageView::paint(draw::Canvas& c) {
             if (!warning.empty()) {
                 c.icon({x1, fy + scale(2), x1 + scale(16), fy + scale(18)}, int(UiIcon::Warning), kWarn, scale(16));
                 fy = paragraph(c, {x1 + scale(22), fy, x1 + w1, fy + scale(200)}, warning, kWarn) + scale(8);
-            } else {
-                const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
+            } else {  // (the UI font: the whole folder, which the Location field can cut)
                 fy = paragraph(c, {x1, fy, x1 + w1, fy + scale(100)}, L"The project goes into the new folder " + projectFolder().make_preferred().wstring(), kDim) +
                      scale(8);
-                c.setFont(of);
             }
         }
         const std::wstring cue = nameText() + L"_EUD.scx";
