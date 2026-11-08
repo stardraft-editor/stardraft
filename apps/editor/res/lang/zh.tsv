@@ -346,11 +346,11 @@ Hallucinated	幻觉
 Invincible	无敌
 Owner	所有者
  (neutral)	 (中立)
-Hit points %	生命值 %
+Hit points (%)	生命值 (%)
 Resources	资源
-Shields %	护盾 %
+Shields (%)	护盾 (%)
 Hangar	机库
-Energy %	能量 %
+Energy (%)	能量 (%)
 X (pixels)	X (像素)
 Y (pixels)	Y (像素)
 Edit unit type in Data (	在数据中编辑单位类型 (
@@ -3026,3 +3026,5 @@ Grid (Ctrl+G)	网格 (Ctrl+G)
 Size: small (Ctrl+wheel changes it)	大小：小（Ctrl+滚轮更改）
 Size: medium (Ctrl+wheel changes it)	大小：中（Ctrl+滚轮更改）
 Size: large (Ctrl+wheel changes it)	大小：大（Ctrl+滚轮更改）
+Serial 	序列号 
+Exclude	排除

@@ -689,7 +689,7 @@ private:
     // A child's frame, set only when it differs (a set repaints).
     static bool isDigit(wchar_t c) { return c >= L'0' && c <= L'9'; }
     void setNumberLook(ClassicNumber& n) {
-        n.field.setAlignRight(true), n.field.setFont({draw::Face::Mono, 0}), n.field.setFilter(isDigit);
+        n.field.setAlignRight(true), n.field.setFilter(isDigit);
     }
 
     // The check boxes' changes: the page's change of the entry's values.

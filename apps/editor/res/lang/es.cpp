@@ -367,11 +367,11 @@ constexpr UiText kRows[] = {
     {L"Invincible", L"Invencible"},
     {L"Owner", L"Propietario"},
     {L" (neutral)", L" (neutral)"},
-    {L"Hit points %", L"Puntos de vida %"},
+    {L"Hit points (%)", L"Puntos de vida (%)"},
     {L"Resources", L"Recursos"},
-    {L"Shields %", L"Escudos %"},
+    {L"Shields (%)", L"Escudos (%)"},
     {L"Hangar", L"Hangar"},
-    {L"Energy %", L"Energ\u00EDa %"},
+    {L"Energy (%)", L"Energ\u00EDa (%)"},
     {L"X (pixels)", L"X (p\u00EDxeles)"},
     {L"Y (pixels)", L"Y (p\u00EDxeles)"},
     {L"Edit unit type in Data (", L"Editar tipo de unidad en Datos ("},
@@ -3028,6 +3028,8 @@ constexpr UiText kRows[] = {
     {L"Size: small (Ctrl+wheel changes it)", L"Tama\u00F1o: peque\u00F1o (Ctrl+rueda lo cambia)"},
     {L"Size: medium (Ctrl+wheel changes it)", L"Tama\u00F1o: mediano (Ctrl+rueda lo cambia)"},
     {L"Size: large (Ctrl+wheel changes it)", L"Tama\u00F1o: grande (Ctrl+rueda lo cambia)"},
+    {L"Serial ", L"Serie "},
+    {L"Exclude", L"Excluir"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

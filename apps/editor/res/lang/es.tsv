@@ -363,11 +363,11 @@ Hallucinated	Alucinado
 Invincible	Invencible
 Owner	Propietario
  (neutral)	 (neutral)
-Hit points %	Puntos de vida %
+Hit points (%)	Puntos de vida (%)
 Resources	Recursos
-Shields %	Escudos %
+Shields (%)	Escudos (%)
 Hangar	Hangar
-Energy %	Energía %
+Energy (%)	Energía (%)
 X (pixels)	X (píxeles)
 Y (pixels)	Y (píxeles)
 Edit unit type in Data (	Editar tipo de unidad en Datos (
@@ -3026,3 +3026,5 @@ Grid (Ctrl+G)	Cuadrícula (Ctrl+G)
 Size: small (Ctrl+wheel changes it)	Tamaño: pequeño (Ctrl+rueda lo cambia)
 Size: medium (Ctrl+wheel changes it)	Tamaño: mediano (Ctrl+rueda lo cambia)
 Size: large (Ctrl+wheel changes it)	Tamaño: grande (Ctrl+rueda lo cambia)
+Serial 	Serie 
+Exclude	Excluir

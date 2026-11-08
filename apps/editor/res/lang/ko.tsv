@@ -363,11 +363,11 @@ Hallucinated	환각
 Invincible	무적
 Owner	소유자
  (neutral)	 (중립)
-Hit points %	체력 %
+Hit points (%)	체력 (%)
 Resources	자원
-Shields %	실드 %
+Shields (%)	실드 (%)
 Hangar	격납고
-Energy %	에너지 %
+Energy (%)	에너지 (%)
 X (pixels)	X (픽셀)
 Y (pixels)	Y (픽셀)
 Edit unit type in Data (	데이터에서 유닛 종류 편집 (
@@ -3056,3 +3056,5 @@ Grid (Ctrl+G)	격자 (Ctrl+G)
 Size: small (Ctrl+wheel changes it)	크기: 작게 (Ctrl+휠로 변경)
 Size: medium (Ctrl+wheel changes it)	크기: 보통 (Ctrl+휠로 변경)
 Size: large (Ctrl+wheel changes it)	크기: 크게 (Ctrl+휠로 변경)
+Serial 	일련번호 
+Exclude	제외

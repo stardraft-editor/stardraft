@@ -67,7 +67,7 @@ constexpr int kIcon = 40;                                   // the picture's box
 constexpr int kTextX = kIcon + 12;                          // the name and the line under it (from the content's left)
 constexpr int kNameY = kPad - 2, kNameB = kPad + 24, kSubY = kPad + 22, kSubB = kPad + 42;
 constexpr int kStatesY = kTop + 4 * (kRowH + kGap) + kRowH + kGap + 6;  // the state check boxes, 3 to a row
-constexpr int kStateStepX = 150, kStateColX = 232, kStateW = 200, kStateStepY = kRowH + 2;
+constexpr int kStateStepX = 150, kStateColX = kColW, kStateW = 200, kStateStepY = kRowH + 2;
 constexpr int kContentW = kColW + kLabelW + kBoxW;          // 464: the window is 496 px wide inside
 constexpr int kListW = 300, kListGap = 16;                  // the Units list: the left column; the fields start after it
 constexpr int kRightX = kListW + kListGap;                  // the fields' column (and the picture, the name) from the left
@@ -181,7 +181,7 @@ public:
         };
         auto number = [&](stardraft::kit::TextField& f, uint32_t v, bool on) {
             f.setText(std::to_wstring(v));
-            f.setFont({draw::Face::Mono, 0}), f.setAlignRight(true);
+            f.setAlignRight(true);
             f.setTrailing(scale(2));  // (the native edit's right margin: the digits end where they did)
             f.setFilter([](wchar_t c) { return c >= L'0' && c <= L'9'; });  // ES_NUMBER
             if (!on) {  // a disabled edit box: read only, not a Tab stop, its text faint
@@ -201,11 +201,11 @@ public:
         owner_.setEnabled(true);  // (any unit can take a player, as in SCMDraft: a mod's unit types often lack StarEdit's Non-Neutral flag)
         add(owner_, {0, 0, 0, 0});
         const bool single = units.size() == 1;
-        label(labels_[1], L"Hit points %"), number(hp_, u.hitPoints, u.validProps & UnitProp::HitPoints);
+        label(labels_[1], L"Hit points (%)"), number(hp_, u.hitPoints, u.validProps & UnitProp::HitPoints);
         label(labels_[2], L"Resources"), number(resources_, u.resources, u.validProps & UnitProp::Resources);
-        label(labels_[3], L"Shields %"), number(shields_, u.shields, u.validProps & UnitProp::Shields);
+        label(labels_[3], L"Shields (%)"), number(shields_, u.shields, u.validProps & UnitProp::Shields);
         label(labels_[4], L"Hangar"), number(hangar_, u.hangar, u.validProps & UnitProp::Hangar);
-        label(labels_[5], L"Energy %"), number(energy_, u.energy, u.validProps & UnitProp::Energy);
+        label(labels_[5], L"Energy (%)"), number(energy_, u.energy, u.validProps & UnitProp::Energy);
         label(labels_[6], L"X (pixels)"), number(x_, u.x, single);
         label(labels_[7], L"Y (pixels)"), number(y_, u.y, single);
         label(labels_[8], L"Unit ID"), number(unitId_, u.type, true);
@@ -341,7 +341,7 @@ public:
         c.text({rightPx + scale(kTextX), scale(kNameY), scale(2000), scale(kNameB)}, unitDisplayName(first_.type), kText, draw::kLeft);
         c.setFont(of);
         const std::wstring sub = count_ > 1 ? std::to_wstring(count_) + tr(L" units selected. Changes apply to all of them.")
-                                            : tr(L"Unit ") + std::to_wstring(first_.type) + tr(L"  \x00B7  serial ") + std::to_wstring(first_.serial);
+                                            : tr(L"Serial ") + std::to_wstring(first_.serial);  // (its type's number is the Unit ID field)
         c.text({rightPx + scale(kTextX), scale(kSubY), scale(2000), scale(kSubB)}, sub, kDim, draw::kLeft);
     }
 

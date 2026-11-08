@@ -387,9 +387,11 @@ void FilesPage::paint(draw::Canvas& c) {
             lt.left += scale(4), lt.right -= scale(4);
             c.text(lt, lengthText(svc().soundLength(name)), kDim, draw::kRight | draw::kMiddle);
         }
-        draw::Rect st = kitpaint::tableCell(rw.r, cols, 4);
-        st.left += scale(4), st.right -= scale(4);
-        c.text(st, kind == 0 ? sizeText(size) : std::wstring(L"\x2014"), kDim, draw::kRight | draw::kMiddle);
+        if (kind == 0) {  // (a game sound: in the game's files, no size of the map's; empty, as its length)
+            draw::Rect st = kitpaint::tableCell(rw.r, cols, 4);
+            st.left += scale(4), st.right -= scale(4);
+            c.text(st, sizeText(size), kDim, draw::kRight | draw::kMiddle);
+        }
 
         const draw::Rect last{cEnd, y, colRight, y + rowH};
         rw.last = kitpaint::square(last);

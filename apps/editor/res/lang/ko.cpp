@@ -367,11 +367,11 @@ constexpr UiText kRows[] = {
     {L"Invincible", L"\uBB34\uC801"},
     {L"Owner", L"\uC18C\uC720\uC790"},
     {L" (neutral)", L" (\uC911\uB9BD)"},
-    {L"Hit points %", L"\uCCB4\uB825 %"},
+    {L"Hit points (%)", L"\uCCB4\uB825 (%)"},
     {L"Resources", L"\uC790\uC6D0"},
-    {L"Shields %", L"\uC2E4\uB4DC %"},
+    {L"Shields (%)", L"\uC2E4\uB4DC (%)"},
     {L"Hangar", L"\uACA9\uB0A9\uACE0"},
-    {L"Energy %", L"\uC5D0\uB108\uC9C0 %"},
+    {L"Energy (%)", L"\uC5D0\uB108\uC9C0 (%)"},
     {L"X (pixels)", L"X (\uD53D\uC140)"},
     {L"Y (pixels)", L"Y (\uD53D\uC140)"},
     {L"Edit unit type in Data (", L"\uB370\uC774\uD130\uC5D0\uC11C \uC720\uB2DB \uC885\uB958 \uD3B8\uC9D1 ("},
@@ -3058,6 +3058,8 @@ constexpr UiText kRows[] = {
     {L"Size: small (Ctrl+wheel changes it)", L"\uD06C\uAE30: \uC791\uAC8C (Ctrl+\uD720\uB85C \uBCC0\uACBD)"},
     {L"Size: medium (Ctrl+wheel changes it)", L"\uD06C\uAE30: \uBCF4\uD1B5 (Ctrl+\uD720\uB85C \uBCC0\uACBD)"},
     {L"Size: large (Ctrl+wheel changes it)", L"\uD06C\uAE30: \uD06C\uAC8C (Ctrl+\uD720\uB85C \uBCC0\uACBD)"},
+    {L"Serial ", L"\uC77C\uB828\uBC88\uD638 "},
+    {L"Exclude", L"\uC81C\uC678"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

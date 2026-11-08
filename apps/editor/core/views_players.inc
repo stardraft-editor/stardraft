@@ -223,7 +223,8 @@ private:
         // Forces and what the map needs: beside the players where they fit, else under them.
         const bool beside = host_.availableWidth() >= l.c5 + 2 * l.pad + forcesW + l.pad;
         l.f0 = beside ? l.c5 + 2 * l.pad : l.c0, l.flagX = l.f0 + scale(200);
-        l.fRight = l.f0 + forcesW, l.right = std::max(l.c5, l.fRight);
+        l.fRight = beside ? l.f0 + forcesW : std::max(l.c5, l.f0 + forcesW);  // (under the players: its line as long as theirs)
+        l.right = std::max(l.c5, l.fRight);
         l.forcesTop = beside ? l.pad : tableEnd + l.pad;
         l.problemsTop = l.forcesTop + l.pitch + 4 * l.pitch + l.pad;
         l.height = std::max(l.problemsTop + scale(70), beside ? tableEnd : 0) + l.pad;

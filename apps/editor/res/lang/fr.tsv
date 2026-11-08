@@ -363,11 +363,11 @@ Hallucinated	Halluciné
 Invincible	Invincible
 Owner	Propriétaire
  (neutral)	 (neutre)
-Hit points %	Points de vie %
+Hit points (%)	Points de vie (%)
 Resources	Ressources
-Shields %	Boucliers %
+Shields (%)	Boucliers (%)
 Hangar	Hangar
-Energy %	Énergie %
+Energy (%)	Énergie (%)
 X (pixels)	X (pixels)
 Y (pixels)	Y (pixels)
 Edit unit type in Data (	Modifier le type d'unité dans Données (
@@ -3026,3 +3026,5 @@ Grid (Ctrl+G)	Grille (Ctrl+G)
 Size: small (Ctrl+wheel changes it)	Taille : petite (Ctrl+molette la change)
 Size: medium (Ctrl+wheel changes it)	Taille : moyenne (Ctrl+molette la change)
 Size: large (Ctrl+wheel changes it)	Taille : grande (Ctrl+molette la change)
+Serial 	N° de série 
+Exclude	Exclure
