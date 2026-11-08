@@ -2819,7 +2819,6 @@ Scripts from	Scripts de
 %s values: %s	%s valores: %s
 1 file: %s	1 archivo: %s
 %s files, in their folders: %s	%s archivos, en sus carpetas: %s
-Needs the build folder	Requiere la carpeta de compilación
 From the build folder	De la carpeta de compilación
 The map %s, copied into the project	El mapa %s, copiado en el proyecto
 Build writes the map to %s	La compilación escribe el mapa en %s
@@ -2836,8 +2835,6 @@ EUD Editor 2 project, saved by version %s	Proyecto de EUD Editor 2, guardado con
 euddraft project	Proyecto de euddraft
 Found	Encontrado
 No build in this folder	No hay compilación en esta carpeta
-EUD Editor 2 writes the code of its trigger editor and of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2 escribe el código de su editor de triggers y de algunos plugins solo al compilar. Su carpeta de compilación es Data\\eudplibdata en la carpeta de EUD Editor 2.
-EUD Editor 3 writes the code of macros, block scripts, classic triggers, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3 escribe el código de las macros, los scripts de bloques, los triggers clásicos, el reproductor de BGM y las imágenes de puntos solo al compilar. Su carpeta de compilación es BuildData_<name>, junto al mapa, junto al archivo del proyecto o en Data\\temp en la carpeta de EUD Editor 3.
 Import	Importar
 Next	Siguiente
 Could not import the project. %s	No se pudo importar el proyecto. %s
@@ -2874,8 +2871,6 @@ the plugin grpinjector (cursor pictures)	el plugin grpinjector (imágenes del cu
 the plugin dataDumper (its files)	el plugin dataDumper (sus archivos)
 SC Archive (its online save and load): StarDraft has no online service	SC Archive (su guardado y carga en línea): StarDraft no tiene servicio en línea
 SCDB (its online save and load): StarDraft has no online service	SCDB (su guardado y carga en línea): StarDraft no tiene servicio en línea
-the tileset edits: StarDraft does not change tilesets	las ediciones del tileset: StarDraft no cambia los tilesets
-the dialog (.bin) edits: StarDraft does not change dialogs	las ediciones de diálogos (.bin): StarDraft no cambia los diálogos
 the sound player's sounds: add the sounds in the Files workspace	los sonidos del reproductor: agregue los sonidos en el espacio de trabajo Archivos
 build after save: build with Ctrl+B	compilar al guardar: compile con Ctrl+B
 custom stat_txt.tbl is off in EUD Editor 3: the texts come over and are used	el stat_txt.tbl propio está desactivado en EUD Editor 3: los textos se importan y se usan
@@ -2920,5 +2915,10 @@ To do	Tareas
 Select the build folder…	Seleccionar la carpeta de compilación…
 1 file	1 archivo
 %s files	%s archivos
+the tileset edits: a feature of the original StarCraft, not of StarCraft: Remastered	las ediciones del tileset: una función del StarCraft original, no de StarCraft: Remastered
+the dialog (.bin) edits: a feature of the original StarCraft, not of StarCraft: Remastered	las ediciones de diálogos (.bin): una función del StarCraft original, no de StarCraft: Remastered
+EUD Editor 2 writes the code of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2 escribe el código de algunos plugins solo al compilar. Su carpeta de compilación es Data\\eudplibdata en la carpeta de EUD Editor 2.
+EUD Editor 3 writes the code of its Lua macros, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3 escribe el código de sus macros de Lua, el reproductor de BGM y las imágenes de puntos solo al compilar. Su carpeta de compilación es BuildData_<name>, junto al mapa, junto al archivo del proyecto o en Data\\temp en la carpeta de EUD Editor 3.
+The build folder is not used: the scripts with macros come in as text that euddraft cannot build	La carpeta de compilación no se usa: los scripts con macros llegan como texto que euddraft no puede compilar
 thing to do	tarea
 things to do	tareas

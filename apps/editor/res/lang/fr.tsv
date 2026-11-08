@@ -2819,7 +2819,6 @@ Scripts from	Scripts depuis
 %s values: %s	%s valeurs : %s
 1 file: %s	1 fichier : %s
 %s files, in their folders: %s	%s fichiers, dans leurs dossiers : %s
-Needs the build folder	Demande le dossier de compilation
 From the build folder	Depuis le dossier de compilation
 The map %s, copied into the project	La carte %s, copiée dans le projet
 Build writes the map to %s	La compilation écrit la carte dans %s
@@ -2836,8 +2835,6 @@ EUD Editor 2 project, saved by version %s	Projet EUD Editor 2, enregistré par l
 euddraft project	Projet euddraft
 Found	Trouvé
 No build in this folder	Aucune compilation dans ce dossier
-EUD Editor 2 writes the code of its trigger editor and of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2 écrit le code de son éditeur de déclencheurs et de certains plugins seulement lors de la compilation. Son dossier de compilation est Data\\eudplibdata dans le dossier d'EUD Editor 2.
-EUD Editor 3 writes the code of macros, block scripts, classic triggers, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3 écrit le code des macros, des scripts en blocs, des déclencheurs classiques, du lecteur BGM et des images en points seulement lors de la compilation. Son dossier de compilation est BuildData_<name>, à côté de la carte, du fichier du projet ou dans Data\\temp dans le dossier d'EUD Editor 3.
 Import	Importer
 Next	Suivant
 Could not import the project. %s	Impossible d'importer le projet. %s
@@ -2874,8 +2871,6 @@ the plugin grpinjector (cursor pictures)	le plugin grpinjector (images du curseu
 the plugin dataDumper (its files)	le plugin dataDumper (ses fichiers)
 SC Archive (its online save and load): StarDraft has no online service	SC Archive (sa sauvegarde et son chargement en ligne) : StarDraft n'a pas de service en ligne
 SCDB (its online save and load): StarDraft has no online service	SCDB (sa sauvegarde et son chargement en ligne) : StarDraft n'a pas de service en ligne
-the tileset edits: StarDraft does not change tilesets	les modifications du tileset : StarDraft ne modifie pas les tilesets
-the dialog (.bin) edits: StarDraft does not change dialogs	les modifications des boîtes de dialogue (.bin) : StarDraft ne modifie pas les boîtes de dialogue
 the sound player's sounds: add the sounds in the Files workspace	les sons du lecteur : ajoutez les sons dans l'espace de travail Fichiers
 build after save: build with Ctrl+B	compiler après l'enregistrement : compilez avec Ctrl+B
 custom stat_txt.tbl is off in EUD Editor 3: the texts come over and are used	le stat_txt.tbl personnalisé est désactivé dans EUD Editor 3 : les textes sont importés et utilisés
@@ -2920,5 +2915,10 @@ To do	À faire
 Select the build folder…	Sélectionner le dossier de compilation…
 1 file	1 fichier
 %s files	%s fichiers
+the tileset edits: a feature of the original StarCraft, not of StarCraft: Remastered	les modifications du tileset : une fonction du StarCraft original, pas de StarCraft: Remastered
+the dialog (.bin) edits: a feature of the original StarCraft, not of StarCraft: Remastered	les modifications des boîtes de dialogue (.bin) : une fonction du StarCraft original, pas de StarCraft: Remastered
+EUD Editor 2 writes the code of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2 écrit le code de certains plugins seulement lors de la compilation. Son dossier de compilation est Data\\eudplibdata dans le dossier d'EUD Editor 2.
+EUD Editor 3 writes the code of its Lua macros, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3 écrit le code de ses macros Lua, du lecteur BGM et des images en points seulement lors de la compilation. Son dossier de compilation est BuildData_<name>, à côté de la carte, du fichier du projet ou dans Data\\temp dans le dossier d'EUD Editor 3.
+The build folder is not used: the scripts with macros come in as text that euddraft cannot build	Le dossier de compilation n'est pas utilisé : les scripts avec macros arrivent sous forme de texte qu'euddraft ne peut pas compiler
 thing to do	chose à faire
 things to do	choses à faire

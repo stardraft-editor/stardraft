@@ -1,0 +1,69 @@
+Type:16,False,False,False
+SetPColorஐFalse
+ElementsCount:2
+Type:17,False,False,False
+ElementsCount:2
+Type:8,False,False,False
+act:CreateVariableWithNoini
+pnumஐ19
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+colorஐ1
+ElementsCount:0
+END
+END
+Type:18,False,False,False
+ElementsCount:2
+Type:21,False,False,False
+/*ToolTipஐ*/ஐTrue
+ElementsCount:1
+Type:22,False,False,False
+ElementsCount:2
+Type:21,False,False,False
+KoreanஐKoreanஐFalse
+ElementsCount:1
+Type:22,False,False,False
+ElementsCount:4
+Type:8,False,False,False
+act:CreateVariableWithNoini
+pnumஐ19
+ElementsCount:0
+END
+Type:8,False,False,False
+act:RawCode
+의 색상을
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+Colorஐ1
+ElementsCount:0
+END
+Type:8,False,False,False
+act:RawCode
+로 바꿉니다.
+ElementsCount:0
+END
+END
+END
+Type:21,False,False,False
+EnglishஐEnglishஐFalse
+ElementsCount:1
+Type:22,False,False,False
+ElementsCount:0
+END
+END
+END
+END
+Type:8,False,False,False
+act:RawCode
+const pcolor_dst = 0x581D76 + 8 * pnum;
+const mcolor_dst = 0x581DD6 + pnum;
+bwrite(pcolor_dst, color);
+bwrite(mcolor_dst, color);
+ElementsCount:0
+END
+END
+END

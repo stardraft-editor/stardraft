@@ -2819,7 +2819,6 @@ Scripts from	Скрипты из
 %s values: %s	Значений: %s: %s
 1 file: %s	1 файл: %s
 %s files, in their folders: %s	Файлов: %s, в их папках: %s
-Needs the build folder	Нужна папка сборки
 From the build folder	Из папки сборки
 The map %s, copied into the project	Карта %s, скопирована в проект
 Build writes the map to %s	Сборка записывает карту в %s
@@ -2836,8 +2835,6 @@ EUD Editor 2 project, saved by version %s	Проект EUD Editor 2, сохра�
 euddraft project	Проект euddraft
 Found	Найдено
 No build in this folder	В этой папке нет сборки
-EUD Editor 2 writes the code of its trigger editor and of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2 записывает код своего редактора триггеров и некоторых плагинов только при сборке. Его папка сборки — Data\\eudplibdata в папке EUD Editor 2.
-EUD Editor 3 writes the code of macros, block scripts, classic triggers, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3 записывает код макросов, блочных скриптов, классических триггеров, проигрывателя BGM и точечных изображений только при сборке. Его папка сборки — BuildData_<name> рядом с картой, рядом с файлом проекта или в Data\\temp в папке EUD Editor 3.
 Import	Импортировать
 Next	Далее
 Could not import the project. %s	Не удалось импортировать проект. %s
@@ -2874,8 +2871,6 @@ the plugin grpinjector (cursor pictures)	плагин grpinjector (картин�
 the plugin dataDumper (its files)	плагин dataDumper (его файлы)
 SC Archive (its online save and load): StarDraft has no online service	SC Archive (сохранение и загрузка онлайн): у StarDraft нет онлайн-сервиса
 SCDB (its online save and load): StarDraft has no online service	SCDB (сохранение и загрузка онлайн): у StarDraft нет онлайн-сервиса
-the tileset edits: StarDraft does not change tilesets	правки тайлсета: StarDraft не изменяет тайлсеты
-the dialog (.bin) edits: StarDraft does not change dialogs	правки диалогов (.bin): StarDraft не изменяет диалоги
 the sound player's sounds: add the sounds in the Files workspace	звуки проигрывателя: добавьте звуки в рабочей области «Файлы»
 build after save: build with Ctrl+B	сборка после сохранения: собирайте по Ctrl+B
 custom stat_txt.tbl is off in EUD Editor 3: the texts come over and are used	свой stat_txt.tbl выключен в EUD Editor 3: тексты переносятся и используются
@@ -2920,5 +2915,10 @@ To do	Что сделать
 Select the build folder…	Выбрать папку сборки…
 1 file	1 файл
 %s files	Файлов: %s
+the tileset edits: a feature of the original StarCraft, not of StarCraft: Remastered	правки тайлсета: функция оригинального StarCraft, не StarCraft: Remastered
+the dialog (.bin) edits: a feature of the original StarCraft, not of StarCraft: Remastered	правки диалогов (.bin): функция оригинального StarCraft, не StarCraft: Remastered
+EUD Editor 2 writes the code of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2 записывает код некоторых плагинов только при сборке. Его папка сборки — Data\\eudplibdata в папке EUD Editor 2.
+EUD Editor 3 writes the code of its Lua macros, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3 записывает код своих макросов Lua, проигрывателя BGM и точечных изображений только при сборке. Его папка сборки — BuildData_<name> рядом с картой, рядом с файлом проекта или в Data\\temp в папке EUD Editor 3.
+The build folder is not used: the scripts with macros come in as text that euddraft cannot build	Папка сборки не используется: скрипты с макросами приходят как текст, который euddraft не может собрать
 thing to do	дело
 things to do	дел

@@ -10,7 +10,9 @@
 
 #include "stardraft/dat_edit.h"
 #include "stardraft/dat_extras.h"
+#include "stardraft/editor.h"
 #include "stardraft/game_data.h"
+#include "stardraft/import_codegen.h"
 #include "stardraft/nrbf.h"
 
 namespace fs = std::filesystem;
@@ -240,6 +242,9 @@ struct Model {
     bool trace = false, turbo = false;
     bool e2Triggers = false;  // EUD Editor 2's trigger editor has triggers
     bool e2PluginsFromBuild = false;  // EUD Editor 2 plugins whose sections only its build has (MurakamiShiinaQC, ...)
+    std::vector<std::string> codeProblems;  // what the code generators (import_codegen.h) could not make
+    std::vector<Script> e2Partial;           // EUD Editor 2's TriggerEditor.eps and modules, made in part (for when there is no build)
+    std::vector<std::string> e2PartialProblems;
 };
 
 // scripts/<name>, or scripts/<stem> 2<ext> (3, ...) when a script of the model has that path: two sections of a .eds can
@@ -250,6 +255,36 @@ std::string uniqueScript(const Model& m, const std::string& name) {
     auto taken = [&](const std::string& p) { return std::any_of(m.scripts.begin(), m.scripts.end(), [&](const Script& s) { return lower(s.path) == lower(p); }); };
     for (int k = 2; taken(path); ++k) path = "scripts/" + u8(n.stem()) + " " + std::to_string(k) + u8(n.extension());
     return path;
+}
+
+// EUD Editor 2's modules import parts of the eudplib of its time by their old places (eudplib.eudlib.stringf); euddraft's
+// eudplib now has them at eudplib.memio and eudplib.string. The import lines try the new places first, then the old ones,
+// so the module loads with each euddraft.
+std::string newEudplibImports(std::string text) {
+    static const std::pair<const char*, const char*> kMoved[] = {
+        {"from eudplib.eudlib.stringf.rwcommon import br1, bw1", "from eudplib.memio.rwcommon import br1, bw1"},
+        {"import eudplib.eudlib.stringf.cputf8 as cputf", "import eudplib.string.cputf8 as cputf"},
+    };
+    for (const auto& [old, now] : kMoved) {
+        const size_t at = text.find(old);
+        if (at == std::string::npos) continue;
+        const std::string nl = text.find("\r\n") != std::string::npos ? "\r\n" : "\n";
+        text.replace(at, std::strlen(old), "try:" + nl + "    " + now + nl + "except ImportError:" + nl + "    " + old);
+    }
+    return text;
+}
+
+// The names of the map that the old editors put into the code they make (its locations and switches).
+ImportCodeContext codeContext(const fs::path& map, const GameData& data) {
+    ImportCodeContext c;
+    c.data = &data;
+    Editor ed(data);
+    std::string err;
+    if (!present(map) || !ed.open(map, err)) return c;
+    for (int i = 0; i < ed.locationCount(); ++i) c.locationNames.push_back(ed.locationName(i));
+    for (int i = 0; i < 256; ++i) c.switchNames.push_back(ed.switchName(i));
+    for (int p = 0; p < 8; ++p) c.playerForces.push_back(ed.player(p).force), c.playerControls.push_back(int(ed.player(p).controller));
+    return c;
 }
 
 // --- EUD Editor 3 ----------------------------------------------------------------------------------------------
@@ -312,7 +347,7 @@ bool sameNote(const std::string& own, const std::string& note, bool list) {
     return shape(own) == shape(note);
 }
 
-bool readE3s(const fs::path& file, const GameData& data, Model& m, std::string& error) {
+bool readE3s(const fs::path& file, const GameData& data, Model& m, std::string& error, const fs::path& mapOverride) {
     const std::string bytes = readAll(file);
     nrbf::Graph g;
     if (!g.read(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), error)) return false;
@@ -328,7 +363,7 @@ bool readE3s(const fs::path& file, const GameData& data, Model& m, std::string& 
         if (!a.empty() && present(file.parent_path() / a.filename())) return file.parent_path() / a.filename();  // (moved with it)
         return a.empty() && !r.empty() ? (file.parent_path() / r).lexically_normal() : a;
     };
-    m.map = mapPath("OpenMapName", "RelativeOpenMapName");
+    m.map = mapOverride.empty() ? mapPath("OpenMapName", "RelativeOpenMapName") : mapOverride;  // (the user's map: the code's names come from it)
     m.output = mapPath("SaveMapName", "RelativeSaveMapName");
     m.tempLoc = g.text(root, "TempFileLoc");
 
@@ -483,6 +518,8 @@ bool readE3s(const fs::path& file, const GameData& data, Model& m, std::string& 
     const int32_t mainId = mainRef.kind == nrbf::Value::Kind::Object ? mainRef.ref : 0;
     std::set<std::string> macroNames(std::begin(kEe3MacroNames), std::end(kEe3MacroNames));
     std::set<std::string> taken;
+    ImportCodeContext ctx;  // (made when a file needs it: it opens the map)
+    bool ctxMade = false;
     std::set<int32_t> seen;  // (a folder or file once: references can make cycles)
     std::function<void(const nrbf::Object*, const std::string&, int)> walk = [&](const nrbf::Object* folder, const std::string& at, int depth) {
         if (!folder || depth > 64 || !seen.insert(folder->id).second) return;
@@ -495,7 +532,9 @@ bool readE3s(const fs::path& file, const GameData& data, Model& m, std::string& 
             Script s;
             s.type = type;
             s.main = fv.ref == mainId || f->id == mainId;
-            const std::string ext = type == 1 || type == 3 || type == 6 ? ".eps" : type == 2 || type == 4 ? ".py" : type == 7 ? ".lua" : "";
+            // (A GUIPy block script: EUD Editor 3 writes epScript for it too, into a .py file that euddraft cannot run; here it is
+            // the .eps that its code is.)
+            const std::string ext = type == 1 || type == 3 || type == 4 || type == 6 ? ".eps" : type == 2 ? ".py" : type == 7 ? ".lua" : "";
             std::string path = at + safeName(g.text(f, "FileName")) + ext;
             for (int n = 2; taken.count(lower(path)); ++n) path = at + safeName(g.text(f, "FileName")) + " " + std::to_string(n) + ext;
             taken.insert(lower(path));
@@ -509,9 +548,18 @@ bool readE3s(const fs::path& file, const GameData& data, Model& m, std::string& 
             const std::string lext = lower(linked.extension().string());
             const bool scriptFile = lext == ".eps" || lext == ".py" || lext == ".lua" || lext == ".txt" || (type == 8 && lext.empty());
             if (scriptFile && present(linked) && fs::is_regular_file(linked)) s.text = readAll(linked), s.from = u8(linked);
-            if (type == 3 || type == 4) s.generated = "a block script";
-            else if (type == 6) s.generated = "classic triggers";
-            else if (type == 1 || type == 2) {
+            if (type == 3 || type == 4 || type == 6) {
+                // Block scripts and classic triggers: their code, made as EUD Editor 3 makes it (import_codegen.h).
+                if (!ctxMade) ctx = codeContext(m.map, data), ctxMade = true;
+                std::string code;
+                std::vector<std::string> probs;
+                const std::string name = g.text(f, "FileName");
+                const bool made = type == 6 ? ee3ClassicTriggerCode(g, sc, name, ctx, code, probs) : ee3BlockScriptCode(g, sc, name, false, ctx, code, probs);
+                for (const std::string& pl : probs) m.codeProblems.push_back(s.path + ": " + pl);
+                if (made) s.text = code;
+                else s.generated = type == 6 ? "classic triggers" : "a block script";
+            }
+            if (type == 1 || type == 2 || ((type == 3 || type == 4 || type == 6) && s.generated.empty())) {
                 // Lua macros: "@Name(" with one of EUD Editor 3's macro functions, or "<? ... ?>".
                 for (size_t i = s.text.find('@'); i != std::string::npos && s.generated.empty(); i = s.text.find('@', i + 1)) {
                     size_t e = i + 1;
@@ -591,7 +639,7 @@ std::map<std::string, std::vector<std::string>> e2sSections(const std::string& t
     return out;
 }
 
-bool readE2s(const fs::path& file, const GameData& data, Model& m, std::string& error) {
+bool readE2s(const fs::path& file, const GameData& data, Model& m, std::string& error, const fs::path& mapOverride) {
     auto sec = e2sSections(readAll(file));
     if (!sec.count("ProjectSET")) return error = "the file is not an EUD Editor 2 project (it has no S_ProjectSET)", false;
     auto settings = [&](const char* s) {
@@ -603,7 +651,7 @@ bool readE2s(const fs::path& file, const GameData& data, Model& m, std::string& 
     };
     auto project = settings("ProjectSET");
     m.version = project["Version"];
-    m.map = localPath(project["InputMap"]);
+    m.map = mapOverride.empty() ? localPath(project["InputMap"]) : mapOverride;
     if (!present(m.map) && present(file.parent_path() / m.map.filename())) m.map = file.parent_path() / m.map.filename();  // (moved with it)
     m.output = localPath(project["OutputMap"]);
     m.trace = project["epTraceDebug"] == "True";
@@ -727,15 +775,47 @@ bool readE2s(const fs::path& file, const GameData& data, Model& m, std::string& 
     // The trigger editor: its triggers are code that EUD Editor 2 writes when it builds (TriggerEditor.eps).
     const auto& trig = sec["TriggerEditorSET"];
     m.e2Triggers = std::count_if(trig.begin(), trig.end(), [](const std::string& l) { return l.rfind("Type:", 0) == 0; }) > 7;  // (the 7 empty groups)
-    if (m.e2Triggers) m.generated.push_back("TriggerEditor.eps (the trigger editor's triggers)");
+    if (m.e2Triggers) {
+        std::string eps;
+        std::vector<std::pair<std::string, std::string>> modules;
+        std::vector<std::string> probs;
+        ImportCodeContext ctx = codeContext(m.map, data);
+        ctx.ee2Sections = &sec;
+        if (ee2TriggerEditorCode(trig, ctx, eps, modules, probs)) {
+            Script main;
+            main.path = "triggers/TriggerEditor.eps", main.text = eps, main.main = true;  // (triggers/: the user's scripts keep scripts/)
+            m.scripts.insert(m.scripts.begin(), main);
+            for (const auto& [name, text] : modules) {
+                Script mod;
+                mod.path = "triggers/" + safeName(name), mod.text = newEudplibImports(text);  // (a module that TriggerEditor.eps imports: not a section)
+                m.scripts.push_back(mod);
+            }
+            for (const std::string& pl : probs) m.codeProblems.push_back("TriggerEditor.eps: " + pl);
+            m.e2Triggers = false;  // (made: the build folder is not needed for it)
+        } else {
+            // Not all of it: the build folder's TriggerEditor.eps when there is one; else this part, with what is missing.
+            m.generated.push_back("TriggerEditor.eps (the trigger editor's triggers)");
+            if (!eps.empty()) {
+                Script main;
+                main.path = "triggers/TriggerEditor.eps", main.text = eps, main.main = true;
+                m.e2Partial.push_back(main);
+                for (const auto& [name, text] : modules) {
+                    Script mod;
+                    mod.path = "triggers/" + safeName(name), mod.text = newEudplibImports(text);
+                    m.e2Partial.push_back(mod);
+                }
+                m.e2PartialProblems = probs;
+            }
+        }
+    }
 
     // Parts that StarDraft has no editor for (only when they are used: their sections have more than the defaults).
     const auto used = [&](int k) { return project["UsedSetting" + std::to_string(k)] == "True"; };
     auto grp = settings("GRPEditorSET");
     if (used(5) && std::atoi(grp["GRPEditorDATCount"].c_str()) > 0)
-        m.unsupported.push_back("the GRP editor's pictures (" + grp["GRPEditorDATCount"] + "): StarDraft does not put GRP files into the map");
-    if (used(3) && sec["TileSET"].size() > 7) m.unsupported.push_back("the tileset edits: StarDraft does not change tilesets");
-    if (used(2) && sec["BinEditSET"].size() > 2) m.unsupported.push_back("the dialog (.bin) edits: StarDraft does not change dialogs");
+        m.unsupported.push_back("the GRP editor's pictures (" + grp["GRPEditorDATCount"] + "): a feature of the original StarCraft, not of StarCraft: Remastered");
+    if (used(3) && sec["TileSET"].size() > 7) m.unsupported.push_back("the tileset edits: a feature of the original StarCraft, not of StarCraft: Remastered");
+    if (used(2) && sec["BinEditSET"].size() > 2) m.unsupported.push_back("the dialog (.bin) edits: a feature of the original StarCraft, not of StarCraft: Remastered");
     if (sec["SoundPlayerSET"].size() > 1) m.unsupported.push_back("the sound player's sounds: add the sounds in the Files workspace");
     if (settings("SCDBSet")["SCDBUse"] == "True") m.unsupported.push_back("SCDB (its online save and load): StarDraft has no online service");
     if (m.trace) m.settings.push_back("epTrace debug: the project's Trace build is on");
@@ -780,20 +860,21 @@ bool readEds(const fs::path& file, Model& m, std::string& error) {
     return true;
 }
 
-bool readModelOf(const fs::path& file, const GameData& data, Model& m, std::string& error) {
+bool readModelOf(const fs::path& file, const GameData& data, Model& m, std::string& error, const fs::path& mapOverride) {
     m = Model{};
     m.kind = importKind(file);
     m.file = file;
     std::error_code ec;
     if (!fs::is_regular_file(file, ec)) return error = "could not open " + u8(file), false;
-    if (m.kind == "e3s") return readE3s(file, data, m, error);
-    if (m.kind == "e2s") return readE2s(file, data, m, error);
+    if (m.kind == "e3s") return readE3s(file, data, m, error, mapOverride);
+    if (m.kind == "e2s") return readE2s(file, data, m, error, mapOverride);
     if (m.kind == "eds") return readEds(file, m, error);
     return error = u8(file.filename()) + " is not an .e3s, .e2s, .eds or .edd project", false;
 }
-bool readModel(const fs::path& file, const GameData& data, Model& m, std::string& error) {
+// `mapOverride`: the map that the user selected ("": the file's own), which the generated code's names come from.
+bool readModel(const fs::path& file, const GameData& data, Model& m, std::string& error, const fs::path& mapOverride = {}) {
     try {
-        return readModelOf(file, data, m, error);
+        return readModelOf(file, data, m, error, mapOverride);
     } catch (const std::exception& e) {  // (a damaged file that asks for too much memory)
         m = Model{};
         return error = std::string("the file is damaged: ") + e.what(), false;
@@ -1075,9 +1156,9 @@ bool applyScripts(const Model& m, const ImportChoices& c, const fs::path& build,
                 continue;
             }
             if (!writeText(dir / pathOf(s.path), s.text, error)) return false;
-            pr.addScript(s.path);
-            copyModules(pathOf(s.from), (dir / pathOf(s.path)).parent_path(), rep);
-            rep.imported.push_back("the script " + pathOf(s.path).filename().string());
+            if (s.main) pr.addScript(s.path);
+            if (!s.from.empty()) copyModules(pathOf(s.from), (dir / pathOf(s.path)).parent_path(), rep);
+            rep.imported.push_back(s.main ? "the script " + pathOf(s.path).filename().string() : "the module " + pathOf(s.path).filename().string());
             any = true;
         }
     if (m.kind == "e2s" && on("generated") && !build.empty()) {
@@ -1085,11 +1166,11 @@ bool applyScripts(const Model& m, const ImportChoices& c, const fs::path& build,
         const fs::path eps = build / "TriggerEditor.eps";
         if (m.e2Triggers && present(eps)) {
             std::error_code ec;
-            fs::create_directories(dir / "scripts", ec);
-            fs::copy_file(eps, dir / "scripts" / "TriggerEditor.eps", fs::copy_options::overwrite_existing, ec);
+            fs::create_directories(dir / "triggers", ec);
+            fs::copy_file(eps, dir / "triggers" / "TriggerEditor.eps", fs::copy_options::overwrite_existing, ec);
             if (ec) return error = "could not copy " + u8(eps) + ": " + ec.message(), false;
-            pr.addScript("scripts/TriggerEditor.eps");
-            copyModules(eps, dir / "scripts", rep);
+            pr.addScript("triggers/TriggerEditor.eps");
+            copyModules(eps, dir / "triggers", rep);
             rep.imported.push_back("the trigger editor's code, TriggerEditor.eps (from EUD Editor 2's last build)");
             rep.notImported.push_back("TriggerEditor.eps is EUD Editor 2's code for its own euddraft: a newer euddraft can find errors in it (a name "
                                       "such as Gas is now eudplib's). Build, then correct them in the script");
@@ -1112,7 +1193,16 @@ bool applyScripts(const Model& m, const ImportChoices& c, const fs::path& build,
                     if (!keep.empty()) pr.setSectionLines(sec, keep), rep.imported.push_back("the plugin " + sec + " (from EUD Editor 2's last build)");
                 }
     }
-    if (m.kind == "e2s" && m.e2Triggers && (!on("generated") || build.empty() || !present(build / "TriggerEditor.eps")))
+    if (m.kind == "e2s" && m.e2Triggers && on("generated") && (build.empty() || !present(build / "TriggerEditor.eps")) && !m.e2Partial.empty()) {
+        // No build: the part of TriggerEditor.eps that could be made, and what is missing from it.
+        for (const Script& s : m.e2Partial) {
+            if (!writeText(dir / pathOf(s.path), s.text, error)) return false;
+            if (s.main) pr.addScript(s.path);
+        }
+        rep.imported.push_back("the trigger editor's code, triggers/TriggerEditor.eps, not complete");
+        for (const std::string& pl : m.e2PartialProblems) rep.notImported.push_back("TriggerEditor.eps: " + pl);
+        any = true;
+    } else if (m.kind == "e2s" && m.e2Triggers && (!on("generated") || build.empty() || !present(build / "TriggerEditor.eps")))
         rep.notImported.push_back("the triggers of EUD Editor 2's trigger editor: build the map once in EUD Editor 2, then import again and select its "
                                   "build folder (Data\\eudplibdata in EUD Editor 2's folder)");
     if (m.kind == "e3s" && !(c.scriptsFromBuild && !build.empty()))
@@ -1209,7 +1299,7 @@ ImportChoices defaultChoices(const ImportScan& scan) {
 bool importProject(const ImportScan& scan, const ImportChoices& c, const fs::path& parent, const std::string& name, const GameData& data,
                    EudProject& pr, ImportReport& rep, std::string& error) {
     Model m;
-    if (!readModel(scan.file, data, m, error)) return false;
+    if (!readModel(scan.file, data, m, error, c.map)) return false;
     const fs::path map = c.map.empty() ? scan.map : c.map;
     if (!present(map)) return error = "the map " + u8(map) + " is not there. Select the map in the first step", false;
     fs::path build = c.buildFolder.empty() ? scan.buildFolder : buildIn(c.buildFolder, projectStem(scan.file));
@@ -1225,6 +1315,7 @@ bool importProject(const ImportScan& scan, const ImportChoices& c, const fs::pat
     if (!applyScripts(m, c, build, pr, rep, error)) return false;
     if (!applyPlugins(m, c, build, pr, rep)) return false;
     for (const std::string& u : m.unsupported) rep.notImported.push_back(u);
+    for (const std::string& pl : m.codeProblems) rep.notImported.push_back(pl);
     for (const ImportPart& p : scan.parts)
         if (c.skip.count(p.id)) rep.notImported.push_back("the part \"" + p.id + "\": not selected");
     return pr.save(error) && pr.writeEds(error);

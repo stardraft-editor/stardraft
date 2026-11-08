@@ -1,0 +1,44 @@
+Type:16,False,False,False
+SetLocationLURDஐFalse
+ElementsCount:2
+Type:17,False,True,False
+ElementsCount:5
+Type:8,False,False,False
+act:CreateVariableWithNoini
+Locationஐ6
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+Lஐ1
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+Uஐ1
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+Rஐ1
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+Dஐ1
+ElementsCount:0
+END
+END
+Type:18,False,True,False
+ElementsCount:1
+Type:8,False,False,False
+act:RawCode
+const base = EPD(0x58DC60);
+SetMemoryEPD(base + Location * 5, SetTo, L);
+SetMemoryEPD(base + Location * 5 + 1, SetTo, U);
+SetMemoryEPD(base + Location * 5 + 2, SetTo, R);
+SetMemoryEPD(base + Location * 5 + 3, SetTo, D);
+ElementsCount:0
+END
+END
+END

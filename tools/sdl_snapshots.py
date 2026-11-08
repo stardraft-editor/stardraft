@@ -87,8 +87,8 @@ CASES += [
     ("dialog-feedback", ["--dialog", "feedback", "--size", "592x370"], ""),
     ("dialog-newproject", ["--dialog", "newproject", "--size", "688x394"], ""),
     # File > Import a project (core/views_import_project.inc), each of its four steps with an EUD Editor 2 project of the
-    # map ({e2s}: data edits, a text, a button set, requirements, a wireframe, plugins, triggers that need its build, GRP
-    # pictures that StarDraft does not put in the map), then the import with the recommended choices: the project opens.
+    # map ({e2s}: data edits, a text, a button set, requirements, a wireframe, plugins, its trigger editor (made into
+    # TriggerEditor.eps), GRP pictures (not a StarCraft: Remastered feature)), then the import with the recommended choices: the project opens.
     ("dialog-import-1", ["--dialog", "import:{e2s}|1"], "map"),
     ("dialog-import-2", ["--dialog", "import:{e2s}|2"], "map"),
     ("dialog-import-3", ["--dialog", "import:{e2s}|3"], "map"),
@@ -5096,14 +5096,46 @@ wireuse : True
 wireframData0 : 6
 E_FileManagerSET
 S_TriggerEditorSET
-Type:0
-Type:1
-Type:2
-Type:3
-Type:4
-Type:5
-Type:6
-Type:8
+&AddText&
+Type:23,False,False,False
+
+ElementsCount:0
+END
+
+&functions&
+Type:15,False,False,False
+ElementsCount:0
+END
+
+&GlobalVar&
+Type:0,False,False,False
+ElementsCount:0
+END
+
+&RawTriggers&
+Type:25,False,False,False
+ElementsCount:0
+END
+
+&onPluginStart&
+Type:0,False,False,False
+ElementsCount:1
+Type:23,False,False,False
+// the trigger editor's code
+ElementsCount:0
+END
+END
+
+&beforeTriggerExec&
+Type:0,False,False,False
+ElementsCount:0
+END
+
+&afterTriggerExec&
+Type:0,False,False,False
+ElementsCount:0
+END
+
 E_TriggerEditorSET
 S_PluginSET
 unlimiter : True

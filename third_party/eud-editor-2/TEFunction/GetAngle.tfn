@@ -1,0 +1,71 @@
+Type:16,False,False,False
+GetAngleஐFalse
+ElementsCount:2
+Type:17,False,False,False
+ElementsCount:2
+Type:8,False,False,False
+act:CreateVariableWithNoini
+originஐ6
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+destஐ6
+ElementsCount:0
+END
+END
+Type:18,False,False,False
+ElementsCount:2
+Type:21,False,False,False
+/*ToolTipஐ*/ஐTrue
+ElementsCount:1
+Type:22,False,False,False
+ElementsCount:2
+Type:21,False,False,False
+KoreanஐKoreanஐFalse
+ElementsCount:1
+Type:22,False,False,False
+ElementsCount:4
+Type:8,False,False,False
+act:CreateVariableWithNoini
+originஐ6
+ElementsCount:0
+END
+Type:8,False,False,False
+act:RawCode
+을 기준으로
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+destஐ6
+ElementsCount:0
+END
+Type:8,False,False,False
+act:RawCode
+간의 각도를 반환합니다.
+ElementsCount:0
+END
+END
+END
+Type:21,False,False,False
+EnglishஐEnglishஐFalse
+ElementsCount:1
+Type:22,False,False,False
+ElementsCount:0
+END
+END
+END
+END
+Type:8,False,False,False
+act:RawCode
+const locTable = EPD(0x58DC60);
+const x1 = (dwread_epd(locTable + origin * 5) + dwread_epd(locTable + origin * 5 + 2))/2;
+const y1 = (dwread_epd(locTable + origin * 5 + 1) + dwread_epd(locTable + origin * 5 + 3))/2;
+const x2 = (dwread_epd(locTable + dest * 5) + dwread_epd(locTable + dest * 5 + 2))/2;
+const y2 = (dwread_epd(locTable + dest * 5 + 1) + dwread_epd(locTable + dest * 5 + 3))/2;
+return atan2((x2 - x1), (y1 - y2))
+ElementsCount:0
+END
+END
+END

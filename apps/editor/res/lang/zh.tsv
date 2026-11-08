@@ -2819,7 +2819,6 @@ Scripts from	脚本来源
 %s values: %s	%s 个值：%s
 1 file: %s	1 个文件：%s
 %s files, in their folders: %s	%s 个文件，在各自的文件夹中：%s
-Needs the build folder	需要构建文件夹
 From the build folder	来自构建文件夹
 The map %s, copied into the project	地图 %s，复制到项目中
 Build writes the map to %s	构建将地图写入 %s
@@ -2836,8 +2835,6 @@ EUD Editor 2 project, saved by version %s	EUD Editor 2 项目，由版本 %s 保
 euddraft project	euddraft 项目
 Found	已找到
 No build in this folder	此文件夹中没有构建
-EUD Editor 2 writes the code of its trigger editor and of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2 仅在构建时写入其触发器编辑器和部分插件的代码。其构建文件夹是 EUD Editor 2 文件夹中的 Data\\eudplibdata。
-EUD Editor 3 writes the code of macros, block scripts, classic triggers, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3 仅在构建时写入宏、块脚本、经典触发器、BGM 播放器和点阵图像的代码。其构建文件夹是 BuildData_<name>，位于地图或项目文件旁边，或 EUD Editor 3 文件夹的 Data\\temp 中。
 Import	导入
 Next	下一步
 Could not import the project. %s	无法导入项目。%s
@@ -2874,8 +2871,6 @@ the plugin grpinjector (cursor pictures)	插件 grpinjector（光标图片）
 the plugin dataDumper (its files)	插件 dataDumper（其文件）
 SC Archive (its online save and load): StarDraft has no online service	SC Archive（在线保存和读取）：StarDraft 没有在线服务
 SCDB (its online save and load): StarDraft has no online service	SCDB（在线保存和读取）：StarDraft 没有在线服务
-the tileset edits: StarDraft does not change tilesets	图块集编辑：StarDraft 不更改图块集
-the dialog (.bin) edits: StarDraft does not change dialogs	对话框（.bin）编辑：StarDraft 不更改对话框
 the sound player's sounds: add the sounds in the Files workspace	声音播放器的声音：请在“文件”工作区中添加声音
 build after save: build with Ctrl+B	保存后构建：请用 Ctrl+B 构建
 custom stat_txt.tbl is off in EUD Editor 3: the texts come over and are used	EUD Editor 3 中的自定义 stat_txt.tbl 已关闭：文本会导入并使用
@@ -2920,5 +2915,10 @@ To do	待办
 Select the build folder…	选择构建文件夹…
 1 file	1 个文件
 %s files	%s 个文件
+the tileset edits: a feature of the original StarCraft, not of StarCraft: Remastered	图块集编辑：原版 StarCraft 的功能，不是 StarCraft: Remastered 的功能
+the dialog (.bin) edits: a feature of the original StarCraft, not of StarCraft: Remastered	对话框（.bin）编辑：原版 StarCraft 的功能，不是 StarCraft: Remastered 的功能
+EUD Editor 2 writes the code of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2 仅在构建时写入部分插件的代码。其构建文件夹是 EUD Editor 2 文件夹中的 Data\\eudplibdata。
+EUD Editor 3 writes the code of its Lua macros, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3 仅在构建时写入其 Lua 宏、BGM 播放器和点阵图像的代码。其构建文件夹是 BuildData_<name>，位于地图或项目文件旁边，或 EUD Editor 3 文件夹的 Data\\temp 中。
+The build folder is not used: the scripts with macros come in as text that euddraft cannot build	未使用构建文件夹：带宏的脚本以 euddraft 无法构建的文本导入
 thing to do	项待办
 things to do	项待办

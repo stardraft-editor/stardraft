@@ -387,8 +387,9 @@ private:
         }
         auto todo = [&](const wchar_t* text) { add(2, tr(text)), ++counts[2]; };
         if (const stardraft::ImportPart* g = scan_.part("generated"); g && scan_.kind == "e3s" && !choices_.scriptsFromBuild && !g->needsBuild)
-            todo(L"The build folder is not used: the scripts with macros, block scripts and classic triggers come in as text that euddraft cannot build");
-        if (scan_.kind == "e2s" && scan_.part("generated") && !scan_.part("generated")->needsBuild)
+            todo(L"The build folder is not used: the scripts with macros come in as text that euddraft cannot build");
+        if (const stardraft::ImportPart* sc = scan_.part("scripts"); scan_.kind == "e2s" && sc && !choices_.skip.count("scripts") &&
+                                                                      std::find(sc->details.begin(), sc->details.end(), "triggers/TriggerEditor.eps") != sc->details.end())
             todo(L"TriggerEditor.eps is EUD Editor 2's code for an older euddraft: build, then correct the errors that the log shows");
         if (!scan_.buildFolder.empty() && !scan_.buildMatches) todo(L"The build folder is of another map: select the build folder of this project");
         todo(L"Build the project (Ctrl+B) and test the map");
@@ -465,11 +466,10 @@ private:
             setBadge(buildChip_, buildSelected_ ? tr(L"No build in this folder") : tr(L"Not found"), stardraft::kit::BadgeTone::Warn);
         buildBrowse_.setText(scan_.buildFolder.empty() ? tr(L"Browse\x2026") : tr(L"Change\x2026"));
         buildText_.setText(scan_.kind == "e2s"
-                               ? tr(L"EUD Editor 2 writes the code of its trigger editor and of some plugins only when it builds. Its build folder is "
-                                    L"Data\\eudplibdata in the folder of EUD Editor 2.")
-                               : tr(L"EUD Editor 3 writes the code of macros, block scripts, classic triggers, the BGM player and dot images only "
-                                    L"when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in "
-                                    L"the folder of EUD Editor 3."));
+                               ? tr(L"EUD Editor 2 writes the code of some plugins only when it builds. Its build folder is Data\\eudplibdata in "
+                                    L"the folder of EUD Editor 2.")
+                               : tr(L"EUD Editor 3 writes the code of its Lua macros, the BGM player and dot images only when it builds. Its build "
+                                    L"folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3."));
         // 3
         for (auto& r : rows_)
             if (const stardraft::ImportPart* p = scan_.part(r->id)) {

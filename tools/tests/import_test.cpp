@@ -272,6 +272,35 @@ static void e3sTest(const GameData& data, const char* map, const fs::path& dir) 
           "e3s: a part that is not selected does not come in (the new project's main.eps stays)");
 }
 
+// A block script (GUIEps) as EUD Editor 3 saves it: its code is made here (import_codegen.h), with no build folder.
+static N block(int type, std::string name, std::string value, std::vector<N> child = {}, const char* value2 = nullptr) {
+    return obj("ScriptBlock", {{"ScriptType", enumOf(type)}, {"isfolder", boolean(false)}, {"IsDeleteAble", boolean(true)}, {"name", str(name)},
+                               {"isexpand", boolean(false)}, {"flag", boolean(false)}, {"flag2", boolean(false)}, {"value", str(value)},
+                               {"value2", value2 ? str(value2) : null()}, {"VChild", null()}, {"child", list(std::move(child))}, {"Parent", null()}});
+}
+static void e3sBlocksTest(const GameData& data, const char* map, const fs::path& dir) {
+    constexpr int kConstVal = 0, kVarDefine = 24;  // (ScriptBlock.EBlockType)
+    N items = list({block(kVarDefine, "vardefine", "count", {block(kConstVal, "Number", "5")}, "var")});
+    N gui = obj("GUIScriptEditor", {{"items", items}, {"_ConnectFile", null()}, {"_ConnectRelativeFile", null()}});
+    N file = obj("TEFile", {{"_FileName", str("main")}, {"_FileType", enumOf(3)}, {"_Files", list({})}, {"_Folders", list({})}, {"_Scripter", gui}}, "main");
+    N root = obj("TEFile", {{"_FileName", str("\xE2\x80\x8BProjectMain")}, {"_FileType", enumOf(0)}, {"_Files", list({file})}, {"_Folders", list({})},
+                            {"_Scripter", null()}});
+    N te = obj("TriggerEditorData", {{"ProjectFile", root}, {"_MainFile", ref("main")}});
+    N saveable = obj("SaveableData", {{"mOpenMapName", str(fs::absolute(map).string())}, {"mSaveMapName", null()}, {"mTempFileLoc", str("0")},
+                                      {"TEData", te}});
+    Writer w;
+    writeFile(dir / "Blocks.e3s", w.stream(saveable));
+    ImportScan scan;
+    std::string err;
+    CHECK(scanImport(dir / "Blocks.e3s", data, scan, err) && !scan.part("generated"), ("e3s blocks: a block script needs no build folder " + err).c_str());
+    EudProject pr;
+    ImportReport rep;
+    const bool ok = importProject(scan, defaultChoices(scan), dir, "FromBlocks", data, pr, rep, err);
+    const std::string code = readFile(pr.folder() / "TriggerEditor" / "main.eps");
+    CHECK(ok && code.find("var count = 5;") != std::string::npos && fs::exists(pr.folder() / "TriggerEditor" / "PluginVariables.py"),
+          ("e3s blocks: the block script as epScript, with the PluginVariables module it imports " + err).c_str());
+}
+
 // --- EUD Editor 2 and euddraft --------------------------------------------------------------------------------------
 
 static void e2sTest(const GameData& data, const char* map, const fs::path& dir) {
@@ -317,9 +346,46 @@ static void e2sTest(const GameData& data, const char* map, const fs::path& dir) 
     CHECK(scanImport(dir / "Trig" / "Old.e2s", data, st, err) && st.part("generated") && !st.part("generated")->needsBuild, "e2s: the trigger editor's code is found");
     EudProject pt;
     ImportReport rt;
-    CHECK(importProject(st, defaultChoices(st), dir, "FromE2sTrig", data, pt, rt, err) && fs::exists(pt.folder() / "scripts" / "TriggerEditor.eps") &&
-              fs::exists(pt.folder() / "scripts" / "helper.py"),
+    CHECK(importProject(st, defaultChoices(st), dir, "FromE2sTrig", data, pt, rt, err) && fs::exists(pt.folder() / "triggers" / "TriggerEditor.eps") &&
+              fs::exists(pt.folder() / "triggers" / "helper.py"),
           "e2s: TriggerEditor.eps and the module it imports");
+}
+
+// EUD Editor 2's trigger editor with no build folder: TriggerEditor.eps is made from the .e2s (import_codegen.h), with the
+// modules it imports, whose old eudplib imports try the new places first.
+static void e2sNativeTest(const GameData& data, const char* map, const fs::path& dir) {
+    // The tree: its 7 parts (AddText, functions, GlobalVar, RawTriggers, onPluginStart, beforeTriggerExec,
+    // afterTriggerExec), and in onPluginStart one raw code element.
+    std::string tree;
+    const std::pair<const char*, int> parts[] = {{"&AddText&", 23}, {"&functions&", 15}, {"&GlobalVar&", 0}, {"&RawTriggers&", 25},
+                                                 {"&onPluginStart&", 0}, {"&beforeTriggerExec&", 0}, {"&afterTriggerExec&", 0}};
+    for (const auto& [key, type] : parts) {
+        tree += std::string(key) + "\r\nType:" + std::to_string(type) + ",False,False,False\r\n";
+        if (type == 23) tree += "\r\n";  // (AddText's value: empty)
+        if (std::string(key) == "&onPluginStart&")
+            tree += "ElementsCount:1\r\nType:23,False,False,False\r\n// from the trigger editor\r\nElementsCount:0\r\nEND\r\n";
+        else
+            tree += "ElementsCount:0\r\n";
+        tree += "END\r\n\r\n";
+    }
+    writeFile(dir / "Native.e2s", "S_ProjectSET\r\nVersion : 0.17.9.7\r\nInputMap : " + fs::absolute(map).string() + "\r\nE_ProjectSET\r\n"
+                                  "S_TriggerEditorSET\r\n" + tree + "E_TriggerEditorSET\r\nS_PluginSET\r\nE_PluginSET\r\n");
+    ImportScan scan;
+    std::string err;
+    CHECK(scanImport(dir / "Native.e2s", data, scan, err) && !scan.part("generated") && scan.part("scripts"),
+          ("e2s native: the trigger editor needs no build folder " + err).c_str());
+    EudProject pr;
+    ImportReport rep;
+    const bool ok = importProject(scan, defaultChoices(scan), dir, "FromNative", data, pr, rep, err);
+    const auto names = pr.scripts();
+    CHECK(ok && std::find(names.begin(), names.end(), "triggers/TriggerEditor.eps") != names.end() &&
+              readFile(pr.folder() / "triggers" / "TriggerEditor.eps").find("// from the trigger editor") != std::string::npos,
+          ("e2s native: TriggerEditor.eps, made from the tree, is the project's script " + err).c_str());
+    CHECK(ok && std::find(names.begin(), names.end(), "triggers/tempcustomText.py") == names.end() &&
+              readFile(pr.folder() / "triggers" / "tempcustomText.py").find("from eudplib.memio.rwcommon import br1, bw1") != std::string::npos &&
+              fs::exists(pr.folder() / "triggers" / "punitloop.py") &&
+              !fs::exists(pr.folder() / "scripts" / "TriggerEditor.eps"),
+          "e2s native: its modules beside it (not sections), with the new eudplib places");
 }
 
 static void edsTest(const GameData& data, const char* map, const fs::path& dir) {
@@ -396,7 +462,9 @@ int main(int argc, char** argv) {
         return 2;
     }
     e3sTest(data, argv[2], dir / "e3s");
+    e3sBlocksTest(data, argv[2], dir / "e3sblocks");
     e2sTest(data, argv[2], dir / "e2s");
+    e2sNativeTest(data, argv[2], dir / "e2snative");
     edsTest(data, argv[2], dir / "eds");
     edsMainTest(data, argv[2], dir / "edsmain");
     if (argc > 4) samplesTest(data, argv[2], argv[4], dir / "samples");

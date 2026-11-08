@@ -1,0 +1,90 @@
+Type:16,False,False,False
+RotateLocationஐFalse
+ElementsCount:2
+Type:17,False,False,False
+ElementsCount:3
+Type:8,False,False,False
+act:CreateVariableWithNoini
+target_locationஐ6
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+origin_locationஐ6
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+angleஐ1
+ElementsCount:0
+END
+END
+Type:18,False,False,False
+ElementsCount:2
+Type:21,False,False,False
+/*ToolTipஐ*/ஐTrue
+ElementsCount:1
+Type:22,False,False,False
+ElementsCount:2
+Type:21,False,False,False
+KoreanஐKoreanஐFalse
+ElementsCount:1
+Type:22,False,False,False
+ElementsCount:6
+Type:8,False,False,False
+act:CreateVariableWithNoini
+target_locationஐ6
+ElementsCount:0
+END
+Type:8,False,False,False
+act:RawCode
+을
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+origin_locationஐ6
+ElementsCount:0
+END
+Type:8,False,False,False
+act:RawCode
+을 기준으로
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+angleஐ1
+ElementsCount:0
+END
+Type:8,False,False,False
+act:RawCode
+° 만큼 돌립니다.
+ElementsCount:0
+END
+END
+END
+Type:21,False,False,False
+EnglishஐEnglishஐFalse
+ElementsCount:1
+Type:22,False,False,False
+ElementsCount:0
+END
+END
+END
+END
+Type:8,False,False,False
+act:RawCode
+const locTable = EPD(0x58DC60);
+const a0, a1, a2, a3 = dwread_epd(locTable + (target_location - 1) * 5), dwread_epd(locTable + (target_location - 1) * 5 + 1), dwread_epd(locTable + (target_location - 1) * 5 + 2), dwread_epd(locTable + (target_location - 1) * 5 + 3);
+const b0, b1, b2, b3 = dwread_epd(locTable + (origin_location - 1) * 5), dwread_epd(locTable + (origin_location - 1) * 5 + 1), dwread_epd(locTable + (origin_location - 1) * 5 + 2), dwread_epd(locTable + (origin_location - 1) * 5 + 3);
+const x_target, y_target = (a0 + a2) / 2, (a1 + a3) / 2;
+const x_origin, y_origin = (b0 + b2) / 2, (b1 + b3) / 2;
+const dy, dx = lengthdir(sqrt((x_target - x_origin)*(x_target - x_origin)+(y_target-y_origin)*(y_target-y_origin)),angle);
+SetMemoryEPD(locTable + target_location * 5 + 0, Add, dx);
+SetMemoryEPD(locTable + target_location * 5 + 2, Add, dx);
+SetMemoryEPD(locTable + target_location * 5 + 1, Add, dy);
+SetMemoryEPD(locTable + target_location * 5 + 3, Add, dy);
+ElementsCount:0
+END
+END
+END

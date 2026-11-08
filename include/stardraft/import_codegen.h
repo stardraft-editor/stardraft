@@ -8,6 +8,7 @@
 //   - EUD Editor 3's classic triggers (a TEFile of type ClassicTrigger): its .eps (src/import_ee3_classic.cpp)
 //   - EUD Editor 3's block scripts (a TEFile of type GUIEps or GUIPy): its .eps or .py (src/import_ee3_blocks.cpp)
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -23,11 +24,18 @@ struct ImportCodeContext {
     std::vector<std::string> locationNames;  // the map's locations, by index (0-based, the map's MRGN order); "" none
     std::vector<std::string> switchNames;    // the map's switches, by index; "" none
     std::vector<std::string> unitNames;      // the map's own unit names (UNIx string), by unit id; "" when the game's
+    // Players 1-8 (index 0-7): the force (0-3, FORC) and who controls the slot (the map's controller byte: 5 computer,
+    // 6 human, ...: Editor::Controller). Empty when the map was not read.
+    std::vector<int> playerForces, playerControls;
+    // EUD Editor 2: all the sections of the .e2s ("BtnSET", "FileManagerSET", "PluginSET", ...: their lines, trimmed), for
+    // the code that uses the project's other settings (button sets, texts). Null for EUD Editor 3.
+    const std::map<std::string, std::vector<std::string>>* ee2Sections = nullptr;
 };
 
 // EUD Editor 2: the lines of S_TriggerEditorSET (without the S_/E_ lines) to TriggerEditor.eps, and the modules that
 // EUD Editor 2 writes beside it for it (name, text: "punitloop.py", ...) in `modules`. False only when the lines are not
-// a trigger editor tree at all.
+// a trigger editor tree at all, or when not all of its code could be made (then `eps` and `problems` hold what was made
+// and why the rest was not).
 bool ee2TriggerEditorCode(const std::vector<std::string>& lines, const ImportCodeContext& ctx, std::string& eps,
                           std::vector<std::pair<std::string, std::string>>& modules, std::vector<std::string>& problems);
 

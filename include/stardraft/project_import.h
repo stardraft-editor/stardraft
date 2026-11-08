@@ -2,14 +2,15 @@
 // Imports another editor's project into a new StarDraft project (roadmap R52; File > Import a project):
 //   - EUD Editor 3 (.e3s, a .NET BinaryFormatter file: nrbf.h): its maps, its .dat edits, its stat_txt texts, its button
 //     sets, requirements, status panels and wireframes (as StarDraft's data edits), its scripts (the trigger editor's
-//     file tree: epScript and Python as written, in the same module folders), its euddraft plugins, and its labels.
-//   - EUD Editor 2 (.e2s, text): the same data parts, its plugins, and the code of its trigger editor.
+//     file tree: epScript and Python as written, block scripts and classic triggers as the code EUD Editor 3 makes of them
+//     (import_codegen.h), in the same module folders), its euddraft plugins, and its labels.
+//   - EUD Editor 2 (.e2s, text): the same data parts, its plugins, and its trigger editor as the TriggerEditor.eps that EUD
+//     Editor 2 makes of it (import_codegen.h).
 //   - euddraft (.eds, .edd; EUD Editor 3 builds through one too): its input map, its .eps and .py files as scripts, and
 //     its plugin sections.
 //
-// Some parts are code that only the old editor makes: EUD Editor 3's Lua macros (@KeyDown(...), <? ?>), its block
-// scripts and classic triggers, its BGM player and dot images; EUD Editor 2's trigger editor. These come from the old
-// editor's last build (its build folder: EUD Editor 3's BuildData_<name>, EUD Editor 2's Data\eudplibdata), which holds
+// Some parts are code that only the old editor makes: EUD Editor 3's Lua macros (@KeyDown(...), <? ?>), its BGM player
+// and dot images, and some of EUD Editor 2's plugins. These come from the old editor's last build (its build folder: EUD Editor 3's BuildData_<name>, EUD Editor 2's Data\eudplibdata), which holds
 // that code as epScript. scanImport finds the folder when it can; the user can select it.
 //
 // The import has two steps: scanImport reads the file and says what each part holds and how it can come over (the

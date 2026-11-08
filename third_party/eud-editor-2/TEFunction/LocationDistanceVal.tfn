@@ -1,0 +1,36 @@
+Type:16,False,False,False
+LocationDistanceValஐFalse
+ElementsCount:2
+Type:17,False,False,False
+ElementsCount:3
+Type:8,False,False,False
+act:CreateVariableWithNoini
+variableஐ35
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+loc1ஐ6
+ElementsCount:0
+END
+Type:8,False,False,False
+act:CreateVariableWithNoini
+loc2ஐ6
+ElementsCount:0
+END
+END
+Type:18,False,False,False
+ElementsCount:1
+Type:8,False,False,False
+act:RawCode
+const locTable = EPD(0x58DC60);
+const x1 = dwread_epd(locTable + loc1 * 5) + dwread_epd(locTable + loc1 * 5 + 2);
+const y1 = dwread_epd(locTable + loc1 * 5 + 1) + dwread_epd(locTable + loc1 * 5 + 3);
+const x2 = dwread_epd(locTable + loc2 * 5) + dwread_epd(locTable + loc2 * 5 + 2);
+const y2 = dwread_epd(locTable + loc2 * 5 + 1) + dwread_epd(locTable + loc2 * 5 + 3);
+variable = sqrt((x1 - x2)*(x1 - x2)+(y1-y2)*(y1-y2)) / 2;
+return sqrt((x1 - x2)*(x1 - x2)+(y1-y2)*(y1-y2)) / 2;
+ElementsCount:0
+END
+END
+END
