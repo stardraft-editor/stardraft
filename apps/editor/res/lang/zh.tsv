@@ -2917,7 +2917,7 @@ Select the build folder…	选择构建文件夹…
 the tileset edits: a feature of the original StarCraft, not of StarCraft: Remastered	图块集编辑：原版 StarCraft 的功能，不是 StarCraft: Remastered 的功能
 the dialog (.bin) edits: a feature of the original StarCraft, not of StarCraft: Remastered	对话框（.bin）编辑：原版 StarCraft 的功能，不是 StarCraft: Remastered 的功能
 EUD Editor 2 writes the code of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2 仅在构建时写入部分插件的代码。其构建文件夹是 EUD Editor 2 文件夹中的 Data\\eudplibdata。
-EUD Editor 3 writes the code of its Lua macros, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3 仅在构建时写入其 Lua 宏、BGM 播放器和点阵图像的代码。其构建文件夹是 BuildData_<name>，位于地图或项目文件旁边，或 EUD Editor 3 文件夹的 Data\\temp 中。
+EUD Editor 3's build folder has the sound parts of its BGM player, and the code of a script that StarDraft cannot make. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3 的构建文件夹包含其 BGM 播放器的声音片段，以及 StarDraft 无法生成的脚本代码。构建文件夹为 BuildData_<name>，位于地图或项目文件旁边，或 EUD Editor 3 文件夹的 Data\\temp 中。
 The build folder is not used: the scripts with macros come in as text that euddraft cannot build	未使用构建文件夹：带宏的脚本以 euddraft 无法构建的文本导入
 thing to do	项待办
 things to do	项待办

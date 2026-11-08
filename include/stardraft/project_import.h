@@ -9,9 +9,12 @@
 //   - euddraft (.eds, .edd; EUD Editor 3 builds through one too): its input map, its .eps and .py files as scripts, and
 //     its plugin sections.
 //
-// Some parts are code that only the old editor makes: EUD Editor 3's Lua macros (@KeyDown(...), <? ?>), its BGM player
-// and dot images, and some of EUD Editor 2's plugins. These come from the old editor's last build (its build folder: EUD Editor 3's BuildData_<name>, EUD Editor 2's Data\eudplibdata), which holds
-// that code as epScript. scanImport finds the folder when it can; the user can select it.
+// The code that the old editors make when they build is made here too: EUD Editor 3's Lua macros (@KeyDown(...), <? ?>:
+// import_ee3_extras.h), block scripts and classic triggers, BGM player and dot images, and EUD Editor 2's trigger editor
+// (import_codegen.h). What cannot be made here (a BGM sound file that is not on this computer, a macro that fails, some
+// of EUD Editor 2's plugins) comes from the old editor's last build (its build folder: EUD Editor 3's BuildData_<name>,
+// EUD Editor 2's Data\eudplibdata), which holds that code as epScript. scanImport finds the folder when it can; the
+// user can select it.
 //
 // The import has two steps: scanImport reads the file and says what each part holds and how it can come over (the
 // wizard shows it, and the user's choices go into ImportChoices); importProject makes the project. The report lists

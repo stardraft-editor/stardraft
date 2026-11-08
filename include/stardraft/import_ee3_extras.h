@@ -34,8 +34,9 @@ public:
     std::vector<std::string> chatEventLines() const;
     std::string pluginVariables() const;
 
+    struct State;  // (src/import_ee3_macros.cpp: the Lua state and what the macros keep; its Lua functions reach it)
+
 private:
-    struct State;
     State* s_;
 };
 
