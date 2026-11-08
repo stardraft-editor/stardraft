@@ -83,6 +83,18 @@ struct PaletteGridView : draw::View {
     }
     // The content's place of row `i` (before scrolling), for the View menu's sections.
     draw::Rect rowRect(int i) const { return i >= 0 && i < int(rects_.size()) ? rects_[size_t(i)] : draw::Rect{}; }
+    // The middle of the item labelled `label` in the view's coordinates (a snapshot's click: --click pal=<label>);
+    // false: no such item, or it does not show.
+    bool itemCenter(const std::wstring& label, draw::Point& at) const {
+        const int viewH = height() - paletteFooterHeight(view());
+        for (size_t i = 0; i < rows.size() && i < rects_.size(); ++i)
+            if (rows[i].value >= 0 && rows[i].label == label) {
+                const draw::Rect& r = rects_[i];
+                at = {(r.left + r.right) / 2, (r.top + r.bottom) / 2 - scroll_};
+                return at.y >= 0 && at.y < viewH && (!bar_.shown() || at.x < bar_.frame().left);
+            }
+        return false;
+    }
 
     void resized() override { layout(); }
     void paint(draw::Canvas& c) override {

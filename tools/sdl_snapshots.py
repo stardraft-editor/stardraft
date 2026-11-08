@@ -16,7 +16,7 @@ A case that needs the game data runs only with --install; one that needs a map, 
 one that needs a project, only with --project. The others run everywhere (CI has no game data).
 
 To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (its argument loop in main()). In a
-case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
+case's options, {map}, {project}, {install} (the --install folder), {maps} (the game's maps folder in it), {root} (the repository), {out} (the --out folder),
 {newdir} (a new empty folder in --out), {kodir} (a new empty folder in --out with Korean letters and spaces in its
 name), {wav} (a short sound that the script writes in --out), {musicwav} and {dotpng} (a music track and a dot image for the Assets cases), {e2s} (an EUD Editor 2 project of --map: IMPORT_E2S), {release} (GitHub's answer for the newest release, with a
 download for each system: RELEASE_JSON), {htmlpage} (the HTML view's test page HTML_PAGE, with its image), {oldsettings} (the settings file of an older release), {nosnapsettings} (a settings file with
@@ -505,7 +505,7 @@ CASES += [
     ("map-location-multi", ["--script", "{script:locmulti}"], "map"),
     # Each panel is its own (its pick, tools, brush, Isometric or Rectangle): a new Terrain panel's Rectangle (1144,196)
     # and its bigger brush (1157,254) are its own (the side bar's Terrain stays Isometric, size 2); a pick in the side bar's
-    # list (Space, 200,621) makes the side bar's panel the active one and is its own; the window's + makes the window the
+    # list (Space) makes the side bar's panel the active one and is its own; the window's + makes the window the
     # active one again; U, then T, goes back to the Terrain panel used last (the window).
     ("map-panels-own", ["--script", "{script:panelsown}"], "map"),
     # Floating moves the side bar's panel into its window (its Rectangle and size 3), and docking moves the window's back
@@ -525,8 +525,8 @@ CASES += [
 # the locations, the paste, the terrain (a hash of its tiles, the tile under the mouse, the terrain selection) and the
 # tabs: CHECKS reads them. --move x,y moves the mouse only (a paste's copy follows it). More points of the map at the fitted zoom: open ground at 520..640,640..720 and 900,800, space (no
 # ground) at 450,450, a place where the first doodad (Dark Platform #0) fits at 559,590 and at 535,590; the Doodads
-# and Sprites palettes' first item at 115,600; the Terrain palette's Solar Array at
-# 202,759; a tile of the Tiles list (Rectangle): --click tile<k>, the middle of the list's k-th slot (with All tiles,
+# and Sprites palettes' first item at 115,600; an item of a palette by its name: --click pal=<name> (the Terrain
+# palette's Solar Array: pal=Solar Array; the first palette that shows it); a tile of the Tiles list (Rectangle): --click tile<k>, the middle of the list's k-th slot (with All tiles,
 # slot k is tile value k: group k / 16, tile k % 16).
 CASES += [
     # Doodads: a palette pick, a click places the doodad, Esc lets go of the pick, a click selects the doodad, a drag
@@ -546,11 +546,11 @@ CASES += [
     ("map-location-make", ["--mode", "locations", "--drag", "520,640-600,700", "--drag", "600,670-640,670", "--key", "F2",
                            "--type", "Selftest Spot", "--key", "Enter", "--key", "Ctrl+Z", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "map"),
     # Terrain: a palette pick (Solar Array), the brush (B) and a drag paints; Undo takes the paint back.
-    ("map-terrain-brush", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--drag", "520,650-640,690", "--key", "Ctrl+Z"], "map"),
+    ("map-terrain-brush", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "B", "--drag", "520,650-640,690", "--key", "Ctrl+Z"], "map"),
     # The window loses the focus during a stroke (--lostdrag: Alt+Tab before the release, which does not come): the
     # stroke with Solar Array ends at once, as the Windows program's WM_CAPTURECHANGED: the mouse that moves after it
     # paints nothing, the pick stays, and one Undo takes the stroke back.
-    ("map-terrain-lostdrag", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--lostdrag", "520,650-640,690",
+    ("map-terrain-lostdrag", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "B", "--lostdrag", "520,650-640,690",
                               "--move", "700,650", "--key", "Ctrl+Z"], "map"),
     # Rectangle: a tile of the Tiles list, the brush and a click puts the tile there; Undo takes it back.
     ("map-terrain-rect-paint", ["--rect", "--click", "tile16", "--key", "B", "--click", "560,690", "--key", "Ctrl+Z"], "map"),
@@ -561,9 +561,9 @@ CASES += [
     # The isometric brush over tiles placed in Rectangle mode (GitHub #143): a click paints Solar Array, a tile of the
     # Tiles list is placed there (Tile at 246,427), then the same click paints Solar Array again (Isometric at
     # 135,427; the ISOM does not change): a tile of the brush's group is there again, not the placed one.
-    ("map-terrain-brush-over-tiles", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--click", "560,690",
+    ("map-terrain-brush-over-tiles", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "B", "--click", "560,690",
                                       "--move", "560,690", "--click", "246,427", "--click", "tile16", "--key", "B",
-                                      "--click", "560,690", "--click", "135,427", "--click", "202,759", "--key", "B",
+                                      "--click", "560,690", "--click", "135,427", "--click", "pal=Solar Array", "--key", "B",
                                       "--click", "560,690"], "map"),
     # The quick picker (Q) in Rectangle mode (GitHub #141): its rows are the tile groups, found as the Tiles list's
     # search finds them; Enter picks the first one's tile, as a click in the list does.
@@ -607,12 +607,12 @@ CASES += [
     # Rectangle's variants as the game's maps have them (the game's rule: the common variants all as often, the variants
     # after the group's first empty megatile 1 time in 20): Road War's Asphalt filled with Rectangle (Shift+Fill: every
     # tile of that terrain), the tiles counted (--histbox: tilehist=).
-    ("map-rect-variants", ["{install}/Maps/(2)Road War.scm", "--histbox", "0,0,255,255", "--solid", "--click", "800,500:Ctrl", "--click", "255,459",
+    ("map-rect-variants", ["{maps}/(2)Road War.scm", "--histbox", "0,0,255,255", "--solid", "--click", "800,500:Ctrl", "--click", "255,459",
                            "--click", "800,500:Shift"], "data"),
     # Rectangle painted over its own tiles again and again (60 clicks at one place, brush 4 x 4: the height linked at 330,487;
     # one row takes the tiles above it, the map's: the same ones each time): the rare variants stay
     # rare (the tiles in the brush counted after each click: --histbox mouse,2,1).
-    ("map-rect-variants-repeat", ["{install}/Maps/(2)Road War.scm", "--histbox", "mouse,2,1", "--solid", "--click", "800,500:Ctrl", "--key", "B",
+    ("map-rect-variants-repeat", ["{maps}/(2)Road War.scm", "--histbox", "mouse,2,1", "--solid", "--click", "800,500:Ctrl", "--key", "B",
                                   "--wheel", "800,500,0,1:Alt", "--wheel", "800,500,0,1:Alt", "--click", "330,487"] + ["--click", "800,500"] * 60, "data"),
     # Mode > Terrain tools' keys: from Units mode, Ctrl+Alt+3 is Terrain mode with Tile, then Ctrl+Alt+2 Rectangle, Ctrl+Alt+4
     # Custom and Ctrl+Alt+1 Isometric; the picture: Find a command (Ctrl+P) with the items, their keys and the one on.
@@ -634,9 +634,9 @@ CASES += [
     # Custom terrain (Terrain's Custom; the files in a new folder: --stamps, never the user's): the square shape, Select
     # (V), a drag selects 7 x 4 tiles, Shift+click adds a tile apart from them, Ctrl+click takes one out of them; a right
     # click on the selection > Save as custom terrain (item 7) and the name typed; the same name again: Replace? (--box
-    # 0: Replace); two more in the group Test and one with no group; Cut makes null tiles where a click on Left of the
-    # Custom list then places it (exactly its 28 tiles: its box is 13 x 10), Ctrl+Z takes it back; Q finds "bridges
-    # right"; Rename (item 0) of Plain; Delete (item 1) of Test_Ramp (--box 0: Delete): its file is gone.
+    # 0: Replace); three more (the Custom list's headings are real folders: the names' '_' makes none, so the rows are
+    # the four names, sorted); Cut makes null tiles where a click on Test_Bridges_Left in the Custom list then places it
+    # (exactly its 28 tiles: its box is 13 x 10), Ctrl+Z takes it back; Q finds "bridges right"; Rename (item 0) of Plain; Delete (item 1) of Test_Ramp (--box 0: Delete): its file is gone.
     ("map-custom-terrain", ["--custom", "--stamps", "{newdir}", "--wheel", "90,491,0,1", "--key", "V", "--drag", "520,640-560,660",
                             "--click", "600,700:Shift", "--click", "540,650:Ctrl",
                             "--click", "540,655:Menu7", "--type", "Test_Bridges_Left", "--key", "Enter",
@@ -656,7 +656,7 @@ CASES += [
     # Volcanis (Ash World) after Ctrl+O; with none, the list says how to make it.
     ("map-custom-other-tileset", ["--custom", "--stamps", "{newdir}", "--key", "V", "--drag", "520,640-560,660",
                                   "--click", "540,655:Menu7", "--type", "Platform_Piece", "--key", "Enter",
-                                  "--key", "Ctrl+O", "--pick", "{install}/Maps/(2)Volcanis.scm", "--click", "299,427"], "map"),
+                                  "--key", "Ctrl+O", "--pick", "{maps}/(2)Volcanis.scm", "--click", "299,427"], "map"),
     # Units: the placement preview at the left-right mirror image too (Discord feedback #133).
     ("map-units-mirror-ghost", ["--mode", "units", "--click", "1371,187", "--click", "1386,579", "--wheel", "831,525,0,-4", "--move", "700,500",
                                 "--wait", "200"], "map"),
@@ -874,7 +874,7 @@ CASES += [
     # second to the owner's list.)
     ("map-dialog-tab", ["--mode", "units", "--click", "825,128:Double", "--key", "Tab", "--key", "Tab", "--key", "Tab", "--type", "50", "--key", "Tab",
                         "--key", "Shift+Tab", "--key", "Escape"], "map"),
-    # The main window's Tab order (CHECKS: check_main_tab): from the map, Tab goes round the whole window (84 stops in Units
+    # The main window's Tab order (CHECKS: check_main_tab): from the map, Tab goes round the whole window (86 stops in Units
     # mode: the right side bar, the Log's bar, the menu bar, the tabs, the top bar's parts and the modes, the rail, the left
     # side bar) and back to the map; Shift+Tab goes the same way back; Esc on a part gives the keyboard to the map.
     ("map-tab-focus", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 100 + ["--key", "Shift+Tab"] * 100 +
@@ -975,7 +975,7 @@ CASES += [
     # saves the map that asked (not the other tab's map).
     ("map-saveas-tab", ["--newproject", "{newdir}", "--pick", "defer:{out}/asked.scx", "--script", "{script:saveastab}"], "map"),
     # Ctrl+Z while the mouse button still paints terrain does nothing; one Undo after the stroke takes all of it back.
-    ("map-undo-midstroke", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--drag", "520,650-640,690:Undo", "--key", "Ctrl+Z"], "map"),
+    ("map-undo-midstroke", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "B", "--drag", "520,650-640,690:Undo", "--key", "Ctrl+Z"], "map"),
     # Undo back to the map as it was opened: no change (no "*"); Redo: a change again.
     ("map-undo-saved", ["--mode", "units", "--click", "1386,429", "--click", "700,650", "--key", "Ctrl+Z", "--key", "Ctrl+Y"], "map"),
     # A unit deleted, another selected, Undo: the selection is still that other unit (not the unit that came back).
@@ -1187,8 +1187,10 @@ def check_korean_save(output):
 
 
 # The kinds of the main window's views in Tab's order from the menu bar, in Units mode (side bars: Terrain at the left,
-# Units at the right). A view with parts of its own is one entry for all its parts.
-MAIN_TAB_KINDS = ["menu bar", "tabs", "top bar", "modes", "top bar", "rail", "minimap", "panel tabs", "tool strip", "button", "palette", "map",
+# Units at the right). A view with parts of its own is one entry for all its parts. The left side bar's search row: its
+# search box is no Tab stop (the other panel's keys go to the active one: sdl_panels.inc OtherSearchRow), its pie
+# palette button ("view") and View are.
+MAIN_TAB_KINDS = ["menu bar", "tabs", "top bar", "modes", "top bar", "rail", "minimap", "panel tabs", "tool strip", "view", "button", "palette", "map",
                   "panel tabs", "tool strip", "dropdown", "text field", "view", "button", "palette", "log"]
 
 
@@ -1434,7 +1436,7 @@ SCRIPTS = {
 key V
 drag 520,640-600,700
 key Ctrl+C
-open {install}/Maps/(4)Orbital Relay.scm
+open {maps}/(4)Orbital Relay.scm
 mode terrain
 key Ctrl+V
 move 900,800
@@ -1486,7 +1488,7 @@ command scen.checkPathing
 key Enter
 pathing
 """,
-    "pathingfix": """open {install}/Maps/(2)Boxer.scm
+    "pathingfix": """open {maps}/(2)Boxer.scm
 command scen.checkPathing
 key Down
 key Enter
@@ -1522,7 +1524,7 @@ key Ctrl+Z
 mode locations
 drag 520,640-600,700
 mode terrain
-click 202,759
+click pal=Solar Array
 key B
 drag 520,650-640,690
 key V
@@ -1714,7 +1716,7 @@ stats
     "stackmenu": STACK_PLACE + "click 700,650:Menu11\nkey Down\nkey Enter\n",
     # The Marine stays picked (no Esc): Alt+click on the stack is the pipette (map-stack-pipette).
     # (map-palette-float: the window is at 360,114 of the main window: High Platform's row, Dock, the first tile)
-    "floatpal": "command view.floatPalette.terrain\nwait 0\nclick 510,482\nkey U\nkey T\nclick 371,126\ncommand view.floatPalette.terrain\nwait 0\n"
+    "floatpal": "command view.floatPalette.terrain\nwait 0\nclick pal=High Platform\nkey U\nkey T\nclick 371,126\ncommand view.floatPalette.terrain\nwait 0\n"
                 "palette close\ncommand view.floatPalette.terrain\nwait 0\nrect on\nclick 386,412\n",
     "floatdockshot": "command view.floatPalette.terrain\nwait 0\nfloatmove 1400,120\nframe\n",
     "floatpaldock": "command view.floatPalette.terrain\nwait 0\ncommand view.floatPalette.terrain\nwait 0\n",
@@ -1729,13 +1731,13 @@ stats
     # (map-palette-float-settings: nothing floats at the start; popped out, each mode's palette opens at its kept size and
     # stays in the other modes)
     "floatpaltwo": "wait 0\ncommand view.floatPalette.terrain\nwait 0\nmode units\ncommand view.floatPalette.units\nwait 0\nmode doodads\nmode terrain\n",
-    "panelsown": "mode terrain\npanel new\nwait 0\nclick 1144,196\nclick 1157,254\nclick 200,621\nclick 1157,254\nkey U\nkey T\n",
+    "panelsown": "mode terrain\npanel new\nwait 0\nclick 1144,196\nclick 1157,254\nclick pal=Space\nclick 1157,254\nkey U\nkey T\n",
     "panelsfloat": "mode terrain\nclick 246,427\nclick 198,485\ncommand view.floatPalette.terrain\nwait 0\nclick 400,196\n"
                    "command view.floatPalette.terrain\nwait 0\n",
     "locmulti": "mode locations\ndrag 500,200-600,280\ndrag 650,200-760,300\ndrag 520,500-640,600\nclick 540,240\n"
                 "click 700,250:Ctrl\nclick 560,540:Shift\ndrag 560,540-620,600\nkey Ctrl+C\nmove 900,700\nkey Ctrl+V\nclick 900,700\nkey Esc\nkey Del\n"
                 "key Ctrl+Z\nkey Ctrl+A\nkey Esc\nclick 200,495\nclick 200,525:Ctrl\n",
-    "floatpalkeys": "command view.floatPalette.terrain\nwait 0\nclick 400,323\ntype plat\nclick 490,436\nkey F\npalette scale 150\n",
+    "floatpalkeys": "command view.floatPalette.terrain\nwait 0\nclick 400,349\ntype plat\nclick pal=High Platform\nkey F\npalette scale 150\n",
     "stackpipette": "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650:Alt\nkey Esc\n",
 }
 
@@ -3927,7 +3929,7 @@ SCRIPTS["protectterrain"] = """mode terrain
 key V
 drag 540,630-640,700
 rclick 590,665:7
-click 202,759
+click pal=Solar Array
 key B
 drag 470,600-710,740
 drag 710,600-470,740
@@ -3969,7 +3971,7 @@ CASES += [("map-protect-terrain", ["--script", "{script:protectterrain}", "--che
 CASES += [("map-isom-select-combine", ["--mode", "terrain", "--key", "V", "--drag", "520,640-600,700", "--drag", "700,640-780,700:Shift",
                                        "--drag", "520,640-560,700:Ctrl"], "map")]
 CASES += [("map-terrain-kind-key", ["--mode", "units", "--key", "Ctrl+Alt+T", "--key", "T"] + ["--key", "Ctrl+Alt+T"] * 3, "map")]
-# Terrain's shape tools (core/terrain_shapes.inc) with Solar Array (the palette at 202,759) on open ground: Line (I), a
+# Terrain's shape tools (core/terrain_shapes.inc) with Solar Array (the palette: pal=Solar Array) on open ground: Line (I), a
 # drag from the start to the end; Contour (O), a drag round a shape; Polygon (P), clicks and a double click. The
 # previews (the button held: Hold; Polygon: the mouse at the next point) show the terrain over the map, which does not
 # change until the release or the double click (--wait: a slow preview is made again after a time); then the map has it,
@@ -3977,22 +3979,22 @@ CASES += [("map-terrain-kind-key", ["--mode", "units", "--key", "Ctrl+Alt+T", "-
 SHAPE_LINE = "480,610-700,740"
 SHAPE_CONTOUR = "500,610-660,620-690,700-600,760-500,720-500,630"
 SHAPE_POLY = ["--click", "500,610", "--click", "680,630", "--click", "660,750"]
-CASES += [("map-shape-line-preview", ["--mode", "terrain", "--click", "202,759", "--key", "I", "--drag", SHAPE_LINE + ":Hold", "--wait", "200"], "map"),
-          ("map-shape-line", ["--mode", "terrain", "--click", "202,759", "--key", "I", "--drag", SHAPE_LINE], "map"),
-          ("map-shape-line-undo", ["--mode", "terrain", "--click", "202,759", "--key", "I", "--drag", SHAPE_LINE, "--key", "Ctrl+Z"], "map"),
-          ("map-shape-contour-preview", ["--mode", "terrain", "--click", "202,759", "--key", "O", "--drag", SHAPE_CONTOUR + ":Hold", "--wait", "200"], "map"),
-          ("map-shape-contour", ["--mode", "terrain", "--click", "202,759", "--key", "O", "--drag", SHAPE_CONTOUR], "map"),
-          ("map-shape-polygon-preview", ["--mode", "terrain", "--click", "202,759", "--key", "P"] + SHAPE_POLY + ["--move", "510,730"], "map"),
-          ("map-shape-polygon", ["--mode", "terrain", "--click", "202,759", "--key", "P"] + SHAPE_POLY + ["--click", "510,730:Double"], "map"),
-          ("map-shape-polygon-esc", ["--mode", "terrain", "--click", "202,759", "--key", "P"] + SHAPE_POLY + ["--move", "510,730", "--key", "Esc"], "map"),
+CASES += [("map-shape-line-preview", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "I", "--drag", SHAPE_LINE + ":Hold", "--wait", "200"], "map"),
+          ("map-shape-line", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "I", "--drag", SHAPE_LINE], "map"),
+          ("map-shape-line-undo", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "I", "--drag", SHAPE_LINE, "--key", "Ctrl+Z"], "map"),
+          ("map-shape-contour-preview", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "O", "--drag", SHAPE_CONTOUR + ":Hold", "--wait", "200"], "map"),
+          ("map-shape-contour", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "O", "--drag", SHAPE_CONTOUR], "map"),
+          ("map-shape-polygon-preview", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "P"] + SHAPE_POLY + ["--move", "510,730"], "map"),
+          ("map-shape-polygon", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "P"] + SHAPE_POLY + ["--click", "510,730:Double"], "map"),
+          ("map-shape-polygon-esc", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "P"] + SHAPE_POLY + ["--move", "510,730", "--key", "Esc"], "map"),
           ("map-shape-tile-line", ["--rect", "--click", "tile16", "--key", "I", "--drag", SHAPE_LINE], "map"),
           # A Line click paints the brush at the point; a polygon under way goes when the mode changes (U, then T).
-          ("map-shape-line-click", ["--mode", "terrain", "--click", "202,759", "--key", "I", "--click", "560,690"], "map"),
-          ("map-shape-polygon-mode", ["--mode", "terrain", "--click", "202,759", "--key", "P"] + SHAPE_POLY[:4] +
+          ("map-shape-line-click", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "I", "--click", "560,690"], "map"),
+          ("map-shape-polygon-mode", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "P"] + SHAPE_POLY[:4] +
            ["--key", "U", "--key", "T", "--click", "660,750"], "map")]
 # Release pictures (tools/shots): Fill with three terrains (Ctrl+click adds; Mix), the red ground where a picked mineral
 # field may not go, and the window in French.
-CASES += [("map-fill-mix", ["--mode", "terrain", "--click", "202,851", "--click", "202,805:Ctrl", "--click", "202,759:Ctrl", "--key", "F",
+CASES += [("map-fill-mix", ["--mode", "terrain", "--click", "pal=Rusty Pit", "--click", "pal=Low Platform:Ctrl", "--click", "pal=Solar Array:Ctrl", "--key", "F",
                             "--click", "455,520", "--move", "1500,900"], "map"),
           ("map-units-nogo", ["--mode", "units", "--wheel", "1199,595,0,5", "--key", "Q", "--type", "mineral field", "--key", "Enter", "--move", "1000,560"], "map"),
           ("map-french", ["--mode", "terrain", "--lang", "fr"], "map")]
@@ -4494,7 +4496,7 @@ def check_palette_float(output):
     """Floating: the window, a pick in it (High Platform, the brush), U and T from it, Dock, the close button, Rectangle
     mode's tiles in it and a tile picked there."""
     s = palette_steps(output)
-    want = ["wait 0", "click 510,482", "key U", "key T", "click 371,126", "wait 0", "palette close", "wait 0", "rect on", "click 386,412"]
+    want = ["wait 0", "click pal=High Platform", "key U", "key T", "click 371,126", "wait 0", "palette close", "wait 0", "rect on", "click 386,412"]
     got = [d["input"] for d in s]
     if got != want:
         return f"the inputs are {got}, not {want}"
@@ -4523,7 +4525,7 @@ def check_palette_keys(output):
     """A pick after typing in the window's search box: the search box loses the keyboard, F goes to the map (Fill) and
     the search keeps its text; the window on a screen of 150 % leaves the program's scale at 1."""
     s = palette_steps(output)
-    want = ["wait 0", "click 400,323", "type plat", "click 490,436", "key F", "palette scale 150"]
+    want = ["wait 0", "click 400,349", "type plat", "click pal=High Platform", "key F", "palette scale 150"]
     got = [d["input"] for d in s]
     if got != want:
         return f"the inputs are {got}, not {want}"
@@ -4990,7 +4992,7 @@ def custom_steps(output):
 
 def check_custom_terrain(output):
     """map-custom-terrain: the selection with Shift and Ctrl, Save as custom terrain and its Replace question, the list's
-    groups, the placing of exactly its tiles, Undo, the quick picker, Rename and Delete (the files on the disk)."""
+    rows, the placing of exactly its tiles, Undo, the quick picker, Rename and Delete (the files on the disk)."""
     steps = custom_steps(output)
     if len(steps) < 30:
         return f"{len(steps)} input lines, not 30 or more (the program stopped?)"
@@ -5006,7 +5008,7 @@ def check_custom_terrain(output):
         return f"the first save: files {saves[0].get('customfiles') if saves else '-'}, not Test_Bridges_Left:28"
     if 'box: "Save as custom terrain": &Replace' not in output or saves[1].get("customfiles") != "Test_Bridges_Left:28":
         return "the second save of the same name did not ask Replace? (or it made a second file)"
-    rows = "Plain=Plain|#Test|Ramp=Test_Ramp|##Bridges|Left=Test_Bridges_Left|Right=Test_Bridges_Right"
+    rows = "Plain=Plain|Test_Bridges_Left=Test_Bridges_Left|Test_Bridges_Right=Test_Bridges_Right|Test_Ramp=Test_Ramp"
     if saves[4].get("customrows") != rows or saves[4].get("customshown") != "yes":
         return f"the list's rows: {saves[4].get('customrows')} (shown: {saves[4].get('customshown')}), not {rows}"
     cut, pick, place, undo = by("key Ctrl+X"), by("click custom=Test_Bridges_Left"), by("click 900,800"), by("key Ctrl+Z")
@@ -5033,7 +5035,7 @@ def check_custom_other_tileset(output):
     """map-custom-other-tileset: the custom terrain saved on Space Platform is not in Ash World's list (nor its files)."""
     steps = custom_steps(output)
     saved = [f for i, f in steps if i == "click 540,655:Menu7"]
-    if not saved or not saved[0].get("customfiles", "").startswith("Platform_Piece:") or saved[0].get("customrows") != "#Platform|Piece=Platform_Piece":
+    if not saved or not saved[0].get("customfiles", "").startswith("Platform_Piece:") or saved[0].get("customrows") != "Platform_Piece=Platform_Piece":
         return f"the save on Bottleneck: files {saved[0].get('customfiles') if saved else '-'}, rows {saved[0].get('customrows') if saved else '-'}"
     last = steps[-1][1]
     if not last.get("map", "").startswith("Ash World") and "map: Ash World" not in output:
@@ -5519,7 +5521,10 @@ def main():
             write_once(oldsettings, lambda: write_old_settings(oldsettings, a.out))
         if any("{legacyhive}" in x for x in args):
             write_once(legacyhive, lambda: write_legacy_hive(legacyhive))
-        paths = dict(map=a.map or "", cmbwmap=a.cmbwmap or "", crigmap=crig_map(a.cmbwmap or ""), project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
+        # {maps}: the game's maps folder (Maps, or StarCraft/Maps, in the install; else the folder of --map)
+        maps = next((d for d in (os.path.join(a.install or "", "Maps"), os.path.join(a.install or "", "StarCraft", "Maps"))
+                     if a.install and os.path.isdir(d)), os.path.dirname(a.map or ""))
+        paths = dict(maps=maps, map=a.map or "", cmbwmap=a.cmbwmap or "", crigmap=crig_map(a.cmbwmap or ""), project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, musicwav=musicwav, dotpng=dotpng, komusicwav=komusicwav, kodotpng=kodotpng, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
                      releaseold=releaseold, nosnapsettings=nosnapsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage, e2s=e2s)
 

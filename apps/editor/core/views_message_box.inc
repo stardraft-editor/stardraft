@@ -265,7 +265,8 @@ private:
 
 // The host's own message box (macOS: an alert sheet on the window, sdl_window.inc): it shows `box` from `from` and
 // returns the index of the button (in box.buttons) that closed it, or -1 when it shows none (then the box is this
-// one). Not for a box with a `shown` (datashots and self-tests drive this one).
+// one; so does a host's box that has no check box for a box with one). Not for a box with a `shown` (datashots and
+// self-tests drive this one). A snapshot's answer (--box) leaves the check box off.
 inline std::function<int(draw::View& from, const std::wstring& caption, const Box& box)>& hostBox() {
     static std::function<int(draw::View&, const std::wstring&, const Box&)> fn;
     return fn;
@@ -281,7 +282,7 @@ inline int runMessageBox(draw::View& from, const std::wstring& caption, Box box,
     if (box.buttons.empty()) box.buttons.push_back({L"OK", 0});
     box.focus = std::clamp(box.focus, 0, int(box.buttons.size()) - 1);
     box.cancel = std::clamp(box.cancel, 0, int(box.buttons.size()) - 1);
-    if (!shown && hostBox() && box.check.empty())  // (the host's box has no check box)
+    if (!shown && hostBox())  // (a host's box that has no check box returns -1 for a box with one)
         if (const int k = hostBox()(from, caption, box); k >= 0 && k < int(box.buttons.size())) return box.buttons[size_t(k)].id;
     MessageView view;
     view.b = std::move(box);

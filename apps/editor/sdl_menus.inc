@@ -915,6 +915,41 @@ bool sdlShotInputNext() {
     return true;
 }
 
+// A snapshot's click on a palette's item by its name (--click pal=<label>): the middle of that item, in the main
+// window's pixels. First the palettes of the main window (in the views' order; an item under a panel's window does not
+// count), then those of the open panels' windows (the last opened first). False: no palette shows the item.
+bool sdlPaletteItemAt(const std::wstring& label, int& x, int& y) {
+    auto underPanel = [](draw::Point pt) {
+        for (const auto& p : gPanels)
+            if (p->open && p->at.contains(pt)) return true;
+        return false;
+    };
+    std::function<bool(draw::View&, draw::View&, draw::Point, bool)> find = [&](draw::View& root, draw::View& v, draw::Point off, bool mainWindow) {
+        if (!v.visible()) return false;
+        if (const auto* pal = dynamic_cast<const PaletteGridView*>(&v)) {
+            draw::Point c, local;
+            if (pal->itemCenter(label, c)) {
+                const draw::Point o = pal->origin(), in{o.x + c.x, o.y + c.y}, onMain{off.x + in.x, off.y + in.y};
+                const draw::View* hit = root.viewAt(in, local);
+                if ((hit == pal || pal->isAncestorOf(*hit)) && !(mainWindow && underPanel(onMain))) return x = onMain.x, y = onMain.y, true;
+            }
+        }
+        for (draw::View* ch : v.children())
+            if (find(root, *ch, off, mainWindow)) return true;
+        return false;
+    };
+    draw::View& root = sdlShotRoot();
+    gHost->snapshotLayout(root);
+    if (find(root, root, {0, 0}, true)) return true;
+    for (auto it = gPanels.rbegin(); it != gPanels.rend(); ++it)
+        if ((*it)->open) {
+            draw::View& panel = *(*it)->view;
+            gHost->snapshotLayout(panel);
+            if (find(panel, panel, {(*it)->at.left, (*it)->at.top}, false)) return true;
+        }
+    return false;
+}
+
 // --click x,y[:mods] and --drag x0,y0-x1,y1[:mods] in a snapshot (main_sdl.cpp): the left button as a user's mouse
 // gives it, in the window's pixels: the mouse comes to the first point, the button goes down, (a drag: the mouse moves
 // to the second point in steps, the button held), the button goes up. The events go the host's way for a window's
@@ -962,6 +997,10 @@ void sdlMouseShot(const std::string& spec, char kind) {
         gHost->snapshotLayout(*gRoot);
         if (gTilesPanel->stamps().itemCenter(widen(at.substr(7)), x0, y0)) got = 2;
         else return void(std::printf("%s%s: the Custom list does not show that row (WRONG)\n", name.c_str(), spec.c_str()));
+    }
+    if (!drag && at.rfind("pal=", 0) == 0 && gRoot && gHost) {  // pal=<label>: the middle of that item in a palette (sdlPaletteItemAt)
+        if (sdlPaletteItemAt(widen(at.substr(4)), x0, y0)) got = 2;
+        else return void(std::printf("%s%s: no palette shows that item (WRONG)\n", name.c_str(), spec.c_str()));
     }
     if (!gRoot || !gHost || got != (drag ? 4 : 2))
         return void(std::fprintf(stderr, "--%s%s: not %s[:mods]\n", name.c_str(), spec.c_str(), drag ? "x0,y0-x1,y1" : "x,y"));

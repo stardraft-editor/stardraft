@@ -95,7 +95,7 @@ MacAlert sdlSheetSpec(const std::wstring& caption, const msgbox::Box& box, std::
 // While it waits, the program is modal (SdlHost::modalOpen): no window takes input and no file opens from the system.
 // A box while a dialog or a sheet is open is the kit's box.
 int sdlSheetBox(draw::View& from, const std::wstring& caption, const msgbox::Box& box) {
-    if (!gMainWindow || !gHost || !gRoot || gHost->modalOpen()) return -1;
+    if (!gMainWindow || !gHost || !gRoot || gHost->modalOpen() || !box.check.empty()) return -1;  // (a sheet has no check box)
     const draw::View* top = &from;
     while (top->parent()) top = top->parent();
     if (top != gRoot) return -1;  // (a box over a dialog or a pop-out: the kit's box, over that window)
