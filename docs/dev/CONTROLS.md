@@ -7,6 +7,19 @@ painted to the same look by the dark-control subclass (`darkControl`), which cal
 
 The rules for the UI and its text are in PRINCIPLES.md. This file lists the controls and where each is used.
 
+## Map measurement tools
+
+Tools > Mining Lab opens a compact floating window; the start location or depot's
+Units context menu also opens it. A terrain preview and colored base picker select
+the test. The +/- controls set worker count and playback speed; selecting the worker
+value restores one worker per patch. Tests lists parallel base measurements. Boosts
+shows position, cargo and cycle guides with individual search budgets and Continue.
+
+Tools > Measure rush distance opens a compact floating window. Set endpoints picks
+two map positions. The colored A/B buttons change one endpoint. Launch (s) and Keep
+set launch interval and completed-result retention. Hovering a map trail highlights
+its run in the results table. Both tools provide Pause, Hide and Copy report.
+
 ## Colors
 
 | Token | Use |

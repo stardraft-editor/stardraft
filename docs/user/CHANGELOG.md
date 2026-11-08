@@ -2,6 +2,15 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## Unreleased
+
+### Map
+
+- Tools > Mining Lab measures mineral income and delivery cycles for each base and race. A compact window includes
+  timed position, cargo and cycle boost searches, with guides on the map.
+- Tools > Measure rush distance measures worker travel time and distance between two map points, with colored
+  trails and hover details. Both tools use an independent simulation engine and leave the map unchanged.
+
 ## 0.8.7
 
 [Video: the new features of 0.8.7](images/0.8.7/whats-new.mp4)
