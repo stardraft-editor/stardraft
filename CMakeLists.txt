@@ -160,6 +160,9 @@ add_executable(isomterrain_test tools/tests/isomterrain_test.cpp)
 target_include_directories(isomterrain_test PRIVATE third_party/IsomTerrain/IsomTerrain)
 target_link_libraries(isomterrain_test PRIVATE stardraft)
 
+add_executable(area_measurement_test tools/tests/area_measurement_test.cpp)
+target_link_libraries(area_measurement_test PRIVATE stardraft)
+
 add_executable(unit_test tools/tests/unit_test.cpp)
 target_link_libraries(unit_test PRIVATE stardraft)
 
@@ -860,5 +863,3 @@ if(WIN32 AND STARDRAFT_RENDERER)
     add_dependencies(stardraft_editor stardraft_latest)  # built with the editor
 endif()
 
-add_executable(area_measurement_test tools/tests/area_measurement_test.cpp)
-target_link_libraries(area_measurement_test PRIVATE stardraft)
