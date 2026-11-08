@@ -507,12 +507,10 @@ int ProjectPageView::paintScripts(draw::Canvas& c, int y, int x0, int rowH, int 
         }
         // The row's cover (as the old row actions): an arrow over the whole row, the grip included; its clicks pass on.
         hits_.push_back({r, nullptr, std::wstring(), draw::Cursor::Arrow});
-        // The name in the mono font, the note after it in the UI font.
-        const draw::Font ui = c.setFont(c.font({draw::Face::Mono, 0}));
+        // The name, then the note after it (the UI font: a file's name, as the page's other names; code lines are mono).
         const draw::Rect t{x0 + scale(16), r.top, r.right - scale(380), r.bottom};
         c.text(t, widen(name), on ? kAccent : kText, draw::kPathEllipsis | draw::kMiddle);
         const int nameRight = t.left + std::min<int>(t.width(), c.measure(widen(name)));
-        c.setFont(ui);
         const draw::Rect n{nameRight + scale(16), r.top, r.right - scale(140), r.bottom};
         c.text(n, note, warn ? kWarn : kDim, draw::kEllipsis | draw::kMiddle);
         if (!after.empty()) {
