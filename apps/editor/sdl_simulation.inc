@@ -1389,14 +1389,14 @@ void simRushDragLost() {
 const wchar_t* const kSimRaceNames[4] = {L"As defined in map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
 
 // The mining's settings (the bar's gear): a panel under the bar. The workers on minerals at each base: for each mineral
-// field or in all (a choice of two), and their number (a step box); the races (a list); the measured game time and the
-// boost search's time (step boxes); the three boost searches (position, cargo, cycle: the pull request's Mining Lab
-// searches, each base at the same time) as check boxes, each with its state; and a link to Program options >
+// field or in all (a choice of two), and their number (a step box); the races (a list); the measured game time (a step
+// box); the three boost searches (position, cargo, cycle: the pull request's Mining Lab searches, each base at the same
+// time) as check boxes, each with its state and Search (Continue); and a link to Program options >
 // Simulation, which has the same settings. A change of the workers or the races starts the mining again (its boosts
 // are searched again: they were for those workers); the game time keeps them.
 // The panel's parts (gSimPanel.hot, .down): 1 and 2 the workers' - and +, 13 and 14 for each field and in all, 3 the
-// races, 4 and 5 the game time's - and +, 6 and 7 the search time's, 8 to 10 the position, cargo and cycle check
-// boxes, 11 the link, 12 the rest of the panel.
+// races, 4 and 5 the game time's - and +, 8 to 10 the position, cargo and cycle check boxes, 11 the link, 12 the rest
+// of the panel, 21 to 23 the boosts' Search (Continue).
 void simulateMiningCommand();
 void simMiningNewTime();
 // The panel: three rows (the workers, the races, the game time), then a row for each boost search: its check box and
@@ -1523,7 +1523,7 @@ void simPaintPanel(draw::Canvas& c, const SimBarLayout& l, draw::Rect r) {
         c.text({b.left + cs + scale(8), b.top, b.right, b.bottom}, kSimBoostNames[k], busy ? kDim : kText, draw::kMiddle | draw::kEllipsis);
         c.text(p.state[k], simBoostState(k), kDim, draw::kMiddle | draw::kEllipsis);
         // Search (Continue: it searches on from where it stopped, for its search time again).
-        const bool can = !busy, over = can && gSimPanel.hot == 21 + k, pressed = over && gSimPanel.down == 21 + k;
+        const bool can = !busy && !simEngine().boostStatus(k).exhausted, over = can && gSimPanel.hot == 21 + k, pressed = over && gSimPanel.down == 21 + k;
         c.roundBox(p.button[k], pressed ? kCtlDown : over ? kCtlHot : kCtl, kBorder, float(scale(stardraft::kit::kRadius)));
         c.text(p.button[k], simEngine().boostStatus(k).finished ? tr(L"Continue") : tr(L"Search"), can ? kText : kDim,
                draw::kCenter | draw::kMiddle | draw::kEllipsis);
@@ -1559,7 +1559,7 @@ void simBoostSync() {
 void simBoostSearchNow(int k) {
     if (!gSim.shown || gSim.combat || gSim.rush || simSkipRunning() || modTab()) return;
     sim::Simulator& e = simEngine();
-    if (e.boosting()) return;
+    if (e.boosting() || e.boostStatus(k).exhausted) return;  // (nothing more to search: Continue would only start the game again)
     prefs::setNumber(kSimBoostKeys[k], 1);
     gSim.boostFailed &= ~(1 << k);
     std::string err;
@@ -1654,8 +1654,11 @@ std::wstring simPanelTip(const SimBarLayout& l, draw::Rect r, draw::Point pt) {
     case 9: return L"Search for the places where a worker returns its cargo sooner. The search runs before the game starts.";
     case 10: return L"Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.";
     case 21: case 22: case 23:
-        return simEngine().boostStatus(simPanelPart(simPanelLayout(l, r), pt) - 21).finished ? L"Search again for its search time, on from where it stopped"
-                                                                                            : L"Search now, for its search time";
+    {
+        const sim::BoostStatus st = simEngine().boostStatus(simPanelPart(simPanelLayout(l, r), pt) - 21);
+        return st.exhausted ? L"Nothing more to search" : st.finished ? L"Search again for its search time, on from where it stopped"
+                                                                      : L"Search now, for its search time";
+    }
     case 13: return L"A number of workers for each mineral field of a base";
     case 14: return L"A number of workers for each base";
     case 11: return L"Program options > Simulation";
