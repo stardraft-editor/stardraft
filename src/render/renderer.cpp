@@ -352,12 +352,18 @@ static SDL_PropertiesID deviceProperties() {
     return props;
 }
 
+#ifdef STARDRAFT_SHADERS_DXIL
+bool allCardsHaveD3d12FeatureLevel12();  // (d3d12_probe.cpp)
+#endif
+
 bool Renderer::Impl::createDevice(std::string& err) {
-    // Windows: Vulkan, else Direct3D 12 on the video card, else Direct3D 12 on WARP (the software device of Windows:
-    // slow, but the program starts on video cards that have neither). Vulkan first: an old video card's Direct3D 12
-    // (feature level 11_0, as the GeForce GTX 770's) stopped the whole computer (0.8.5). setPreferredDriver (Program
-    // options) goes first; the skipped drivers go only when no other is left. STARDRAFT_GPU_DRIVER "direct3d12",
-    // "vulkan" or "warp" asks for only that one. Elsewhere SDL picks Metal or Vulkan.
+    // Windows: Direct3D 12 when every video card has it at feature level 12_0 (it uses about a third of Vulkan's video
+    // memory, and that memory does not grow as maps open and close), else Vulkan first: an old video card's Direct3D 12
+    // (feature level 11_0, as the GeForce GTX 770's) stopped the whole computer (0.8.5). Then the other, then Direct3D
+    // 12 on WARP (the software device of Windows: slow, but the program starts on video cards that have neither).
+    // setPreferredDriver (Program options) goes first; the skipped drivers go only when no other is left (a start that
+    // a driver stopped: main_sdl.cpp's gpu-skip.txt). STARDRAFT_GPU_DRIVER "direct3d12", "vulkan" or "warp" asks for
+    // only that one. Elsewhere SDL picks Metal or Vulkan.
 #ifdef STARDRAFT_SHADERS_DXIL
     const char* asked = std::getenv("STARDRAFT_GPU_DRIVER");
     std::string only = asked ? asked : "";
@@ -380,7 +386,14 @@ bool Renderer::Impl::createDevice(std::string& err) {
         &reasons);
     std::string errors;
     std::vector<const char*> order = {"vulkan", "direct3d12", "warp"};
-    for (size_t i = 1; i < order.size(); ++i)
+    // (the probe opens each card's Direct3D 12 driver: as a try, its start is marked first, so a start that it stops
+    // leaves Direct3D 12 out the next time; not at all when it is left out already)
+    const bool d3d12Skipped = ("," + skipped + ",").find(",direct3d12,") != std::string::npos;
+    if (preferred.empty() && only.empty() && !d3d12Skipped) {
+        if (tryHook) tryHook("direct3d12");
+        if (allCardsHaveD3d12FeatureLevel12()) std::swap(order[0], order[1]);
+    }
+    for (size_t i = 1; i < order.size(); ++i)  // (the chosen one first)
         if (preferred == order[i]) std::rotate(order.begin(), order.begin() + std::ptrdiff_t(i), order.begin() + std::ptrdiff_t(i + 1));
     std::vector<const char*> tries;
     for (const char* d : order)

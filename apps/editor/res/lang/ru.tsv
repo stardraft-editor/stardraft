@@ -3028,3 +3028,6 @@ Size: medium (Ctrl+wheel changes it)	Размер: средний (Ctrl+коле
 Size: large (Ctrl+wheel changes it)	Размер: большой (Ctrl+колесо меняет его)
 Serial 	Серийный номер 
 Exclude	Исключить
+Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)	Direct3D 12 на новых видеокартах, Vulkan на старых. Если видеокарта не может его использовать: другой, затем программная отрисовка (по умолчанию)
+Vulkan. If the video card cannot use it: Direct3D 12, then software drawing	Vulkan. Если видеокарта не может его использовать: Direct3D 12, затем программная отрисовка
+Graphics: Vulkan after a restart	Графика: Vulkan после перезапуска

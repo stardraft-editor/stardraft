@@ -3060,6 +3060,9 @@ constexpr UiText kRows[] = {
     {L"Size: large (Ctrl+wheel changes it)", L"\uD06C\uAE30: \uD06C\uAC8C (Ctrl+\uD720\uB85C \uBCC0\uACBD)"},
     {L"Serial ", L"\uC77C\uB828\uBC88\uD638 "},
     {L"Exclude", L"\uC81C\uC678"},
+    {L"Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)", L"\uC0C8 \uADF8\uB798\uD53D \uCE74\uB4DC\uC5D0\uC11C\uB294 Direct3D 12, \uC624\uB798\uB41C \uCE74\uB4DC\uC5D0\uC11C\uB294 Vulkan. \uADF8\uB798\uD53D \uCE74\uB4DC\uAC00 \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC73C\uBA74 \uB2E4\uB978 \uD558\uB098, \uADF8\uB2E4\uC74C \uC18C\uD504\uD2B8\uC6E8\uC5B4 \uADF8\uB9AC\uAE30 (\uAE30\uBCF8\uAC12)"},
+    {L"Vulkan. If the video card cannot use it: Direct3D 12, then software drawing", L"Vulkan. \uADF8\uB798\uD53D \uCE74\uB4DC\uAC00 \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC73C\uBA74 Direct3D 12, \uADF8\uB2E4\uC74C \uC18C\uD504\uD2B8\uC6E8\uC5B4 \uADF8\uB9AC\uAE30"},
+    {L"Graphics: Vulkan after a restart", L"\uADF8\uB798\uD53D: \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4 Vulkan"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

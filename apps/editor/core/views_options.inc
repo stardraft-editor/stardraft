@@ -38,7 +38,7 @@ struct OptionsValues {
     bool previews = false;    // Updates > Previews: the pre-releases too (else the stable releases only)
     int crashReports = 0;     // 0 ask, 1 send, 2 do not send
     bool gpuRow = false;      // the Graphics row shows (Windows: its drivers)
-    int gpuDriver = 0;        // Graphics: 0 automatic (Vulkan first), 1 Direct3D 12, 2 software (ID_GPU_DRIVER + it)
+    int gpuDriver = 0;        // Graphics: 0 automatic, 1 Direct3D 12, 2 software, 3 Vulkan (ID_GPU_DRIVER + it)
     std::wstring gpuInUse;    // the driver and video card in use ("Vulkan, NVIDIA GeForce GTX 770")
     bool mapsWithSD2 = false; // .scm and .scx open with StarDraft 2
     bool mapsRow = true;      // the Maps row shows (the file association: the Windows program's)
@@ -136,10 +136,12 @@ public:
             middleSeg_[i].onClick = [this, i] { host_.command(ID_MIDDLE_MODE + (i == 0 ? 1 : 0)); };
         }
         for (int i = 0; i < 3; ++i) crashSeg_[i].onClick = [this, i] { host_.command(ID_CRASH_MODE + i); };
-        gpuSeg_[0].setText(L"Automatic"), gpuSeg_[0].setTip(L"Vulkan. If the video card cannot use it: Direct3D 12, then software drawing (default)");
+        gpuSeg_[0].setText(L"Automatic"),
+            gpuSeg_[0].setTip(L"Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)");
         gpuSeg_[1].setText(L"Direct3D 12"), gpuSeg_[1].setTip(L"Direct3D 12. If the video card cannot use it: Vulkan, then software drawing");
-        gpuSeg_[2].setText(L"Software"), gpuSeg_[2].setTip(L"Software drawing (WARP): slow, but it does not use the video card");
-        for (int i = 0; i < 3; ++i) gpuSeg_[i].onClick = [this, i] { host_.command(ID_GPU_DRIVER + i); };
+        gpuSeg_[2].setText(L"Vulkan"), gpuSeg_[2].setTip(L"Vulkan. If the video card cannot use it: Direct3D 12, then software drawing");
+        gpuSeg_[3].setText(L"Software"), gpuSeg_[3].setTip(L"Software drawing (WARP): slow, but it does not use the video card");
+        for (int i = 0; i < 4; ++i) gpuSeg_[i].onClick = [this, i] { host_.command(ID_GPU_DRIVER + kGpuValue[i]); };
         for (auto* b : allButtons()) add(*b, {0, 0, 0, 0}), b->setVisible(false);
         lastProject_.setLabel(L"Open the last project on start");
         lastProject_.onChange = [this](bool) { host_.command(ID_OPT_LASTPROJECT); };
@@ -382,7 +384,7 @@ private:
         for (int i = 0; i < 2; ++i) out.push_back(&lightSeg_[i]), out.push_back(&middleSeg_[i]);
         out.push_back(&lightSeg_[2]);
         for (int i = 0; i < 3; ++i) out.push_back(&crashSeg_[i]);
-        for (int i = 0; i < 3; ++i) out.push_back(&gpuSeg_[i]);
+        for (int i = 0; i < 4; ++i) out.push_back(&gpuSeg_[i]);
         for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &passagesBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) out.push_back(b);
         return out;
     }
@@ -425,7 +427,9 @@ private:
     void sync(const OptionsValues& v);
 
     OptionsHost& host_;
-    stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3], gpuSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
+    // (Graphics' segments in their order: Automatic, Direct3D 12, Vulkan, Software; their settings' values)
+    static constexpr int kGpuValue[4] = {0, 1, 3, 2};
+    stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3], gpuSeg_[4];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, overrideBrowse_, passagesBrowse_, check_, restart_, reset_, maps_, close_;
     stardraft::kit::ScrollBar bar_;  // at the content's right when it is taller than its room
     stardraft::kit::CheckBox lastProject_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_;
@@ -482,7 +486,7 @@ void OptionsView::sync(const OptionsValues& v) {
     }
     if (v.gpuDriver != gpuChosen_) {
         gpuChosen_ = v.gpuDriver;
-        for (int i = 0; i < 3; ++i) gpuSeg_[i].setTone(i == v.gpuDriver ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
+        for (int i = 0; i < 4; ++i) gpuSeg_[i].setTone(kGpuValue[i] == v.gpuDriver ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
     cmbwPlugin_.setOn(v.gameMode == 1), override_.setOn(v.overrideOn);
     if (const std::wstring f = v.overrideFile.empty() ? std::wstring(L"\x2014") : v.overrideFile; overrideFile_.text() != f) overrideFile_.setText(f);
@@ -642,7 +646,7 @@ void OptionsView::paint(draw::Canvas& c) {
         // Direct3D 12, 0.8.5); the one in use under it.
         if (v.gpuRow) {
             label(L"Graphics");
-            segmented(y, gpuSeg_, 3, "graphics");
+            segmented(y, gpuSeg_, 4, "graphics");
             y += rowH;
             note(fx, y - scale(4), shellTr(L"In use") + L": " + v.gpuInUse);  // (the driver and card: their names; a new choice shows here after a restart)
             y += scale(20);

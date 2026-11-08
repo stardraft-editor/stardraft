@@ -173,7 +173,7 @@ void resetSettingsSdl() {
         s.reload();
         for (const std::string& name : s.names())
             if (name != "RecentMaps" && name != "RecentProjects") s.remove(name);
-        sdlGpuUnskip("");  // (Graphics: every driver is tried again; main_sdl.cpp)
+        // (Graphics: the drivers that stopped a start stay left out, gpu-skip.txt: Automatic tries Direct3D 12 first)
         gSettingsOff = true;
         if (!restartProcessSdl()) setMessage(L"The program settings have their default values. Close StarDraft 2 and start it again to use them.");
     });
@@ -289,7 +289,7 @@ public:
         prefs::number(L"CrashReports", crash, 0, 2), v.crashReports = crash;
 #ifdef _WIN32
         v.gpuRow = true;
-        prefs::number(L"GraphicsDriver", v.gpuDriver, 0, 2);
+        prefs::number(L"GraphicsDriver", v.gpuDriver, 0, 3);
         v.gpuInUse = sdlGraphicsInUse();  // (main_sdl.cpp)
 #endif
         v.installInUse = gInstallInUse.empty() ? std::wstring() : gInstallInUse.wstring();

@@ -3030,6 +3030,9 @@ constexpr UiText kRows[] = {
     {L"Size: large (Ctrl+wheel changes it)", L"\u5927\u5C0F\uFF1A\u5927\uFF08Ctrl+\u6EDA\u8F6E\u66F4\u6539\uFF09"},
     {L"Serial ", L"\u5E8F\u5217\u53F7 "},
     {L"Exclude", L"\u6392\u9664"},
+    {L"Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)", L"\u8F83\u65B0\u7684\u663E\u5361\u4F7F\u7528 Direct3D 12\uFF0C\u8F83\u65E7\u7684\u663E\u5361\u4F7F\u7528 Vulkan\u3002\u5982\u679C\u663E\u5361\u65E0\u6CD5\u4F7F\u7528\uFF1A\u53E6\u4E00\u4E2A\uFF0C\u7136\u540E\u662F\u8F6F\u4EF6\u7ED8\u5236\uFF08\u9ED8\u8BA4\uFF09"},
+    {L"Vulkan. If the video card cannot use it: Direct3D 12, then software drawing", L"Vulkan\u3002\u5982\u679C\u663E\u5361\u65E0\u6CD5\u4F7F\u7528\uFF1ADirect3D 12\uFF0C\u7136\u540E\u662F\u8F6F\u4EF6\u7ED8\u5236"},
+    {L"Graphics: Vulkan after a restart", L"\u56FE\u5F62\uFF1A\u91CD\u542F\u540E\u4F7F\u7528 Vulkan"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

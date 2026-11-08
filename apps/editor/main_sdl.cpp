@@ -738,8 +738,8 @@ int main(int argc, char** argv) {
 #ifdef _WIN32
     {  // (Program options > Graphics: the driver tried first)
         int pick = 0;
-        prefs::number(L"GraphicsDriver", pick, 0, 2);
-        static const char* const drivers[] = {"", "direct3d12", "warp"};
+        prefs::number(L"GraphicsDriver", pick, 0, 3);
+        static const char* const drivers[] = {"", "direct3d12", "warp", "vulkan"};
         renderer.setPreferredDriver(drivers[pick]);
     }
 #endif
