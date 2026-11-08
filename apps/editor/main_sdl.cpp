@@ -178,6 +178,7 @@ bool gKeysFromOpener = false;
 #include "sdl_palette_panels.inc"  // the palette panels: palettes of their own in windows of their own, of a map tab
 #include "sdl_pending.inc"
 #include "sdl_menus.inc"
+void regionOverlayTrace();
 #include "sdl_soak.inc"  // --script: a long session's inputs from a file, the memory and the undo steps
 #include "sdl_native_menus.inc"  // macOS: the menu bar and the context menus are the system's (mac_menus.mm)
 #include "sdl_popshot.inc"  // a value's pop-out in a snapshot (--trigpop, --classictrig with a value)
@@ -193,6 +194,7 @@ bool gKeysFromOpener = false;
 #include "sdl_map_image.inc"  // File > Export map image: the picture drawn in parts with the map's renderer (core/map_image.inc)
 #include "sdl_map_lab.inc"
 #include "sdl_mining_lab.inc"
+#include "sdl_region_overlay.inc"
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
 #include "sdl_classic_table.inc"  // Map data's Table view (the model is core/classic_table.inc)
@@ -520,6 +522,7 @@ void sdlGpuUnskip(const std::string&) {}
 // Data pictures that move; the window tests count frames); else the units' idle animations paint the map view at the
 // game's speed; -1: nothing moves (the program draws nothing until the next event).
 int sdlFrameClock() {
+    if (regionOverlayBusy()) return 0;
     if (gFramesArg > 0 || !gWinTestMap.empty()) return 0;
     if (gState.dirty || gState.drag != Drag::None || gSprayOn || simBarShown() || gLoading.on || gBuilding) return 0;
     if (gRoot && gRoot->map.panning) return 0;
@@ -868,6 +871,7 @@ int main(int argc, char** argv) {
         loadThemeSdl(themeArg, accentArg);  // the theme and the accent in the settings
         if (previewArg) gDock.scriptPreview = true;
         if (trigCodeArg) gDock.triggerCode = true;
+        regionOverlayInstall();
         registerMapCommands();  // the Map workspace's command table (core/map_commands.inc): the menus and keys read it
         registerWorkspaceView(Workspace::Files, gFilesFrame);  // the Assets / Files workspace (sdl_files.inc), with its scroll bar
         registerMapPages();  // the map pages' workspaces (sdl_map_pages.inc)
@@ -957,6 +961,10 @@ int main(int argc, char** argv) {
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
         shellLogLine(L"Graphics: " + sdlGraphicsInUse());  // (a report's Log says which driver and video card)
+        std::erase_if(checkArgs,[](const std::string& name) {
+            std::string text;if(!regionOverlayCheck(name,text))return false;
+            std::printf("%s",text.c_str());return true;
+        });
         // --check: one list for all the checks. Each part of the program takes its own values (false: not its value);
         // a value that no part takes is WRONG. (A new check: one more "||" here, not one more --check option.) The
         // window's, the menu bar's and the Dock's lines come after the snapshot (hasCheck).
@@ -1045,6 +1053,8 @@ int main(int argc, char** argv) {
                 if (const size_t bar = f.rfind('|'); bar != std::string::npos) row = std::atoi(f.c_str() + bar + 1), f.resize(bar);
                 gPassagesView.openForShot(std::filesystem::u8path(f), row);
                 shown = &gPassagesView;
+            } else if (dialogArg == "region-options") {
+                gRegionOptions.open=true;gRegionOptions.refresh();shown=&gRegionOptions;
             } else if (dialogArg == "mininglab") {
                 gMiningPanel.setup();
                 gMiningPanel.open = true;

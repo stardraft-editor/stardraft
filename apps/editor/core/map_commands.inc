@@ -28,6 +28,11 @@ void addCommand(int nativeId, const char* id, const wchar_t* label, const char* 
 // View > Overlays > Pathing and Scenario > Check pathing (core/pathing_layer.inc).
 bool pathingLayerOn();
 bool pathingLayerAreas();
+void pathingSetVisible(bool);
+void pathingSetAreas(bool);
+int regionOpacity();
+void setRegionOpacity(int);
+void showRegionOptions();
 void pathingLayerToggle();
 void pathingLayerMode(bool areas);
 void fogToggle();  // View > Overlays > Fog of war (core/fog_layer.inc)
@@ -332,6 +337,9 @@ void registerMapCommands() {
     addCommand(ID_LAYER_CREEP, "view.layer.creep", L"&Creep", "View/Layers", L"", [] { toggleCreep(); }, [] { return gLayers.creep; });
     addCommand(ID_LAYER_PROTECTED, "view.layer.protected", L"&Protected terrain", "View/Layers", L"", [] { toggleProtectedLayer(); },
                [] { return gLayers.protectedTerrain; });
+    addCommand(ID_REGION_OPTIONS, "view.pathing.options", L"Region &options...", "View/Pathing", L"", [] {
+        showRegionOptions();
+    });
     // View > Overlays > Pathing: the regions or the connected areas (one of them; the one that shows, clicked again: off).
     addCommand(ID_LAYER + 4, "view.layer.pathing", L"&Pathing", "View/Pathing (toggle)", L"", [] { pathingLayerToggle(); }, [] { return pathingLayerOn(); });
     addCommand(ID_LAYER + 5, "view.pathing.regions", L"&Regions", "View/Pathing", L"", [] {

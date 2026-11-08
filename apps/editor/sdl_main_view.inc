@@ -201,6 +201,7 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r);
 bool simKey(const draw::KeyEvent& e);
 void simFrame();
 void mapLabFrame();
+void regionOverlayFrame();
 bool mapLabMouse(const draw::MouseEvent&);
 bool mapLabKey(const draw::KeyEvent&);
 
@@ -1194,6 +1195,7 @@ void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     if (gFitPending && w > 0 && h > 0) fitMap(), updateStatus();  // (the map opened before the view had its size: the zoom it fit)
     if (gCenterUnitPending >= 0 && w > 0 && h > 0) unitsListCenter(gCenterUnitPending), gCenterUnitPending = -1;
     mapLabFrame();
+    regionOverlayFrame();
     simFrame();  // (a live game: its frames for the time that went by)
     gRoot->map.panStep();  // (Options > Middle mouse click and hold > Pan map: the map moves toward the mouse)
     // (the other workspaces hide the map: no frame; nor when only other views paint, as a hover over the side bar or

@@ -49,6 +49,8 @@ WORKSPACES = ["map", "data", "triggers", "assets", "project", "briefing", "files
 MODES = ["units", "terrain", "doodads", "sprites", "locations"]  # main_sdl.cpp, --mode
 
 CASES = [("start", [], "")]
+CASES += [("map-engine-regions-check", ["--check", "region-overlay"], "map"),
+          ("dialog-region-options", ["--dialog", "region-options", "--size", "320x112"], "map")]
 # No StarCraft install found (--noinstall: no search): the start page's banner asks for the folder. --pickinstall gives
 # Browse's folder dialog an answer: a folder with no game data (the banner says so and stays), or the install (the game
 # data opens and the banner goes; a snapshot saves no setting). "found": the folder that the search finds.
@@ -5307,6 +5309,57 @@ def check_mining_controls(output):
     return None if len(states)==2 and states[0]==states[1] else "controls changed the map or undo history"
 CHECKS["map-mining-controls"]=check_mining_controls
 
+
+def region_records(output):
+    return re.findall(r"region-overlay: visible=(\d) areas=(\d) opacity=(\d+) ready=(\d) cells=([0-9a-f]+) builds=(\d+)", output)
+
+
+CHECKS["map-engine-regions-check"] = lambda out: None if re.search(r"region-overlay: [1-9]\d* checks, 0 failed",out) else "region/cache/control checks failed"
+
+SCRIPTS["region_controls"] = "history\ncommand view.pathing.regions\nregions\nclick 165,52\nkey Home\nregions\nkey End\nregions\nclick 24,22\nregions\nclick 24,22\nregions\nhistory\n"
+CASES.append(("dialog-region-controls",["--dialog","region-options","--size","320x112","--script","{script:region_controls}"],"map"))
+def check_region_controls(output):
+    records=region_records(output)
+    if len(records)!=5:return "missing control states"
+    if [int(r[2]) for r in records[:3]]!=[35,0,100]:return "slider Home/End did not update opacity"
+    if [int(r[0]) for r in records]!=[1,1,1,0,1]:return "checkbox did not hide and restore regions"
+    history=re.findall(r"history: (\d+) done, (\d+) to redo, map ([0-9a-f]+)",output)
+    if len(history)!=2 or history[0]!=history[1]:return "controls changed map or history"
+    return None
+CHECKS["dialog-region-controls"]=check_region_controls
+
+SCRIPTS["region_camera"]="command view.pathing.regions\nregions\ncommand view.fit\nkey +\nkey +\nclick 260,270\nregions\ncommand view.fit\nregions\n"
+CASES.append(("map-region-camera",["--script","{script:region_camera}"],"map"))
+def check_region_camera(output):
+    records=region_records(output)
+    return None if len(records)==3 and all(r[3]=="1" and r[4]==records[0][4] and r[5]==records[0][5] for r in records) else "camera movement rebuilt or lost regions"
+CHECKS["map-region-camera"]=check_region_camera
+
+SCRIPTS["region_edit_undo"]="open {install}/Maps/(2)Boxer.scm\ncommand view.pathing.regions\nregions\nhistory\ncommand scen.checkPathing\nkey Down\nkey Enter\nregions\nhistory\nkey Ctrl+Z\nregions\nhistory\nkey Ctrl+Y\nregions\nhistory\n"
+CASES.append(("map-region-edit-undo",["--script","{script:region_edit_undo}"],"map"))
+def check_region_edit_undo(output):
+    records=region_records(output)
+    if len(records)!=4 or any(r[3]!="1" for r in records):return "missing edit/undo region states"
+    hashes=[r[4] for r in records];builds=[int(r[5]) for r in records]
+    maps=re.findall(r"history: \d+ done, \d+ to redo, map ([0-9a-f]+)",output)
+    return None if len(maps)==4 and maps[0]!=maps[1] and maps[0]==maps[2] and maps[1]==maps[3] and hashes[0]==hashes[2] and hashes[1]==hashes[3] and all(b>a for a,b in zip(builds,builds[1:])) else "edit/undo/redo did not regenerate the matching region raster"
+CHECKS["map-region-edit-undo"]=check_region_edit_undo
+
+SCRIPTS["region_paint_undo"]="command view.pathing.regions\ncommand view.fit\nregions\nmode terrain\nkey B\nclick 120,620\nwheel 1050,200,0,4:Alt\nclick 1050,200\nregions\nkey Ctrl+Z\nregions\nkey Ctrl+Y\nregions\n"
+CASES.append(("map-region-paint-undo",["--script","{script:region_paint_undo}"],"map"))
+def check_region_paint_undo(output):
+    records=region_records(output)
+    if len(records)!=4 or any(r[3]!="1" for r in records):return "missing paint/undo states"
+    hashes=[r[4] for r in records]
+    return None if hashes[0]!=hashes[1] and hashes[0]==hashes[2] and hashes[1]==hashes[3] else "paint/undo did not change and restore regions"
+CHECKS["map-region-paint-undo"]=check_region_paint_undo
+
+SCRIPTS["region_documents"]="command view.pathing.regions\nregions\nopen {install}/Maps/scenario/(2)Twilight Struggle.scx\nregions\nkey Ctrl+W\nregions\nkey Ctrl+W\nregions\n"
+CASES.append(("map-region-documents",["--script","{script:region_documents}"],"map"))
+def check_region_documents(output):
+    records=region_records(output)
+    return None if len(records)==4 and records[0][3]==records[1][3]==records[2][3]=="1" and records[0][4]!=records[1][4] and records[0][4]==records[2][4] and records[3][3]=="0" else "regions did not follow document switches/close"
+CHECKS["map-region-documents"]=check_region_documents
 
 def main():
     # (the cases' text is not all ASCII: Korean, Chinese, emoji; a Windows console's code page cannot show it all)

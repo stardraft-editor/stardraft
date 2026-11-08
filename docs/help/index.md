@@ -9,6 +9,7 @@ The same pages are in the program (Help > Documentation, or F1) and on the web.
 - [Values and units](values-and-units.md): frames, pixels, tiles and the other units of the game's data.
 - [Keyboard shortcuts](keyboard-shortcuts.md): the keys of the menus, the map, the trigger editors and the lists.
 - [Mining Lab and rush distance](map-lab.md): compare mineral income and worker travel on the map.
+- [Pathfinding regions](pathfinding-regions.md): show terrain regions and set their opacity.
 
 ## Triggers
 

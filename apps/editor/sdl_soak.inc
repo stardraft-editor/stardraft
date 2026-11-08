@@ -94,7 +94,7 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
         {"wheel", 'h'},   {"pinch", 'p'},   {"wait", 'w'},      {"command", 'C'},   {"mode", 'M'},      {"rect", 'Q'},
         {"workspace", 'W'}, {"open", 'O'},  {"roundtrip", 'R'}, {"undocheck", 'U'}, {"stats", 'S'}, {"minimap", 'P'},
         {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}, {"panel", 'J'}, {"simstep", 'X'}, {"frame", 'Y'}, {"rclick", 'r'},
-        {"floatmove", 'V'}};
+        {"floatmove", 'V'}, {"regions", 'z'}};
     std::vector<std::pair<char, std::string>> lines;
     int lineNo = 0;
     for (std::string line; std::getline(in, line);) {
@@ -378,6 +378,7 @@ bool sdlScriptStep(char kind, const std::string& value) {
         return true;
     }
     case 'G': std::printf("%s\n", pathingStateLine().c_str()); return true;  // the pathing layer and check (core/pathing_layer.inc)
+    case 'z': regionOverlayTrace(); return true;
     case 'S': sdlSoakStats(); return true;
     case 'F': sdlFloatPaletteScript(value); return true;
     case 'J': sdlPanelScript(value); return true;
