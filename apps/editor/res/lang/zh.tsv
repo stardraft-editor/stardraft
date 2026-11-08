@@ -3315,10 +3315,7 @@ Unit icons: in the game's yellow	单位图标：游戏的黄色
 Duplicate &linked	链接复制(&L)
 No unit reached its end	没有单位到达终点
 Rush distance: no unit reached its end	Rush 距离：没有单位到达终点
-Each unit goes from the start point to the end point, at Fastest	每个单位从起点走到终点，最快速度
 Each unit goes from each start location to each other start location, at Fastest	每个单位从每个出生点走到其他每个出生点，最快速度
-Click the start point	点击起点
-Click the end point	点击终点
 Worker of the race	该种族的农民
 Start and end	起点和终点
 Two points of the map…	地图上的两个点…
@@ -3349,3 +3346,8 @@ Fog of war	战争迷雾
 Report feedback on the simulation…	发送关于模拟的反馈…
 Unit: %ls	单位：%ls
 Other units	其他单位
+Each unit goes from A to B, at Fastest	每个单位从 A 走到 B，最快速度
+Release to start from here	松开后从这里出发
+Release to go here	松开后走到这里
+The start point (drag it)	起点（拖动它）
+The end point (drag it)	终点（拖动它）

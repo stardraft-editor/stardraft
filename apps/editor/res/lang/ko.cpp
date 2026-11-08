@@ -3344,10 +3344,7 @@ constexpr UiText kRows[] = {
     {L"Duplicate &linked", L"\uC5F0\uACB0 \uBCF5\uC81C(&L)"},
     {L"No unit reached its end", L"\uB3C4\uCC29\uD55C \uC720\uB2DB \uC5C6\uC74C"},
     {L"Rush distance: no unit reached its end", L"\uB7EC\uC2DC \uAC70\uB9AC: \uB3C4\uCC29\uD55C \uC720\uB2DB \uC5C6\uC74C"},
-    {L"Each unit goes from the start point to the end point, at Fastest", L"\uAC01 \uC720\uB2DB\uC774 \uC2DC\uC791 \uC9C0\uC810\uC5D0\uC11C \uB05D \uC9C0\uC810\uAE4C\uC9C0 \uC774\uB3D9, \uAC00\uC7A5 \uBE60\uB984"},
     {L"Each unit goes from each start location to each other start location, at Fastest", L"\uAC01 \uC720\uB2DB\uC774 \uAC01 \uC2DC\uC791 \uC704\uCE58\uC5D0\uC11C \uB2E4\uB978 \uC2DC\uC791 \uC704\uCE58\uAE4C\uC9C0 \uC774\uB3D9, \uAC00\uC7A5 \uBE60\uB984"},
-    {L"Click the start point", L"\uC2DC\uC791 \uC9C0\uC810\uC744 \uD074\uB9AD\uD558\uC138\uC694"},
-    {L"Click the end point", L"\uB05D \uC9C0\uC810\uC744 \uD074\uB9AD\uD558\uC138\uC694"},
     {L"Worker of the race", L"\uC885\uC871\uC758 \uC77C\uAFBC"},
     {L"Start and end", L"\uC2DC\uC791\uACFC \uB05D"},
     {L"Two points of the map\u2026", L"\uB9F5\uC758 \uB450 \uC9C0\uC810\u2026"},
@@ -3378,6 +3375,11 @@ constexpr UiText kRows[] = {
     {L"Report feedback on the simulation\u2026", L"\uC2DC\uBBAC\uB808\uC774\uC158\uC5D0 \uB300\uD55C \uD53C\uB4DC\uBC31 \uBCF4\uB0B4\uAE30\u2026"},
     {L"Unit: %ls", L"\uC720\uB2DB: %ls"},
     {L"Other units", L"\uB2E4\uB978 \uC720\uB2DB"},
+    {L"Each unit goes from A to B, at Fastest", L"\uAC01 \uC720\uB2DB\uC774 A\uC5D0\uC11C B\uAE4C\uC9C0 \uC774\uB3D9, \uAC00\uC7A5 \uBE60\uB984"},
+    {L"Release to start from here", L"\uB193\uC73C\uBA74 \uC5EC\uAE30\uC11C \uCD9C\uBC1C\uD569\uB2C8\uB2E4"},
+    {L"Release to go here", L"\uB193\uC73C\uBA74 \uC5EC\uAE30\uB85C \uAC11\uB2C8\uB2E4"},
+    {L"The start point (drag it)", L"\uC2DC\uC791 \uC9C0\uC810 (\uB04C\uC5B4\uC11C \uC774\uB3D9)"},
+    {L"The end point (drag it)", L"\uB05D \uC9C0\uC810 (\uB04C\uC5B4\uC11C \uC774\uB3D9)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

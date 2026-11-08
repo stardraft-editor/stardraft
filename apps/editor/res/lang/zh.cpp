@@ -3314,10 +3314,7 @@ constexpr UiText kRows[] = {
     {L"Duplicate &linked", L"\u94FE\u63A5\u590D\u5236(&L)"},
     {L"No unit reached its end", L"\u6CA1\u6709\u5355\u4F4D\u5230\u8FBE\u7EC8\u70B9"},
     {L"Rush distance: no unit reached its end", L"Rush \u8DDD\u79BB\uFF1A\u6CA1\u6709\u5355\u4F4D\u5230\u8FBE\u7EC8\u70B9"},
-    {L"Each unit goes from the start point to the end point, at Fastest", L"\u6BCF\u4E2A\u5355\u4F4D\u4ECE\u8D77\u70B9\u8D70\u5230\u7EC8\u70B9\uFF0C\u6700\u5FEB\u901F\u5EA6"},
     {L"Each unit goes from each start location to each other start location, at Fastest", L"\u6BCF\u4E2A\u5355\u4F4D\u4ECE\u6BCF\u4E2A\u51FA\u751F\u70B9\u8D70\u5230\u5176\u4ED6\u6BCF\u4E2A\u51FA\u751F\u70B9\uFF0C\u6700\u5FEB\u901F\u5EA6"},
-    {L"Click the start point", L"\u70B9\u51FB\u8D77\u70B9"},
-    {L"Click the end point", L"\u70B9\u51FB\u7EC8\u70B9"},
     {L"Worker of the race", L"\u8BE5\u79CD\u65CF\u7684\u519C\u6C11"},
     {L"Start and end", L"\u8D77\u70B9\u548C\u7EC8\u70B9"},
     {L"Two points of the map\u2026", L"\u5730\u56FE\u4E0A\u7684\u4E24\u4E2A\u70B9\u2026"},
@@ -3348,6 +3345,11 @@ constexpr UiText kRows[] = {
     {L"Report feedback on the simulation\u2026", L"\u53D1\u9001\u5173\u4E8E\u6A21\u62DF\u7684\u53CD\u9988\u2026"},
     {L"Unit: %ls", L"\u5355\u4F4D\uFF1A%ls"},
     {L"Other units", L"\u5176\u4ED6\u5355\u4F4D"},
+    {L"Each unit goes from A to B, at Fastest", L"\u6BCF\u4E2A\u5355\u4F4D\u4ECE A \u8D70\u5230 B\uFF0C\u6700\u5FEB\u901F\u5EA6"},
+    {L"Release to start from here", L"\u677E\u5F00\u540E\u4ECE\u8FD9\u91CC\u51FA\u53D1"},
+    {L"Release to go here", L"\u677E\u5F00\u540E\u8D70\u5230\u8FD9\u91CC"},
+    {L"The start point (drag it)", L"\u8D77\u70B9\uFF08\u62D6\u52A8\u5B83\uFF09"},
+    {L"The end point (drag it)", L"\u7EC8\u70B9\uFF08\u62D6\u52A8\u5B83\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

@@ -5407,7 +5407,8 @@ wheel 830,700,0,12
 # The gear's panel (the mining's settings, the boost searches); a cycle search of 6 seconds with 1 worker for each
 # mineral field, Protoss ({simboostsettings}), then the game from its start with the boosts: zoomed in on the base at
 # the bottom middle, the cycles' numbered arrows. The rush's fog of war ({rushfogsettings}): what all players see. The rush
-# between two points (the gear's Two points of the map; the command edit.simulate.rushpoints: two clicks on the map) with a Vulture
+# between two points (the gear's Two points of the map; the command edit.simulate.rushpoints: A and B at the start
+# locations, B dragged to the top right) with a Vulture
 # ({rushunitsettings}), the fog of war on (what all players see), at its end; and its report.
 SCRIPTS["simpanel"] = """command edit.simulate.mining
 simstep 300
@@ -5428,8 +5429,7 @@ SCRIPTS["simrushfog"] = """command edit.simulate.rush
 simstep 500
 """
 SCRIPTS["simrushpoints"] = """command edit.simulate.rushpoints
-click 470,640
-click 1180,250
+drag 463,601-1180,250
 wait 300
 simstep 300
 simstep 3000

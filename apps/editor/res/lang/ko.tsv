@@ -3345,10 +3345,7 @@ Unit icons: in the game's yellow	유닛 아이콘: 게임의 노란색
 Duplicate &linked	연결 복제(&L)
 No unit reached its end	도착한 유닛 없음
 Rush distance: no unit reached its end	러시 거리: 도착한 유닛 없음
-Each unit goes from the start point to the end point, at Fastest	각 유닛이 시작 지점에서 끝 지점까지 이동, 가장 빠름
 Each unit goes from each start location to each other start location, at Fastest	각 유닛이 각 시작 위치에서 다른 시작 위치까지 이동, 가장 빠름
-Click the start point	시작 지점을 클릭하세요
-Click the end point	끝 지점을 클릭하세요
 Worker of the race	종족의 일꾼
 Start and end	시작과 끝
 Two points of the map…	맵의 두 지점…
@@ -3379,3 +3376,8 @@ Fog of war	전장의 안개
 Report feedback on the simulation…	시뮬레이션에 대한 피드백 보내기…
 Unit: %ls	유닛: %ls
 Other units	다른 유닛
+Each unit goes from A to B, at Fastest	각 유닛이 A에서 B까지 이동, 가장 빠름
+Release to start from here	놓으면 여기서 출발합니다
+Release to go here	놓으면 여기로 갑니다
+The start point (drag it)	시작 지점 (끌어서 이동)
+The end point (drag it)	끝 지점 (끌어서 이동)

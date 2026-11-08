@@ -3315,10 +3315,7 @@ Unit icons: in the game's yellow	Iconos de unidades: con el amarillo del juego
 Duplicate &linked	Duplicar &vinculada
 No unit reached its end	Ninguna unidad llegó a su destino
 Rush distance: no unit reached its end	Distancia de rush: ninguna unidad llegó a su destino
-Each unit goes from the start point to the end point, at Fastest	Cada unidad va del punto de inicio al punto final, a la máxima velocidad
 Each unit goes from each start location to each other start location, at Fastest	Cada unidad va de cada ubicación inicial a cada otra ubicación inicial, a la máxima velocidad
-Click the start point	Haga clic en el punto de inicio
-Click the end point	Haga clic en el punto final
 Worker of the race	Obrero de la raza
 Start and end	Inicio y final
 Two points of the map…	Dos puntos del mapa…
@@ -3349,3 +3346,8 @@ Fog of war	Niebla de guerra
 Report feedback on the simulation…	Enviar comentarios sobre la simulación…
 Unit: %ls	Unidad: %ls
 Other units	Otras unidades
+Each unit goes from A to B, at Fastest	Cada unidad va de A a B, a la máxima velocidad
+Release to start from here	Suelte para salir de aquí
+Release to go here	Suelte para ir aquí
+The start point (drag it)	El punto de inicio (arrástrelo)
+The end point (drag it)	El punto final (arrástrelo)

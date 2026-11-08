@@ -201,8 +201,39 @@ struct RushPoints {
     const Editor* ed = nullptr;
     std::pair<int, int> from, to;
 } gRushPoints;
-int gRushPick = 0;  // the point that a click on the map sets: 1 the start point, 2 the end point; 0 none
-std::pair<int, int> gRushPickFrom;  // the start point clicked while the end point is picked
+int gRushDrag = 0;  // the point that a drag on the map moves: 1 A (the start point), 2 B (the end point); 0 none
+std::pair<float, float> gRushDragGrip;  // the press's place less the point's (window pixels): the point keeps it to the mouse
+std::pair<int, int> gRushDragFrom;     // the point where the drag started (a release there: no new rush)
+// The two points at their first use on a map: A at the first start location and B at the next (by player), else a
+// quarter of the map's width left and right of its middle.
+RushPoints simRushDefaultPoints() {
+    RushPoints p;
+    if (!gState.ed) return p;
+    const Editor& ed = *gState.ed;
+    std::vector<std::pair<int, std::pair<int, int>>> starts;  // (player, place)
+    for (const Unit& u : ed.units())
+        if (u.type == 214) starts.push_back({u.owner, {u.x, u.y}});
+    std::sort(starts.begin(), starts.end());
+    const int w = ed.width() * 32, h = ed.height() * 32;
+    p.on = true, p.ed = &ed;
+    p.from = starts.size() >= 2 ? starts[0].second : std::pair<int, int>{w / 4, h / 2};
+    p.to = starts.size() >= 2 ? starts[1].second : std::pair<int, int>{w * 3 / 4, h / 2};
+    return p;
+}
+// The point (1 A, 2 B) under the window point (x, y), or 0: the markers' boxes (simTrails) and a little room.
+constexpr float kRushPinHalf = 9, kRushPinHeight = 20;  // the pins' half width at the top, and their height (screen pixels)
+// The last two points on each map's editor (the rush from the start locations does not change them).
+RushPoints gRushLastPoints;
+int simRushMarkerAt(int x, int y) {
+    if (!gSim.shown || !gSim.rush || !gRushPoints.on || gRushPoints.ed != gState.ed.get()) return 0;
+    const float zoom = std::max(0.01f, gState.zoom), u = float(scale(100)) / 100;
+    for (int n : {2, 1}) {  // (B over A, as drawn): the triangle and a little room
+        const std::pair<int, int>& at = n == 1 ? gRushPoints.from : gRushPoints.to;
+        const float sx = (float(at.first) - gState.camX) * zoom, sy = (float(at.second) - gState.camY) * zoom;
+        if (std::abs(float(x) - sx) <= (kRushPinHalf + 4) * u && float(y) >= sy - (kRushPinHeight + 4) * u && float(y) <= sy + 4 * u) return n;
+    }
+    return 0;
+}
 std::wstring simUnitName(int type);  // (below: the unit's name in the map)
 
 // Rush distance: each worker's way so far (a place each 8 pixels), a line in its player's color (a copy, kept while a
@@ -211,18 +242,29 @@ std::vector<sim::RushRoute> gSimRoutes;
 void simTrails(render::Scene& s) {
     if (!simSkipRunning()) gSimRoutes = simEngine().rushResult();
     const float k = 1 / std::max(0.01f, gState.zoom);
-    auto ring = [&](std::pair<int, int> at, uint32_t rgba) {
-        render::RectDraw d;
-        d.x0 = float(at.first) - 12 * k, d.y0 = float(at.second) - 12 * k, d.x1 = float(at.first) + 12 * k, d.y1 = float(at.second) + 12 * k;
-        d.rgba = 0x101014F0u, d.thickness = 5;
-        s.rects.push_back(d);
-        d.rgba = rgba, d.thickness = 3;
-        s.rects.push_back(d);
+    // A and B (the two points): pins, green (the start) and red (the end): a triangle with a flat top, its tip on the
+    // point, with a white rim and a soft shadow. In screen pixels, as large at any zoom (a held one a little larger).
+    // Filled shapes are rows of 1 pixel lines.
+    auto marker = [&](std::pair<int, int> at, uint32_t rgba, bool held) {
+        const float px = float(scale(100)) / 100 * k * (held ? 1.15f : 1.0f);  // a screen pixel in map pixels
+        const float x = float(at.first), y = float(at.second);
+        // (the triangle grown by `grow` pixels, moved by (dx, dy): rows from its flat top down to the tip)
+        auto pin = [&](float dx, float dy, float grow, uint32_t c) {
+            const float half = (kRushPinHalf + grow) * px, top = y + dy - (kRushPinHeight + grow) * px, tip = y + dy + grow * px;
+            for (float t = top; t <= tip; t += px) {
+                render::RectDraw d;
+                const float w = half * (tip - t) / std::max(px, tip - top);
+                d.x0 = x + dx - w, d.y0 = t, d.x1 = x + dx + w, d.y1 = t, d.rgba = c, d.line = true, d.thickness = 1.5f;
+                s.rects.push_back(d);
+            }
+        };
+        pin(px, 2 * px, 2, 0x00000050u);  // (the shadow)
+        pin(0, 0, 1.5f, 0xFFFFFFFFu);     // (the rim)
+        pin(0, 0, 0, rgba);
     };
     const bool points = gRushPoints.on && gRushPoints.ed == gState.ed.get();
-    if (gRushPick == 2) ring(gRushPickFrom, 0x4CD964FFu);
-    else if (points) ring(gRushPoints.from, 0x4CD964FFu), ring(gRushPoints.to, 0xFF5A5AFFu);
     for (const sim::RushRoute& r : gSimRoutes) {
+        if (gRushDrag) break;  // (no ways while a point moves)
         if (r.path.empty() || (gSim.fog >= 0 && r.from != gSim.fog)) continue;
         // (a start location's route: its player's color; the routes between two points: each unit its own)
         const uint32_t color = playerRgba(r.from >= 0 ? std::clamp(r.from, 0, 11) : int(&r - gSimRoutes.data()) % 12, 230);
@@ -236,6 +278,7 @@ void simTrails(render::Scene& s) {
             from = to;
         }
     }
+    if (points) marker(gRushPoints.from, 0x34C759FFu, gRushDrag == 1), marker(gRushPoints.to, 0xFF453AFFu, gRushDrag == 2);
 }
 
 // Mining: at each base's mineral fields, two lines over the field: its mean round trip in frames (after the warm-up;
@@ -852,7 +895,7 @@ void simEnd() {
             gSimTitle = txt;
         }
         gSim.endText = gSim.result;
-        gSimLine = gRushPoints.on ? tr(L"Each unit goes from the start point to the end point, at Fastest")
+        gSimLine = gRushPoints.on ? tr(L"Each unit goes from A to B, at Fastest")
                                   : tr(L"Each unit goes from each start location to each other start location, at Fastest");
         d.table({tr(L"From"), tr(L"To"), tr(L"Unit"), tr(L"Result"), tr(L"Game seconds"), tr(L"Distance (pixels)")}, rows, 4);
         gSim.report = gSimTitle + L"\r\n" + gSimLine + L"\r\n" + d.text;
@@ -996,7 +1039,7 @@ void simClose() {
     gSimRoutes.clear(), gSimFields.clear(), gSimGuides.clear();
     gSim = LiveSim{};
     gSimPanel = SimPanel{};
-    gRushPick = 0;
+    gRushDrag = 0;
     simRelease();
     simRedraw();
 }
@@ -1292,6 +1335,22 @@ void simSkipToEnd() {
 }  // namespace
 
 bool simBarShown() { return gSim.shown; }
+// Over the rush's A or B (not under the bar), or while one moves: the move cursor.
+bool simRushPointCursor(int x, int y, draw::Rect r) {
+    const draw::Rect bar = simLayout(r).bar;
+    const bool underBar = x >= bar.left && x < bar.right && y >= bar.top && y < bar.bottom;
+    return gRushDrag || (!underBar && simRushMarkerAt(x, y));
+}
+void simRushStart(const RushPoints& p);  // (below)
+bool simRushDragging() { return gRushDrag != 0; }
+// The drag of A or B ends with no release on the map (the mouse let go elsewhere, the window lost the mouse): the
+// point stays where it was last moved, and the rush starts again from there.
+void simRushDragLost() {
+    if (!gRushDrag) return;
+    gRushDrag = 0;
+    const RushPoints p = gRushPoints;
+    shellPost([p] { simKeepPlay([p] { simRushStart(p); }); });
+}
 
 // The races of Program options > Simulate mining (SimRaces), as the bar's gear lists them.
 const wchar_t* const kSimRaceNames[4] = {L"As in the map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
@@ -1543,9 +1602,8 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
     // The info icon (its tooltip: an early preview).
     if (!l.chip.empty()) c.icon(l.chip, int(UiIcon::Info), gSim.hot == 3 ? kText : kDim, scale(16));
     // What runs and the game time; at the end the result.
-    if (gRushPick && gSim.rush) {
-        c.text(l.text, gRushPick == 1 ? tr(L"Click the start point") : tr(L"Click the end point"), kAccent,
-               draw::kMiddle | draw::kEllipsis);
+    if (gRushDrag && gSim.rush) {
+        c.text(l.text, gRushDrag == 1 ? tr(L"Release to start from here") : tr(L"Release to go here"), kAccent, draw::kMiddle | draw::kEllipsis);
     } else if (gSim.done) {
         c.text(l.text, gSim.result, kText, draw::kMiddle | draw::kEllipsis);
     } else {
@@ -1780,7 +1838,7 @@ void simRushSettingsMenu() {
     items.back().run = [] { shellPost([] { simulateRushCommand(); }); };
     items.push_back(MenuItem{});
     items.back().label = L"Two points of the map\x2026", items.back().radio = true, items.back().checked = gRushPoints.on;
-    items.back().run = [] { gRushPick = 1, simRedraw(); };
+    items.back().run = [] { shellPost([] { simulateRushPointsCommand(); }); };
     // The fog of war: off, what all players see, what each player sees.
     header(L"Fog of war");
     std::vector<int> fogs = simFogPlayers();
@@ -1814,23 +1872,30 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
         if (e.kind == draw::MouseKind::Up && e.button == 0) gSim.seeking = false;
         return true;
     }
-    if (gRushPick && gSim.rush && !hit(l.bar)) {
-        if ((e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick) && e.button == 0 && gState.ed) {
+    // A and B: a press on one and a drag moves it; the release starts the rush again from A to B.
+    if (gRushDrag && gState.ed && (e.kind == draw::MouseKind::Move || (e.kind == draw::MouseKind::Up && e.button == 0))) {
+        {
             float wx = 0, wy = 0;
-            toWorld(e.pt.x, e.pt.y, wx, wy);
+            toWorld(int(std::lround(float(e.pt.x) - gRushDragGrip.first)), int(std::lround(float(e.pt.y) - gRushDragGrip.second)), wx, wy);
             const std::pair<int, int> at{std::clamp(int(wx), 0, gState.ed->width() * 32 - 1), std::clamp(int(wy), 0, gState.ed->height() * 32 - 1)};
-            if (gRushPick == 1) {
-                gRushPickFrom = at, gRushPick = 2;
-            } else {  // (the points are the rush's only when it starts with them)
-                RushPoints p{true, gState.ed.get(), gRushPickFrom, at};
-                gRushPick = 0;
-                shellPost([p] { simKeepPlay([p] { simRushStart(p); }); });
-            }
+            (gRushDrag == 1 ? gRushPoints.from : gRushPoints.to) = at;
             simRedraw();
-            return true;
         }
-        if (e.kind == draw::MouseKind::Up && e.button == 0) return true;  // (the press's release stays off the map)
+        if (e.kind == draw::MouseKind::Up && e.button == 0) {
+            const bool moved = (gRushDrag == 1 ? gRushPoints.from : gRushPoints.to) != gRushDragFrom;
+            gRushDrag = 0;
+            const RushPoints p = gRushPoints;
+            if (moved) shellPost([p] { simKeepPlay([p] { simRushStart(p); }); });  // (a click with no move: as it was)
+        }
+        return true;
     }
+    if ((e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick) && e.button == 0 && !hit(l.bar))
+        if (const int n = simRushMarkerAt(e.pt.x, e.pt.y)) {
+            gRushDragFrom = n == 1 ? gRushPoints.from : gRushPoints.to;
+            const float zoom = std::max(0.01f, gState.zoom);
+            gRushDragGrip = {float(e.pt.x) - (float(gRushDragFrom.first) - gState.camX) * zoom, float(e.pt.y) - (float(gRushDragFrom.second) - gState.camY) * zoom};
+            return gRushDrag = n, simRedraw(), true;
+        }
     if (simPanelMouse(e, l, r)) {
         if (gSim.hot != -1) gSim.hot = -1, simRedraw();
         return true;
@@ -1880,6 +1945,7 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
     auto in = [&](draw::Rect b) { return pt.x >= b.left && pt.x < b.right && pt.y >= b.top && pt.y < b.bottom; };
     if (std::wstring t = simPanelTip(l, r, pt); !t.empty()) return t;
     if (in(l.chip)) return kSimInfoTip;
+    if (const int n = in(l.bar) ? 0 : simRushMarkerAt(pt.x, pt.y)) return n == 1 ? L"The start point (drag it)" : L"The end point (drag it)";
     if (in(l.third)) return L"Restart";
     if (in(l.play)) return gSim.playing ? L"Pause (Space)" : L"Play (Space)";
     if (in(l.minus)) return L"Slower";
@@ -1903,7 +1969,7 @@ void simPlayPause() {
 bool simCommandEnabled(int id) {
     if (id == ID_SIM_OPTIONS) return true;
     if (!gSim.shown) return false;
-    if (id == ID_SIM_PLAY || id == ID_SIM_SLOWER || id == ID_SIM_FASTER || id == ID_SIM_SKIP) return !gSim.done && !gRushPick;
+    if (id == ID_SIM_PLAY || id == ID_SIM_SLOWER || id == ID_SIM_FASTER || id == ID_SIM_SKIP) return !gSim.done && !gRushDrag;
     return true;
 }
 void simCommand(int id) {
@@ -1923,12 +1989,8 @@ void simCommand(int id) {
     }
 }
 bool simKey(const draw::KeyEvent& e) {
-    if (gSim.shown && e.down && e.key == draw::Key::Space && !e.mods && !gSim.done && !gRushPick) return simPlayPause(), true;
+    if (gSim.shown && e.down && e.key == draw::Key::Space && !e.mods && !gSim.done && !gRushDrag) return simPlayPause(), true;
     if (!gSim.shown || !e.down || e.key != draw::Key::Escape) return false;
-    if (gRushPick) {  // (Esc: the picking of the points first, then the panel, then the simulation)
-        gRushPick = 0, simRedraw();
-        return true;
-    }
     if (gSimPanel.open) {  // (Esc: the panel first, then the simulation)
         gSimPanel.open = false, simRedraw();
         return true;
@@ -1949,7 +2011,7 @@ void simFrame() {
         simBoostSync();
         if (simEngine().boosting()) simEngine().step(0), simRedraw();
     }
-    if (gSim.done || gSimShotStepping || gRushPick || !gSim.playing) return;  // (it waits: for Play, or while a point is picked)
+    if (gSim.done || gSimShotStepping || gRushDrag || !gSim.playing) return;  // (it waits: for Play, or while a point moves)
     // The game's frames due (Fastest: 42 ms a frame, times the speed), run in small steps for at most 12 ms of each
     // window frame, so the program stays usable at any speed: the frames that do not fit are dropped (the game goes
     // slower than the speed, and the bar's spinner says so). Skip to the end: as many as fit, until the end.
@@ -2047,6 +2109,7 @@ void simRushStart(const RushPoints& p) {
     prefs::number(L"SimRushFog", fog, sim::kAllPlayers, 11);
     if (!simBegin(false, [o](std::string& err) { return simEngine().startRush(o, err); }, true)) return;
     gRushPoints = p, gRushPoints.on = points;
+    if (points) gRushLastPoints = gRushPoints;
     gState.ed->clearSelection();  // (the map's selection does not show over the game)
     gSim.speed = 1;
     const std::vector<int> players = simFogPlayers();  // (a player of the fog of war that has no routes now: off)
@@ -2054,13 +2117,13 @@ void simRushStart(const RushPoints& p) {
 }
 // Tools > Simulate rush distance: from the start locations.
 void simulateRushCommand() { simRushStart(RushPoints{}); }
-// The gear's Two points of the map (the command edit.simulate.rushpoints: no menu item): the rush shows, and the bar asks for its start point, then its
-// end point, each a click on the map (Esc stops); then the units go from the one to the other.
+// The gear's Two points of the map (the command edit.simulate.rushpoints: no menu item): the units go from A to B, two
+// points on the map that a drag moves (each drag starts the rush again). The points stay while the map is open; at
+// their first use, at two start locations (simRushDefaultPoints).
 void simulateRushPointsCommand() {
-    if (!gSim.shown || !gSim.rush) simRushAgain();
-    if (!gSim.shown || !gSim.rush) return;
-    gRushPick = 1;
-    simRedraw();
+    RushPoints p = gRushLastPoints.ed == gState.ed.get() ? gRushLastPoints : simRushDefaultPoints();
+    p.on = true;
+    simKeepPlay([p] { simRushStart(p); });
 }
 
 // Tools > Simulate combat of the selected units: the selected units of all players fight where they stand (each unit
@@ -2166,6 +2229,9 @@ draw::View* sdlSimReportShot(const std::string& arg, int& w, int& h) {
 #else  // (no simulation in this build)
 
 bool simBarShown() { return false; }
+bool simRushPointCursor(int, int, draw::Rect) { return false; }
+bool simRushDragging() { return false; }
+void simRushDragLost() {}
 int simStepForShot(int) { return -1; }
 void simPaintBar(draw::Canvas&, draw::Rect) {}
 bool simBarMouse(const draw::MouseEvent&, draw::Rect) { return false; }

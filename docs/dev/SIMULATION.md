@@ -37,9 +37,10 @@ left of it). The editor and the command line use one engine for them, `maplab::c
   units (As in the map: each race's), then all other units. A race picked after the unit (in the gear or in the
   mining's Races) whose units do not have it (another race's worker or unit) takes its worker again; a unit of
   another race picked after the race stays (setting SimRushUnitRaces). The gear's Start and end (Two points of the map) takes two points of the map
-  in place of the start locations: the bar asks for the start point, then the end point (a click on the map each; Esc
-  stops; the game waits meanwhile); the map marks them (green, red) while the rush runs, and the report gives their
-  tiles. The gear's Fog of war shows the fog of war (off, what all players see, or what one start location's player
+  in place of the start locations: A (green, the start point) and B (red, the end point), at first at two start
+  locations (by player), else a quarter of the map's width left and right of its middle. A drag moves either one (the
+  move cursor over them; the ways hide and the game waits while one moves); the release starts the rush again from A
+  to B. The points stay while the map is open; the report gives their tiles. The gear's Fog of war shows the fog of war (off, what all players see, or what one start location's player
   sees; setting SimRushFog): the engine's own vision of the units (their sight ranges, high ground), black where they have not been,
   darker where they saw before, clear where they see now; with one player, only that player's ways show.
 - **Boost searches** (mining: check boxes in the gear's panel and in Program options > Simulation; settings

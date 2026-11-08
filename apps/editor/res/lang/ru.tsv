@@ -3315,10 +3315,7 @@ Unit icons: in the game's yellow	Значки юнитов: в жёлтом цв
 Duplicate &linked	Дублировать со &связью
 No unit reached its end	Ни один юнит не дошёл до конца
 Rush distance: no unit reached its end	Дистанция раша: ни один юнит не дошёл до конца
-Each unit goes from the start point to the end point, at Fastest	Каждый юнит идёт от начальной точки до конечной, на самой быстрой скорости
 Each unit goes from each start location to each other start location, at Fastest	Каждый юнит идёт от каждой стартовой позиции к каждой другой, на самой быстрой скорости
-Click the start point	Щёлкните начальную точку
-Click the end point	Щёлкните конечную точку
 Worker of the race	Рабочий расы
 Start and end	Начало и конец
 Two points of the map…	Две точки карты…
@@ -3349,3 +3346,8 @@ Fog of war	Туман войны
 Report feedback on the simulation…	Отправить отзыв о моделировании…
 Unit: %ls	Юнит: %ls
 Other units	Другие юниты
+Each unit goes from A to B, at Fastest	Каждый юнит идёт из A в B, на самой быстрой скорости
+Release to start from here	Отпустите, чтобы начать отсюда
+Release to go here	Отпустите, чтобы идти сюда
+The start point (drag it)	Начальная точка (перетащите её)
+The end point (drag it)	Конечная точка (перетащите её)

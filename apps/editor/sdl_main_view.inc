@@ -236,6 +236,9 @@ void mapRightClickSdl(draw::View& map, draw::Point at);
 // A live game over the map (experimental: Tools > Simulate, sdl_simulation.inc): its bar at the top of the map
 // (what runs, the speed, Cancel), its keys (Esc), and a step of the game each frame.
 bool simBarShown();
+bool simRushPointCursor(int x, int y, draw::Rect r);  // (sdl_simulation.inc)
+bool simRushDragging();
+void simRushDragLost();
 void simPaintBar(draw::Canvas& c, draw::Rect r);
 bool simBarMouse(const draw::MouseEvent& e, draw::Rect r);
 std::wstring simBarTip(draw::Point pt, draw::Rect r);
@@ -248,6 +251,7 @@ struct MapView final : draw::View {
     // The middle button held: Options > Middle mouse click and hold. Drag map: the map follows the mouse; Pan map (the
     // default): the map moves toward the mouse while the button is held (panStep, each frame), as the Win32 program.
     bool panning = false;
+    bool rushCaptured = false;  // the mouse is the map's while the rush's A or B moves (simRushDragging)
     bool panDrags = false;  // (this press: Drag map)
     bool leftUpInPan = false;  // the left button went up during the pan: its drag ends with the pan
     bool panMoved = false;     // (Pan map: the last step moved the map)
@@ -341,7 +345,15 @@ struct MapView final : draw::View {
         }
         // While a live game shows: its bar's buttons; on the map only the view moves (middle button, wheel, pinch).
         if (simBarShown()) {
-            if (simBarMouse(e, draw::Rect(0, 0, width(), height()))) return true;
+            if (simBarMouse(e, draw::Rect(0, 0, width(), height()))) {
+                // (a drag of the rush's A or B: the mouse stays with the map until the release)
+                if (simRushDragging() != rushCaptured)
+                    if (draw::Host* h = host()) {
+                        rushCaptured = !rushCaptured;
+                        if (rushCaptured || !panning) h->capture(*this, rushCaptured);
+                    }
+                return true;
+            }
             const bool press = e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick || e.kind == draw::MouseKind::Up;
             if (press && e.button != 2 && !(panning && e.kind == draw::MouseKind::Up)) return true;
             if (e.kind == draw::MouseKind::Move && !panning) {
@@ -452,6 +464,7 @@ struct MapView final : draw::View {
     draw::Cursor cursor(draw::Point pt) override {
         if (panning) return draw::Cursor::SizeAll;
         if (!open()) return draw::Cursor::Arrow;
+        if (simRushPointCursor(pt.x, pt.y, draw::Rect(0, 0, width(), height()))) return draw::Cursor::SizeAll;  // (the rush's A and B: a drag moves them)
         const draw::Cursor c = mapCursorAt(gState, pt.x, pt.y);
         return c == draw::Cursor::Fill && simBarShown() ? draw::Cursor::Arrow : c;  // (a live game: left clicks do not fill)
     }
@@ -473,6 +486,7 @@ struct MapView final : draw::View {
     // a Shift stroke. After a release (the view lets the capture go itself) there is nothing left to end.
     void captureLost() override {
         rightDown = false, leftUpInPan = false;
+        rushCaptured = false, simRushDragLost();
         if (panning) {
             panning = false;
             if (gState.drag == Drag::Pan || gState.drag == Drag::AutoPan) gState.drag = Drag::None;
@@ -492,6 +506,7 @@ struct MapView final : draw::View {
         if (gState.drag != Drag::None && !leftUpInPan) return;
         if (gState.drag != Drag::None) captureLost();  // (the left release of the pan: the drag ends where the mouse was last)
         leftUpInPan = false;
+        if (rushCaptured) return;  // (the rush's A or B still moves: its left release lets the mouse go)
         if (draw::Host* h = host()) h->capture(*this, false);
     }
 };

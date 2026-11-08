@@ -3314,10 +3314,7 @@ constexpr UiText kRows[] = {
     {L"Duplicate &linked", L"Duplicar &vinculada"},
     {L"No unit reached its end", L"Ninguna unidad lleg\u00F3 a su destino"},
     {L"Rush distance: no unit reached its end", L"Distancia de rush: ninguna unidad lleg\u00F3 a su destino"},
-    {L"Each unit goes from the start point to the end point, at Fastest", L"Cada unidad va del punto de inicio al punto final, a la m\u00E1xima velocidad"},
     {L"Each unit goes from each start location to each other start location, at Fastest", L"Cada unidad va de cada ubicaci\u00F3n inicial a cada otra ubicaci\u00F3n inicial, a la m\u00E1xima velocidad"},
-    {L"Click the start point", L"Haga clic en el punto de inicio"},
-    {L"Click the end point", L"Haga clic en el punto final"},
     {L"Worker of the race", L"Obrero de la raza"},
     {L"Start and end", L"Inicio y final"},
     {L"Two points of the map\u2026", L"Dos puntos del mapa\u2026"},
@@ -3348,6 +3345,11 @@ constexpr UiText kRows[] = {
     {L"Report feedback on the simulation\u2026", L"Enviar comentarios sobre la simulaci\u00F3n\u2026"},
     {L"Unit: %ls", L"Unidad: %ls"},
     {L"Other units", L"Otras unidades"},
+    {L"Each unit goes from A to B, at Fastest", L"Cada unidad va de A a B, a la m\u00E1xima velocidad"},
+    {L"Release to start from here", L"Suelte para salir de aqu\u00ED"},
+    {L"Release to go here", L"Suelte para ir aqu\u00ED"},
+    {L"The start point (drag it)", L"El punto de inicio (arr\u00E1strelo)"},
+    {L"The end point (drag it)", L"El punto final (arr\u00E1strelo)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
