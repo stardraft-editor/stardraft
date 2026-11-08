@@ -198,14 +198,15 @@ void setupMining(World& w, const std::vector<MiningBase>& bases, const std::vect
             }
         }
         int gasWorkers = refinery >= 0 ? std::clamp(o.gasWorkers, 1, t.rules.gasWorkersMax) : 0;
-        for (int n = 0; n < workers + gasWorkers; ++n) {
+        const int onMinerals = workers > 0 ? workers : int(b.fields.size());  // (0: 1 for each mineral field)
+        for (int n = 0; n < onMinerals + gasWorkers; ++n) {
             int x = b.x, y = b.y;
             w.freeSpot(t.workerOf[race], x, y);
             int id = w.add(t.workerOf[race], owner, x, y);
             Unit& u = w.units[size_t(id)];
             u.base = owner;
             u.heading = u.velDir = direction(x - dx, y - dy);
-            if (n >= workers) {
+            if (n >= onMinerals) {
                 u.field = refinery;
                 w.setOrder(u, MoveToGas);
             } else {
@@ -222,7 +223,8 @@ void setupMining(World& w, const std::vector<MiningBase>& bases, const std::vect
 MiningRun miningRun(const World& w, int player, Race race, int workers, const MiningOptions& o) {
     MiningRun r;
     r.race = race;
-    r.workers = workers;
+    // (0: 1 for each mineral field of the base)
+    r.workers = workers > 0 || size_t(player) >= w.baseFields.size() ? workers : int(w.baseFields[size_t(player)].size());
     const World::Player& p = w.players[player];
     double minutes =
         (std::min(w.frame, o.warmupFrames + o.frames) - o.warmupFrames) * double(w.t.rules.frameMs) / 60000.0;

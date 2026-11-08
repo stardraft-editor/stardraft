@@ -3295,3 +3295,9 @@ It first removes all the units of this type that the player owns: use a unit typ
 draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	Player 8에게 Terran Marine으로 Title에 점 이미지 "Logo" 그리기, 간격 8픽셀: 시작할 때 맵 로고를 보여 줍니다.
 No room	자리 없음
 No room: the base has no room for its depot and workers.	자리 없음: 이 기지에는 본진 건물과 일꾼을 둘 자리가 없습니다.
+
+1 for each mineral field	광물 필드마다 1명
+1 worker for each mineral field at each base, %d game minute at Fastest	각 기지의 광물 필드마다 일꾼 1명, 가장 빠름으로 게임 시간 %d분
+1 worker for each mineral field at each base, %d game minutes at Fastest	각 기지의 광물 필드마다 일꾼 1명, 가장 빠름으로 게임 시간 %d분
+Workers	일꾼
+Workers on minerals and races	광물 일꾼과 종족

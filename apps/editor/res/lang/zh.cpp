@@ -3265,6 +3265,11 @@ constexpr UiText kRows[] = {
     {L"draw the dot image \"Logo\" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.", L"\u4E3A Player 8 \u7528 Terran Marine \u5728 Title \u7ED8\u5236\u70B9\u9635\u56FE \"Logo\"\uFF0C\u95F4\u9694 8 \u50CF\u7D20\uFF1A\u5728\u5F00\u59CB\u65F6\u663E\u793A\u5730\u56FE\u7684\u6807\u5FD7\u3002"},
     {L"No room", L"\u6CA1\u6709\u7A7A\u95F4"},
     {L"No room: the base has no room for its depot and workers.", L"\u6CA1\u6709\u7A7A\u95F4\uFF1A\u8BE5\u57FA\u5730\u6CA1\u6709\u653E\u7F6E\u4E3B\u57FA\u5730\u548C\u519C\u6C11\u7684\u7A7A\u95F4\u3002"},
+    {L"1 for each mineral field", L"\u6BCF\u5757\u77FF 1 \u4E2A"},
+    {L"1 worker for each mineral field at each base, %d game minute at Fastest", L"\u6BCF\u4E2A\u57FA\u5730\u6BCF\u5757\u77FF 1 \u4E2A\u519C\u6C11\uFF0C\u6700\u5FEB\u901F\u5EA6\u4E0B\u6E38\u620F\u65F6\u95F4 %d \u5206\u949F"},
+    {L"1 worker for each mineral field at each base, %d game minutes at Fastest", L"\u6BCF\u4E2A\u57FA\u5730\u6BCF\u5757\u77FF 1 \u4E2A\u519C\u6C11\uFF0C\u6700\u5FEB\u901F\u5EA6\u4E0B\u6E38\u620F\u65F6\u95F4 %d \u5206\u949F"},
+    {L"Workers", L"\u519C\u6C11"},
+    {L"Workers on minerals and races", L"\u91C7\u77FF\u519C\u6C11\u548C\u79CD\u65CF"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

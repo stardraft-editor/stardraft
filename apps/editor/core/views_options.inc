@@ -112,7 +112,7 @@ constexpr int kTabCount = int(sizeof kTabs / sizeof kTabs[0]);
 const wchar_t* const kUnitNameForms[4] = {L"Terran Marine", L"Terran Marine (Custom Name)", L"Custom Name (Terran Marine)", L"Custom Name"};
 
 // Simulate mining's choices: the values of each dropdown's items (races: the names).
-inline const int kSimWorkers[] = {4, 6, 8, 9, 12, 16, 18, 20, 24, 27, 30};
+inline const int kSimWorkers[] = {0, 4, 6, 8, 9, 12, 16, 18, 20, 24, 27, 30};
 inline const int kSimMinutes[] = {1, 2, 3, 5, 10, 15, 20};
 const wchar_t* const kSimRaces[4] = {L"As in the map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
 
@@ -187,7 +187,7 @@ public:
         };
         {
             std::vector<std::wstring> w, m, r;
-            for (int n : optionsview::kSimWorkers) w.push_back(std::to_wstring(n));
+            for (int n : optionsview::kSimWorkers) w.push_back(n ? std::to_wstring(n) : std::wstring(L"1 for each mineral field"));
             for (int n : optionsview::kSimMinutes) m.push_back(std::to_wstring(n) + (n == 1 ? L" minute" : L" minutes"));
             for (const wchar_t* n : optionsview::kSimRaces) r.push_back(n);
             simDrop(simWorkers_, w, 0, optionsview::kSimWorkers);

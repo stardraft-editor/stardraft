@@ -3265,6 +3265,11 @@ constexpr UiText kRows[] = {
     {L"draw the dot image \"Logo\" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.", L"dessiner l'image de points \"Logo\" \u00E0 Title pour Player 8 avec Terran Marine, \u00E0 8 pixels d'\u00E9cart : montrer le logo de la carte au d\u00E9but."},
     {L"No room", L"Pas de place"},
     {L"No room: the base has no room for its depot and workers.", L"Pas de place : la base n'a pas de place pour son d\u00E9p\u00F4t et ses ouvriers."},
+    {L"1 for each mineral field", L"1 pour chaque champ de minerai"},
+    {L"1 worker for each mineral field at each base, %d game minute at Fastest", L"1 ouvrier pour chaque champ de minerai \u00E0 chaque base, %d minute de jeu en vitesse maximale"},
+    {L"1 worker for each mineral field at each base, %d game minutes at Fastest", L"1 ouvrier pour chaque champ de minerai \u00E0 chaque base, %d minutes de jeu en vitesse maximale"},
+    {L"Workers", L"Ouvriers"},
+    {L"Workers on minerals and races", L"Ouvriers sur les minerais et races"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

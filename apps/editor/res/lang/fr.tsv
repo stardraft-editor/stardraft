@@ -3265,3 +3265,9 @@ It first removes all the units of this type that the player owns: use a unit typ
 draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	dessiner l'image de points "Logo" à Title pour Player 8 avec Terran Marine, à 8 pixels d'écart : montrer le logo de la carte au début.
 No room	Pas de place
 No room: the base has no room for its depot and workers.	Pas de place : la base n'a pas de place pour son dépôt et ses ouvriers.
+
+1 for each mineral field	1 pour chaque champ de minerai
+1 worker for each mineral field at each base, %d game minute at Fastest	1 ouvrier pour chaque champ de minerai à chaque base, %d minute de jeu en vitesse maximale
+1 worker for each mineral field at each base, %d game minutes at Fastest	1 ouvrier pour chaque champ de minerai à chaque base, %d minutes de jeu en vitesse maximale
+Workers	Ouvriers
+Workers on minerals and races	Ouvriers sur les minerais et races

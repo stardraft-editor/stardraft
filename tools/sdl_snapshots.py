@@ -5414,6 +5414,8 @@ CASES += [("map-sim-mining", ["--script", "{script:simmining}"], "map"),
           ("map-sim-rush", ["--script", "{script:simrush}"], "map"),
           ("map-sim-rush-end", ["--script", "{script:simrushend}"], "map"),
           ("map-simreport-mining", ["--dialog", "simreport:mining"], "map"),
+          # The bar's gear: 1 worker for each mineral field, Zerg (the report's Workers column: each base's own count).
+          ("map-simreport-mining-fields", ["--settings", "{simfieldsettings}", "--dialog", "simreport:mining"], "map"),
           ("map-simreport-rush", ["--dialog", "simreport:rush"], "map")]
 def check_sim_step(want_end):
     def check(output):
@@ -5430,6 +5432,7 @@ CHECKS.update({
     "map-sim-rush": check_sim_step(False),
     "map-sim-rush-end": check_sim_step(True),
     "map-simreport-mining": lambda o: None if "simreport: ended" in o else "the mining did not end",
+    "map-simreport-mining-fields": lambda o: None if "simreport: ended" in o else "the mining did not end",
     "map-simreport-rush": lambda o: None if "simreport: ended" in o else "the rush did not end",
 })
 
@@ -5556,6 +5559,9 @@ def main():
                  "Layout/TerrainPaletteWidth": 320, "Layout/TerrainPaletteHeight": 480, "Layout/UnitPaletteFloating": 1,
                  "Layout/UnitPaletteX": 700, "Layout/UnitPaletteY": 220, "Layout/UnitPaletteWidth": 300,
                  "Layout/UnitPaletteHeight": 420})))
+        simfieldsettings = os.path.join(a.out, "simfield-settings.json")  # {simfieldsettings}: mining with 1 worker for each mineral field, Zerg
+        if any("{simfieldsettings}" in x for x in args):
+            write_once(simfieldsettings, write_text(simfieldsettings, json.dumps({"SimWorkers": 0, "SimRaces": 3})))
         if any("{nosnapsettings}" in x for x in args):
             write_once(nosnapsettings, write_text(nosnapsettings, json.dumps({"Settings/SnapBuildings": 0})))
         if any("{oldsettings}" in x for x in args):
@@ -5567,7 +5573,7 @@ def main():
                      if a.install and os.path.isdir(d)), os.path.dirname(a.map or ""))
         paths = dict(maps=maps, map=a.map or "", cmbwmap=a.cmbwmap or "", crigmap=crig_map(a.cmbwmap or ""), project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, musicwav=musicwav, dotpng=dotpng, komusicwav=komusicwav, kodotpng=kodotpng, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
-                     releaseold=releaseold, nosnapsettings=nosnapsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage, e2s=e2s)
+                     releaseold=releaseold, nosnapsettings=nosnapsettings, simfieldsettings=simfieldsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage, e2s=e2s)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")

@@ -3265,3 +3265,9 @@ It first removes all the units of this type that the player owns: use a unit typ
 draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	为 Player 8 用 Terran Marine 在 Title 绘制点阵图 "Logo"，间隔 8 像素：在开始时显示地图的标志。
 No room	没有空间
 No room: the base has no room for its depot and workers.	没有空间：该基地没有放置主基地和农民的空间。
+
+1 for each mineral field	每块矿 1 个
+1 worker for each mineral field at each base, %d game minute at Fastest	每个基地每块矿 1 个农民，最快速度下游戏时间 %d 分钟
+1 worker for each mineral field at each base, %d game minutes at Fastest	每个基地每块矿 1 个农民，最快速度下游戏时间 %d 分钟
+Workers	农民
+Workers on minerals and races	采矿农民和种族

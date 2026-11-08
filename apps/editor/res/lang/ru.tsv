@@ -3265,3 +3265,9 @@ It first removes all the units of this type that the player owns: use a unit typ
 draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	нарисовать точечное изображение "Logo" в Title для Player 8 с помощью Terran Marine, с промежутком 8 пикселей: показать логотип карты в начале.
 No room	Нет места
 No room: the base has no room for its depot and workers.	Нет места: у базы нет места для главного здания и рабочих.
+
+1 for each mineral field	1 на каждое минеральное поле
+1 worker for each mineral field at each base, %d game minute at Fastest	1 рабочий на каждое минеральное поле на каждой базе, %d игровая минута на самой быстрой скорости
+1 worker for each mineral field at each base, %d game minutes at Fastest	1 рабочий на каждое минеральное поле на каждой базе, %d игровых минут на самой быстрой скорости
+Workers	Рабочие
+Workers on minerals and races	Рабочие на минералах и расы

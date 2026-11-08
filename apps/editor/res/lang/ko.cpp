@@ -3295,6 +3295,11 @@ constexpr UiText kRows[] = {
     {L"draw the dot image \"Logo\" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.", L"Player 8\uC5D0\uAC8C Terran Marine\uC73C\uB85C Title\uC5D0 \uC810 \uC774\uBBF8\uC9C0 \"Logo\" \uADF8\uB9AC\uAE30, \uAC04\uACA9 8\uD53D\uC140: \uC2DC\uC791\uD560 \uB54C \uB9F5 \uB85C\uACE0\uB97C \uBCF4\uC5EC \uC90D\uB2C8\uB2E4."},
     {L"No room", L"\uC790\uB9AC \uC5C6\uC74C"},
     {L"No room: the base has no room for its depot and workers.", L"\uC790\uB9AC \uC5C6\uC74C: \uC774 \uAE30\uC9C0\uC5D0\uB294 \uBCF8\uC9C4 \uAC74\uBB3C\uACFC \uC77C\uAFBC\uC744 \uB458 \uC790\uB9AC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4."},
+    {L"1 for each mineral field", L"\uAD11\uBB3C \uD544\uB4DC\uB9C8\uB2E4 1\uBA85"},
+    {L"1 worker for each mineral field at each base, %d game minute at Fastest", L"\uAC01 \uAE30\uC9C0\uC758 \uAD11\uBB3C \uD544\uB4DC\uB9C8\uB2E4 \uC77C\uAFBC 1\uBA85, \uAC00\uC7A5 \uBE60\uB984\uC73C\uB85C \uAC8C\uC784 \uC2DC\uAC04 %d\uBD84"},
+    {L"1 worker for each mineral field at each base, %d game minutes at Fastest", L"\uAC01 \uAE30\uC9C0\uC758 \uAD11\uBB3C \uD544\uB4DC\uB9C8\uB2E4 \uC77C\uAFBC 1\uBA85, \uAC00\uC7A5 \uBE60\uB984\uC73C\uB85C \uAC8C\uC784 \uC2DC\uAC04 %d\uBD84"},
+    {L"Workers", L"\uC77C\uAFBC"},
+    {L"Workers on minerals and races", L"\uAD11\uBB3C \uC77C\uAFBC\uACFC \uC885\uC871"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

@@ -708,6 +708,7 @@ void simEnd() {
         std::vector<const sim::MiningRun*> runs;
         double minerals = 0;
         bool unplaced = false;  // a base with no room for its depot and workers
+        int workers = 0;
         wchar_t txt[1024];
         for (size_t k = 0; k < bases.size(); ++k) {
             const sim::MiningBase& b = bases[k];
@@ -722,25 +723,30 @@ void simEnd() {
             }
             const wchar_t* race = r.race == sim::Zerg ? tr(L"Zerg") : r.race == sim::Protoss ? tr(L"Protoss") : tr(L"Terran");
             rows.push_back({label, race, std::to_wstring(b.x / 32) + L", " + std::to_wstring(b.y / 32),
-                            r.placed ? std::to_wstring(b.fields.size()) : std::wstring(L"\x2014"), r.placed ? simNum(r.mineralsPerMinute) : std::wstring(tr(L"No room"))});
-            minerals += r.mineralsPerMinute;
+                            r.placed ? std::to_wstring(b.fields.size()) : std::wstring(L"\x2014"),
+                            r.placed ? std::to_wstring(r.workers) : std::wstring(L"\x2014"), r.placed ? simNum(r.mineralsPerMinute) : std::wstring(tr(L"No room"))});
+            minerals += r.mineralsPerMinute, workers += r.workers;
             unplaced = unplaced || !r.placed;
             tripHead.push_back(base);
             runs.push_back(&r);
         }
-        if (rows.size() > 1) rows.push_back({tr(L"=All"), L"", L"", L"", simNum(minerals)});
+        if (rows.size() > 1) rows.push_back({tr(L"=All"), L"", L"", L"", std::to_wstring(workers), simNum(minerals)});
         std::swprintf(txt, 1024, tr(L"%ls minerals a minute"), simNum(minerals).c_str());
         gSim.endText = gSim.result = txt;
         std::swprintf(txt, 1024, tr(L"Mining: %ls minerals a minute"), simNum(minerals).c_str());
         gSimTitle = txt;
         int minutes = 3;
         prefs::number(L"SimMinutes", minutes, 1, 60);
-        if (minutes == 1)
+        if (gSim.workers == 0 && minutes == 1)
+            std::swprintf(txt, 1024, tr(L"1 worker for each mineral field at each base, %d game minute at Fastest"), minutes);
+        else if (gSim.workers == 0)
+            std::swprintf(txt, 1024, tr(L"1 worker for each mineral field at each base, %d game minutes at Fastest"), minutes);
+        else if (minutes == 1)
             std::swprintf(txt, 1024, tr(L"%d workers on minerals at each base, %d game minute at Fastest"), int(gSim.workers), minutes);
         else
             std::swprintf(txt, 1024, tr(L"%d workers on minerals at each base, %d game minutes at Fastest"), int(gSim.workers), minutes);
         gSimLine = txt;
-        d.table({tr(L"Base"), tr(L"Race"), tr(L"Tile"), tr(L"Fields"), tr(L"Minerals a minute")}, rows, 3);
+        d.table({tr(L"Base"), tr(L"Race"), tr(L"Tile"), tr(L"Fields"), tr(L"Workers"), tr(L"Minerals a minute")}, rows, 3);
         if (unplaced) d.para(tr(L"No room: the base has no room for its depot and workers."), true);
         size_t most = 0;
         for (const sim::MiningRun* r : runs) most = std::max(most, r->tripFrames.size());
@@ -1202,8 +1208,8 @@ std::wstring simDiagnostics() {
             t += L"\n" + std::to_wstring(routes.size()) + L" routes, " + std::to_wstring(reached) + L" reached";
         } else {
             int workers = 9;
-            prefs::number(L"SimWorkers", workers, 1, 60);
-            t += L"\n" + std::to_wstring(gSim.bases) + L" bases, " + std::to_wstring(workers) + L" workers";
+            prefs::number(L"SimWorkers", workers, 0, 60);
+            t += L"\n" + std::to_wstring(gSim.bases) + L" bases, " + (workers ? std::to_wstring(workers) + L" workers" : std::wstring(L"1 worker for each mineral field"));
         }
     }
     if (!simSkipRunning() && !e.liveError().empty()) t += L"\nError: " + widen(e.liveError());
@@ -1237,13 +1243,16 @@ void simCombatSettingsMenu() {
     stardraft::kit::Menu::popup(*gRoot, gHost->mouse(*gRoot), items, stardraft::kit::Menu::measure(items, &measure), {});
 }
 
-// The mining's settings (the bar's gear): the workers on minerals at each base, as Program options has them; a pick
-// saves it and starts the mining again with it.
+// The races of Program options > Simulate mining (SimRaces), as the bar's gear lists them.
+const wchar_t* const kSimRaceNames[4] = {L"As in the map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
+
+// The mining's settings (the bar's gear): the workers on minerals at each base (0: 1 for each mineral field) and the
+// races, as Program options has them; a pick saves it and starts the mining again with it.
 void simulateMiningCommand();
 void simMiningSettingsMenu() {
     if (!gRoot || !gHost) return;
-    int workers = 9;
-    prefs::number(L"SimWorkers", workers, 1, 60);
+    int workers = 9, races = 0;
+    prefs::number(L"SimWorkers", workers, 0, 60), prefs::number(L"SimRaces", races, 0, 3);
     std::vector<stardraft::kit::MenuItem> items;
     auto header = [&](const std::wstring& t) {
         if (!items.empty()) items.push_back(stardraft::kit::MenuItem{}), items.back().separator = true;
@@ -1258,7 +1267,10 @@ void simMiningSettingsMenu() {
         };
     };
     header(L"Workers on minerals");
+    choice(L"1 for each mineral field", workers == 0, L"SimWorkers", 0);
     for (int n : {4, 6, 8, 9, 12, 16, 18, 20, 24, 27, 30}) choice(std::to_wstring(n), n == workers, L"SimWorkers", n);
+    header(L"Races");
+    for (int k = 0; k < 4; ++k) choice(kSimRaceNames[k], k == races, L"SimRaces", k);
     ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
     kit_sdl::ImguiCanvas measure(list, nullptr);
     stardraft::kit::Menu::popup(*gRoot, gHost->mouse(*gRoot), items, stardraft::kit::Menu::measure(items, &measure), {});
@@ -1274,10 +1286,9 @@ void simRushSettingsMenu() {
     std::vector<stardraft::kit::MenuItem> items;
     items.push_back(stardraft::kit::MenuItem{}), items.back().label = L"Worker race", items.back().enabled = false;
     items.push_back(stardraft::kit::MenuItem{}), items.back().separator = true;
-    const wchar_t* const names[4] = {L"As in the map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
     for (int k = 0; k < 4; ++k) {
         items.push_back(stardraft::kit::MenuItem{});
-        items.back().label = names[k], items.back().checked = k == races;
+        items.back().label = kSimRaceNames[k], items.back().checked = k == races;
         items.back().run = [k] {
             prefs::setNumber(L"SimRaces", k);
             shellPost([] { simulateRushCommand(); });  // (again with the new race)
@@ -1348,7 +1359,7 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
     if (in(l.minus)) return L"Slower";
     if (in(l.plus)) return L"Faster";
     if (in(l.skip)) return L"Skip to the end";
-    if (in(l.gear)) return gSim.combat ? L"Who fights whom" : gSim.rush ? L"Worker race" : L"Workers on minerals";
+    if (in(l.gear)) return gSim.combat ? L"Who fights whom" : gSim.rush ? L"Worker race" : L"Workers on minerals and races";
     if (in(l.feedback)) return L"Report feedback on the simulation";
     if (in(l.second)) return gSim.done ? L"Show the report" : L"Speed";
     if (in(l.first)) return gSim.done ? L"Close" : L"Cancel the simulation";
@@ -1407,7 +1418,7 @@ void simFrame() {
 // or one race. Each base mines in a game of its own (bar_sim.h). At the game's speed (the bar's - and + change it).
 void simulateMiningCommand() {
     int workers = 9, minutes = 3, races = 0;
-    prefs::number(L"SimWorkers", workers, 1, 60);
+    prefs::number(L"SimWorkers", workers, 0, 60);
     prefs::number(L"SimMinutes", minutes, 1, 60), prefs::number(L"SimRaces", races, 0, 3);
     sim::MiningOptions o;
     o.workers = {workers};

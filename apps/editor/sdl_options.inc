@@ -304,7 +304,7 @@ public:
         }
         v.mapsWithSD2 = sdlMapsOpenWithUs();  // (Windows: .scm and .scx open with StarDraft 2; shell_sdl_win.inc)
         v.projectsFolder = defaultProjectsFolder().make_preferred().wstring();
-        prefs::number(L"SimWorkers", v.simWorkers, 1, 60);
+        prefs::number(L"SimWorkers", v.simWorkers, 0, 60);
         prefs::number(L"SimMinutes", v.simMinutes, 1, 60), prefs::number(L"SimRaces", v.simRace, 0, 3);
 #ifndef _WIN32
         v.mapsRow = false;  // (the file association is Windows only)
