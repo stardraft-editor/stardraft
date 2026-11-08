@@ -3319,3 +3319,23 @@ Start and end	起点和终点
 Two points of the map…	地图上的两个点…
 Units, start and end	单位、起点和终点
 Simulate rush distance between &two points… (experimental)	模拟两点之间的 Rush 距离(&T)…（实验性）
+Looking for boosts…	正在寻找优化…
+Each field	每块矿
+In all	总计
+For each mineral field	每块矿
+Position boost	位置优化
+Cargo boost	回矿优化
+Cycle boost	循环优化
+A number of workers for each mineral field of a base	基地每块矿的农民数量
+A number of workers for each base	每个基地的农民数量
+%d workers for each mineral field at each base, %d game minute at Fastest	每个基地每块矿 %d 个农民，最快速度下游戏时间 %d 分钟
+%d workers for each mineral field at each base, %d game minutes at Fastest	每个基地每块矿 %d 个农民，最快速度下游戏时间 %d 分钟
+&Play or pause	播放或暂停(&P)
+&Restart	重新开始(&R)
+S&kip to the end	跳到结尾(&K)
+S&lower	更慢(&L)
+&Faster	更快(&F)
+Simulation &settings	模拟设置(&S)
+Simulation &options…	模拟选项(&O)…
+&Close the simulation	关闭模拟(&C)
+&Simulation	模拟(&S)

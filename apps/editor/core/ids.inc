@@ -88,6 +88,9 @@ enum : int {
     ID_SIM_MINING = 1070, ID_SIM_COMBAT,  // Tools > Simulate mining, Simulate combat (experimental: STARDRAFT_SIMULATION)
     ID_SIM_RUSH = 1072,                   // Tools > Simulate rush distance (experimental: STARDRAFT_SIMULATION)
     ID_SIM_RUSHPOINTS = 1073,             // Tools > Simulate rush distance between two points (experimental)
+    // Tools > Simulation: the bar's Play or Pause, Restart, Skip to the end, Slower, Faster, Simulation settings,
+    // Simulation options, Close the simulation (sdl_simulation.inc: simCommand)
+    ID_SIM_PLAY = 1082, ID_SIM_RESTART, ID_SIM_SKIP, ID_SIM_SLOWER, ID_SIM_FASTER, ID_SIM_SETTINGS, ID_SIM_OPTIONS, ID_SIM_CLOSE,
     ID_CMBW_REPAIRISOM = 1099,  // Tools > Cosmonarchy > Try to repair the ISOM (a Cosmonarchy map's tab only: core/cmbw.inc)
     ID_CMBW_PASSAGES = 1113, ID_OPT_PASSAGES, ID_OPT_PASSAGESFILE,  // Tools > Cosmonarchy > Ramp and bridge mapper (core/views_passages.inc); Program options > Plugins > Ramp and bridge mappings: on or off, Browse
     ID_OPT_TERRAINOVERRIDE = 1110, ID_OPT_TERRAINOVERRIDEFILE, ID_CMBW_ISOMRULES,  // Program options > Plugins > ISOM terrain rules override: on or off, Browse; Tools > Cosmonarchy > Custom isom terrain editor

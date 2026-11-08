@@ -320,6 +320,7 @@ bool sdlRuns(int id) {
 // While a simulation shows (Tools > Simulate), the commands that change the map, or what a click on it does, are gray:
 // the map shows the game, not the map. Saving, the view, the tabs and the other workspaces stay.
 bool simBarShown();  // (sdl_simulation.inc)
+bool simCommandEnabled(int id);  // (sdl_simulation.inc)
 bool simLocksCommand(int id) {
     return (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_HISTORY || id == ID_EDIT_SNAPGRID || id == ID_EDIT_TERRAINUNITS || id == ID_EDIT_TERRAINDOODADS ||
            (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) || (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) || id == ID_QUICKPICK ||
@@ -333,6 +334,7 @@ bool sdlEnabled(int id) {
     if ((id == ID_CMBW_ISOMRULES || id == ID_CMBW_PASSAGES) && !cmbwMode()) return false;  // (the mod loaded)
     if ((id == ID_VIEW_HD || id == ID_VIEW_HD2 || id == ID_VIEW_CARBOT) && cmbwMode()) return false;  // (SD art only: cmbwKeepSd)
     if (simBarShown() && simLocksCommand(id)) return false;
+    if (id >= ID_SIM_PLAY && id <= ID_SIM_CLOSE && !simCommandEnabled(id)) return false;  // (the bar's: while it shows)
     if (mapCommand(id) && !docOpen()) return false;
     if (id == ID_EDIT_SNAPGRID && (gWorkspace != Workspace::Map || !canSnapToGrid(gState))) return false;  // (a selection in the map)
     if (!editInWorkspace(id)) return false;  // (the map's Edit commands in another workspace: core/commands_core.inc)

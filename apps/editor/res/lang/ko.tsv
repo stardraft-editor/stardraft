@@ -3349,3 +3349,23 @@ Start and end	시작과 끝
 Two points of the map…	맵의 두 지점…
 Units, start and end	유닛, 시작과 끝
 Simulate rush distance between &two points… (experimental)	두 지점 사이의 러시 거리 시뮬레이션(&T)… (실험적)
+Looking for boosts…	최적화 찾는 중…
+Each field	필드마다
+In all	전체
+For each mineral field	광물 필드마다
+Position boost	위치 최적화
+Cargo boost	자원 반납 최적화
+Cycle boost	순환 최적화
+A number of workers for each mineral field of a base	기지의 광물 필드마다 일꾼 수
+A number of workers for each base	기지마다 일꾼 수
+%d workers for each mineral field at each base, %d game minute at Fastest	각 기지의 광물 필드마다 일꾼 %d명, 가장 빠름으로 게임 시간 %d분
+%d workers for each mineral field at each base, %d game minutes at Fastest	각 기지의 광물 필드마다 일꾼 %d명, 가장 빠름으로 게임 시간 %d분
+&Play or pause	재생 또는 일시 정지(&P)
+&Restart	다시 시작(&R)
+S&kip to the end	끝으로 건너뛰기(&K)
+S&lower	더 느리게(&L)
+&Faster	더 빠르게(&F)
+Simulation &settings	시뮬레이션 설정(&S)
+Simulation &options…	시뮬레이션 옵션(&O)…
+&Close the simulation	시뮬레이션 닫기(&C)
+&Simulation	시뮬레이션(&S)
