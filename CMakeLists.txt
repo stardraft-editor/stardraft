@@ -119,6 +119,7 @@ add_library(stardraft
     src/new_map.cpp
     src/campaign.cpp
     src/project_import.cpp
+    src/nrbf.cpp
     src/terrain_gen.cpp
     src/terrain_stamp.cpp
     src/passages.cpp
@@ -167,6 +168,8 @@ target_link_libraries(hd_test PRIVATE stardraft)
 
 add_executable(editor_test tools/tests/editor_test.cpp)
 target_link_libraries(editor_test PRIVATE stardraft)
+add_executable(import_test tools/tests/import_test.cpp)  # File > Import a project: EUD Editor 3 and 2, euddraft
+target_link_libraries(import_test PRIVATE stardraft)
 add_executable(cmbw_test tools/plugins/cmbw/tests/cmbw_test.cpp)  # Cosmonarchy maps: learned tile terrains, the brush, CRIG words, races
 target_link_libraries(cmbw_test PRIVATE stardraft)
 

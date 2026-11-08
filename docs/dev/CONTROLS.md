@@ -87,6 +87,9 @@ a title. Numbers in fields are right-aligned in the monospace font (the Data for
 | Section box | A native drop-down list (`gPal.sectionBox`; the Tiles grid's own `gTiles.filterBox`); the mouse wheel over the closed box goes to the next or the previous entry | Above the map palette's search box. Units, Doodads, Sprites: "All units" (doodads, sprites), then the palette's sections. Terrain in Rectangle mode: "All tiles", then the tileset's terrain types (the names of Isometric mode; the terrain types of a tile group come from the tile rules), "Doodad tiles" and "Null tiles". The grid shows only the tiles of that choice, still in one grid with no headings; the search box works together with it. |
 | Add row | `ui::addRow` (with `enabled`) | Under a list: Add a trigger, Add a condition, Add an action (the actions; the blocks first only when new blocks are on, `kClassicBatchesOffered`), Add values. At the limit it is gray, with no click; its tooltip gives the reason. |
 | Value chip | `ui::chipFace` | Values in a sentence: trigger blocks, briefing actions, Classic triggers' conditions and actions (a batch's variable: `variable "unit"`). Dim when the block is off; red when the value must be fixed; a 2 px accent line when Tab moved to it. Rich-text chips in the text pop-out are drawn by the rich text field (they hold a color and dashes for a player's color). |
+| Badge | `kit::Badge` (apps/kit/badge.h) | A state in a small box, kRadius corners, as wide as its text, at the left or the right of its frame: Neutral (kChipDim, kBorder, kDim), Good (kGoodFill, kGoodLine, kGood), Warn (kChipDim, kWarn), Bad (kBadFill, kBad). The text says the state; the tone repeats it. File > Import a project: Found, Not found, Included, From the build folder, Not imported: no build folder, Left out, Not supported. Not a value chip: it takes no input. |
+| Card | `kit::Card` (apps/kit/card.h) | A box in kPanel with a 1 px kBorder and kRadius corners, under a group of controls that belong together (its children, or views at its place added after it). File > Import a project: the step rail, the file, the new project, the map, the build folder, each part, the summary's counts. |
+| Stepper | `kit::Stepper` (apps/kit/stepper.h) | The steps of a dialog that goes step by step, one under the other (`kit::kStepH`, 60 px): a 26 px circle, the name, a dim note. Done: a check mark (the check box's mark) on kAccentFill; the step that shows: its number on kAccentFill with a kAccent line; later: its number in kDim in a kBorderStrong circle; kAccentFill or kBorder lines join them. A click on a done step goes back to it (onSelect); it takes no keys (the dialog's Back and Next do). File > Import a project. |
 | Title | `ui::title` (`formTitle`) | Data entries, the Strings and Buttons tabs, the Project page, the block help page (F1 in the Triggers workspace). Icon, name, and a dim line under it with "changed · Reset". |
 | Section heading | `ui::sectionHeader` | Data form sections, Buttons, Files, Project page sections, the block help page. |
 | Field label | `ui::fieldLabel` | Every form row: dim; green when the value is changed; faint when it cannot be changed. |
@@ -194,6 +197,33 @@ these tabs. The tab holds a small blank map until it becomes a document.
 
 The `new:` (the cards), `new:map`, `new:project`, `new:generate`, `start:` and `start:empty` test runs capture them
 (with the theme in the name).
+
+## Import a project
+
+File > Import a project… (`core/views_import_project.inc`, over `stardraft/project_import.h`): a kit Dialog, 880 x 584,
+that makes a new EUD project from an EUD Editor 3 (.e3s), EUD Editor 2 (.e2s) or euddraft (.eds) project.
+
+- *The rail* at the left: a `kit::Card` with a `kit::Stepper` of the four steps (Project, Map, Parts, Summary); a click
+  on a done step goes back to it.
+- *The step*: its title (bold, 20 px) and a dim line under it, then `kit::Card`s. Project: the
+  file's card (its name, its editor and version in kGood or why it does not read in kBad, its folder in kFaint;
+  Select… or Change…) and the New project card (name, location). Map: the map's card (a Found or Not found badge, and why Next is off;
+  the output map as two radio buttons) and, only when a part of the file needs it, the old editor's build folder.
+  Parts: a scrolled list with a card per part: its icon, a check box (Clear it to leave the part out), what it holds
+  (dim) and a `kit::Badge` at the right (Included, From the build folder, Not imported: no build folder, Left out, Not supported);
+  under Scripts, when there is a build folder, "Scripts from" as two radio buttons. Summary: three counts in cards
+  (parts to import, parts not imported, things to do), "Select the build folder…" (back to step 2) when a part needs
+  it, then the lists under their headings (To import, Not imported, To do), each line a `kit::Label` with an icon
+  (`Check`, `Remove`, `Warning`); the new project's name and folder come first.
+- The keyboard: each step puts the focus on its first control (a field of a hidden step takes no keys).
+- The dialog's buttons: Back (left), Next (Import on the last step; off until the step is complete: a file that reads
+  and a free project name, then a map) and Cancel. Back and Next are step buttons: they do not close the dialog
+  (`kit::DialogButton::step`, `Dialog::stepped`).
+- Import makes the project, opens it, writes `notes/Import report.txt` (what came in and what did not), and the status
+  bar says so.
+
+The `dialog-import-1` to `-4` and `import-project` snapshot cases capture it (`--dialog import:<file>|<step>[|<build
+folder>]`, `--importproject <file>|<folder>`).
 
 ## The map's right-click menu and Location properties
 

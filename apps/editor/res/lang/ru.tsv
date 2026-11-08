@@ -2805,3 +2805,120 @@ Mask: painting changes only the tiles with an outline. Alt+click takes one out.	
 No mask: painting changes all tiles	Без маски: рисование меняет все тайлы
 Nothing changed: the mask keeps these tiles	Без изменений: маска сохраняет эти тайлы
 Nothing changed: the mask keeps this terrain	Без изменений: маска сохраняет этот рельеф
+# File > Import a project (core/views_import_project.inc)
+&Import a project…	&Импортировать проект…
+File	Файл
+Select the project to import	Выберите проект для импорта
+EUD Editor and euddraft projects (*.e3s, *.e2s, *.eds)	Проекты EUD Editor и euddraft (*.e3s, *.e2s, *.eds)
+Output map	Выходная карта
+Select the map	Выберите карту
+StarCraft maps (*.scx, *.scm)	Карты StarCraft (*.scx, *.scm)
+Select the build folder of the old editor	Выберите папку сборки старого редактора
+Scripts from	Скрипты из
+1 value: %s	1 значение: %s
+%s values: %s	Значений: %s: %s
+1 file: %s	1 файл: %s
+%s files, in their folders: %s	Файлов: %s, в их папках: %s
+Needs the build folder	Нужна папка сборки
+From the build folder	Из папки сборки
+The map %s, copied into the project	Карта %s, скопирована в проект
+Build writes the map to %s	Сборка записывает карту в %s
+%s: needs the build folder	%s: нужна папка сборки
+Select EUD Editor 2's build folder (Data\\eudplibdata) in step 2, or build the map once in EUD Editor 2 and import again	Выберите папку сборки EUD Editor 2 (Data\\eudplibdata) на шаге 2 или один раз соберите карту в EUD Editor 2 и импортируйте снова
+Select EUD Editor 3's build folder (BuildData_<name>) in step 2, or build the map once in EUD Editor 3 and import again	Выберите папку сборки EUD Editor 3 (BuildData_<name>) на шаге 2 или один раз соберите карту в EUD Editor 3 и импортируйте снова
+(from the build folder)	(из папки сборки)
+The build folder is not used: the scripts with macros, block scripts and classic triggers come in as text that euddraft cannot build	Папка сборки не используется: скрипты с макросами, блочные скрипты и классические триггеры приходят как текст, который euddraft не может собрать
+TriggerEditor.eps is EUD Editor 2's code for an older euddraft: build, then correct the errors that the log shows	TriggerEditor.eps — код EUD Editor 2 для старого euddraft: соберите, затем исправьте ошибки, которые показывает журнал
+The build folder is of another map: select the build folder of this project	Папка сборки от другой карты: выберите папку сборки этого проекта
+Could not read the file. %s	Не удалось прочитать файл. %s
+EUD Editor 3 project, saved by version %s	Проект EUD Editor 3, сохранён версией %s
+EUD Editor 2 project, saved by version %s	Проект EUD Editor 2, сохранён версией %s
+euddraft project	Проект euddraft
+Found	Найдено
+No build in this folder	В этой папке нет сборки
+EUD Editor 2 writes the code of its trigger editor and of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2 записывает код своего редактора триггеров и некоторых плагинов только при сборке. Его папка сборки — Data\\eudplibdata в папке EUD Editor 2.
+EUD Editor 3 writes the code of macros, block scripts, classic triggers, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3 записывает код макросов, блочных скриптов, классических триггеров, проигрывателя BGM и точечных изображений только при сборке. Его папка сборки — BuildData_<name> рядом с картой, рядом с файлом проекта или в Data\\temp в папке EUD Editor 3.
+Import	Импортировать
+Next	Далее
+Could not import the project. %s	Не удалось импортировать проект. %s
+Imported the project %s	Проект %s импортирован
+Imported the project %s. What did not come over is in notes\\Import report.txt	Проект %s импортирован. То, что не перенесено, указано в notes\\Import report.txt
+1 text	1 текст
+%s texts	Текстов: %s
+1 set	1 набор
+%s sets	Наборов: %s
+1 unit uses another unit's set	1 юнит использует набор другого юнита
+%s units use another unit's set	Юнитов, использующих набор другого юнита: %s
+1 list	1 список
+%s lists	Списков: %s
+1 unit	1 юнит
+%s units	Юнитов: %s
+1 note, kept in notes\\EUD Editor 3 notes.txt	1 заметка, сохранена в notes\\EUD Editor 3 notes.txt
+%s notes, kept in notes\\EUD Editor 3 notes.txt	Заметок: %s, сохранены в notes\\EUD Editor 3 notes.txt
+.dat values	Значения .dat
+Texts (stat_txt.tbl)	Тексты (stat_txt.tbl)
+Button sets	Наборы кнопок
+Status panels and wireframes	Панели состояния и каркасы
+Code that only EUD Editor 2 makes	Код, который делает только EUD Editor 2
+Code that only EUD Editor 3 makes	Код, который делает только EUD Editor 3
+Other files	Другие файлы
+euddraft plugins	Плагины euddraft
+Notes for entries	Заметки к записям
+Build settings	Настройки сборки
+Parts that StarDraft does not edit	Части, которые StarDraft не редактирует
+the MSQC keys and mouse of the macros	клавиши и мышь MSQC из макросов
+the chat events of the macros	события чата из макросов
+TriggerEditor.eps (the trigger editor's triggers)	TriggerEditor.eps (триггеры редактора триггеров)
+the plugin MurakamiShiinaQC (keys and mouse)	плагин MurakamiShiinaQC (клавиши и мышь)
+the plugin grpinjector (cursor pictures)	плагин grpinjector (картинки курсора)
+the plugin dataDumper (its files)	плагин dataDumper (его файлы)
+SC Archive (its online save and load): StarDraft has no online service	SC Archive (сохранение и загрузка онлайн): у StarDraft нет онлайн-сервиса
+SCDB (its online save and load): StarDraft has no online service	SCDB (сохранение и загрузка онлайн): у StarDraft нет онлайн-сервиса
+the tileset edits: StarDraft does not change tilesets	правки тайлсета: StarDraft не изменяет тайлсеты
+the dialog (.bin) edits: StarDraft does not change dialogs	правки диалогов (.bin): StarDraft не изменяет диалоги
+the sound player's sounds: add the sounds in the Files workspace	звуки проигрывателя: добавьте звуки в рабочей области «Файлы»
+build after save: build with Ctrl+B	сборка после сохранения: собирайте по Ctrl+B
+custom stat_txt.tbl is off in EUD Editor 3: the texts come over and are used	свой stat_txt.tbl выключен в EUD Editor 3: тексты переносятся и используются
+epTrace debug: the project's Trace build is on	отладка epTrace: сборка с трассировкой в проекте включена
+Parts	Части
+Summary	Сводка
+The file to import	Файл для импорта
+Map and build folder	Карта и папка сборки
+What to import	Что импортировать
+Check, then import	Проверьте и импортируйте
+Select the project	Выберите проект
+Select what to import	Выберите, что импортировать
+An EUD Editor 3 (.e3s), EUD Editor 2 (.e2s) or euddraft (.eds) project. StarDraft makes a new project from it. The old project does not change.	Проект EUD Editor 3 (.e3s), EUD Editor 2 (.e2s) или euddraft (.eds). StarDraft создаёт из него новый проект. Старый проект не изменяется.
+The new project gets a copy of the map.	Новый проект получает копию карты.
+Import makes the project and opens it.	Импорт создаёт проект и открывает его.
+No project selected	Проект не выбран
+Select…	Выбрать…
+New project	Новый проект
+In the project folder (%s_EUD.scx)	В папке проекта (%s_EUD.scx)
+Where the old project writes it (%s)	Там, куда её пишет старый проект (%s)
+Where the old project writes it (none)	Там, куда её пишет старый проект (нет)
+EUD Editor 2's build folder	Папка сборки EUD Editor 2
+EUD Editor 3's build folder	Папка сборки EUD Editor 3
+Another map's build	Сборка другой карты
+The project file (as written)	Файл проекта (как написан)
+The build folder (as built)	Папка сборки (как собрано)
+Included	Включено
+Not supported	Не поддерживается
+Left out	Исключено
+%s: left out	%s: исключено
+part to import	часть для импорта
+parts to import	частей для импорта
+part not imported	часть не импортируется
+parts not imported	частей не импортируется
+Not imported: no build folder	Не импортируется: нет папки сборки
+Clear a part to leave it out.	Снимите флажок, чтобы не импортировать часть.
+The map is not on this computer. Select it to go on.	Карты нет на этом компьютере. Выберите её, чтобы продолжить.
+New project %s, in %s	Новый проект %s в %s
+Build the project (Ctrl+B) and test the map	Соберите проект (Ctrl+B) и проверьте карту
+To import	К импорту
+To do	Что сделать
+Select the build folder…	Выбрать папку сборки…
+1 file	1 файл
+%s files	Файлов: %s
+thing to do	дело
+things to do	дел

@@ -74,6 +74,9 @@ bool sdlProjectCommand(int id) {
     switch (id) {
     case ID_PROJ_OPEN: openProjectDialogSdl(); return true;
     case ID_PROJ_FROMMAP: showProjectDialogSdl(); return true;
+    case ID_PROJ_IMPORT:  // File > Import a project (core/views_import_project.inc)
+        if (gRoot) projectImportWizard(*gRoot);
+        return true;
     case ID_PROJ_ADDSCRIPT: addProjectScript(); return true;
     case ID_PROJ_FOLDER:
         if (EudProject* pr = activeProject()) shellOpenFolder(pr->folder());

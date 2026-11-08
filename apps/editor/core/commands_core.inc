@@ -47,7 +47,6 @@ bool editInWorkspace(int id) {
 void trigQuickAdd();
 void campaignNew();
 void campaignOpen();
-void projectImport();
 void campaignShow();
 void trigFind();
 
@@ -84,7 +83,6 @@ bool commandPortable(AppState& app, int id) {
     if (id == ID_QUICKOPEN) return shellShowQuickPicker(false, true), true;
     if (id == ID_CAMPAIGN_NEW) return campaignNew(), true;  // File > Campaign (core/views_campaign.inc)
     if (id == ID_CAMPAIGN_OPEN) return campaignOpen(), true;
-    if (id == ID_PROJ_IMPORT) return projectImport(), true;
     if (id == ID_CAMPAIGN_SHOW) return campaignShow(), true;
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax)) {
         const bool project = id >= ID_RECENT_PROJECT;

@@ -66,7 +66,7 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
     static const std::map<std::wstring, std::wstring> kKeys = {
         {L"File/Project/Open project", L"Ctrl+Shift+K, O"},
         {L"File/Project/Make this map a project", L"Ctrl+Shift+K, M"},
-        {L"File/Project/Import a project (experimental)", L"Ctrl+Shift+K, I"},
+        {L"File/Import a project", L"Ctrl+Shift+K, I"},
         {L"File/Project/Add a script", L"Ctrl+Shift+K, S"},
         {L"File/Project/Open project folder", L"Ctrl+Shift+K, F"},
         {L"File/Project/Project settings", L"Ctrl+Shift+K, P"},
@@ -169,7 +169,6 @@ MenuModel buildMenuModel() {
     MenuModel project{menuItem(ID_PROJ_NEW, L"&New EUD project", L"Ctrl+Shift+N"),
                       menuItem(ID_PROJ_OPEN, L"&Open project\x2026"),
                       menuItem(ID_PROJ_FROMMAP, L"&Make this map a project\x2026"),
-                      menuItem(ID_PROJ_IMPORT, L"&Import a project (experimental)\x2026"),  // EUD Editor 2, euddraft (roadmap R52)
                       menuSeparator(),
                       menuItem(ID_PROJ_COMPILE, L"&Build", L"Ctrl+B"),
                       menuItem(ID_PROJ_ADDSCRIPT, L"&Add a script\x2026"),
@@ -183,6 +182,7 @@ MenuModel buildMenuModel() {
                    menuPopup(L"Recent pro&jects", {}, "projects"),
                    menuSeparator(),
                    menuPopup(L"&Project", project),  // EUD projects: new, open, build, settings
+                   menuItem(ID_PROJ_IMPORT, L"&Import a project\x2026"),  // EUD Editor 3 and 2, euddraft (core/views_import_project.inc)
                    // (File > Campaign, roadmap R25: not offered until the campaign editor is ready; core/views_campaign.inc)
                    menuSeparator(),
                    menuItem(ID_FILE_SAVE, L"&Save", L"Ctrl+S"),
@@ -194,7 +194,9 @@ MenuModel buildMenuModel() {
                    menuSeparator(),
                    menuItem(ID_FILE_EXIT, L"E&xit")};
     if (cmbwMode()) {  // (Cosmonarchy BW mode: maps only; File > New makes a Cosmonarchy map, no projects)
-        std::erase_if(file, [&project](const MenuItem& it) { return it.kind == MenuItem::Kind::Popup && (it.recent == "projects" || it.items.size() == project.size()); });
+        std::erase_if(file, [&project](const MenuItem& it) {
+            return (it.kind == MenuItem::Kind::Popup && (it.recent == "projects" || it.items.size() == project.size())) || it.id == ID_PROJ_IMPORT;
+        });
         if (!file.empty()) file.front().label = L"&New Cosmonarchy map";
     }
     MenuModel edit{menuItem(ID_EDIT_UNDO, L"&Undo", L"Ctrl+Z"),

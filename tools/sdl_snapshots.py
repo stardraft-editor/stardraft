@@ -18,7 +18,7 @@ one that needs a project, only with --project. The others run everywhere (CI has
 To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (its argument loop in main()). In a
 case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
 {newdir} (a new empty folder in --out), {kodir} (a new empty folder in --out with Korean letters and spaces in its
-name), {wav} (a short sound that the script writes in --out), {release} (GitHub's answer for the newest release, with a
+name), {wav} (a short sound that the script writes in --out), {e2s} (an EUD Editor 2 project of --map: IMPORT_E2S), {release} (GitHub's answer for the newest release, with a
 download for each system: RELEASE_JSON), {htmlpage} (the HTML view's test page HTML_PAGE, with its image), {oldsettings} (the settings file of an older release), {nosnapsettings} (a settings file with
 Options > Units > Snap buildings to tile edges off)
 and {legacyhive} (Windows: a registry file with the settings of the releases before the settings file) are paths, and
@@ -86,6 +86,16 @@ CASES += [
     ("dialog-options", ["--dialog", "options", "--size", "720x480"], ""),
     ("dialog-feedback", ["--dialog", "feedback", "--size", "592x370"], ""),
     ("dialog-newproject", ["--dialog", "newproject", "--size", "688x394"], ""),
+    # File > Import a project (core/views_import_project.inc), each of its four steps with an EUD Editor 2 project of the
+    # map ({e2s}: data edits, a text, a button set, requirements, a wireframe, plugins, triggers that need its build, GRP
+    # pictures that StarDraft does not put in the map), then the import with the recommended choices: the project opens.
+    ("dialog-import-1", ["--dialog", "import:{e2s}|1"], "map"),
+    ("dialog-import-2", ["--dialog", "import:{e2s}|2"], "map"),
+    ("dialog-import-3", ["--dialog", "import:{e2s}|3"], "map"),
+    ("dialog-import-4", ["--dialog", "import:{e2s}|4"], "map"),
+    ("import-project", ["--importproject", "{e2s}|{newdir}", "--workspace", "data", "--data", "units:0"], "map"),
+    # View > Control kit at its badges, card and stepper (apps/kit: badge.h, card.h, stepper.h; the import's controls).
+    ("dialog-kitgallery-steps", ["--dialog", "kitgallery:1850", "--size", "1000x800"], ""),
     ("dialog-prompt", ["--dialog", "prompt", "--size", "385x105"], ""),
     ("dialog-listpick", ["--dialog", "listpick", "--size", "378x494"], ""),
     ("dialog-message", ["--dialog", "message"], ""),  # the message box (msgbox::ask: questions, updates, crash reports)
@@ -5054,6 +5064,54 @@ RELEASE_OLD_JSON = json.dumps({
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
+# {e2s}: an EUD Editor 2 project (.e2s, its text format) of the map {map}.
+IMPORT_E2S = """S_ProjectSET
+Version : 0.18.1.7
+InputMap : {map}
+OutputMap : C:\\Maps\\built.scx
+UsedSetting5 : True
+E_ProjectSET
+S_DatEditSET
+0,0,0,40
+0,7,0,10
+1,3,0,5
+E_DatEditSET
+S_FireGraftSET
+E_FireGraftSET
+S_BtnSET
+BtnUse0 : True
+BtnData0 : 1,228,4361824,4341744,0,0,663,0,
+E_BtnSET
+S_ReqSET
+ReqUse0,0 : 2
+E_ReqSET
+S_GRPEditorSET
+GRPEditorDATCount : 2
+E_GRPEditorSET
+S_FileManagerSET
+stattextdicCount : 1
+stattextdickey0 : 0
+stattextdicvalue0 : <4>Hero Marine
+wireuse : True
+wireframData0 : 6
+E_FileManagerSET
+S_TriggerEditorSET
+Type:0
+Type:1
+Type:2
+Type:3
+Type:4
+Type:5
+Type:6
+Type:8
+E_TriggerEditorSET
+S_PluginSET
+unlimiter : True
+eudTurbo : True
+E_PluginSET
+"""
+
+
 def write_wav(path):
     """A short sound (0.1 s of a 440 Hz tone, 16-bit mono at 22050 Hz) for the drop cases ({wav})."""
     import math
@@ -5277,6 +5335,7 @@ def main():
         if any("{wav}" in x for x in args) and not os.path.exists(wav):
             write_wav(wav)
         release = os.path.join(a.out, "release-latest.json")
+        e2s = os.path.join(a.out, "import-sample.e2s")
 
         def write_text(path, text):
             def write():
@@ -5285,6 +5344,8 @@ def main():
             return write
         if any("{release}" in x for x in args):
             write_once(release, write_text(release, RELEASE_JSON))
+        if any("{e2s}" in x for x in args):
+            write_once(e2s, write_text(e2s, IMPORT_E2S.replace("{map}", a.map or "")))  # (text mode: CRLF on Windows, as EUD Editor 2 writes)
         htmlpage = os.path.join(a.out, "html-view-page.html")
         if any("{htmlpage}" in x for x in args):
             write_once(htmlpage, lambda: write_html_page(htmlpage))
@@ -5308,7 +5369,7 @@ def main():
             write_once(legacyhive, lambda: write_legacy_hive(legacyhive))
         paths = dict(map=a.map or "", cmbwmap=a.cmbwmap or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
-                     releaseold=releaseold, nosnapsettings=nosnapsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage)
+                     releaseold=releaseold, nosnapsettings=nosnapsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage, e2s=e2s)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")

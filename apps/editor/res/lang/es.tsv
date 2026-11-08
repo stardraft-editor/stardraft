@@ -2805,3 +2805,120 @@ Mask: painting changes only the tiles with an outline. Alt+click takes one out.	
 No mask: painting changes all tiles	Sin máscara: pintar cambia todas las casillas
 Nothing changed: the mask keeps these tiles	Sin cambios: la máscara conserva estas casillas
 Nothing changed: the mask keeps this terrain	Sin cambios: la máscara conserva este terreno
+# File > Import a project (core/views_import_project.inc)
+&Import a project…	&Importar un proyecto…
+File	Archivo
+Select the project to import	Seleccione el proyecto que se importa
+EUD Editor and euddraft projects (*.e3s, *.e2s, *.eds)	Proyectos de EUD Editor y euddraft (*.e3s, *.e2s, *.eds)
+Output map	Mapa de salida
+Select the map	Seleccione el mapa
+StarCraft maps (*.scx, *.scm)	Mapas de StarCraft (*.scx, *.scm)
+Select the build folder of the old editor	Seleccione la carpeta de compilación del editor anterior
+Scripts from	Scripts de
+1 value: %s	1 valor: %s
+%s values: %s	%s valores: %s
+1 file: %s	1 archivo: %s
+%s files, in their folders: %s	%s archivos, en sus carpetas: %s
+Needs the build folder	Requiere la carpeta de compilación
+From the build folder	De la carpeta de compilación
+The map %s, copied into the project	El mapa %s, copiado en el proyecto
+Build writes the map to %s	La compilación escribe el mapa en %s
+%s: needs the build folder	%s: requiere la carpeta de compilación
+Select EUD Editor 2's build folder (Data\\eudplibdata) in step 2, or build the map once in EUD Editor 2 and import again	Seleccione la carpeta de compilación de EUD Editor 2 (Data\\eudplibdata) en el paso 2, o compile el mapa una vez en EUD Editor 2 e importe de nuevo
+Select EUD Editor 3's build folder (BuildData_<name>) in step 2, or build the map once in EUD Editor 3 and import again	Seleccione la carpeta de compilación de EUD Editor 3 (BuildData_<name>) en el paso 2, o compile el mapa una vez en EUD Editor 3 e importe de nuevo
+(from the build folder)	(de la carpeta de compilación)
+The build folder is not used: the scripts with macros, block scripts and classic triggers come in as text that euddraft cannot build	La carpeta de compilación no se usa: los scripts con macros, los scripts de bloques y los triggers clásicos llegan como texto que euddraft no puede compilar
+TriggerEditor.eps is EUD Editor 2's code for an older euddraft: build, then correct the errors that the log shows	TriggerEditor.eps es el código de EUD Editor 2 para un euddraft anterior: compile y luego corrija los errores que muestra el registro
+The build folder is of another map: select the build folder of this project	La carpeta de compilación es de otro mapa: seleccione la carpeta de compilación de este proyecto
+Could not read the file. %s	No se pudo leer el archivo. %s
+EUD Editor 3 project, saved by version %s	Proyecto de EUD Editor 3, guardado con la versión %s
+EUD Editor 2 project, saved by version %s	Proyecto de EUD Editor 2, guardado con la versión %s
+euddraft project	Proyecto de euddraft
+Found	Encontrado
+No build in this folder	No hay compilación en esta carpeta
+EUD Editor 2 writes the code of its trigger editor and of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2 escribe el código de su editor de triggers y de algunos plugins solo al compilar. Su carpeta de compilación es Data\\eudplibdata en la carpeta de EUD Editor 2.
+EUD Editor 3 writes the code of macros, block scripts, classic triggers, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3 escribe el código de las macros, los scripts de bloques, los triggers clásicos, el reproductor de BGM y las imágenes de puntos solo al compilar. Su carpeta de compilación es BuildData_<name>, junto al mapa, junto al archivo del proyecto o en Data\\temp en la carpeta de EUD Editor 3.
+Import	Importar
+Next	Siguiente
+Could not import the project. %s	No se pudo importar el proyecto. %s
+Imported the project %s	Proyecto %s importado
+Imported the project %s. What did not come over is in notes\\Import report.txt	Proyecto %s importado. Lo que no se importó está en notes\\Import report.txt
+1 text	1 texto
+%s texts	%s textos
+1 set	1 conjunto
+%s sets	%s conjuntos
+1 unit uses another unit's set	1 unidad usa el conjunto de otra unidad
+%s units use another unit's set	%s unidades usan el conjunto de otra unidad
+1 list	1 lista
+%s lists	%s listas
+1 unit	1 unidad
+%s units	%s unidades
+1 note, kept in notes\\EUD Editor 3 notes.txt	1 nota, guardada en notes\\EUD Editor 3 notes.txt
+%s notes, kept in notes\\EUD Editor 3 notes.txt	%s notas, guardadas en notes\\EUD Editor 3 notes.txt
+.dat values	Valores de .dat
+Texts (stat_txt.tbl)	Textos (stat_txt.tbl)
+Button sets	Conjuntos de botones
+Status panels and wireframes	Paneles de estado y wireframes
+Code that only EUD Editor 2 makes	Código que solo hace EUD Editor 2
+Code that only EUD Editor 3 makes	Código que solo hace EUD Editor 3
+Other files	Otros archivos
+euddraft plugins	Plugins de euddraft
+Notes for entries	Notas de las entradas
+Build settings	Ajustes de compilación
+Parts that StarDraft does not edit	Partes que StarDraft no edita
+the MSQC keys and mouse of the macros	las teclas y el ratón de MSQC de las macros
+the chat events of the macros	los eventos de chat de las macros
+TriggerEditor.eps (the trigger editor's triggers)	TriggerEditor.eps (los triggers del editor de triggers)
+the plugin MurakamiShiinaQC (keys and mouse)	el plugin MurakamiShiinaQC (teclas y ratón)
+the plugin grpinjector (cursor pictures)	el plugin grpinjector (imágenes del cursor)
+the plugin dataDumper (its files)	el plugin dataDumper (sus archivos)
+SC Archive (its online save and load): StarDraft has no online service	SC Archive (su guardado y carga en línea): StarDraft no tiene servicio en línea
+SCDB (its online save and load): StarDraft has no online service	SCDB (su guardado y carga en línea): StarDraft no tiene servicio en línea
+the tileset edits: StarDraft does not change tilesets	las ediciones del tileset: StarDraft no cambia los tilesets
+the dialog (.bin) edits: StarDraft does not change dialogs	las ediciones de diálogos (.bin): StarDraft no cambia los diálogos
+the sound player's sounds: add the sounds in the Files workspace	los sonidos del reproductor: agregue los sonidos en el espacio de trabajo Archivos
+build after save: build with Ctrl+B	compilar al guardar: compile con Ctrl+B
+custom stat_txt.tbl is off in EUD Editor 3: the texts come over and are used	el stat_txt.tbl propio está desactivado en EUD Editor 3: los textos se importan y se usan
+epTrace debug: the project's Trace build is on	depuración de epTrace: la compilación con rastreo del proyecto está activada
+Parts	Partes
+Summary	Resumen
+The file to import	El archivo que se importa
+Map and build folder	Mapa y carpeta de compilación
+What to import	Qué se importa
+Check, then import	Revise y luego importe
+Select the project	Seleccione el proyecto
+Select what to import	Seleccione qué se importa
+An EUD Editor 3 (.e3s), EUD Editor 2 (.e2s) or euddraft (.eds) project. StarDraft makes a new project from it. The old project does not change.	Un proyecto de EUD Editor 3 (.e3s), EUD Editor 2 (.e2s) o euddraft (.eds). StarDraft crea un proyecto nuevo a partir de él. El proyecto anterior no cambia.
+The new project gets a copy of the map.	El proyecto nuevo recibe una copia del mapa.
+Import makes the project and opens it.	Importar crea el proyecto y lo abre.
+No project selected	Ningún proyecto seleccionado
+Select…	Seleccionar…
+New project	Proyecto nuevo
+In the project folder (%s_EUD.scx)	En la carpeta del proyecto (%s_EUD.scx)
+Where the old project writes it (%s)	Donde lo escribe el proyecto anterior (%s)
+Where the old project writes it (none)	Donde lo escribe el proyecto anterior (ninguno)
+EUD Editor 2's build folder	Carpeta de compilación de EUD Editor 2
+EUD Editor 3's build folder	Carpeta de compilación de EUD Editor 3
+Another map's build	Compilación de otro mapa
+The project file (as written)	El archivo del proyecto (tal como está escrito)
+The build folder (as built)	La carpeta de compilación (tal como se compiló)
+Included	Incluido
+Not supported	No compatible
+Left out	Excluido
+%s: left out	%s: excluido
+part to import	parte que se importa
+parts to import	partes que se importan
+part not imported	parte que no se importa
+parts not imported	partes que no se importan
+Not imported: no build folder	No se importa: sin carpeta de compilación
+Clear a part to leave it out.	Desmarque una parte para dejarla fuera.
+The map is not on this computer. Select it to go on.	El mapa no está en este equipo. Selecciónelo para continuar.
+New project %s, in %s	Proyecto nuevo %s, en %s
+Build the project (Ctrl+B) and test the map	Compile el proyecto (Ctrl+B) y pruebe el mapa
+To import	Para importar
+To do	Tareas
+Select the build folder…	Seleccionar la carpeta de compilación…
+1 file	1 archivo
+%s files	%s archivos
+thing to do	tarea
+things to do	tareas

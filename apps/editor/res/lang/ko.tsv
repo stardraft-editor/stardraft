@@ -2835,3 +2835,120 @@ Mask: painting changes only the tiles with an outline. Alt+click takes one out.	
 No mask: painting changes all tiles	마스크 없음: 모든 타일을 칠합니다
 Nothing changed: the mask keeps these tiles	변경 없음: 마스크가 이 타일을 유지합니다
 Nothing changed: the mask keeps this terrain	변경 없음: 마스크가 이 지형을 유지합니다
+# File > Import a project (core/views_import_project.inc)
+&Import a project…	프로젝트 가져오기(&I)…
+File	파일
+Select the project to import	가져올 프로젝트를 선택하십시오
+EUD Editor and euddraft projects (*.e3s, *.e2s, *.eds)	EUD Editor 및 euddraft 프로젝트 (*.e3s, *.e2s, *.eds)
+Output map	출력 맵
+Select the map	맵을 선택하십시오
+StarCraft maps (*.scx, *.scm)	StarCraft 맵 (*.scx, *.scm)
+Select the build folder of the old editor	이전 에디터의 빌드 폴더를 선택하십시오
+Scripts from	스크립트 출처
+1 value: %s	값 1개: %s
+%s values: %s	값 %s개: %s
+1 file: %s	파일 1개: %s
+%s files, in their folders: %s	파일 %s개, 각 폴더에: %s
+Needs the build folder	빌드 폴더 필요
+From the build folder	빌드 폴더에서
+The map %s, copied into the project	맵 %s, 프로젝트에 복사됨
+Build writes the map to %s	빌드가 맵을 %s에 씁니다
+%s: needs the build folder	%s: 빌드 폴더 필요
+Select EUD Editor 2's build folder (Data\\eudplibdata) in step 2, or build the map once in EUD Editor 2 and import again	2단계에서 EUD Editor 2의 빌드 폴더(Data\\eudplibdata)를 선택하거나, EUD Editor 2에서 맵을 한 번 빌드한 다음 다시 가져오십시오
+Select EUD Editor 3's build folder (BuildData_<name>) in step 2, or build the map once in EUD Editor 3 and import again	2단계에서 EUD Editor 3의 빌드 폴더(BuildData_<name>)를 선택하거나, EUD Editor 3에서 맵을 한 번 빌드한 다음 다시 가져오십시오
+(from the build folder)	(빌드 폴더에서)
+The build folder is not used: the scripts with macros, block scripts and classic triggers come in as text that euddraft cannot build	빌드 폴더를 사용하지 않습니다: 매크로가 있는 스크립트, 블록 스크립트, 클래식 트리거는 euddraft가 빌드할 수 없는 텍스트로 들어옵니다
+TriggerEditor.eps is EUD Editor 2's code for an older euddraft: build, then correct the errors that the log shows	TriggerEditor.eps는 이전 euddraft용 EUD Editor 2 코드입니다: 빌드한 다음 로그에 표시된 오류를 수정하십시오
+The build folder is of another map: select the build folder of this project	빌드 폴더가 다른 맵의 것입니다: 이 프로젝트의 빌드 폴더를 선택하십시오
+Could not read the file. %s	파일을 읽을 수 없습니다. %s
+EUD Editor 3 project, saved by version %s	EUD Editor 3 프로젝트, 버전 %s에서 저장됨
+EUD Editor 2 project, saved by version %s	EUD Editor 2 프로젝트, 버전 %s에서 저장됨
+euddraft project	euddraft 프로젝트
+Found	찾음
+No build in this folder	이 폴더에 빌드가 없음
+EUD Editor 2 writes the code of its trigger editor and of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2는 빌드할 때만 트리거 에디터와 일부 플러그인의 코드를 씁니다. 빌드 폴더는 EUD Editor 2 폴더 안의 Data\\eudplibdata입니다.
+EUD Editor 3 writes the code of macros, block scripts, classic triggers, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3는 빌드할 때만 매크로, 블록 스크립트, 클래식 트리거, BGM 플레이어, 도트 이미지의 코드를 씁니다. 빌드 폴더는 맵이나 프로젝트 파일 옆, 또는 EUD Editor 3 폴더 안의 Data\\temp에 있는 BuildData_<name>입니다.
+Import	가져오기
+Next	다음
+Could not import the project. %s	프로젝트를 가져올 수 없습니다. %s
+Imported the project %s	프로젝트 %s을(를) 가져옴
+Imported the project %s. What did not come over is in notes\\Import report.txt	프로젝트 %s을(를) 가져왔습니다. 가져오지 않은 것은 notes\\Import report.txt에 있습니다
+1 text	텍스트 1개
+%s texts	텍스트 %s개
+1 set	세트 1개
+%s sets	세트 %s개
+1 unit uses another unit's set	유닛 1개가 다른 유닛의 세트를 사용
+%s units use another unit's set	유닛 %s개가 다른 유닛의 세트를 사용
+1 list	목록 1개
+%s lists	목록 %s개
+1 unit	유닛 1개
+%s units	유닛 %s개
+1 note, kept in notes\\EUD Editor 3 notes.txt	메모 1개, notes\\EUD Editor 3 notes.txt에 보관
+%s notes, kept in notes\\EUD Editor 3 notes.txt	메모 %s개, notes\\EUD Editor 3 notes.txt에 보관
+.dat values	.dat 값
+Texts (stat_txt.tbl)	텍스트 (stat_txt.tbl)
+Button sets	버튼 세트
+Status panels and wireframes	상태 패널과 와이어프레임
+Code that only EUD Editor 2 makes	EUD Editor 2만 만드는 코드
+Code that only EUD Editor 3 makes	EUD Editor 3만 만드는 코드
+Other files	기타 파일
+euddraft plugins	euddraft 플러그인
+Notes for entries	항목 메모
+Build settings	빌드 설정
+Parts that StarDraft does not edit	StarDraft가 편집하지 않는 부분
+the MSQC keys and mouse of the macros	매크로의 MSQC 키와 마우스
+the chat events of the macros	매크로의 채팅 이벤트
+TriggerEditor.eps (the trigger editor's triggers)	TriggerEditor.eps (트리거 에디터의 트리거)
+the plugin MurakamiShiinaQC (keys and mouse)	플러그인 MurakamiShiinaQC (키와 마우스)
+the plugin grpinjector (cursor pictures)	플러그인 grpinjector (커서 그림)
+the plugin dataDumper (its files)	플러그인 dataDumper (그 파일)
+SC Archive (its online save and load): StarDraft has no online service	SC Archive (온라인 저장과 불러오기): StarDraft에는 온라인 서비스가 없습니다
+SCDB (its online save and load): StarDraft has no online service	SCDB (온라인 저장과 불러오기): StarDraft에는 온라인 서비스가 없습니다
+the tileset edits: StarDraft does not change tilesets	타일셋 편집: StarDraft는 타일셋을 바꾸지 않습니다
+the dialog (.bin) edits: StarDraft does not change dialogs	대화 상자(.bin) 편집: StarDraft는 대화 상자를 바꾸지 않습니다
+the sound player's sounds: add the sounds in the Files workspace	사운드 플레이어의 사운드: 파일 작업 공간에서 사운드를 추가하십시오
+build after save: build with Ctrl+B	저장 후 빌드: Ctrl+B로 빌드하십시오
+custom stat_txt.tbl is off in EUD Editor 3: the texts come over and are used	EUD Editor 3에서 사용자 stat_txt.tbl이 꺼져 있습니다: 텍스트를 가져와서 사용합니다
+epTrace debug: the project's Trace build is on	epTrace 디버그: 프로젝트의 추적 빌드가 켜집니다
+Parts	부분
+Summary	요약
+The file to import	가져올 파일
+Map and build folder	맵과 빌드 폴더
+What to import	가져올 내용
+Check, then import	확인한 다음 가져오기
+Select the project	프로젝트 선택
+Select what to import	가져올 내용 선택
+An EUD Editor 3 (.e3s), EUD Editor 2 (.e2s) or euddraft (.eds) project. StarDraft makes a new project from it. The old project does not change.	EUD Editor 3(.e3s), EUD Editor 2(.e2s) 또는 euddraft(.eds) 프로젝트. StarDraft가 이것으로 새 프로젝트를 만듭니다. 이전 프로젝트는 바뀌지 않습니다.
+The new project gets a copy of the map.	새 프로젝트는 맵의 복사본을 받습니다.
+Import makes the project and opens it.	가져오기는 프로젝트를 만들고 엽니다.
+No project selected	선택한 프로젝트 없음
+Select…	선택…
+New project	새 프로젝트
+In the project folder (%s_EUD.scx)	프로젝트 폴더 안 (%s_EUD.scx)
+Where the old project writes it (%s)	이전 프로젝트가 쓰는 위치 (%s)
+Where the old project writes it (none)	이전 프로젝트가 쓰는 위치 (없음)
+EUD Editor 2's build folder	EUD Editor 2의 빌드 폴더
+EUD Editor 3's build folder	EUD Editor 3의 빌드 폴더
+Another map's build	다른 맵의 빌드
+The project file (as written)	프로젝트 파일 (작성된 그대로)
+The build folder (as built)	빌드 폴더 (빌드된 그대로)
+Included	포함
+Not supported	지원 안 됨
+Left out	제외됨
+%s: left out	%s: 제외됨
+part to import	가져올 부분
+parts to import	가져올 부분
+part not imported	가져오지 않는 부분
+parts not imported	가져오지 않는 부분
+Not imported: no build folder	가져오지 않음: 빌드 폴더 없음
+Clear a part to leave it out.	부분을 빼려면 선택을 해제하십시오.
+The map is not on this computer. Select it to go on.	이 컴퓨터에 맵이 없습니다. 계속하려면 맵을 선택하십시오.
+New project %s, in %s	새 프로젝트 %s, 위치 %s
+Build the project (Ctrl+B) and test the map	프로젝트를 빌드(Ctrl+B)하고 맵을 테스트하십시오
+To import	가져올 것
+To do	할 일
+Select the build folder…	빌드 폴더 선택…
+1 file	파일 1개
+%s files	파일 %s개
+thing to do	할 일
+things to do	할 일

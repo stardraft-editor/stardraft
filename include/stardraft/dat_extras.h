@@ -29,6 +29,8 @@ public:
     // 0 is a zero byte). Some entries hold more parts after it (a unit's
     // StarEdit groups); those stay as they are.
     const std::string& stock(int i) const { return first_[size_t(i)]; }
+    // What follows the entry's zero byte (a unit's StarEdit subtitle and group, each ended by a zero byte).
+    const std::string& rest(int i) const { return rest_[size_t(i)]; }
     const std::string& text(int i) const;
     bool changed(int i) const { return edits_.count(i) > 0; }
     void set(int i, const std::string& text);

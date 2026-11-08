@@ -112,6 +112,9 @@
 #include "button.h"  // apps/kit: the View button (sdl_panels.inc)
 #include "tree_view.h"  // apps/kit: the Triggers workspace's tree (core/views_triggers_tree.inc)
 #include "scroll_view.h"  // apps/kit: the release notes' scrolling (core/views_changelog.inc)
+#include "badge.h"    // apps/kit: File > Import a project (core/views_import_project.inc)
+#include "card.h"
+#include "stepper.h"
 #include "core/html_view.h"  // the HTML view: the release notes (core/views_changelog.inc)
 #include "res/ui_icons.h"
 #include "stardraft/commands.h"
@@ -581,6 +584,7 @@ int main(int argc, char** argv) {
     std::vector<std::string> rclickArgs;  // --rclick: right clicks before the snapshot (sdl_menus.inc: sdlRightClickShot)
     std::vector<std::string> commandArgs;  // --command: menu commands run before the snapshot (sdl_menus.inc: sdlCommandShot)
     std::string saveAsArg;  // --saveas: the save round-trip (core/map_commands.inc: mapSaveRoundTrip)
+    std::string importArg;      // --importproject <file>|<folder>: File > Import a project with the recommended choices (core/views_import_project.inc)
     std::string newProjectArg;  // --newproject: a new project in that folder (core/project_page.inc: createProject)
     int width = 1600, height = 1000;
     bool sizeArg = false;
@@ -626,6 +630,7 @@ int main(int argc, char** argv) {
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
         else if (a == "--log") logArg = true;  // the Log open (View > Log), for a snapshot
         else if (a == "--build") buildArg = true;  // Build (Ctrl+B) runs first: its lines go to the Log; a snapshot waits for its end
+        else if (a == "--importproject") importArg = next();
         else if (a == "--newproject") newProjectArg = next();  // a folder: File > Project > New EUD project makes the project Sample (a new map) in it, for a snapshot
         else if (a == "--saveas") saveAsArg = next();  // a file: File > Save as saves the map there, then it is compared with the map that opens from it, for a snapshot
         else if (a == "--command") commandArgs.push_back(next());  // a command by name (view.towns, view.grid...) as its menu item runs it, for a snapshot
@@ -927,6 +932,16 @@ int main(int argc, char** argv) {
             gSelfTest = was;
             std::printf("new project: %s %s\n", made && activeProject() ? "made (yes)" : "not made (WRONG)", err.c_str());
         }
+        if (!importArg.empty()) {  // the wizard's steps with the recommended choices, then Import
+            const size_t bar = importArg.find('|');
+            ImportWizardView v(fs::path(widen(importArg.substr(bar + 1))).wstring());
+            const bool was = std::exchange(gSelfTest, true);
+            const bool read = gDataOk && bar != std::string::npos && v.setFile(fs::path(widen(importArg.substr(0, bar))));
+            for (int k = 0; read && k < 4; ++k) v.stepped(kImportNext);
+            const bool made = read && v.step() == 3 && importFromWizard(v);
+            gSelfTest = was;
+            std::printf("import: %s, %s\n", made && activeProject() ? "the project is made and open (yes)" : "no project (WRONG)", narrow(gState.message).c_str());
+        }
         for (int m = 0; !modeArg.empty() && m < kModeCount; ++m) {
             std::string name = narrow(kModeNames[m]);
             std::transform(name.begin(), name.end(), name.begin(), [](unsigned char ch) { return char(std::tolower(ch)); });
@@ -1044,6 +1059,29 @@ int main(int argc, char** argv) {
                 gPassagesView.openForShot(std::filesystem::u8path(f), row);
                 shown = &gPassagesView;
             } else if (dialogArg == "newproject") shown = &projectShot;
+            else if (dialogArg.rfind("kitgallery", 0) == 0) {  // kitgallery[:<scroll>]: View > Control kit, scrolled down that far (px)
+                shown = &gKitView;
+                gKitView.scroll = dialogArg.size() > 11 ? std::max(0, std::atoi(dialogArg.c_str() + 11)) : 0;
+            }
+            else if (dialogArg.rfind("import:", 0) == 0) {  // import:<file>|<step 1 to 4>[|<build folder>]: File > Import a project at that step
+                static ImportWizardView importShot(defaultProjectsFolder().make_preferred().wstring());
+                static stardraft::kit::Dialog importDlg;
+                const draw::Point sz = importWizardSetup(importDlg, importShot);
+                std::vector<std::string> parts;
+                for (size_t at = 7;;) {
+                    const size_t bar = dialogArg.find('|', at);
+                    parts.push_back(dialogArg.substr(at, bar == std::string::npos ? std::string::npos : bar - at));
+                    if (bar == std::string::npos) break;
+                    at = bar + 1;
+                }
+                if (!parts[0].empty()) importShot.setFile(fs::path(widen(parts[0])));
+                if (parts.size() > 2 && !parts[2].empty()) importShot.setBuildFolder(fs::path(widen(parts[2])));
+                const int step = parts.size() > 1 ? std::atoi(parts[1].c_str()) : 1;
+                for (int k = 1; k < step; ++k) importShot.stepped(kImportNext);
+                std::printf("import: step %d of 4\n", importShot.step() + 1);
+                for (int k = 0; k < 3 && importShot.step() == 3; ++k) std::printf("summary %d:\n%s\n", k + 1, narrow(importShot.summaryText(k)).c_str());
+                shown = &importDlg, width = sz.x, height = sz.y;
+            }
             else if (dialogArg == "prompt") shown = &promptShot;
             else if (dialogArg == "listpick") shown = &pickShot;
             else if (dialogArg == "toolpopout") shown = toolPopoutShot();  // (core/views_toolstrip.inc)

@@ -124,6 +124,7 @@
 #include "views_feedback.inc"
 #include "feedback_send.inc"  // the feedback's files and sending (both programs' Send)
 #include "views_new_project.inc"
+#include "views_import_project.inc"  // File > Import a project (EUD Editor 3 and 2, euddraft)
 #include "views_message_box.inc"
 #include "views_isom_rules.inc"  // Tools > Cosmonarchy > Custom isom terrain editor (the mod's terrain rules files)
 #include "views_passages.inc"    // Tools > Cosmonarchy > Ramp and bridge mapper (the mod's passages files)

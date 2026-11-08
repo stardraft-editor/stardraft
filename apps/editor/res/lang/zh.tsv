@@ -2805,3 +2805,120 @@ Mask: painting changes only the tiles with an outline. Alt+click takes one out.	
 No mask: painting changes all tiles	无蒙版：绘制会更改所有图块
 Nothing changed: the mask keeps these tiles	没有更改：蒙版保留了这些图块
 Nothing changed: the mask keeps this terrain	没有更改：蒙版保留了此地形
+# File > Import a project (core/views_import_project.inc)
+&Import a project…	导入项目(&I)…
+File	文件
+Select the project to import	选择要导入的项目
+EUD Editor and euddraft projects (*.e3s, *.e2s, *.eds)	EUD Editor 和 euddraft 项目 (*.e3s, *.e2s, *.eds)
+Output map	输出地图
+Select the map	选择地图
+StarCraft maps (*.scx, *.scm)	StarCraft 地图 (*.scx, *.scm)
+Select the build folder of the old editor	选择旧编辑器的构建文件夹
+Scripts from	脚本来源
+1 value: %s	1 个值：%s
+%s values: %s	%s 个值：%s
+1 file: %s	1 个文件：%s
+%s files, in their folders: %s	%s 个文件，在各自的文件夹中：%s
+Needs the build folder	需要构建文件夹
+From the build folder	来自构建文件夹
+The map %s, copied into the project	地图 %s，复制到项目中
+Build writes the map to %s	构建将地图写入 %s
+%s: needs the build folder	%s：需要构建文件夹
+Select EUD Editor 2's build folder (Data\\eudplibdata) in step 2, or build the map once in EUD Editor 2 and import again	在第 2 步中选择 EUD Editor 2 的构建文件夹（Data\\eudplibdata），或在 EUD Editor 2 中构建一次地图后再次导入
+Select EUD Editor 3's build folder (BuildData_<name>) in step 2, or build the map once in EUD Editor 3 and import again	在第 2 步中选择 EUD Editor 3 的构建文件夹（BuildData_<name>），或在 EUD Editor 3 中构建一次地图后再次导入
+(from the build folder)	（来自构建文件夹）
+The build folder is not used: the scripts with macros, block scripts and classic triggers come in as text that euddraft cannot build	未使用构建文件夹：带宏的脚本、块脚本和经典触发器以 euddraft 无法构建的文本导入
+TriggerEditor.eps is EUD Editor 2's code for an older euddraft: build, then correct the errors that the log shows	TriggerEditor.eps 是 EUD Editor 2 为旧版 euddraft 生成的代码：请构建，然后更正日志显示的错误
+The build folder is of another map: select the build folder of this project	构建文件夹属于另一张地图：请选择此项目的构建文件夹
+Could not read the file. %s	无法读取文件。%s
+EUD Editor 3 project, saved by version %s	EUD Editor 3 项目，由版本 %s 保存
+EUD Editor 2 project, saved by version %s	EUD Editor 2 项目，由版本 %s 保存
+euddraft project	euddraft 项目
+Found	已找到
+No build in this folder	此文件夹中没有构建
+EUD Editor 2 writes the code of its trigger editor and of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2 仅在构建时写入其触发器编辑器和部分插件的代码。其构建文件夹是 EUD Editor 2 文件夹中的 Data\\eudplibdata。
+EUD Editor 3 writes the code of macros, block scripts, classic triggers, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3 仅在构建时写入宏、块脚本、经典触发器、BGM 播放器和点阵图像的代码。其构建文件夹是 BuildData_<name>，位于地图或项目文件旁边，或 EUD Editor 3 文件夹的 Data\\temp 中。
+Import	导入
+Next	下一步
+Could not import the project. %s	无法导入项目。%s
+Imported the project %s	已导入项目 %s
+Imported the project %s. What did not come over is in notes\\Import report.txt	已导入项目 %s。未导入的内容见 notes\\Import report.txt
+1 text	1 个文本
+%s texts	%s 个文本
+1 set	1 个按钮组
+%s sets	%s 个按钮组
+1 unit uses another unit's set	1 个单位使用另一个单位的按钮组
+%s units use another unit's set	%s 个单位使用另一个单位的按钮组
+1 list	1 个列表
+%s lists	%s 个列表
+1 unit	1 个单位
+%s units	%s 个单位
+1 note, kept in notes\\EUD Editor 3 notes.txt	1 条备注，保存在 notes\\EUD Editor 3 notes.txt
+%s notes, kept in notes\\EUD Editor 3 notes.txt	%s 条备注，保存在 notes\\EUD Editor 3 notes.txt
+.dat values	.dat 值
+Texts (stat_txt.tbl)	文本 (stat_txt.tbl)
+Button sets	按钮组
+Status panels and wireframes	状态面板和线框
+Code that only EUD Editor 2 makes	仅 EUD Editor 2 生成的代码
+Code that only EUD Editor 3 makes	仅 EUD Editor 3 生成的代码
+Other files	其他文件
+euddraft plugins	euddraft 插件
+Notes for entries	条目备注
+Build settings	构建设置
+Parts that StarDraft does not edit	StarDraft 不编辑的部分
+the MSQC keys and mouse of the macros	宏的 MSQC 按键和鼠标
+the chat events of the macros	宏的聊天事件
+TriggerEditor.eps (the trigger editor's triggers)	TriggerEditor.eps（触发器编辑器的触发器）
+the plugin MurakamiShiinaQC (keys and mouse)	插件 MurakamiShiinaQC（按键和鼠标）
+the plugin grpinjector (cursor pictures)	插件 grpinjector（光标图片）
+the plugin dataDumper (its files)	插件 dataDumper（其文件）
+SC Archive (its online save and load): StarDraft has no online service	SC Archive（在线保存和读取）：StarDraft 没有在线服务
+SCDB (its online save and load): StarDraft has no online service	SCDB（在线保存和读取）：StarDraft 没有在线服务
+the tileset edits: StarDraft does not change tilesets	图块集编辑：StarDraft 不更改图块集
+the dialog (.bin) edits: StarDraft does not change dialogs	对话框（.bin）编辑：StarDraft 不更改对话框
+the sound player's sounds: add the sounds in the Files workspace	声音播放器的声音：请在“文件”工作区中添加声音
+build after save: build with Ctrl+B	保存后构建：请用 Ctrl+B 构建
+custom stat_txt.tbl is off in EUD Editor 3: the texts come over and are used	EUD Editor 3 中的自定义 stat_txt.tbl 已关闭：文本会导入并使用
+epTrace debug: the project's Trace build is on	epTrace 调试：项目的跟踪构建已开启
+Parts	部分
+Summary	摘要
+The file to import	要导入的文件
+Map and build folder	地图和构建文件夹
+What to import	导入什么
+Check, then import	检查后导入
+Select the project	选择项目
+Select what to import	选择要导入的内容
+An EUD Editor 3 (.e3s), EUD Editor 2 (.e2s) or euddraft (.eds) project. StarDraft makes a new project from it. The old project does not change.	EUD Editor 3（.e3s）、EUD Editor 2（.e2s）或 euddraft（.eds）项目。StarDraft 会用它创建新项目。旧项目不会改变。
+The new project gets a copy of the map.	新项目获得地图的副本。
+Import makes the project and opens it.	导入会创建项目并打开它。
+No project selected	未选择项目
+Select…	选择…
+New project	新项目
+In the project folder (%s_EUD.scx)	在项目文件夹中（%s_EUD.scx）
+Where the old project writes it (%s)	旧项目写入的位置（%s）
+Where the old project writes it (none)	旧项目写入的位置（无）
+EUD Editor 2's build folder	EUD Editor 2 的构建文件夹
+EUD Editor 3's build folder	EUD Editor 3 的构建文件夹
+Another map's build	另一张地图的构建
+The project file (as written)	项目文件（按原样）
+The build folder (as built)	构建文件夹（按构建结果）
+Included	包含
+Not supported	不支持
+Left out	已排除
+%s: left out	%s：已排除
+part to import	个要导入的部分
+parts to import	个要导入的部分
+part not imported	个不导入的部分
+parts not imported	个不导入的部分
+Not imported: no build folder	不导入：没有构建文件夹
+Clear a part to leave it out.	取消勾选某部分即可不导入。
+The map is not on this computer. Select it to go on.	此计算机上没有该地图。请选择地图以继续。
+New project %s, in %s	新项目 %s，位于 %s
+Build the project (Ctrl+B) and test the map	构建项目（Ctrl+B）并测试地图
+To import	要导入
+To do	待办
+Select the build folder…	选择构建文件夹…
+1 file	1 个文件
+%s files	%s 个文件
+thing to do	项待办
+things to do	项待办

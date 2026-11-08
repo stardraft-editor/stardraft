@@ -27,6 +27,7 @@ struct DialogButton {
     bool cancel = false;     // Escape presses it
     bool left = false;       // at the left edge, in order (the rest stay at the right)
     int width = 0;           // at 100 %: the button's width (0: its preferred width)
+    bool step = false;       // the button does not close the dialog: it calls Dialog::stepped (a wizard's Back and Next)
 };
 
 // The space around a dialog's content and buttons, at 100 %: the content sits `top`/`left`/`right` from the window's
@@ -65,6 +66,10 @@ public:
     // neither a click, Enter nor the close box takes it. `allow(result)` says when it may close.
     void setAllow(std::function<bool(int)> allow);
     void setEnabledFor(int result, bool on);
+    // A button's text (a wizard's Next, which is Import on the last step).
+    void setTextFor(int result, std::wstring text);
+    // Called with the result of a step button (DialogButton::step), which does not close the dialog.
+    std::function<void(int)> stepped;
     bool closed() const { return done_; }
     // The result of the close, or kDialogClosed while the dialog is open.
     int result() const { return done_ ? result_ : kDialogClosed; }

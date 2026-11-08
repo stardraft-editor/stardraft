@@ -96,8 +96,21 @@ void Dialog::setEnabledFor(int result, bool on) {
         if (specs_[k].result == result) buttons_[k]->setEnabled(on);
 }
 
+void Dialog::setTextFor(int result, std::wstring text) {
+    for (size_t k = 0; k < specs_.size() && k < buttons_.size(); ++k)
+        if (specs_[k].result == result) specs_[k].text = text, buttons_[k]->setText(std::move(text));
+    invalidate();  // (paint measures the buttons again: layout)
+}
+
 void Dialog::press(int result) {
+    for (size_t k = 0; k < specs_.size() && k < buttons_.size(); ++k)
+        if (specs_[k].result == result && !buttons_[k]->enabled()) return;  // (Enter on a disabled Next)
     if (allow_ && !allow_(result)) return;
+    for (const DialogButton& s : specs_)
+        if (s.result == result && s.step) {
+            if (stepped) stepped(result);
+            return;
+        }
     close(result);
 }
 

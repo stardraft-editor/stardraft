@@ -17,6 +17,23 @@ public:
     float slider = 0.4f;
     std::vector<std::wstring> order = {L"generated/strings.eps", L"scripts/intro.eps", L"scripts/waves.eps", L"scripts/boss.eps", L"scripts/main.eps"};
 
+    // The kit's view widgets that the page shows as they are (the samples above are its painted faces): badges, a card
+    // with a stepper (a click on a done step goes back to it).
+    KitGalleryView() {
+        using stardraft::kit::BadgeTone;
+        const std::pair<const wchar_t*, BadgeTone> badges[4] = {
+            {L"Neutral", BadgeTone::Neutral}, {L"Good", BadgeTone::Good}, {L"Warn", BadgeTone::Warn}, {L"Bad", BadgeTone::Bad}};
+        for (int i = 0; i < 4; ++i) badge_[i].setText(badges[i].first), badge_[i].setTone(badges[i].second), add(badge_[i], {0, 0, 0, 0});
+        add(card_, {0, 0, 0, 0});
+        stepper_.setSteps({{L"Project", L"The file to import"}, {L"Map", L"Map and build folder"}, {L"Parts", L"What to import"}, {L"Summary", L"Check, then import"}});
+        stepper_.setCurrent(2);
+        stepper_.onSelect = [this](int i) { stepper_.setCurrent(i), ++clicks, invalidate(); };
+        card_.add(stepper_, {0, 0, 0, 0});
+        cardNote_.setText(L"A card: the panel color, a 1 px border, the kit's radius");
+        cardNote_.setTone(stardraft::kit::LabelTone::Dim);
+        add(cardNote_, {0, 0, 0, 0});
+    }
+
     void setScroll(int s) {
         scroll = std::clamp(s, 0, std::max(0, pageH - height()));
         invalidate();
@@ -378,6 +395,26 @@ public:
             caption(sx - scale(10), y + scale(4), L"scroll bar, rest / held");
             y += scale(30);
         }
+        // Badges, cards and steppers (apps/kit: badge.h, card.h, stepper.h): real widgets, placed here as the page scrolls.
+        section(L"Badges, cards and steppers");
+        {
+            label(L"Badges");
+            int x = col;
+            for (auto& b : badge_) {
+                const int w = b.preferredWidth(c);
+                b.setFrame({x, y + scale(7), x + w, y + scale(7 + 22)});
+                x += w + scale(12);
+            }
+            caption(col, y + scale(32), L"a state in a box: the text says it, the tone repeats it (File > Import a project: Found, Not supported)");
+            y += scale(32) + scale(22);
+            label(L"Card, stepper");
+            const int h = 4 * stardraft::kit::kStepH + 24;
+            card_.setFrame({col, y, col + scale(220), y + scale(h)});
+            stepper_.setFrame({scale(16), scale(16), scale(220 - 24), scale(16 + 4 * stardraft::kit::kStepH)});
+            cardNote_.setFrame({col + scale(240), y, colRight, y + scale(22)});
+            caption(col + scale(240), y + scale(26), L"click a done step (a check mark) to go back to it");
+            y += scale(h) + scale(18);
+        }
         c.text({x0, y, colRight, y + scale(24)}, L"Clicks on the live controls: " + std::to_wstring(clicks), kDim, draw::kMiddle);
         y += scale(40);
 
@@ -410,6 +447,10 @@ public:
 
 private:
     kitui::Surface s_;
+    stardraft::kit::Badge badge_[4];
+    stardraft::kit::Card card_;
+    stardraft::kit::Stepper stepper_;
+    stardraft::kit::Label cardNote_;
 };
 
 // The first add row's multi-pick: its units, and the ones checked in it (both programs' hosts open it with these).

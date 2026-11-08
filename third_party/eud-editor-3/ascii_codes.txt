@@ -1,0 +1,128 @@
+NUL
+Ctrl+A
+Ctrl+B
+Ctrl+Shift+C
+Ctrl+D
+Ctrl+E
+Ctrl+F
+Ctrl+G
+NUL
+Tab
+Ctrl+J
+Ctrl+K
+Ctrl+L
+Enter
+Ctrl+N
+Ctrl+O
+Ctrl+P
+Ctrl+Shift+Q
+Ctrl+Shift+R
+Ctrl+Shift+S
+Ctrl+T
+Ctrl+U
+Ctrl+V
+Ctrl+W
+Ctrl+Shift+X
+Ctrl+Y
+Ctrl+Z
+ESC
+Ctrl+\\
+Ctrl+]
+Ctrl+^
+Ctrl+_
+Space
+NUL
+"
+NUL
+NUL
+NUL
+NUL
+'
+NUL
+NUL
+Npad *
++
+,
+-
+.
+/
+NPad 0
+NPad 1
+NPad 2
+NPad 3
+NPad 4
+NPad 5
+NPad 6
+NPad 7
+NPad 8
+NPad 9
+:
+;
+\<
+NUL
+\>
+?
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+NUL
+[
+\\
+]
+NUL
+_
+`
+KEY A
+KEY B
+KEY C
+KEY D
+KEY E
+KEY F
+KEY G
+KEY H
+KEY I
+KEY J
+KEY K
+KEY L
+KEY M
+KEY N
+KEY O
+KEY P
+KEY Q
+KEY R
+KEY S
+KEY T
+KEY U
+KEY V
+KEY W
+KEY X
+KEY Y
+KEY Z
+{
+|
+}
+~
+Ctrl+BackSpace

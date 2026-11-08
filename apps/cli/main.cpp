@@ -1345,8 +1345,26 @@ void loadMapFiles(Editor& ed, const Work& w) { ed.setArchiveFiles(mapFiles(w)); 
 
 // import <project file> <parent folder> <name>: an EUD Editor 2 (.e2s) or euddraft (.eds, .edd) project into a new
 // StarDraft project (roadmap R52), and what did and did not come in.
+// import <project file> [--build <folder>]: only what the file holds, part by part (scanImport), and how each part comes
+// over.
 Json cmdImport(Session& s) {
-    if (s.args.positional.size() < 3) fail("usage: stardraft-cli import <.e2s, .eds or .edd> <parent folder> <name>");
+    if (s.args.positional.size() == 1) {
+        if (!s.dataOpen) openGameData(s.data, s.args.get("install")), s.dataOpen = true;
+        ImportScan scan;
+        std::string err;
+        if (!scanImport(upath(s.args.positional[0]), s.data, scan, err, upath(s.args.get("build")))) fail(err);
+        Json parts = jarr();
+        for (const ImportPart& p : scan.parts) {
+            Json d = jarr();
+            for (const std::string& l : p.details) d.items.push_back(jstr(l));
+            parts.items.push_back(Obj().add("id", p.id).add("count", p.count).add("way", p.way == ImportPart::Way::Native ? "native" : p.way == ImportPart::Way::Build ? "build" : "none")
+                                      .add("needsBuild", p.needsBuild).add("why", p.why).add("details", d));
+        }
+        const auto u = [](const fs::path& p) { const auto s8 = p.u8string(); return std::string(s8.begin(), s8.end()); };
+        return Obj().add("kind", scan.kind).add("version", scan.version).add("map", u(scan.map)).add("mapFound", scan.mapFound)
+            .add("output", u(scan.output)).add("buildFolder", u(scan.buildFolder)).add("buildMatches", scan.buildMatches).add("parts", parts);
+    }
+    if (s.args.positional.size() < 3) fail("usage: stardraft-cli import <.e3s, .e2s, .eds or .edd> [<parent folder> <name>]");
     if (!s.dataOpen) openGameData(s.data, s.args.get("install")), s.dataOpen = true;
     EudProject pr;
     ImportReport rep;
