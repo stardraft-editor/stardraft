@@ -195,7 +195,6 @@ std::vector<int64_t> shapeSettingsKey() {
 }
 
 void shellShapeLater(int ms);  // (the program: shapeUpdate again after ms, then the map view paints)
-int mapLayersPaintShape(Editor& ed, bool stroke, const std::vector<std::pair<int, int>>& geom, const Brush& brush, uint16_t t, bool closed);  // (core/map_layers.inc)
 
 // The bridge's width from the brush's size: size 0.5 the ends only, else as many middle pieces as the size.
 int bridgeWidth() {
@@ -458,16 +457,6 @@ void shapeFinish() {
         return;
     }
     gShape.points = pts;
-    // (Isometric, a layer active: the shape's corners outside of the map go into the layer, its own undo step; the rest
-    // on the map as below. The copy is made after it: the map's edge tiles fit the layer's terrain outside.)
-    const int outside = !app.terrainRect && tool != TBridge && tool != TRamp
-                            ? mapLayersPaintShape(ed, isStrokeShape(tool), shapeGeometry(pts), currentBrush(app), uint16_t(app.palette), tool != TLine)
-                            : 0;
-    if (outside < 0) {
-        shapeReset();
-        app.dirty = true;
-        return;
-    }
     gShape.made = false;  // (made again now, of the map as it is: the copy that the map takes holds it)
     shapeUpdate(true);
     if (tool == TRamp && gShape.unramp) {
@@ -537,8 +526,7 @@ void shapeFinish() {
         ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
         tilesPlacedMessage(gShape.cells.empty() ? 0 : tilesPut(gShape.cells), L"Placed");
     } else if (!gShape.made || !gShape.copyHolds || gShape.ghost.empty()) {
-        setMessage(outside > 0 ? L"Painted the shape on the layer outside of the map"
-                   : ed.terrainMask().empty() ? L"The terrain is the same already" : L"Nothing changed: the mask keeps this terrain");
+        setMessage(ed.terrainMask().empty() ? L"The terrain is the same already" : L"Nothing changed: the mask keeps this terrain");
     } else {
         // (the map takes the copy's scenario: the units and the locations that were selected stay selected)
         const std::vector<int> units = ed.selection(), locations = ed.selectedLocations();

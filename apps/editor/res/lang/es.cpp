@@ -3038,12 +3038,7 @@ constexpr UiText kRows[] = {
     {L"&Show terrain outside of map boundaries", L"&Mostrar el terreno fuera de los l\u00EDmites del mapa"},
     {L"Map layers: terrain outside of map boundaries shows", L"Capas del mapa: se muestra el terreno fuera de los l\u00EDmites del mapa"},
     {L"Map layers: terrain outside of map boundaries is hidden", L"Capas del mapa: el terreno fuera de los l\u00EDmites del mapa est\u00E1 oculto"},
-    {L"To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries", L"Para pintar fuera del mapa, active Capas del mapa > Ajustes > Mostrar el terreno fuera de los l\u00EDmites del mapa"},
-    {L"To paint outside of the map, select a layer in Map layers (the Background stays on the map)", L"Para pintar fuera del mapa, seleccione una capa en Capas del mapa (el Fondo se queda en el mapa)"},
-    {L"The layer is hidden", L"La capa est\u00E1 oculta"},
-    {L"Did not fill: the area is too large. Draw an outline round it first (Contour or Polygon)", L"No se rellen\u00F3: el \u00E1rea es demasiado grande. Primero dibuje un contorno a su alrededor (Contorno o Pol\u00EDgono)"},
-    {L"Filled the terrain on the layer", L"Se rellen\u00F3 el terreno en la capa"},
-    {L"Painted the shape on the layer outside of the map", L"Se pint\u00F3 la forma en la capa fuera del mapa"},
+    {L"Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)", L"El terreno solo se puede editar en el mapa. Para tener terreno fuera de \u00E9l, p\u00EDntelo en una capa y luego saque la capa (Capas del mapa > Mover capa)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

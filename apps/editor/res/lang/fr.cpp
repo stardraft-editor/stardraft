@@ -3038,12 +3038,7 @@ constexpr UiText kRows[] = {
     {L"&Show terrain outside of map boundaries", L"&Afficher le terrain hors des limites de la carte"},
     {L"Map layers: terrain outside of map boundaries shows", L"Calques de la carte : le terrain hors des limites de la carte s'affiche"},
     {L"Map layers: terrain outside of map boundaries is hidden", L"Calques de la carte : le terrain hors des limites de la carte est masqu\u00E9"},
-    {L"To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries", L"Pour peindre hors de la carte, activez Calques de la carte > Param\u00E8tres > Afficher le terrain hors des limites de la carte"},
-    {L"To paint outside of the map, select a layer in Map layers (the Background stays on the map)", L"Pour peindre hors de la carte, s\u00E9lectionnez un calque dans Calques de la carte (l'Arri\u00E8re-plan reste sur la carte)"},
-    {L"The layer is hidden", L"Le calque est masqu\u00E9"},
-    {L"Did not fill: the area is too large. Draw an outline round it first (Contour or Polygon)", L"Remplissage non fait : la zone est trop grande. Tracez d'abord un contour autour (Contour ou Polygone)"},
-    {L"Filled the terrain on the layer", L"Terrain rempli sur le calque"},
-    {L"Painted the shape on the layer outside of the map", L"Forme peinte sur le calque hors de la carte"},
+    {L"Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)", L"Le terrain ne se modifie que sur la carte. Pour avoir du terrain hors de la carte, peignez-le sur un calque, puis sortez le calque (Calques de la carte > D\u00E9placer le calque)"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

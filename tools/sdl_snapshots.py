@@ -322,6 +322,9 @@ CASES += [
     ("map-dialog-revealers", ["--dialog", "revealers"], "map"),
     ("map-revealers-place", ["--script", "{script:revealers}"], "map"),
     ("map-terrain-brush-sizes", ["--script", "{script:brushsizes}"], "map"),
+    # Terrain is edited on the map only: off the map a Terrain tool's cursor is No, and a press there changes nothing
+    # and says why (core/map_input.inc: terrainEditBlockedAt).
+    ("map-terrain-off-map", ["--script", "{script:terrainoffmap}"], "map"),
     ("map-terrain-paste-other-map", ["--script", "{script:terraincrossmap}"], "map"),
     ("map-revealers-hidden", ["--script", "{script:revealersHidden}"], "map"),
     # View > Units list: the Unit properties window with the list in its left column (the first unit, its picture and fields
@@ -1408,6 +1411,12 @@ click 900,800
 """,
     # Isometric and Rectangle each keep their own brush size (GitHub #155): Alt+wheel makes Isometric's 4; Rectangle's
     # is 2 and goes to 1; Isometric's is 4 again, then Rectangle's 1.
+    # Terrain's Brush with a terrain picked: the mouse off the map (left of a map that the view fits), then a press there.
+    "terrainoffmap": """mode terrain
+click 196,693
+move 350,500
+click 350,500
+""",
     "brushsizes": """mode terrain
 wheel 832,500,0,1:Alt
 wheel 832,500,0,1:Alt
@@ -4626,6 +4635,23 @@ def check_palette_units(output):
     return None
 
 
+def check_terrain_off_map(output):
+    """Off the map: the cursor is No, and the press there says that terrain is edited on the map only (no edit)."""
+    steps = re.split(r"\n(?=(?:move|click) \d)", output)
+    moved = next((t for t in steps if t.startswith("move 350,500")), "")
+    pressed = next((t for t in steps if t.startswith("click 350,500")), "")
+    if "cursor=no" not in moved:
+        return "the cursor off the map is not No"
+    if "Terrain can be edited only on the map" not in pressed:
+        return "a press off the map did not say that terrain is edited on the map only"
+    before, after = re.search(r" terrain=(\d+)", moved), re.search(r" terrain=(\d+)", pressed)
+    if not before or not after:
+        return "the state lines have no terrain= (the terrain's hash)"
+    if before.group(1) != after.group(1):
+        return "a press off the map changed the terrain"
+    return None
+
+
 CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place: ran (yes)" in o else "the place command did not run",
           "map-creep": lambda o: ("no creep tiles under the Hatchery" if not re.search(r"creep: a Hatchery placed .*; (\d+) creep tiles.* \(yes\)", o)
                                   else None if re.search(r"creep: [1-9]\d* edge sprites in the scene, \d+ tiles with an edge.* \(yes\)", o)
@@ -4660,7 +4686,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-terrain-rect-quick": check_rect_quick, "map-terrain-rect-quick-scroll": check_rect_quick_scroll,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
           "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed, "map-paste-owner": check_paste_owner,
-          "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click, "map-quick-typing": check_quick_typing, "map-terrain-brush-sizes": check_brush_sizes, "map-terrain-paste-other-map": check_terrain_other_map,
+          "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click, "map-quick-typing": check_quick_typing, "map-terrain-brush-sizes": check_brush_sizes, "map-terrain-off-map": check_terrain_off_map, "map-terrain-paste-other-map": check_terrain_other_map,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
           "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits, "map-classictrig-quickadd": check_classic_quickadd, "map-classictrig-find": check_classic_find,

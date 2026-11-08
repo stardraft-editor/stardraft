@@ -1067,6 +1067,7 @@ render::Scene buildScene() {
                 s.sprites.push_back(g);
             }
         }
+    } else if (terrainEditBlockedAt(app, wx, wy)) {  // (off the map: no brush; the cursor says No: map_input.inc)
     } else if (app.mode == Mode::Terrain && app.drag == Drag::TerrainMove && app.hasTerrainSel) {
         terrainMoveScene(s);
     } else if (app.mode == Mode::Terrain && shapeOn()) {

@@ -3038,12 +3038,7 @@ constexpr UiText kRows[] = {
     {L"&Show terrain outside of map boundaries", L"\u663E\u793A\u5730\u56FE\u8FB9\u754C\u5916\u7684\u5730\u5F62(&S)"},
     {L"Map layers: terrain outside of map boundaries shows", L"\u5730\u56FE\u56FE\u5C42\uFF1A\u663E\u793A\u5730\u56FE\u8FB9\u754C\u5916\u7684\u5730\u5F62"},
     {L"Map layers: terrain outside of map boundaries is hidden", L"\u5730\u56FE\u56FE\u5C42\uFF1A\u5DF2\u9690\u85CF\u5730\u56FE\u8FB9\u754C\u5916\u7684\u5730\u5F62"},
-    {L"To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries", L"\u8981\u5728\u5730\u56FE\u5916\u7ED8\u5236\uFF0C\u8BF7\u6253\u5F00 \u5730\u56FE\u56FE\u5C42 > \u8BBE\u7F6E > \u663E\u793A\u5730\u56FE\u8FB9\u754C\u5916\u7684\u5730\u5F62"},
-    {L"To paint outside of the map, select a layer in Map layers (the Background stays on the map)", L"\u8981\u5728\u5730\u56FE\u5916\u7ED8\u5236\uFF0C\u8BF7\u5728\u5730\u56FE\u56FE\u5C42\u4E2D\u9009\u62E9\u4E00\u4E2A\u56FE\u5C42\uFF08\u80CC\u666F\u7559\u5728\u5730\u56FE\u4E0A\uFF09"},
-    {L"The layer is hidden", L"\u56FE\u5C42\u5DF2\u9690\u85CF"},
-    {L"Did not fill: the area is too large. Draw an outline round it first (Contour or Polygon)", L"\u672A\u586B\u5145\uFF1A\u533A\u57DF\u592A\u5927\u3002\u8BF7\u5148\u5728\u5176\u5468\u56F4\u753B\u51FA\u8F6E\u5ED3\uFF08\u8F6E\u5ED3\u6216\u591A\u8FB9\u5F62\uFF09"},
-    {L"Filled the terrain on the layer", L"\u5DF2\u586B\u5145\u56FE\u5C42\u4E0A\u7684\u5730\u5F62"},
-    {L"Painted the shape on the layer outside of the map", L"\u5DF2\u5728\u5730\u56FE\u5916\u7684\u56FE\u5C42\u4E0A\u7ED8\u5236\u5F62\u72B6"},
+    {L"Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)", L"\u53EA\u80FD\u5728\u5730\u56FE\u4E0A\u7F16\u8F91\u5730\u5F62\u3002\u8981\u5728\u5730\u56FE\u5916\u653E\u7F6E\u5730\u5F62\uFF0C\u8BF7\u5148\u5728\u56FE\u5C42\u4E0A\u7ED8\u5236\uFF0C\u7136\u540E\u628A\u56FE\u5C42\u79FB\u51FA\u53BB\uFF08\u5730\u56FE\u56FE\u5C42 > \u79FB\u52A8\u56FE\u5C42\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

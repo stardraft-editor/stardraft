@@ -13,8 +13,8 @@ bool trigUnitPickClick(float wx, float wy);
 int sprayAt(float wx, float wy);
 void tilesMouseMove(float wx, float wy);
 bool mapLayersEraseOn(AppState& app);  // (core/map_layers.inc)
-bool mapLayersPaintOutsideOn(AppState& app, float wx, float wy, unsigned mods);
-void mapLayersPaintDown(AppState& app, float wx, float wy);
+bool terrainEditBlockedAt(const AppState& app, float wx, float wy);  // (below)
+void terrainEditBlockedMessage();
 void mapLayersSync();
 void mapLayersLiveStroke(AppState& app);
 struct LayersLiveAfter {  // (when the mouse's event ends: what it painted is under the layers over it)
@@ -304,9 +304,9 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         return;
     }
     if (modeLayerHidden()) return modeLayerHiddenClick();  // (core/map_edit.inc)
+    if (terrainEditBlockedAt(app, wx, wy)) return terrainEditBlockedMessage();  // (Terrain: on the map only)
     if (trigUnitPickClick(wx, wy)) return;
     if (mapLayersEraseOn(app)) return mapLayersEraseDown(app, wx, wy);
-    if (mapLayersPaintOutsideOn(app, wx, wy, mods)) return mapLayersPaintDown(app, wx, wy);  // (Brush outside of the map: on the layer)
     if (app.mode == Mode::Layers) return mapLayersMoveDown(app, wx, wy);
     if (app.pasting) {
         // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted
@@ -1103,8 +1103,24 @@ bool fillClickFills(AppState& app) {
     if (app.mode != Mode::Terrain || currentTool() != TFill) return false;
     return app.terrainRect ? tilesHavePick() : app.ed->canPaintTerrain() && app.palette > 0;
 }
+// Terrain is edited on the map only: a Terrain tool that paints where it is pressed (Brush, Spray, Fill, Replace, Jumble,
+// Erase, Bridge, Ramp) with no drag under way, at map point (wx, wy) off the map. The selection tools and the shapes may
+// start there (a shape changes the map's part of it only). To have terrain outside of the map: paint it on a layer,
+// then move the layer out (Map layers > Move layer).
+bool terrainEditBlockedAt(const AppState& app, float wx, float wy) {
+    if (app.mode != Mode::Terrain || !app.ed || app.drag != Drag::None || shapeOn()) return false;
+    const int tool = currentTool(app);
+    if (tool == TSelect || tool == TMoveSel || tool == TLasso || tool == TWand || tool == TLine || tool == TContour || tool == TPolygon || isBoxTool(tool))
+        return false;
+    return wx < 0 || wy < 0 || wx >= app.ed->width() * 32.0f || wy >= app.ed->height() * 32.0f;
+}
+void terrainEditBlockedMessage() {
+    setMessage(L"Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)");
+}
+
 stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
     using stardraft::draw::Cursor;
+    if (float wx, wy; toWorld(app, x, y, wx, wy), terrainEditBlockedAt(app, wx, wy)) return Cursor::No;  // (off the map)
     if (app.mode == Mode::Layers && app.drag != Drag::Pan && app.drag != Drag::AutoPan) return Cursor::SizeAll;  // (Move Layer)
     if (app.mode == Mode::Terrain && currentTool(app) == TMoveSel && app.drag != Drag::Pan && app.drag != Drag::AutoPan) return Cursor::SizeAll;
     if (app.drag == Drag::Pan || app.drag == Drag::AutoPan || app.drag == Drag::SymmetryCenter) return Cursor::SizeAll;
