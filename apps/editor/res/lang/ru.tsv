@@ -3214,3 +3214,33 @@ Search technologies	Поиск технологий
 Map layers: terrain outside of map boundaries shows	Слои карты: местность за границами карты показана
 Map layers: terrain outside of map boundaries is hidden	Слои карты: местность за границами карты скрыта
 Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	Местность можно редактировать только на карте. Чтобы местность была за её пределами, нарисуйте её на слое, затем вынесите слой (Слои карты > Переместить слой)
+Select a music track	Выберите музыкальную дорожку
+Select a dot image	Выберите точечное изображение
+The project has no music track "	В проекте нет музыкальной дорожки "
+The project has no dot image "	В проекте нет точечного изображения "
+". Add it in the Assets workspace	". Добавьте его в рабочей области «Ресурсы»
+The project has no music tracks. Add one in the Assets workspace, or remove this block	В проекте нет музыкальных дорожек. Добавьте одну в рабочей области «Ресурсы» или удалите этот блок
+Play music track	Воспроизвести музыкальную дорожку
+play the music track {track} for {to}	воспроизвести музыкальную дорожку {track} для {to}
+Plays a music track of the project (Assets > Music) on each player's own computer. The track plays from its start. At its end, it plays again from its start. It plays until Stop the music track, Pause the music track or another Play music track. Build puts the track into the map in parts of 2.28 seconds.	Воспроизводит музыкальную дорожку проекта («Ресурсы» > «Музыка») на компьютере каждого игрока. Дорожка играет с начала. В конце она снова играет с начала. Она играет до блока «Остановить музыкальную дорожку», «Приостановить музыкальную дорожку» или другого «Воспроизвести музыкальную дорожку». Сборка помещает дорожку в карту частями по 2,28 секунды.
+A player hears one music track at a time. The time is the real time, so the track keeps its pace at any game speed.	Игрок слышит одну музыкальную дорожку за раз. Время реальное, поэтому дорожка сохраняет темп при любой скорости игры.
+play the music track "Boss theme" for all players: the boss fight starts.	воспроизвести музыкальную дорожку "Boss theme" для всех игроков: начинается бой с боссом.
+Stop the music track	Остановить музыкальную дорожку
+stop the music track for {to}	остановить музыкальную дорожку для {to}
+Stops the music track of Play music track. Resume the music track then plays the track from its start.	Останавливает музыкальную дорожку блока «Воспроизвести музыкальную дорожку». После этого «Возобновить музыкальную дорожку» играет дорожку с начала.
+The part that plays now plays to its end (at most 2.28 seconds): the game cannot stop a sound.	Часть, которая играет сейчас, доигрывает до конца (не более 2,28 секунды): игра не может остановить звук.
+stop the music track for the current player: the player went out of the arena.	остановить музыкальную дорожку для текущего игрока: игрок вышел с арены.
+Pause the music track	Приостановить музыкальную дорожку
+pause the music track for {to}	приостановить музыкальную дорожку для {to}
+Stops the music track of Play music track after the part that plays now. Resume the music track plays it from the next part.	Останавливает музыкальную дорожку блока «Воспроизвести музыкальную дорожку» после части, которая играет сейчас. «Возобновить музыкальную дорожку» играет её со следующей части.
+pause the music track for all players: a cutscene with its own sounds starts.	приостановить музыкальную дорожку для всех игроков: начинается заставка со своими звуками.
+Resume the music track	Возобновить музыкальную дорожку
+resume the music track for {to}	возобновить музыкальную дорожку для {to}
+Plays the music track again after Pause the music track, from its next part. After Stop the music track, it plays the track from its start.	Снова воспроизводит музыкальную дорожку после «Приостановить музыкальную дорожку», со следующей части. После «Остановить музыкальную дорожку» играет дорожку с начала.
+It does nothing for a player that has no music track from Play music track.	Ничего не делает для игрока, у которого нет музыкальной дорожки от «Воспроизвести музыкальную дорожку».
+resume the music track for all players: the cutscene is at its end.	возобновить музыкальную дорожку для всех игроков: заставка закончилась.
+Draw dot image	Нарисовать точечное изображение
+draw the dot image {image} at {where} for {player} with {unit}, {px} pixels apart	нарисовать точечное изображение {image} в {where} для {player} с помощью {unit}, с промежутком {px} пикселей
+Draws a dot image of the project (Assets > Dot images) with units: one unit for each dot. The dots go row by row from the location, the given pixels apart. Each unit gets the color of its dot, as in EUD Editor 3's dot painter. White dots are the background: they get no unit. After the drawing, the location is where it was before.	Рисует точечное изображение проекта («Ресурсы» > «Точечные изображения») юнитами: один юнит на каждую точку. Точки идут ряд за рядом от локации, через заданное число пикселей. Каждый юнит получает цвет своей точки, как в рисовальщике точек EUD Editor 3. Белые точки — это фон: для них нет юнита. После рисования локация возвращается на прежнее место.
+It first removes all the units of this type that the player owns: use a unit type that is only for the drawing. Each dot is one unit: a picture of 30 x 30 dots makes 900 units, and a map has room for 1700 units.	Сначала удаляет все юниты этого типа, которыми владеет игрок: используйте тип юнита только для рисования. Каждая точка — один юнит: картинка из 30 x 30 точек — это 900 юнитов, а на карте место для 1700 юнитов.
+draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	нарисовать точечное изображение "Logo" в Title для Player 8 с помощью Terran Marine, с промежутком 8 пикселей: показать логотип карты в начале.

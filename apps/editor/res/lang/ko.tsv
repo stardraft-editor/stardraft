@@ -3244,3 +3244,33 @@ Search technologies	기술 검색
 Map layers: terrain outside of map boundaries shows	지도 레이어: 지도 경계 밖의 지형이 표시됩니다
 Map layers: terrain outside of map boundaries is hidden	지도 레이어: 지도 경계 밖의 지형이 숨겨집니다
 Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	지형은 지도 위에서만 편집할 수 있습니다. 지도 밖에 지형을 두려면 레이어에 칠한 다음 레이어를 밖으로 옮기세요 (지도 레이어 > 레이어 이동)
+Select a music track	음악 트랙을 선택하세요
+Select a dot image	점 이미지를 선택하세요
+The project has no music track "	프로젝트에 음악 트랙 "
+The project has no dot image "	프로젝트에 점 이미지 "
+". Add it in the Assets workspace	"이(가) 없습니다. 에셋 작업 공간에서 추가하세요
+The project has no music tracks. Add one in the Assets workspace, or remove this block	프로젝트에 음악 트랙이 없습니다. 에셋 작업 공간에서 하나를 추가하거나 이 블록을 제거하세요
+Play music track	음악 트랙 재생
+play the music track {track} for {to}	{to}에게 음악 트랙 {track} 재생
+Plays a music track of the project (Assets > Music) on each player's own computer. The track plays from its start. At its end, it plays again from its start. It plays until Stop the music track, Pause the music track or another Play music track. Build puts the track into the map in parts of 2.28 seconds.	프로젝트의 음악 트랙(에셋 > 음악)을 각 플레이어의 컴퓨터에서 재생합니다. 트랙은 처음부터 재생됩니다. 끝나면 다시 처음부터 재생됩니다. 음악 트랙 중지, 음악 트랙 일시 정지 또는 다른 음악 트랙 재생이 있을 때까지 재생됩니다. 빌드는 트랙을 2.28초 단위의 부분으로 맵에 넣습니다.
+A player hears one music track at a time. The time is the real time, so the track keeps its pace at any game speed.	플레이어는 한 번에 하나의 음악 트랙만 듣습니다. 시간은 실제 시간이므로 트랙은 어떤 게임 속도에서도 같은 빠르기로 재생됩니다.
+play the music track "Boss theme" for all players: the boss fight starts.	모든 플레이어에게 음악 트랙 "Boss theme" 재생: 보스전이 시작됩니다.
+Stop the music track	음악 트랙 중지
+stop the music track for {to}	{to}의 음악 트랙 중지
+Stops the music track of Play music track. Resume the music track then plays the track from its start.	음악 트랙 재생의 음악 트랙을 중지합니다. 그 후 음악 트랙 재개는 트랙을 처음부터 재생합니다.
+The part that plays now plays to its end (at most 2.28 seconds): the game cannot stop a sound.	지금 재생 중인 부분은 끝까지 재생됩니다(최대 2.28초). 게임은 소리를 멈출 수 없습니다.
+stop the music track for the current player: the player went out of the arena.	현재 플레이어의 음악 트랙 중지: 플레이어가 경기장을 나갔습니다.
+Pause the music track	음악 트랙 일시 정지
+pause the music track for {to}	{to}의 음악 트랙 일시 정지
+Stops the music track of Play music track after the part that plays now. Resume the music track plays it from the next part.	지금 재생 중인 부분이 끝난 뒤 음악 트랙 재생의 음악 트랙을 멈춥니다. 음악 트랙 재개는 다음 부분부터 재생합니다.
+pause the music track for all players: a cutscene with its own sounds starts.	모든 플레이어의 음악 트랙 일시 정지: 자체 소리가 있는 컷신이 시작됩니다.
+Resume the music track	음악 트랙 재개
+resume the music track for {to}	{to}의 음악 트랙 재개
+Plays the music track again after Pause the music track, from its next part. After Stop the music track, it plays the track from its start.	음악 트랙 일시 정지 뒤에 음악 트랙을 다음 부분부터 다시 재생합니다. 음악 트랙 중지 뒤에는 트랙을 처음부터 재생합니다.
+It does nothing for a player that has no music track from Play music track.	음악 트랙 재생으로 받은 음악 트랙이 없는 플레이어에게는 아무 일도 하지 않습니다.
+resume the music track for all players: the cutscene is at its end.	모든 플레이어의 음악 트랙 재개: 컷신이 끝났습니다.
+Draw dot image	점 이미지 그리기
+draw the dot image {image} at {where} for {player} with {unit}, {px} pixels apart	{player}에게 {unit}(으)로 {where}에 점 이미지 {image} 그리기, 간격 {px}픽셀
+Draws a dot image of the project (Assets > Dot images) with units: one unit for each dot. The dots go row by row from the location, the given pixels apart. Each unit gets the color of its dot, as in EUD Editor 3's dot painter. White dots are the background: they get no unit. After the drawing, the location is where it was before.	프로젝트의 점 이미지(에셋 > 점 이미지)를 유닛으로 그립니다. 점 하나에 유닛 하나입니다. 점은 로케이션에서부터 지정한 픽셀 간격으로 한 줄씩 놓입니다. 각 유닛은 EUD Editor 3의 점 그리기처럼 자기 점의 색을 받습니다. 흰 점은 배경이므로 유닛을 받지 않습니다. 그린 뒤 로케이션은 원래 자리로 돌아갑니다.
+It first removes all the units of this type that the player owns: use a unit type that is only for the drawing. Each dot is one unit: a picture of 30 x 30 dots makes 900 units, and a map has room for 1700 units.	먼저 플레이어가 가진 이 종류의 유닛을 모두 제거합니다. 그리기에만 쓰는 유닛 종류를 사용하세요. 점 하나가 유닛 하나이므로 30 x 30 점의 그림은 900 유닛이고, 맵에는 1700 유닛까지 들어갑니다.
+draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	Player 8에게 Terran Marine으로 Title에 점 이미지 "Logo" 그리기, 간격 8픽셀: 시작할 때 맵 로고를 보여 줍니다.

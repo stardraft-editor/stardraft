@@ -48,7 +48,7 @@ each scripted input's time and the frame after it; `stats` prints the memory.
 | ux | Search cues that do not name what they search | A bare "Search" placeholder ("Search <things>" is the rule) |
 | code | Test programs that fail | The tests that need no game data (as `build.yml` runs them) |
 | code | Unused static functions | A static function that no file uses |
-| code | Files of more than 3,000 lines, the largest file | `apps/`, `src/`, `include/` |
+| code | Files of more than 3,000 lines, the largest file | `apps/`, `src/`, `include/` (not the data tables that tools make: `src/data`, `src/mods`) |
 | code | Compiler warnings in our code | `--rebuild` only |
 | docs | Help pages check | `tools/help_build.py --check` |
 | docs | Links to files that are not there | The relative links of `docs/**/*.md` |
@@ -98,11 +98,11 @@ go out with it, `targets.json`'s `"accepted"` names the KPI and the reason, for 
 | Search cues that do not name what they search | ≤ 0 | 0 |
 | Test programs that fail | ≤ 0 | 1 |
 | Unused static functions | ≤ 0 | 0 |
-| Files of more than 3,000 lines | ≤ 9 | 9 |
+| Files of more than 3,000 lines (not data tables) | ≤ 3 | 3 |
 | Lines of the largest file | ≤ 5600 | 5552 |
 | Compiler warnings in our code (--rebuild) | - |  |
 | Help pages check fails | ≤ 0 | 0 |
 | Links in docs/ to files that are not there | ≤ 0 | 0 |
 
-The baseline (2026-11-08, before 0.8.8) missed two zero targets: 12 snapshot cases and trigger_test (its lock of
-the file contents: 44 new entries).
+The baseline (2026-11-08, before 0.8.8) missed two zero targets: 12 snapshot cases (fixed in 9234c52d) and
+trigger_test (its lock of the file contents is a local file, research/data: --update-lock after a change of the format).

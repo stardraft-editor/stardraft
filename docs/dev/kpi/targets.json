@@ -150,10 +150,10 @@
   },
   "files_over_3000_lines": {
    "area": "code",
-   "name": "Files of more than 3,000 lines",
+   "name": "Files of more than 3,000 lines (not data tables)",
    "unit": "",
    "dir": "max",
-   "target": 9
+   "target": 3
   },
   "largest_file_lines": {
    "area": "code",

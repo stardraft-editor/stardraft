@@ -253,7 +253,7 @@ def measure_code(exe, quick, rebuild, log):
             words[w] = words.get(w, 0) + 1
     for p, text in texts.items():
         lines = text.count("\n")
-        if lines > 3000:
+        if lines > 3000 and not {"data", "mods"} & set(p.relative_to(ROOT).parts):  # (src/data, src/mods: data tables, made by tools)
             big.append((lines, str(p.relative_to(ROOT))))
         if p.suffix == ".h":
             continue

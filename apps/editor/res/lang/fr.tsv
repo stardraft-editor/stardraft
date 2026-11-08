@@ -3214,3 +3214,33 @@ Search technologies	Rechercher des technologies
 Map layers: terrain outside of map boundaries shows	Calques de la carte : le terrain hors des limites de la carte s'affiche
 Map layers: terrain outside of map boundaries is hidden	Calques de la carte : le terrain hors des limites de la carte est masqué
 Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	Le terrain ne se modifie que sur la carte. Pour avoir du terrain hors de la carte, peignez-le sur un calque, puis sortez le calque (Calques de la carte > Déplacer le calque)
+Select a music track	Sélectionnez une piste de musique
+Select a dot image	Sélectionnez une image de points
+The project has no music track "	Le projet n'a pas de piste de musique "
+The project has no dot image "	Le projet n'a pas d'image de points "
+". Add it in the Assets workspace	". Ajoutez-la dans l'espace de travail Ressources
+The project has no music tracks. Add one in the Assets workspace, or remove this block	Le projet n'a pas de pistes de musique. Ajoutez-en une dans l'espace de travail Ressources, ou retirez ce bloc
+Play music track	Jouer une piste de musique
+play the music track {track} for {to}	jouer la piste de musique {track} pour {to}
+Plays a music track of the project (Assets > Music) on each player's own computer. The track plays from its start. At its end, it plays again from its start. It plays until Stop the music track, Pause the music track or another Play music track. Build puts the track into the map in parts of 2.28 seconds.	Joue une piste de musique du projet (Ressources > Musique) sur l'ordinateur de chaque joueur. La piste commence à son début. À sa fin, elle reprend à son début. Elle joue jusqu'à Arrêter la piste de musique, Mettre en pause la piste de musique ou un autre Jouer une piste de musique. La compilation met la piste dans la carte en parties de 2,28 secondes.
+A player hears one music track at a time. The time is the real time, so the track keeps its pace at any game speed.	Un joueur entend une seule piste de musique à la fois. Le temps est le temps réel : la piste garde son rythme à toute vitesse de jeu.
+play the music track "Boss theme" for all players: the boss fight starts.	jouer la piste de musique "Boss theme" pour tous les joueurs : le combat contre le boss commence.
+Stop the music track	Arrêter la piste de musique
+stop the music track for {to}	arrêter la piste de musique pour {to}
+Stops the music track of Play music track. Resume the music track then plays the track from its start.	Arrête la piste de musique de Jouer une piste de musique. Reprendre la piste de musique la joue ensuite depuis son début.
+The part that plays now plays to its end (at most 2.28 seconds): the game cannot stop a sound.	La partie qui joue maintenant joue jusqu'à sa fin (2,28 secondes au plus) : le jeu ne peut pas arrêter un son.
+stop the music track for the current player: the player went out of the arena.	arrêter la piste de musique pour le joueur actuel : le joueur est sorti de l'arène.
+Pause the music track	Mettre en pause la piste de musique
+pause the music track for {to}	mettre en pause la piste de musique pour {to}
+Stops the music track of Play music track after the part that plays now. Resume the music track plays it from the next part.	Arrête la piste de musique de Jouer une piste de musique après la partie qui joue maintenant. Reprendre la piste de musique la joue depuis la partie suivante.
+pause the music track for all players: a cutscene with its own sounds starts.	mettre en pause la piste de musique pour tous les joueurs : une cinématique avec ses propres sons commence.
+Resume the music track	Reprendre la piste de musique
+resume the music track for {to}	reprendre la piste de musique pour {to}
+Plays the music track again after Pause the music track, from its next part. After Stop the music track, it plays the track from its start.	Rejoue la piste de musique après Mettre en pause la piste de musique, depuis sa partie suivante. Après Arrêter la piste de musique, elle joue la piste depuis son début.
+It does nothing for a player that has no music track from Play music track.	Il ne fait rien pour un joueur qui n'a pas de piste de musique de Jouer une piste de musique.
+resume the music track for all players: the cutscene is at its end.	reprendre la piste de musique pour tous les joueurs : la cinématique est terminée.
+Draw dot image	Dessiner une image de points
+draw the dot image {image} at {where} for {player} with {unit}, {px} pixels apart	dessiner l'image de points {image} à {where} pour {player} avec {unit}, à {px} pixels d'écart
+Draws a dot image of the project (Assets > Dot images) with units: one unit for each dot. The dots go row by row from the location, the given pixels apart. Each unit gets the color of its dot, as in EUD Editor 3's dot painter. White dots are the background: they get no unit. After the drawing, the location is where it was before.	Dessine une image de points du projet (Ressources > Images de points) avec des unités : une unité pour chaque point. Les points vont rangée par rangée depuis la zone, à l'écart donné en pixels. Chaque unité prend la couleur de son point, comme dans le peintre de points d'EUD Editor 3. Les points blancs sont le fond : ils n'ont pas d'unité. Après le dessin, la zone revient où elle était.
+It first removes all the units of this type that the player owns: use a unit type that is only for the drawing. Each dot is one unit: a picture of 30 x 30 dots makes 900 units, and a map has room for 1700 units.	Il retire d'abord toutes les unités de ce type que possède le joueur : utilisez un type d'unité réservé au dessin. Chaque point est une unité : une image de 30 x 30 points fait 900 unités, et une carte a de la place pour 1700 unités.
+draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	dessiner l'image de points "Logo" à Title pour Player 8 avec Terran Marine, à 8 pixels d'écart : montrer le logo de la carte au début.

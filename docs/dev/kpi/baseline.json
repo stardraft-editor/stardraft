@@ -24,7 +24,7 @@
   "font_symbols": 30,
   "bare_search_cues": 0,
   "unused_static_functions": 0,
-  "files_over_3000_lines": 9,
+  "files_over_3000_lines": 3,
   "largest_file_lines": 5552,
   "tests_failed": 1,
   "help_check_failed": 0,

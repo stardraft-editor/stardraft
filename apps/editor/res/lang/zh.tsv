@@ -3214,3 +3214,33 @@ Search technologies	搜索科技
 Map layers: terrain outside of map boundaries shows	地图图层：显示地图边界外的地形
 Map layers: terrain outside of map boundaries is hidden	地图图层：已隐藏地图边界外的地形
 Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	只能在地图上编辑地形。要在地图外放置地形，请先在图层上绘制，然后把图层移出去（地图图层 > 移动图层）
+Select a music track	请选择一首音乐曲目
+Select a dot image	请选择一张点阵图
+The project has no music track "	项目中没有音乐曲目 "
+The project has no dot image "	项目中没有点阵图 "
+". Add it in the Assets workspace	"。请在“资源”工作区中添加
+The project has no music tracks. Add one in the Assets workspace, or remove this block	项目中没有音乐曲目。请在“资源”工作区中添加一首，或删除此块
+Play music track	播放音乐曲目
+play the music track {track} for {to}	为 {to} 播放音乐曲目 {track}
+Plays a music track of the project (Assets > Music) on each player's own computer. The track plays from its start. At its end, it plays again from its start. It plays until Stop the music track, Pause the music track or another Play music track. Build puts the track into the map in parts of 2.28 seconds.	在每个玩家自己的电脑上播放项目中的音乐曲目（资源 > 音乐）。曲目从头开始播放，播放到结尾后再从头开始。它会一直播放，直到“停止音乐曲目”、“暂停音乐曲目”或另一个“播放音乐曲目”。生成时会把曲目分成每段 2.28 秒放入地图。
+A player hears one music track at a time. The time is the real time, so the track keeps its pace at any game speed.	玩家一次只听到一首音乐曲目。时间是真实时间，因此在任何游戏速度下曲目的节奏都不变。
+play the music track "Boss theme" for all players: the boss fight starts.	为所有玩家播放音乐曲目 "Boss theme"：首领战开始。
+Stop the music track	停止音乐曲目
+stop the music track for {to}	为 {to} 停止音乐曲目
+Stops the music track of Play music track. Resume the music track then plays the track from its start.	停止“播放音乐曲目”的音乐曲目。之后“继续音乐曲目”会从头播放该曲目。
+The part that plays now plays to its end (at most 2.28 seconds): the game cannot stop a sound.	正在播放的那一段会播放到结束（最多 2.28 秒）：游戏无法停止一个声音。
+stop the music track for the current player: the player went out of the arena.	为当前玩家停止音乐曲目：该玩家离开了竞技场。
+Pause the music track	暂停音乐曲目
+pause the music track for {to}	为 {to} 暂停音乐曲目
+Stops the music track of Play music track after the part that plays now. Resume the music track plays it from the next part.	在正在播放的那一段结束后停止“播放音乐曲目”的音乐曲目。“继续音乐曲目”会从下一段开始播放。
+pause the music track for all players: a cutscene with its own sounds starts.	为所有玩家暂停音乐曲目：一段带有自己声音的过场开始。
+Resume the music track	继续音乐曲目
+resume the music track for {to}	为 {to} 继续音乐曲目
+Plays the music track again after Pause the music track, from its next part. After Stop the music track, it plays the track from its start.	在“暂停音乐曲目”之后，从下一段继续播放音乐曲目。在“停止音乐曲目”之后，从头播放该曲目。
+It does nothing for a player that has no music track from Play music track.	对没有来自“播放音乐曲目”的音乐曲目的玩家不起作用。
+resume the music track for all players: the cutscene is at its end.	为所有玩家继续音乐曲目：过场已结束。
+Draw dot image	绘制点阵图
+draw the dot image {image} at {where} for {player} with {unit}, {px} pixels apart	为 {player} 用 {unit} 在 {where} 绘制点阵图 {image}，间隔 {px} 像素
+Draws a dot image of the project (Assets > Dot images) with units: one unit for each dot. The dots go row by row from the location, the given pixels apart. Each unit gets the color of its dot, as in EUD Editor 3's dot painter. White dots are the background: they get no unit. After the drawing, the location is where it was before.	用单位绘制项目中的点阵图（资源 > 点阵图）：每个点一个单位。点从该位置开始逐行排列，间隔为给定的像素。每个单位取其点的颜色，与 EUD Editor 3 的点阵绘图器相同。白色的点是背景，不放单位。绘制后，该位置回到原处。
+It first removes all the units of this type that the player owns: use a unit type that is only for the drawing. Each dot is one unit: a picture of 30 x 30 dots makes 900 units, and a map has room for 1700 units.	它会先移除该玩家拥有的这种类型的所有单位：请使用只用于绘制的单位类型。每个点是一个单位：30 x 30 点的图片需要 900 个单位，而一张地图最多容纳 1700 个单位。
+draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	为 Player 8 用 Terran Marine 在 Title 绘制点阵图 "Logo"，间隔 8 像素：在开始时显示地图的标志。
