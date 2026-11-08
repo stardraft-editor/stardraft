@@ -2806,7 +2806,6 @@ No mask: painting changes all tiles	Sans masque : peindre change toutes les tuil
 Nothing changed: the mask keeps these tiles	Aucun changement : le masque garde ces tuiles
 Nothing changed: the mask keeps this terrain	Aucun changement : le masque garde ce terrain
 # File > Import a project (core/views_import_project.inc)
-&Import a project…	&Importer un projet…
 File	Fichier
 Select the project to import	Sélectionnez le projet à importer
 EUD Editor and euddraft projects (*.e3s, *.e2s, *.eds)	Projets EUD Editor et euddraft (*.e3s, *.e2s, *.eds)
@@ -2979,3 +2978,8 @@ Music and dot images	Musique et images en points
 , in the Assets workspace	, dans l'espace de travail Ressources
 Add m&usic…	Ajouter de la m&usique…
 Add do&t images…	Ajouter des images en poin&ts…
+Experimental	Expérimental
+This import is experimental	Cette importation est expérimentale
+The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, tell us.	L'importation ne modifie pas l'ancien projet. Elle le lit seulement. Avant d'utiliser le nouveau projet, examinez-le : les parties que le résumé liste, une compilation et un test de la carte dans le jeu. Si une partie n'est pas importée correctement, dites-le-nous.
+The import is experimental. Some parts can be imported incorrectly.	L'importation est expérimentale. Certaines parties peuvent être importées de façon incorrecte.
+Report feedback…	Envoyer un commentaire…

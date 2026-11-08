@@ -189,6 +189,7 @@ void shellOwnerSelect(int i) {
     palettePanelsOwner(i);
 }
 void showFeedbackFilledSdl(const std::wstring& on, const std::wstring& text);  // (sdl_options.inc)
+void showFeedbackFilledSdl(const std::wstring& on, const std::wstring& text, draw::View* owner);
 // The text on the system's clipboard; a test run (--clipboard <file>): that file's text, never the system's.
 std::string gClipboardArg;
 std::string shellClipboardText() {
@@ -199,6 +200,13 @@ std::string shellClipboardText() {
 void shellReportFeedback(const std::wstring& on, const std::wstring& text) {
     if (gSilent) return void(std::printf("feedback on %s:%c%s%c", narrow(on).c_str(), 10, narrow(text).c_str(), 10));  // (a test sends nothing)
     showFeedbackFilledSdl(on, text);
+}
+// The same, over the window of `owner` (a dialog's view: File > Import a project).
+void shellReportFeedback(const std::wstring& on, const std::wstring& text, draw::View* owner) {
+    if (gSilent) return void(std::printf("feedback on %s:%c%s%c", narrow(on).c_str(), 10, narrow(text).c_str(), 10));  // (a test sends nothing)
+    draw::View* root = owner;
+    while (root && root->parent()) root = root->parent();
+    showFeedbackFilledSdl(on, text, root);
 }
 
 void shellPaletteReveal(int value) {

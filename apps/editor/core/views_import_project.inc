@@ -16,8 +16,14 @@
 // choice only when there is a build, and the summary lists what the choices give. Back, Next (Import on the last step)
 // and Cancel are the dialog's buttons; Next is off until the step is complete (a file that reads, a name, a map).
 // The kit's widgets in a kit Dialog; files and folders come through the seam (shellPickFile, shellPickFolder).
+//
+// The import is experimental: a badge at the top of each step says so, and the first step has a card that says the old
+// project does not change (the import writes only into the new project's folder), asks the user to examine the new
+// project, and has Report feedback (on "the project import", with the file's facts in the box).
 
 constexpr int kImportNext = 1, kImportBack = 2, kImportCancel = 3;
+
+void shellReportFeedback(const std::wstring& on, const std::wstring& text, draw::View* owner);  // (shell_sdl.inc)
 
 namespace importLayout {
 constexpr int kContentW = 848, kContentH = 508;  // the content; the dialog adds 16 px edges and the buttons' row
@@ -54,7 +60,7 @@ public:
     explicit ImportWizardView(std::wstring location) {
         using stardraft::kit::LabelTone;
         // The cards first: they are under the controls that sit on them.
-        for (auto* card : {&railCard_, &fileCard_, &newCard_, &mapCard_, &buildCard_, &tileCard_[0], &tileCard_[1], &tileCard_[2]}) add(*card, {0, 0, 0, 0});
+        for (auto* card : {&railCard_, &fileCard_, &newCard_, &noteCard_, &mapCard_, &buildCard_, &tileCard_[0], &tileCard_[1], &tileCard_[2]}) add(*card, {0, 0, 0, 0});
         stepper_.setSteps({{tr(L"Project"), tr(L"The file to import")},
                            {tr(L"Map"), tr(L"Map and build folder")},
                            {tr(L"Parts"), tr(L"What to import")},
@@ -65,6 +71,10 @@ public:
         add(title_, {0, 0, 0, 0});
         subtitle_.setWrap(true), subtitle_.setTone(LabelTone::Dim);
         add(subtitle_, {0, 0, 0, 0});
+        setBadge(experimental_, tr(L"Experimental"), stardraft::kit::BadgeTone::Warn);
+        experimental_.setAlignRight(true);
+        experimental_.setTip(tr(L"The import is experimental. Some parts can be imported incorrectly."));
+        add(experimental_, {0, 0, 0, 0});
 
         // 1 Project
         fileName_.setFont({draw::Face::Ui, 0, true});
@@ -92,6 +102,16 @@ public:
             if (const std::wstring d = shellPickFolder(tr(L"Select the folder for the project")); !d.empty()) location_.setText(d), refresh();
         };
         add(locBrowse_, {0, 0, 0, 0});
+        noteHead_.setText(tr(L"This import is experimental")), noteHead_.setFont({draw::Face::Ui, 0, true});
+        noteHead_.setIcon(int(UiIcon::Warning)), noteHead_.setTone(LabelTone::Warn);
+        noteText_.setText(tr(L"The import does not change the old project. It only reads it. Before you use the new project, examine it: the "
+                             L"parts that the summary lists, a build, and a test of the map in the game. If a part is not imported "
+                             L"correctly, tell us."));
+        noteText_.setWrap(true), noteText_.setTone(LabelTone::Dim);
+        add(noteHead_, {0, 0, 0, 0}), add(noteText_, {0, 0, 0, 0});
+        feedback_.setText(tr(L"Report feedback\x2026"));
+        feedback_.onClick = [this] { shellReportFeedback(L"the project import", feedbackFacts(), this); };
+        add(feedback_, {0, 0, 0, 0});
 
         // 2 Map
         mapHead_.setFont({draw::Face::Ui, 0, true}), buildHead_.setFont({draw::Face::Ui, 0, true});
@@ -334,6 +354,21 @@ private:
         if (scriptsL_.parent()) partsPanel_.remove(scriptsL_), partsPanel_.remove(fromText_), partsPanel_.remove(fromBuild_);
         if (showScriptsChoice()) partsPanel_.add(scriptsL_, {0, 0, 0, 0}), partsPanel_.add(fromText_, {0, 0, 0, 0}), partsPanel_.add(fromBuild_, {0, 0, 0, 0});
     }
+    // The facts that Report feedback puts in its box, under a line (the user writes above them): the file, its editor and
+    // version, the step. In English, as the other feedback facts.
+    std::wstring feedbackFacts() const {
+        std::wstring t = L"\n\n---\nFile > Import a project, step " + std::to_wstring(step_ + 1);
+        if (!file_.empty()) {
+            t += L"\nFile: " + file_.filename().wstring();
+            if (scanned_)
+                t += scan_.kind == "e3s" ? L" (EUD Editor 3, version " + widen(scan_.version) + L")"
+                     : scan_.kind == "e2s" ? L" (EUD Editor 2, version " + widen(scan_.version) + L")"
+                                           : std::wstring(L" (euddraft)");
+            else
+                t += L" (could not read it: " + error_ + L")";
+        }
+        return t;
+    }
     bool showScriptsChoice() const { return scanned_ && scan_.kind == "e3s" && scan_.part("scripts") && !scan_.buildFolder.empty(); }
     bool buildHelps() const { return scanned_ && scan_.part("generated"); }
     fs::path mapPath() const { return choices_.map.empty() ? scan_.map : choices_.map; }
@@ -506,16 +541,17 @@ private:
         railCard_.setFrame(r(0, 0, kRailW, H));
         stepper_.setFrame(r(16, 20, kRailW - 28, 4 * stardraft::kit::kStepH));
         stepper_.setCurrent(step_);
-        fileCard_.setVisible(step_ == 0), newCard_.setVisible(step_ == 0), mapCard_.setVisible(step_ == 1);
+        fileCard_.setVisible(step_ == 0), newCard_.setVisible(step_ == 0), noteCard_.setVisible(step_ == 0), mapCard_.setVisible(step_ == 1);
         buildCard_.setVisible(step_ == 1 && buildHelps());
         for (auto& t : tileCard_) t.setVisible(step_ == 3);
-        title_.setFrame(r(X, 4, MW, 30));
+        title_.setFrame(r(X, 4, MW - 164, 30));
+        experimental_.setFrame(r(X + MW - 160, 8, 160, 22));  // (room for a longer translation; the badge is right-aligned)
         subtitle_.setFrame(r(X, 38, MW, subtitleH_));
         const int top = std::max(kHeadH, 38 + subtitleH_ + 18);
         auto show = [](std::initializer_list<draw::View*> vs, bool on) {
             for (draw::View* v : vs) v->setVisible(on);
         };
-        show({&fileName_, &fileWhat_, &filePath_, &fileBrowse_, &newHead_, &nameL_, &name_, &locL_, &location_, &locBrowse_}, step_ == 0);
+        show({&fileName_, &fileWhat_, &filePath_, &fileBrowse_, &newHead_, &nameL_, &name_, &locL_, &location_, &locBrowse_, &noteHead_, &noteText_, &feedback_}, step_ == 0);
         show({&mapHead_, &mapName_, &mapPathL_, &mapChip_, &mapBrowse_, &outL_, &outDefault_, &outKeep_}, step_ == 1);
         show({&buildHead_, &buildText_, &buildPath_, &buildChip_, &buildBrowse_}, step_ == 1 && buildHelps());
         partsView_.setVisible(step_ == 2);
@@ -535,6 +571,12 @@ private:
             nameL_.setFrame(r(X + P, t2 + 44, kLabelW, kFieldH)), name_.setFrame(r(X + P + kLabelW, t2 + 44, inner - kLabelW, kFieldH));
             locL_.setFrame(r(X + P, t2 + 76, kLabelW, kFieldH)), location_.setFrame(r(X + P + kLabelW, t2 + 76, inner - kLabelW - kBrowseW - kGap, kFieldH));
             locBrowse_.setFrame(r(X + MW - P - kBrowseW, t2 + 76, kBrowseW, kFieldH));
+            // The note: experimental, a copy first, and Report feedback.
+            const int t3 = t2 + 116 + 16, fbW = 150;
+            noteCard_.setFrame(r(X, t3, MW, 48 + noteTextH_));
+            noteHead_.setFrame(r(X + P, t3 + 12, inner - fbW - kGap, 22));
+            noteText_.setFrame(r(X + P + 24, t3 + 38, inner - 24 - fbW - kGap, noteTextH_));
+            feedback_.setFrame(r(X + MW - P - fbW, t3 + 12, fbW, 28));
         }
         if (step_ == 1) {
             mapCard_.setFrame(r(X, top, MW, 160));
@@ -611,6 +653,7 @@ private:
         };
         need(subtitle_, subtitleH_, 20);
         need(buildText_, buildTextH_, 20);
+        need(noteText_, noteTextH_, 20);
         for (auto& it : items_)
             if (!it.heading) need(*it.label, it.h, 20);
         if (changed) place(), invalidate();
@@ -629,14 +672,17 @@ private:
     stardraft::kit::Dialog* dlg_ = nullptr;
     int step_ = 0;
     bool scanned_ = false, buildSelected_ = false, needBuild_ = false;
-    int subtitleH_ = 20, buildTextH_ = 40;
+    int subtitleH_ = 20, buildTextH_ = 40, noteTextH_ = 40;
     fs::path file_;
     std::wstring error_;
     stardraft::ImportScan scan_;
     stardraft::ImportChoices choices_;
-    stardraft::kit::Card railCard_, fileCard_, newCard_, mapCard_, buildCard_, tileCard_[3];
+    stardraft::kit::Card railCard_, fileCard_, newCard_, noteCard_, mapCard_, buildCard_, tileCard_[3];
     stardraft::kit::Stepper stepper_;
     stardraft::kit::Label title_, subtitle_;
+    stardraft::kit::Badge experimental_;
+    stardraft::kit::Label noteHead_, noteText_;
+    stardraft::kit::Button feedback_;
     stardraft::kit::Label fileName_, fileWhat_, filePath_, newHead_, nameL_, locL_;
     stardraft::kit::Label mapHead_, mapName_, mapPathL_, outL_, buildHead_, buildText_, buildPath_;
     stardraft::kit::TextField name_, location_;
@@ -679,7 +725,10 @@ inline bool importFromWizard(const ImportWizardView& view) {
         shellErrorBox(importFmt(tr(L"Could not import the project. %s"), {widen(err)}), tr(L"Import a project"));
         return false;
     }
-    std::string text = "Import of " + narrow(view.scan().file.filename().wstring()) + "\n\nImported:\n";
+    std::string text = "Import of " + narrow(view.scan().file.filename().wstring()) +
+                       "\n\nThe import is experimental. It did not change the old project. Before you use this project, examine it: the "
+                       "parts below, a build, and a test of the map in the game. If a part is not imported correctly, tell us: "
+                       "Report feedback, at the top right of the window.\n\nImported:\n";
     for (const std::string& l : rep.imported) text += "  - " + l + "\n";
     text += "\nNot imported:\n";
     for (const std::string& l : rep.notImported) text += "  - " + l + "\n";

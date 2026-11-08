@@ -2807,7 +2807,6 @@ constexpr UiText kRows[] = {
     {L"No mask: painting changes all tiles", L"Sin m\u00E1scara: pintar cambia todas las casillas"},
     {L"Nothing changed: the mask keeps these tiles", L"Sin cambios: la m\u00E1scara conserva estas casillas"},
     {L"Nothing changed: the mask keeps this terrain", L"Sin cambios: la m\u00E1scara conserva este terreno"},
-    {L"&Import a project\u2026", L"&Importar un proyecto\u2026"},
     {L"File", L"Archivo"},
     {L"Select the project to import", L"Seleccione el proyecto que se importa"},
     {L"EUD Editor and euddraft projects (*.e3s, *.e2s, *.eds)", L"Proyectos de EUD Editor y euddraft (*.e3s, *.e2s, *.eds)"},
@@ -2979,6 +2978,11 @@ constexpr UiText kRows[] = {
     {L", in the Assets workspace", L", en el espacio de trabajo Recursos"},
     {L"Add m&usic\u2026", L"A\u00F1adir &m\u00FAsica\u2026"},
     {L"Add do&t images\u2026", L"A\u00F1adir im\u00E1genes de pun&tos\u2026"},
+    {L"Experimental", L"Experimental"},
+    {L"This import is experimental", L"Esta importaci\u00F3n es experimental"},
+    {L"The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, tell us.", L"La importaci\u00F3n no cambia el proyecto antiguo. Solo lo lee. Antes de usar el proyecto nuevo, exam\u00EDnelo: las partes que lista el resumen, una compilaci\u00F3n y una prueba del mapa en el juego. Si una parte no se importa correctamente, d\u00EDganoslo."},
+    {L"The import is experimental. Some parts can be imported incorrectly.", L"La importaci\u00F3n es experimental. Algunas partes pueden importarse de forma incorrecta."},
+    {L"Report feedback\u2026", L"Enviar comentarios\u2026"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

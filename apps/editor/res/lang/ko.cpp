@@ -2837,7 +2837,6 @@ constexpr UiText kRows[] = {
     {L"No mask: painting changes all tiles", L"\uB9C8\uC2A4\uD06C \uC5C6\uC74C: \uBAA8\uB4E0 \uD0C0\uC77C\uC744 \uCE60\uD569\uB2C8\uB2E4"},
     {L"Nothing changed: the mask keeps these tiles", L"\uBCC0\uACBD \uC5C6\uC74C: \uB9C8\uC2A4\uD06C\uAC00 \uC774 \uD0C0\uC77C\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4"},
     {L"Nothing changed: the mask keeps this terrain", L"\uBCC0\uACBD \uC5C6\uC74C: \uB9C8\uC2A4\uD06C\uAC00 \uC774 \uC9C0\uD615\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4"},
-    {L"&Import a project\u2026", L"\uD504\uB85C\uC81D\uD2B8 \uAC00\uC838\uC624\uAE30(&I)\u2026"},
     {L"File", L"\uD30C\uC77C"},
     {L"Select the project to import", L"\uAC00\uC838\uC62C \uD504\uB85C\uC81D\uD2B8\uB97C \uC120\uD0DD\uD558\uC2ED\uC2DC\uC624"},
     {L"EUD Editor and euddraft projects (*.e3s, *.e2s, *.eds)", L"EUD Editor \uBC0F euddraft \uD504\uB85C\uC81D\uD2B8 (*.e3s, *.e2s, *.eds)"},
@@ -3009,6 +3008,11 @@ constexpr UiText kRows[] = {
     {L", in the Assets workspace", L", \uC5D0\uC14B \uC791\uC5C5 \uACF5\uAC04\uC5D0"},
     {L"Add m&usic\u2026", L"\uC74C\uC545 \uCD94\uAC00(&U)\u2026"},
     {L"Add do&t images\u2026", L"\uB3C4\uD2B8 \uC774\uBBF8\uC9C0 \uCD94\uAC00(&T)\u2026"},
+    {L"Experimental", L"\uC2E4\uD5D8 \uB2E8\uACC4"},
+    {L"This import is experimental", L"\uC774 \uAC00\uC838\uC624\uAE30\uB294 \uC2E4\uD5D8 \uB2E8\uACC4\uC785\uB2C8\uB2E4"},
+    {L"The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, tell us.", L"\uAC00\uC838\uC624\uAE30\uB294 \uC774\uC804 \uD504\uB85C\uC81D\uD2B8\uB97C \uBCC0\uACBD\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uC77D\uAE30\uB9CC \uD569\uB2C8\uB2E4. \uC0C8 \uD504\uB85C\uC81D\uD2B8\uB97C \uC0AC\uC6A9\uD558\uAE30 \uC804\uC5D0 \uD655\uC778\uD558\uC138\uC694: \uC694\uC57D\uC5D0 \uB098\uC628 \uD56D\uBAA9, \uBE4C\uB4DC, \uAC8C\uC784\uC5D0\uC11C \uB9F5 \uD14C\uC2A4\uD2B8. \uC5B4\uB5A4 \uBD80\uBD84\uC774 \uC62C\uBC14\uB974\uAC8C \uAC00\uC838\uC640\uC9C0\uC9C0 \uC54A\uC73C\uBA74 \uC54C\uB824 \uC8FC\uC138\uC694."},
+    {L"The import is experimental. Some parts can be imported incorrectly.", L"\uAC00\uC838\uC624\uAE30\uB294 \uC2E4\uD5D8 \uB2E8\uACC4\uC785\uB2C8\uB2E4. \uC77C\uBD80 \uD56D\uBAA9\uC774 \uC62C\uBC14\uB974\uAC8C \uAC00\uC838\uC640\uC9C0\uC9C0 \uC54A\uC744 \uC218 \uC788\uC2B5\uB2C8\uB2E4."},
+    {L"Report feedback\u2026", L"\uD53C\uB4DC\uBC31 \uBCF4\uB0B4\uAE30\u2026"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

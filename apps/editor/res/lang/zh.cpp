@@ -2807,7 +2807,6 @@ constexpr UiText kRows[] = {
     {L"No mask: painting changes all tiles", L"\u65E0\u8499\u7248\uFF1A\u7ED8\u5236\u4F1A\u66F4\u6539\u6240\u6709\u56FE\u5757"},
     {L"Nothing changed: the mask keeps these tiles", L"\u6CA1\u6709\u66F4\u6539\uFF1A\u8499\u7248\u4FDD\u7559\u4E86\u8FD9\u4E9B\u56FE\u5757"},
     {L"Nothing changed: the mask keeps this terrain", L"\u6CA1\u6709\u66F4\u6539\uFF1A\u8499\u7248\u4FDD\u7559\u4E86\u6B64\u5730\u5F62"},
-    {L"&Import a project\u2026", L"\u5BFC\u5165\u9879\u76EE(&I)\u2026"},
     {L"File", L"\u6587\u4EF6"},
     {L"Select the project to import", L"\u9009\u62E9\u8981\u5BFC\u5165\u7684\u9879\u76EE"},
     {L"EUD Editor and euddraft projects (*.e3s, *.e2s, *.eds)", L"EUD Editor \u548C euddraft \u9879\u76EE (*.e3s, *.e2s, *.eds)"},
@@ -2979,6 +2978,11 @@ constexpr UiText kRows[] = {
     {L", in the Assets workspace", L"\uFF0C\u4F4D\u4E8E\u7D20\u6750\u5DE5\u4F5C\u533A"},
     {L"Add m&usic\u2026", L"\u6DFB\u52A0\u97F3\u4E50(&U)\u2026"},
     {L"Add do&t images\u2026", L"\u6DFB\u52A0\u70B9\u9635\u56FE\u50CF(&T)\u2026"},
+    {L"Experimental", L"\u5B9E\u9A8C\u6027"},
+    {L"This import is experimental", L"\u6B64\u5BFC\u5165\u4E3A\u5B9E\u9A8C\u6027\u529F\u80FD"},
+    {L"The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, tell us.", L"\u5BFC\u5165\u4E0D\u4F1A\u66F4\u6539\u65E7\u9879\u76EE\uFF0C\u53EA\u4F1A\u8BFB\u53D6\u5B83\u3002\u4F7F\u7528\u65B0\u9879\u76EE\u524D\u8BF7\u68C0\u67E5\uFF1A\u6458\u8981\u4E2D\u5217\u51FA\u7684\u90E8\u5206\u3001\u4E00\u6B21\u6784\u5EFA\uFF0C\u4EE5\u53CA\u5728\u6E38\u620F\u4E2D\u6D4B\u8BD5\u5730\u56FE\u3002\u5982\u679C\u67D0\u4E2A\u90E8\u5206\u6CA1\u6709\u6B63\u786E\u5BFC\u5165\uFF0C\u8BF7\u544A\u8BC9\u6211\u4EEC\u3002"},
+    {L"The import is experimental. Some parts can be imported incorrectly.", L"\u5BFC\u5165\u4E3A\u5B9E\u9A8C\u6027\u529F\u80FD\u3002\u67D0\u4E9B\u90E8\u5206\u53EF\u80FD\u5BFC\u5165\u4E0D\u6B63\u786E\u3002"},
+    {L"Report feedback\u2026", L"\u53D1\u9001\u53CD\u9988\u2026"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

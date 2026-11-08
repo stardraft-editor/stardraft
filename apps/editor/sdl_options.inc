@@ -625,13 +625,16 @@ void showFeedbackSdl(const std::wstring& on, draw::View* owner) {
     gFbView = nullptr;
 }
 void showFeedbackSdl(const std::wstring& on) { showFeedbackSdl(on, nullptr); }
-// The same, with a text already in the box (the simulation's short diagnostics; the user writes above them).
-void showFeedbackFilledSdl(const std::wstring& on, const std::wstring& text) {
+// The same, with a text already in the box (the simulation's short diagnostics; the user writes above them). owner: as
+// above (File > Import a project: its dialog).
+void showFeedbackFilledSdl(const std::wstring& on, const std::wstring& text, draw::View* owner) {
     if (!gRoot || gFbView) return;
     FeedbackView view(gFeedbackProgram, on);
     view.setTyped(text);
     gFbView = &view;
     ++gFbSerial;
-    gHost->runModal(*gRoot, view, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, scale(592), scale(370)), L"Report feedback"});
+    gHost->runModal(owner && owner->host() ? *owner : *gRoot, view,
+                    draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, scale(592), scale(370)), L"Report feedback"});
     gFbView = nullptr;
 }
+void showFeedbackFilledSdl(const std::wstring& on, const std::wstring& text) { showFeedbackFilledSdl(on, text, nullptr); }

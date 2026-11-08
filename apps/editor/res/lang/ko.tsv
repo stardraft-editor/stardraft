@@ -2836,7 +2836,6 @@ No mask: painting changes all tiles	마스크 없음: 모든 타일을 칠합니
 Nothing changed: the mask keeps these tiles	변경 없음: 마스크가 이 타일을 유지합니다
 Nothing changed: the mask keeps this terrain	변경 없음: 마스크가 이 지형을 유지합니다
 # File > Import a project (core/views_import_project.inc)
-&Import a project…	프로젝트 가져오기(&I)…
 File	파일
 Select the project to import	가져올 프로젝트를 선택하십시오
 EUD Editor and euddraft projects (*.e3s, *.e2s, *.eds)	EUD Editor 및 euddraft 프로젝트 (*.e3s, *.e2s, *.eds)
@@ -3009,3 +3008,8 @@ Music and dot images	음악과 도트 이미지
 , in the Assets workspace	, 에셋 작업 공간에
 Add m&usic…	음악 추가(&U)…
 Add do&t images…	도트 이미지 추가(&T)…
+Experimental	실험 단계
+This import is experimental	이 가져오기는 실험 단계입니다
+The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, tell us.	가져오기는 이전 프로젝트를 변경하지 않습니다. 읽기만 합니다. 새 프로젝트를 사용하기 전에 확인하세요: 요약에 나온 항목, 빌드, 게임에서 맵 테스트. 어떤 부분이 올바르게 가져와지지 않으면 알려 주세요.
+The import is experimental. Some parts can be imported incorrectly.	가져오기는 실험 단계입니다. 일부 항목이 올바르게 가져와지지 않을 수 있습니다.
+Report feedback…	피드백 보내기…

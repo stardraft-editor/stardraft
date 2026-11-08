@@ -2806,7 +2806,6 @@ No mask: painting changes all tiles	Без маски: рисование мен
 Nothing changed: the mask keeps these tiles	Без изменений: маска сохраняет эти тайлы
 Nothing changed: the mask keeps this terrain	Без изменений: маска сохраняет этот рельеф
 # File > Import a project (core/views_import_project.inc)
-&Import a project…	&Импортировать проект…
 File	Файл
 Select the project to import	Выберите проект для импорта
 EUD Editor and euddraft projects (*.e3s, *.e2s, *.eds)	Проекты EUD Editor и euddraft (*.e3s, *.e2s, *.eds)
@@ -2979,3 +2978,8 @@ Music and dot images	Музыка и точечные изображения
 , in the Assets workspace	, в рабочей области «Ассеты»
 Add m&usic…	Добавить &музыку…
 Add do&t images…	Добавить &точечные изображения…
+Experimental	Экспериментально
+This import is experimental	Этот импорт экспериментальный
+The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, tell us.	Импорт не изменяет старый проект. Он только читает его. Перед использованием нового проекта проверьте его: части из сводки, сборку и проверку карты в игре. Если какая-то часть импортирована неправильно, сообщите нам.
+The import is experimental. Some parts can be imported incorrectly.	Импорт экспериментальный. Некоторые части могут быть импортированы неправильно.
+Report feedback…	Отправить отзыв…
