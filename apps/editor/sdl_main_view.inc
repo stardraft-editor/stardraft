@@ -703,7 +703,6 @@ struct MainView final : draw::View {
     // or clears the selection, R and Shift+R turn what is on the cursor (M and Shift+M mirror it), the arrows move the
     // selected units or the view.
     bool mapKey(const draw::KeyEvent& e) {
-
         const bool arrow = e.key == draw::Key::Left || e.key == draw::Key::Right || e.key == draw::Key::Up || e.key == draw::Key::Down;
         if (!map.open() || (e.mods & draw::kAlt) || ((e.mods & draw::kCtrl) && !arrow)) return false;
         const bool shift = (e.mods & draw::kShift) != 0, ctrl = (e.mods & draw::kCtrl) != 0;
