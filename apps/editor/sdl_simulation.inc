@@ -486,7 +486,7 @@ void simScene(render::Scene& s) {
         if (li.order == 0 && !d.shadow) addImage(s, d);
         else s.sprites.push_back(d);
     }
-    if (gSim.rush && gSim.fog != -1 && (gSim.playing || simEngine().frame() > 0)) simFog(s);  // (before Play: the whole map)
+    if (gSim.rush && gSim.fog != -1 && (gSim.playing || (simSkipRunning() ? gSimSkipFrame.load() : simEngine().frame()) > 0)) simFog(s);  // (before Play: the whole map)
     if (gSim.rush) simTrails(s);
     else if (!gSim.combat) simGuides(s), simFieldLabels(s);
 }
@@ -1885,7 +1885,11 @@ void simRushSettingsMenu() {
         items.push_back(MenuItem{});
         items.back().label = f == -1 ? std::wstring(tr(L"Off")) : std::wstring(tr(L"All players"));
         items.back().radio = true, items.back().checked = f == gSim.fog;
-        items.back().run = [f, setFog] { setFog(f, gSim.fogPlayers); };
+        items.back().run = [f, setFog] {  // (the checked players stay saved, also the ones with no routes on this map)
+            int saved = 0;
+            prefs::number(L"SimRushFogPlayers", saved, 0, 4095);
+            setFog(f, saved);
+        };
     }
     MenuItem specific;
     specific.label = L"Specific players", specific.radio = true, specific.checked = gSim.fog == kFogPlayers;

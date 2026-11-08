@@ -30,8 +30,9 @@ constexpr int kZergHatchery = 131, kTerranCommandCenter = 106, kProtossNexus = 1
 constexpr int kMineralFirst = 176, kMineralLast = 178;
 // Mining: the mineral fields of a base are those within 12 tiles of its depot; they do not run out.
 constexpr int kFieldRange = 384, kFieldAmount = 50000, kMineralsPerTrip = 8;
-// Rush: a walk ends when the unit's move ends (its order is no longer Move) or it has come to no new part of the map
-// (a 128 pixel square it was not in yet) for 480 frames (it stands, or it goes back and forth: no way on); no
+// Rush: a walk ends when the unit's move ends (its order is no longer Move) or for 480 frames it has come neither to a
+// new part of the map (a 128 pixel square it was not in yet) nor nearer to the end than before (it stands, or goes back
+// and forth: no way on; a way that turns back beside a wall goes nearer to the end); no
 // walk is longer than 24000 frames; the unit is at the end when it stops within a tile of it (a fast unit stops a few
 // pixels past the point, and a point where it cannot stand ends its way next to it); it starts within 8 pixels of its
 // start.
@@ -556,6 +557,7 @@ private:
         std::pair<int, int> last;  // the worker's place in the last frame
         int stalled = 0;            // the frames since the unit came to a part of the map that it was not in yet
         std::set<int> cells;        // those parts (kRushCell squares) of the map it was in
+        double nearest = 1e18;      // the nearest it came to the end
         bool moving = false;  // the unit's Move order has started
     };
 
@@ -766,9 +768,11 @@ private:
             }
             const std::pair<int, int> at{u->position.x, u->position.y}, before = r.last;
             if (at != before) r.route.distance += std::hypot(double(at.first - before.first), double(at.second - before.second)), r.last = at;
-            if (r.cells.insert(at.first / kRushCell + at.second / kRushCell * 4096).second) r.stalled = 0;
-            else ++r.stalled;
             const double away = std::hypot(double(at.first - r.route.toX), double(at.second - r.route.toY));
+            const bool nearer = away < r.nearest - 8;  // (8 pixels nearer than ever: on its way)
+            if (nearer) r.nearest = away;
+            if (r.cells.insert(at.first / kRushCell + at.second / kRushCell * 4096).second || nearer) r.stalled = 0;
+            else ++r.stalled;
             const bool moving = u->order == kOrderMove;
             const bool stopped = r.moving && !moving;  // (the move ended: the unit is where its way ends)
             r.moving = r.moving || moving;
