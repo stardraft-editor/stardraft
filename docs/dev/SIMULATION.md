@@ -1,10 +1,52 @@
 # The simulation
 
-StarDraft has a small simulation of StarCraft: Brood War 1.16.1 for two tests on a map: worker mining (how many
-minerals a base gives) and combat (which army wins a fight, and what is left of it). It is in `tools/sim/`, the CMake
-library `stardraft_sim`. The editor and the command line use it through `tools/sim/sim.h` (`sim::createSimulator()`).
+The simulation bar (Tools > Simulate) has three tests on a map: worker mining (how many minerals a base gives), rush
+distance (how long a worker walks from one start location to another) and combat (which army wins a fight, and what is
+left of it). The editor and the command line use one engine for them, `maplab::createBarSimulator()`
+(`tools/map_lab/bar_sim.h`, the CMake library `stardraft_map_lab`), with the interface of `tools/sim/sim.h`:
 
-## How it was made: a clean room
+- Mining and rush distance run on the Map Simulation engine (`third_party/map-simulation/`, MIT), which came with pull
+  request 260. Its README and COMPATIBILITY.md tell how it was made and what it does not do; it is used unchanged
+  (`python -I third_party/map-simulation/verify_source.py` checks its files). See "Mining and rush distance" below.
+- Combat runs on StarDraft's own small simulation of StarCraft: Brood War 1.16.1 in `tools/sim/`, the CMake library
+  `stardraft_sim` (`sim::createSimulator()`). The rest of this page is about it. Its mining (`mining.cpp`) runs only
+  for a Cosmonarchy BW map (the Map Simulation engine reads only the game's own units) and in `sim_test`; its base
+  finder gives the bases of both engines.
+
+## Mining and rush distance
+
+`tools/map_lab/bar_sim.cpp` uses the rules of the pull request's Mining Lab and Rush adapters:
+
+- **Mining.** The bases are those of `miningBases` (`tools/sim/mining.cpp`: start locations, placed depots, groups of
+  mineral fields), at most 8, each with its race (Program options > Simulate mining > Races). Each base is a game of
+  its own: the map's mineral fields, geysers, critters and neutral units (no player units), then the melee start of its
+  race at the base (a finished depot, its workers, and for Zerg the larvae and the Overlord), then more or fewer
+  workers for the count (the bar's gear). Each worker gathers from a mineral field within 12 tiles of the depot,
+  nearest first, round and round; the fields do not run out. The measures start after the 30-second warm-up: the
+  minerals delivered a minute, and each field's mean round trip (delivery to delivery). There is no gas. While it
+  runs, the map shows each field's mean round trip in frames and its minerals left (its amount in the map less the
+  minerals mined from it, warm-up included); zoomed out, where these do not fit on a field, one label under each
+  depot gives its fields' mean round trip and their minerals left. A base with no room for its depot and workers
+  stays in the report with no numbers ("No room"). The bar shows at most 8 bases; the command line all of them.
+- **Rush distance.** From each start location to each other start location, a worker of the start location's race
+  (its player's race in the map, or the race of the bar's gear) walks from the start location's center to the other
+  one, in a game of its own (the map's neutral units only). It stops at the other center (within 1 pixel), when it
+  has not moved for 480 frames, or at 24000 frames. The result is each walk's game time and length.
+
+The two tests do not use the pull request's searches (position, cargo and cycle boosts), guides, launch intervals or
+its windows: the bar has the same controls for each test. Against the black-box reference results
+(`tools/tests/sim-reference/`), with 9 workers: (2)Bottleneck.scm's start location at (3808, 2384) gives 549.4, 546.8
+and 541.4 minerals a minute (Terran, Protoss, Zerg: the reference's numbers), and the held-out (4)Orbital Relay.scm
+runs (12: 4 start locations, 3 races) differ by 0.02% on average (StarDraft's own engine: 3.9%).
+
+Speed: each game runs the whole map. The bar runs one game frame at a time within its 12 ms of each window frame,
+and Restart, the timeline and Skip to the end run the game on a thread of their own, so the window stays usable. A map with many critters is slow: on (8)Killing Fields.scm (256 x 256, 17
+critters) a frame of the 8 mining bases takes about 7 ms and a frame of the 56 rush routes about 12 ms; on
+(2)Bottleneck.scm the 8 bases take about 0.4 ms a frame.
+
+## StarDraft's own engine
+
+### How it was made: a clean room
 
 The engine was written from plain-language descriptions of the game's rules, which are not part of this repository.
 The person who wrote this engine never saw another engine's code and used no other code: only those descriptions,
@@ -14,7 +56,7 @@ iscript.bin, the tilesets and the CHK sections), and black-box results of a refe
 `sim_test` compares with them. Where the rules do not say enough, the engine takes the simplest behaviour that fits
 the reference results; "Known gaps" lists these choices.
 
-## The parts
+### The parts
 
 | File | What it does |
 |---|---|
@@ -109,7 +151,7 @@ detector buildings' 7 tiles, the cooldown limits and others); the upgrade effect
 Rockets' limit stay, because maps start with upgrades that the test fights do not use. The engine's own numbers (fixed
 point, grid cells, search budgets, the stalemate) stay in the engine.
 
-## Results
+### Results
 
 `sim_test [<install>] [--series] [--seeds] [--traces <file>] [--trace <fight>]` runs these on `(2)Bottleneck.scm` and
 prints them beside the reference (run it from the repository's root: it reads `tools/tests/sim-reference/`). `--series`:
@@ -272,7 +314,7 @@ reach only after 24 frames, then 48, 96 and 192.
 
 **Defences**: the three probe fights go to the reference's side; mean series difference 4.7%.
 
-## Known gaps
+### Known gaps
 
 What is simplified or missing, and what it changes:
 
@@ -348,6 +390,14 @@ What is simplified or missing, and what it changes:
 - **Run the map** (`startMap`) is not in the simulation.
 
 ## Tests
+
+The Map Simulation engine's own tests (synthetic data, no game data needed):
+
+    cmake -S . -B build-sim -DSTARDRAFT_RENDERER=OFF -DSTARDRAFT_MAP_SIM_TESTS=ON
+    cmake --build build-sim --config Release
+    ctest --test-dir build-sim/tools/map_lab/engine -C Release
+
+StarDraft's own engine:
 
 Build without SDL and run the test from the repository's root:
 

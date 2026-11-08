@@ -3214,6 +3214,25 @@ Search technologies	Buscar tecnologías
 Map layers: terrain outside of map boundaries shows	Capas del mapa: se muestra el terreno fuera de los límites del mapa
 Map layers: terrain outside of map boundaries is hidden	Capas del mapa: el terreno fuera de los límites del mapa está oculto
 Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	El terreno solo se puede editar en el mapa. Para tener terreno fuera de él, píntelo en una capa y luego saque la capa (Capas del mapa > Mover capa)
+Simulate r&ush distance (experimental)	Simular la distancia de &rush (experimental)
+Rush distance	Distancia de rush
+Worker race	Raza del obrero
+Reached	Llegó
+Not reached	No llegó
+From	Desde
+To	Hasta
+Game seconds	Segundos de juego
+Distance (pixels)	Distancia (píxeles)
+Result	Resultado
+No worker reached the other start location	Ningún obrero llegó a la otra ubicación inicial
+Rush distance: no worker reached the other start location	Distancia de rush: ningún obrero llegó a la otra ubicación inicial
+%ls to %ls game seconds	De %ls a %ls segundos de juego
+Rush distance: %ls to %ls game seconds	Distancia de rush: de %ls a %ls segundos de juego
+A worker walks from each start location to each other start location, at Fastest	Un obrero camina desde cada ubicación inicial hasta cada otra ubicación inicial, a la máxima velocidad
+The rush distance simulation is not available for Cosmonarchy BW maps. The mining simulation is.	La simulación de distancia de rush no está disponible para los mapas de Cosmonarchy BW. La simulación de extracción sí.
+Mining: %ls minerals a minute	Extracción: %ls minerales por minuto
+%d workers on minerals at each base, %d game minute at Fastest	%d obreros en minerales en cada base, %d minuto de juego a la máxima velocidad
+%d workers on minerals at each base, %d game minutes at Fastest	%d obreros en minerales en cada base, %d minutos de juego a la máxima velocidad
 Select a music track	Seleccione una pista de música
 Select a dot image	Seleccione una imagen de puntos
 The project has no music track "	El proyecto no tiene la pista de música "
@@ -3244,3 +3263,5 @@ draw the dot image {image} at {where} for {player} with {unit}, {px} pixels apar
 Draws a dot image of the project (Assets > Dot images) with units: one unit for each dot. The dots go row by row from the location, the given pixels apart. Each unit gets the color of its dot, as in EUD Editor 3's dot painter. White dots are the background: they get no unit. After the drawing, the location is where it was before.	Dibuja una imagen de puntos del proyecto (Recursos > Imágenes de puntos) con unidades: una unidad por cada punto. Los puntos van fila por fila desde la ubicación, a los píxeles indicados de distancia. Cada unidad toma el color de su punto, como en el pintor de puntos de EUD Editor 3. Los puntos blancos son el fondo: no reciben unidad. Después del dibujo, la ubicación vuelve a donde estaba.
 It first removes all the units of this type that the player owns: use a unit type that is only for the drawing. Each dot is one unit: a picture of 30 x 30 dots makes 900 units, and a map has room for 1700 units.	Primero quita todas las unidades de este tipo que tiene el jugador: use un tipo de unidad solo para el dibujo. Cada punto es una unidad: una imagen de 30 x 30 puntos hace 900 unidades, y un mapa tiene espacio para 1700 unidades.
 draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	dibujar la imagen de puntos "Logo" en Title para Player 8 con Terran Marine, a 8 píxeles de distancia: mostrar el logo del mapa al empezar.
+No room	Sin espacio
+No room: the base has no room for its depot and workers.	Sin espacio: la base no tiene espacio para su base principal y sus obreros.

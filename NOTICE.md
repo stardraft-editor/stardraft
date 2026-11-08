@@ -16,6 +16,7 @@ this repository: the build downloads the libraries (CMakeLists.txt, FetchContent
 | dr_wav, dr_mp3 (dr_libs) | Decode the music tracks that are WAV or MP3 files | Public domain (Unlicense) or MIT No Attribution, David Reid | https://github.com/mackron/dr_libs |
 | litehtml | The HTML view (the release notes): lays out HTML and CSS | BSD-3-Clause | https://github.com/litehtml/litehtml |
 | Gumbo (in litehtml) | Parses the HTML for litehtml | Apache-2.0 | https://github.com/litehtml/litehtml/tree/master/src/gumbo |
+| Map Simulation | The simulation bar's mining and rush distance (Tools > Simulate mining, Simulate rush distance; `tools/map_lab/`) | MIT, Copyright (c) 2026 Map Editor contributors | Pull request 260 (`third_party/map-simulation/README.md`) |
 | IsomTerrain | The isometric terrain core: StarEdit's brush and tiles (`src/isom_core.cpp`) | MIT, Copyright (c) 2023 Justin F | https://github.com/TheNitesWhoSay/IsomTerrain |
 | Dear ImGui | stardraft-next's UI (the new shell's spike) | MIT | https://github.com/ocornut/imgui |
 | Noto Sans, Noto Sans KR, Noto Sans SC | The fonts (Latin, Korean, Chinese) on macOS and Linux; on Windows only Noto Sans, when Segoe UI is not there | SIL Open Font License 1.1 | https://github.com/notofonts |
@@ -23,6 +24,12 @@ this repository: the build downloads the libraries (CMakeLists.txt, FetchContent
 `third_party/IsomTerrain/` is IsomTerrain at one commit: its `IsomApi.h`, LICENSE, README and the test maps that its
 reference tests use, unchanged, and StarDraft's stand-ins for the two Chkdraft headers it includes
 (`third_party/IsomTerrain/STARDRAFT.md`).
+
+`third_party/map-simulation/` is the Map Simulation engine as pull request 260 gave it, unchanged (its LICENSE, README,
+COMPATIBILITY.md and SOURCE.json, which fingerprints its files: `python -I third_party/map-simulation/verify_source.py`).
+Its README says that its authors wrote it on their own, with OpenBW only as a behavior reference, and that it has no
+OpenBW or BWAPI code. `tools/map_lab/native_world.cpp` (MIT, its LICENSE) loads a map into it; `tools/map_lab/bar_sim.cpp`
+is StarDraft's own code.
 
 `third_party/ogg/` holds only libogg's `config_types.h`, which its own configure step makes (StarDraft's file, no libogg code).
 

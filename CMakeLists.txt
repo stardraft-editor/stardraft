@@ -355,6 +355,9 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DI
 target_link_libraries(stardraft_sim PUBLIC stardraft)
 add_executable(sim_test tools/tests/sim_test.cpp)
 target_link_libraries(sim_test PRIVATE stardraft_sim)
+# The simulation bar's engine: mining and rush distance on the Map Simulation engine (third_party/map-simulation, MIT),
+# combat on stardraft_sim (tools/map_lab/bar_sim.h).
+add_subdirectory(tools/map_lab)
 
 # The editor without a window, for scripts and agents (docs/dev/CLI.md). It needs no GPU and no SDL.
 add_executable(stardraft_cli apps/cli/main.cpp apps/common/build_stamp.cpp $<$<BOOL:${WIN32}>:apps/common/install_win32.cpp>)
@@ -363,7 +366,7 @@ target_include_directories(stardraft_cli PRIVATE src apps/common)
 target_link_libraries(stardraft_cli PRIVATE stardraft)
 # simulate-mining, simulate-combat (apps/cli/simulate.inc; experimental)
 target_compile_definitions(stardraft_cli PRIVATE STARDRAFT_SIMULATION)
-target_link_libraries(stardraft_cli PRIVATE stardraft_sim)
+target_link_libraries(stardraft_cli PRIVATE stardraft_sim stardraft_map_lab)
 if(MSVC)
     target_compile_options(stardraft_cli PRIVATE /W4 /utf-8)
     target_link_options(stardraft_cli PRIVATE /ENTRY:wmainCRTStartup)
@@ -726,7 +729,7 @@ if(STARDRAFT_RENDERER)
     add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)
     # Edit > Tools > Simulate (experimental: apps/editor/sdl_simulation.inc)
     target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_SIMULATION)
-    target_link_libraries(${sdlEditor} PRIVATE stardraft_sim)
+    target_link_libraries(${sdlEditor} PRIVATE stardraft_sim stardraft_map_lab)
     if(WIN32)
         # The program's icons (the window, the taskbar, Explorer), its manifest (per monitor DPI, UTF-8, long paths), its
         # version resource, and its files: the icon atlases, the app icon and Noto Sans (the Latin font when Segoe UI is

@@ -1,6 +1,7 @@
-// Experimental (branch experimental-simulation, STARDRAFT_SIMULATION): Tools > Simulate mining and Simulate
-// combat of the selected units. StarDraft's simulation (tools/sim/sim.h) runs a game of the open map (its unsaved edits too)
-// live on the map: its units move, mine and fight in place of the map's units, at the game's speed (Fastest) times the
+// Experimental (branch experimental-simulation, STARDRAFT_SIMULATION): Tools > Simulate mining, Simulate rush distance
+// and Simulate combat of the selected units. The simulation bar's engine (tools/map_lab/bar_sim.h: mining and rush
+// distance on the Map Simulation engine, combat on StarDraft's own engine, tools/sim/sim.h) runs a game of the open map
+// (its unsaved edits too) live on the map: its units move, mine and fight in place of the map's units, at the game's speed (Fastest) times the
 // bar's speed. The bar at the top of the map says what runs; Cancel (or Esc) ends it and the map shows again; at the
 // end the bar has the result, Report the whole report and Close.
 
@@ -8,6 +9,7 @@
 
 #include "../../tools/sim/sim.h"
 #include "../../tools/sim/sim_data.h"
+#include "../../tools/map_lab/bar_sim.h"
 
 #include <atomic>
 #include <chrono>
@@ -22,6 +24,8 @@
 void sfxPlayOnce(int sfx);  // (sdl_data.inc)
 void simulateCombatOf(std::set<int> selected);  // (below: a fight of these units)
 bool sdlSfxLoad(int sfx, SDL_AudioSpec& spec, std::vector<Uint8>& pcm);
+float mapTextScale();  // (core/map_scene.inc)
+
 namespace {
 
 // The simulator (made when a simulation first starts). Only used once simReady() is true.
@@ -32,9 +36,11 @@ bool gSimReady = false;
 struct LiveSim {
     bool shown = false;  // the bar shows: a game runs, or ended and shows its end
     bool combat = false, done = false;
+    bool rush = false;  // rush distance (combat false)
     const Editor* ed = nullptr;  // the map it runs on (another tab, or the map closed: it ends)
     float speed = 1;             // the game's speed times this (kSimSpeeds)
-    bool skipping = false;       // Skip to the end: the game runs as fast as it can, a few milliseconds a window frame
+    bool skipping = false;       // the game runs on the skip's thread, as fast as it can (simRunAhead)
+    bool toEnd = false;          // ... to its end (Skip to the end); else to a frame (Restart, the timeline)
     bool behind = false;         // the game cannot keep up with the speed (the bar shows the spinner)
     std::chrono::steady_clock::time_point last;
     double due = 0;  // frames due (parts of a frame)
@@ -64,10 +70,11 @@ std::map<std::string, Bytes> simDataFiles() {
     return sim::dataFilesForMap(gState.data, gState.ed->chk(), std::move(project));
 }
 
-// A new simulator for each game, with the data of this map (simDataFiles).
-bool simReady() {
+// A new simulator for each game, with the data of this map (simDataFiles). `classic`: StarDraft's own engine for all
+// (the mining of a Cosmonarchy BW map: the Map Simulation engine reads only the game's units).
+bool simReady(bool classic) {
     std::string err;
-    gSim_ = sim::createSimulator();
+    gSim_ = classic ? sim::createSimulator() : maplab::createBarSimulator();
     if (!gSim_) {
         if (gRoot) msgbox::ask(*gRoot, L"Simulation", L"The simulation engine is not in this build yet.", {L"OK"}, msgbox::Icon::Info);
         return false;
@@ -133,7 +140,7 @@ std::vector<std::pair<int, int>> gSimCombatPlaced;  // the fight's placed units 
 // Skip to the end runs the game on a thread of its own, as fast as the computer can: the window shows the last
 // picture and a spinner meanwhile, and touches the engine only through these (simSkipFrame: the game's frame).
 std::thread gSimSkipThread;
-std::atomic<bool> gSimSkipStop{false}, gSimSkipEnded{false};
+std::atomic<bool> gSimSkipStop{false}, gSimSkipEnded{false}, gSimSkipReached{false};  // (reached: the frame of a seek)
 std::atomic<int> gSimSkipFrame{0};
 bool simSkipRunning() { return gSimSkipThread.joinable(); }
 bool simSkipJoin();
@@ -146,7 +153,7 @@ bool simSkipJoin() {
     gSimSkipStop = true;
     gSimSkipThread.join();
     if (gSim_) simEngine().setFastForward(false);  // (the pictures and sounds again)
-    gSimSkipStop = false;
+    gSimSkipStop = false, gSimSkipReached = false;
     return gSimSkipEnded.exchange(false);
 }
 
@@ -155,6 +162,70 @@ std::vector<sim::LiveImage> gSimLastImages;
 const std::vector<sim::LiveImage>& simImages() {
     if (!simSkipRunning()) gSimLastImages.clear(), simEngine().images(gSimLastImages);
     return gSimLastImages;
+}
+
+// Rush distance: each worker's way so far (a place each 8 pixels), a line in its player's color (a copy, kept while a
+// skip runs).
+std::vector<sim::RushRoute> gSimRoutes;
+void simTrails(render::Scene& s) {
+    if (!simSkipRunning()) gSimRoutes = simEngine().rushResult();
+    for (const sim::RushRoute& r : gSimRoutes) {
+        if (r.path.empty()) continue;
+        const uint32_t color = playerRgba(std::clamp(r.from, 0, 11), 230);
+        std::pair<int, int> from = r.path.front();
+        for (size_t k = 1; k < r.path.size(); ++k) {
+            const std::pair<int, int>& to = r.path[k];
+            render::RectDraw line;
+            line.x0 = float(from.first), line.y0 = float(from.second), line.x1 = float(to.first), line.y1 = float(to.second);
+            line.rgba = color, line.line = true, line.thickness = 2;
+            s.rects.push_back(line);
+            from = to;
+        }
+    }
+}
+
+// Mining: at each base's mineral fields, two lines over the field: its mean round trip in frames (after the warm-up;
+// none before its first trip) and its minerals left (the map's amount less those mined). Zoomed out (the two lines
+// do not fit on a field): one label under each base's depot, its fields' mean round trip and their minerals left. A
+// copy, kept while a skip runs. The map font, as the map's other labels (core/path_overlay.inc).
+std::vector<sim::MiningBase> gSimFields;
+void simFieldLabels(render::Scene& s) {
+    if (!simSkipRunning()) gSimFields = simEngine().miningResult();
+    const float unit = mapTextScale(), px = unit / std::max(0.05f, gState.zoom);  // a font unit in map pixels
+    // (a field is 64 x 32 map pixels; the widest line, "1500 minerals", is about 60 font units)
+    const bool perField = 60 * px <= 62 && 24 * px <= 32;
+    auto lines = [&](float cx, float top, const char* first, const char* second) {
+        int line = 0;
+        for (const char* t : {first, second}) {
+            if (!*t) continue;
+            const float w = float(render::textWidth(t)) * px, y = top + float(line) * 12 * px;
+            s.texts.push_back({cx - w / 2, y, t, t == first ? 0xFFFFFFFFu : 0xD8E4F0FFu, true, unit});
+            ++line;
+        }
+    };
+    std::set<std::pair<int, int>> labeled;  // the fields with a label
+    for (const sim::MiningBase& b : gSimFields) {
+        if (b.runs.empty() || !b.runs[0].placed) continue;
+        const sim::MiningRun& r = b.runs[0];
+        char cycle[48] = "", left[48] = "";
+        if (!perField) {
+            double sum = 0;
+            int timed = 0, minerals = 0;
+            for (double t : r.tripFrames) sum += t, timed += t > 0 ? 1 : 0;
+            for (int n : r.fieldMinerals) minerals += n;
+            if (timed) std::snprintf(cycle, sizeof cycle, "%.0f frames a trip", sum / timed);
+            if (!r.fieldMinerals.empty()) std::snprintf(left, sizeof left, "%d minerals", minerals);
+            lines(float(b.x), float(b.y) + 56, cycle, left);
+            continue;
+        }
+        for (size_t f = 0; f < b.fields.size(); ++f) {
+            if (!labeled.insert(b.fields[f]).second) continue;  // (a field near two depots: the first base's label)
+            cycle[0] = left[0] = 0;
+            if (f < r.tripFrames.size() && r.tripFrames[f] > 0) std::snprintf(cycle, sizeof cycle, "%.0f frames", r.tripFrames[f]);
+            if (f < r.fieldMinerals.size()) std::snprintf(left, sizeof left, "%d minerals", r.fieldMinerals[f]);
+            lines(float(b.fields[f].first), float(b.fields[f].second) - 12 * px, cycle, left);
+        }
+    }
 }
 
 // The live game's images in place of the map's units and sprites (core/map_scene.inc: gLiveScene).
@@ -187,6 +258,8 @@ void simScene(render::Scene& s) {
         if (li.order == 0 && !d.shadow) addImage(s, d);
         else s.sprites.push_back(d);
     }
+    if (gSim.rush) simTrails(s);
+    else if (!gSim.combat) simFieldLabels(s);
 }
 
 // The minimap's dots of the live game: each sprite's main image (not shadows, overlays, or the remnants under the
@@ -598,6 +671,34 @@ void simEnd() {
         side(b, gSim.players[1], r.b);
         d.para(tr(L"Fastest, no upgrades or research; each side attack-moves to the other's middle, for 2 game minutes at most."), true);
         gSim.report = gSimTitle + L"\r\n" + gSimLine + L"\r\n" + d.text;
+    } else if (gSim.rush) {
+        const std::vector<sim::RushRoute> routes = e.rushResult();
+        SimDoc& d = gSimDoc;
+        std::vector<std::vector<std::wstring>> rows;
+        double fastest = -1, slowest = -1;
+        for (const sim::RushRoute& r : routes) {
+            const double secs = r.frames * 0.042;
+            const wchar_t* race = r.race == sim::Zerg ? tr(L"Zerg") : r.race == sim::Protoss ? tr(L"Protoss") : tr(L"Terran");
+            rows.push_back({simPlayer(r.from), simPlayer(r.to), race, r.reached ? tr(L"Reached") : tr(L"Not reached"), simNum(secs, 1),
+                            simNum(r.distance)});
+            if (!r.reached) continue;
+            fastest = fastest < 0 ? secs : std::min(fastest, secs);
+            slowest = std::max(slowest, secs);
+        }
+        wchar_t txt[1024];
+        if (fastest < 0) {
+            gSim.result = tr(L"No worker reached the other start location");
+            gSimTitle = tr(L"Rush distance: no worker reached the other start location");
+        } else {
+            std::swprintf(txt, 1024, tr(L"%ls to %ls game seconds"), simNum(fastest, 1).c_str(), simNum(slowest, 1).c_str());
+            gSim.result = txt;
+            std::swprintf(txt, 1024, tr(L"Rush distance: %ls to %ls game seconds"), simNum(fastest, 1).c_str(), simNum(slowest, 1).c_str());
+            gSimTitle = txt;
+        }
+        gSim.endText = gSim.result;
+        gSimLine = tr(L"A worker walks from each start location to each other start location, at Fastest");
+        d.table({tr(L"From"), tr(L"To"), tr(L"Race"), tr(L"Result"), tr(L"Game seconds"), tr(L"Distance (pixels)")}, rows, 4);
+        gSim.report = gSimTitle + L"\r\n" + gSimLine + L"\r\n" + d.text;
     } else {
         const std::vector<sim::MiningBase> bases = e.miningResult();
         std::wstring summary;
@@ -605,7 +706,8 @@ void simEnd() {
         std::vector<std::vector<std::wstring>> rows;
         std::vector<std::wstring> tripHead = {tr(L"Field")};
         std::vector<const sim::MiningRun*> runs;
-        double minerals = 0, gas = 0;
+        double minerals = 0;
+        bool unplaced = false;  // a base with no room for its depot and workers
         wchar_t txt[1024];
         for (size_t k = 0; k < bases.size(); ++k) {
             const sim::MiningBase& b = bases[k];
@@ -620,31 +722,26 @@ void simEnd() {
             }
             const wchar_t* race = r.race == sim::Zerg ? tr(L"Zerg") : r.race == sim::Protoss ? tr(L"Protoss") : tr(L"Terran");
             rows.push_back({label, race, std::to_wstring(b.x / 32) + L", " + std::to_wstring(b.y / 32),
-                            std::to_wstring(b.fields.size()), simNum(r.mineralsPerMinute), simNum(r.gasPerMinute)});
-            minerals += r.mineralsPerMinute, gas += r.gasPerMinute;
+                            r.placed ? std::to_wstring(b.fields.size()) : std::wstring(L"\x2014"), r.placed ? simNum(r.mineralsPerMinute) : std::wstring(tr(L"No room"))});
+            minerals += r.mineralsPerMinute;
+            unplaced = unplaced || !r.placed;
             tripHead.push_back(base);
             runs.push_back(&r);
         }
-        if (rows.size() > 1) rows.push_back({tr(L"=All"), L"", L"", L"", simNum(minerals), simNum(gas)});
+        if (rows.size() > 1) rows.push_back({tr(L"=All"), L"", L"", L"", simNum(minerals)});
         std::swprintf(txt, 1024, tr(L"%ls minerals a minute"), simNum(minerals).c_str());
         gSim.endText = gSim.result = txt;
-        std::swprintf(txt, 1024, tr(L"Mining: %ls minerals and %ls gas a minute"), simNum(minerals).c_str(), simNum(gas).c_str());
+        std::swprintf(txt, 1024, tr(L"Mining: %ls minerals a minute"), simNum(minerals).c_str());
         gSimTitle = txt;
-        int gasWorkers = 3, minutes = 3;
-        prefs::number(L"SimGasWorkers", gasWorkers, 0, 3), prefs::number(L"SimMinutes", minutes, 1, 60);
-        if (gasWorkers) {
-            if (minutes == 1)
-                std::swprintf(txt, 1024, tr(L"%d workers on minerals and %d on gas at each base, %d game minute at Fastest"), int(gSim.workers), gasWorkers, minutes);
-            else
-                std::swprintf(txt, 1024, tr(L"%d workers on minerals and %d on gas at each base, %d game minutes at Fastest"), int(gSim.workers), gasWorkers, minutes);
-        } else {
-            if (minutes == 1)
-                std::swprintf(txt, 1024, tr(L"%d workers on minerals and none on gas at each base, %d game minute at Fastest"), int(gSim.workers), minutes);
-            else
-                std::swprintf(txt, 1024, tr(L"%d workers on minerals and none on gas at each base, %d game minutes at Fastest"), int(gSim.workers), minutes);
-        }
+        int minutes = 3;
+        prefs::number(L"SimMinutes", minutes, 1, 60);
+        if (minutes == 1)
+            std::swprintf(txt, 1024, tr(L"%d workers on minerals at each base, %d game minute at Fastest"), int(gSim.workers), minutes);
+        else
+            std::swprintf(txt, 1024, tr(L"%d workers on minerals at each base, %d game minutes at Fastest"), int(gSim.workers), minutes);
         gSimLine = txt;
-        d.table({tr(L"Base"), tr(L"Race"), tr(L"Tile"), tr(L"Fields"), tr(L"Minerals a minute"), tr(L"Gas a minute")}, rows, 3);
+        d.table({tr(L"Base"), tr(L"Race"), tr(L"Tile"), tr(L"Fields"), tr(L"Minerals a minute")}, rows, 3);
+        if (unplaced) d.para(tr(L"No room: the base has no room for its depot and workers."), true);
         size_t most = 0;
         for (const sim::MiningRun* r : runs) most = std::max(most, r->tripFrames.size());
         if (most) {
@@ -726,6 +823,7 @@ void simClose() {
     if (gSim_) simEngine().stop();
     gLiveScene = nullptr, gLiveMinimap = nullptr, gLiveCreep = nullptr;
     gSimCreep.clear(), gSimCreepChanges = ~0ull;
+    gSimRoutes.clear(), gSimFields.clear();
     gSim = LiveSim{};
     simRelease();
     simRedraw();
@@ -742,23 +840,25 @@ Bytes simModChk(const Chk& map, const UnitTypes& types) {
     return c.serialize();
 }
 
-bool simBegin(bool combat, const std::function<bool(std::string&)>& start) {
+bool simBegin(bool combat, const std::function<bool(std::string&)>& start, bool rush = false) {
     if (!gState.ed || !gState.ed->isOpen()) return false;
-    if (combat && modTab()) {  // (the mod's units fight with their own values, which the simulation does not have)
+    if ((combat || rush) && modTab()) {  // (the mod's units have their own values, which the simulation does not have)
         if (gRoot)
-            msgbox::ask(*gRoot, tr(L"Simulation"), tr(L"The combat simulation is not available for Cosmonarchy BW maps. The mining simulation is."),
+            msgbox::ask(*gRoot, tr(L"Simulation"),
+                        rush ? tr(L"The rush distance simulation is not available for Cosmonarchy BW maps. The mining simulation is.")
+                             : tr(L"The combat simulation is not available for Cosmonarchy BW maps. The mining simulation is."),
                         {tr(L"OK")}, msgbox::Icon::Info);
         return false;
     }
     if (gSim.shown) simClose();
-    if (!simReady()) return false;
+    if (!simReady(modTab())) return false;
     std::string err;
     Bytes chk = modTab() ? simModChk(gState.ed->chk(), gState.ed->unitTypes()) : gState.ed->chk().serialize();
     if (!simEngine().setMap(chk, err) || !start(err)) {
         if (gRoot) msgbox::ask(*gRoot, L"Simulation", widen(err), {L"OK"}, msgbox::Icon::Error);
         return false;
     }
-    gSim.shown = true, gSim.combat = combat, gSim.done = false, gSim.ed = gState.ed.get();
+    gSim.shown = true, gSim.combat = combat, gSim.rush = rush, gSim.done = false, gSim.ed = gState.ed.get();
     gSim.chk = std::move(chk), gSim.start = start;
     gSim.last = std::chrono::steady_clock::now(), gSim.due = 0;
     gLiveScene = simScene, gLiveMinimap = simMinimap, gLiveCreep = simCreep;
@@ -890,8 +990,9 @@ void simSounds(bool play) {
     }
 }
 
-// The game at `frame` (Restart: 0; the timeline): the game again from the start, run at once to that frame (the
-// game is the same each time it runs). Forward: only the frames between.
+// The game at `frame` (Restart: 0; the timeline): the game again from the start, run to that frame on the skip's
+// thread (the game is the same each time it runs). Forward: only the frames between.
+void simRunAhead(int target);
 void simSeek(int frame) {
     simSkipJoin();
     gSim.skipping = false;
@@ -903,7 +1004,8 @@ void simSeek(int frame) {
         if (!e.setMap(gSim.chk, err) || !gSim.start(err)) return simClose();
         gSim.done = false;
     }
-    if (frame > e.frame() && !e.step(frame - e.frame())) simEnd();
+    if (frame > e.frame() + 8) simRunAhead(frame);  // (the skip's thread: a large map's game is slow)
+    else if (frame > e.frame() && !e.step(frame - e.frame())) simEnd();
     simSounds(false);
     gSim.due = 0, gSim.last = std::chrono::steady_clock::now();
     simRedraw();
@@ -912,9 +1014,9 @@ void simSeek(int frame) {
 // The bar: a compact pill at the top middle of the map. At the left an info icon (its tooltip: what the simulation
 // is), then what runs and the game time (at the end the result); at the right the buttons: the speed with - and +,
 // Restart, Skip to the end and Cancel (at the end: Restart, Report and Close). Mining has a thin timeline along the
-// pill's bottom edge: how far the game is, of its longest time; a click or a drag goes to that time.
+// pill's bottom edge (rush distance and combat have none: they go on until the end): how far the game is, of its longest time; a click or a drag goes to that time.
 // The buttons' ids (gSim.hot, gSim.pressed): 0 Cancel/Close, 1 the speed/Report, 2 Restart, 3 the info icon, 4 -, 5 +,
-// 6 Skip to the end, 7 the mining's settings, 8 Report feedback.
+// 6 Skip to the end, 7 the settings (mining's workers, rush distance's race, a combat's alliances), 8 Report feedback.
 constexpr float kSimSpeeds[] = {0.25f, 0.5f, 1, 2, 4, 8, 16, 32, 64};
 struct SimBarLayout {
     draw::Rect bar, chip, text, first, second, third, minus, plus, skip, gear, feedback, track, trackHit;
@@ -937,11 +1039,11 @@ SimBarLayout simLayout(draw::Rect r) {
         l.minus = left(l.second, ib);  // -
     }
     draw::Rect firstButton = gSim.done ? l.third : l.minus;
-    l.gear = left(firstButton, ib), firstButton = l.gear;  // (the settings: mining's workers and gas, a combat's alliances)
+    l.gear = left(firstButton, ib), firstButton = l.gear;  // (the settings: mining's workers, rush's race, a combat's alliances)
     l.feedback = left(firstButton, ib), firstButton = l.feedback;           // Report feedback
     l.chip = {x + pad, y + pad, x + pad + ib, y + pad + ib};  // the info icon
     l.text = {l.chip.right + scale(6), y, firstButton.left - scale(8), y + h};
-    if (gSim.combat) return l;  // (a combat has no timeline: it goes on until no side can fight)
+    if (gSim.combat || gSim.rush) return l;  // (no timeline: a combat goes on until no side can fight, a rush until all arrive)
     const int inset = h / 2;
     l.track = {x + inset, l.bar.bottom - scale(4), l.bar.right - inset, l.bar.bottom - scale(2)};
     l.trackHit = {l.track.left - scale(6), l.bar.bottom - scale(9), l.track.right + scale(6), l.bar.bottom + scale(3)};
@@ -964,18 +1066,26 @@ void simStepSpeed(int dir) {
     gSim.speed = kSimSpeeds[at];
 }
 
-// Skip to the end: the rest of the game runs at once (no sounds), then the result and its report show.
-void simSkipToEnd() {
+// The game runs on the skip's thread (no sounds) to `target` (a frame), or to its end (INT_MAX: Skip to the end, then
+// the result and its report show). The window stays usable meanwhile.
+void simRunAhead(int target) {
     if (!gSim.shown || gSim.done || simSkipRunning()) return;
-    gSim.skipping = true;  // (simFrame waits for the thread; at the end the report shows)
-    simImages();           // (the picture to show meanwhile)
+    gSim.skipping = true;  // (simFrame waits for the thread)
+    gSim.toEnd = target == INT_MAX;
+    simImages();  // (the picture to show meanwhile)
+    if (gSim.rush) gSimRoutes = simEngine().rushResult();
+    else if (!gSim.combat) gSimFields = simEngine().miningResult();
     gSimSkipFrame = simEngine().frame();
-    gSimSkipEnded = false;
+    gSimSkipEnded = false, gSimSkipReached = false;
     simEngine().setFastForward(true);  // (no pictures or sounds while it skips: the play is the same)
-    gSimSkipThread = std::thread([] {
+    gSimSkipThread = std::thread([target] {
         sim::Simulator& e = simEngine();
         while (!gSimSkipStop) {
-            const bool more = e.step(240);
+            if (e.frame() >= target) {
+                gSimSkipReached = true;
+                return;
+            }
+            const bool more = e.step(std::min(8, target - e.frame()));  // (small steps: a stop waits for one at most)
             gSimSkipFrame = e.frame();
             if (!more) {
                 gSimSkipEnded = true;
@@ -984,6 +1094,10 @@ void simSkipToEnd() {
         }
     });
     simRedraw();
+}
+void simSkipToEnd() {
+    if (gSim.skipping && !gSim.toEnd) simSkipJoin(), gSim.skipping = false;  // (a seek runs: on from where it is)
+    simRunAhead(INT_MAX);
 }
 
 }  // namespace
@@ -1001,9 +1115,9 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
     if (gSim.done) {
         c.text(l.text, gSim.result, kText, draw::kMiddle | draw::kEllipsis);
     } else {
-        const std::wstring what = gSim.combat ? L"Combat" : L"Mining";
+        const std::wstring what = gSim.combat ? L"Combat" : gSim.rush ? L"Rush distance" : L"Mining";
         const int frame = simSkipRunning() ? gSimSkipFrame.load() : e.frame();
-        const std::wstring time = gSim.combat ? simClock(frame) : simClock(frame) + L" / " + simClock(e.lastFrame());
+        const std::wstring time = gSim.combat || gSim.rush ? simClock(frame) : simClock(frame) + L" / " + simClock(e.lastFrame());
         const int ww = c.measure(what);
         c.text(l.text, what, kText, draw::kMiddle);
         const draw::Rect tr{l.text.left + ww + scale(8), l.text.top, l.text.right, l.text.bottom};
@@ -1017,11 +1131,11 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
                 const int age = (lead - k + 8) % 8;
                 c.fill({px - dot / 2, py - dot / 2, px - dot / 2 + dot, py - dot / 2 + dot}, age == 0 ? kAccent : kDim, uint8_t(age == 0 ? 255 : 230 - age * 25));
             }
-            if (gSim.skipping) c.text({cx + rad + scale(8), tr.top, tr.right, tr.bottom}, L"Skip to the end", kDim, draw::kMiddle | draw::kEllipsis);
+            if (gSim.skipping && gSim.toEnd) c.text({cx + rad + scale(8), tr.top, tr.right, tr.bottom}, L"Skip to the end", kDim, draw::kMiddle | draw::kEllipsis);
         }
     }
     // The timeline (mining), along the bottom edge.
-    if (!gSim.combat) {
+    if (!gSim.combat && !gSim.rush) {
         const float rr = float((l.track.bottom - l.track.top) / 2);
         c.roundBox(l.track, kBorder, draw::kNone, rr);
         const int last = std::max(1, e.lastFrame());
@@ -1064,7 +1178,7 @@ std::wstring simDiagnostics() {
     sim::Simulator& e = simEngine();
     const int frame = simSkipRunning() ? gSimSkipFrame.load() : e.frame();
     std::wstring t = L"\n\n---\n";
-    t += gSim.combat ? L"Combat" : L"Mining";
+    t += gSim.combat ? L"Combat" : gSim.rush ? L"Rush distance" : L"Mining";
     t += L", " + simClock(frame) + L" (frame " + std::to_wstring(frame) + L"), " + simSpeedText(gSim.speed);
     if (gSim.done) t += L", ended: " + gSim.result;
     if (simSkipRunning()) t += L", skipping";
@@ -1081,10 +1195,15 @@ std::wstring simDiagnostics() {
                 if (s.unreachable) t += L", " + std::to_wstring(s.unreachable) + L" out of reach";
             }
             if (r.stalemate) t += L"\nDraw";
+        } else if (gSim.rush) {
+            int reached = 0;
+            const std::vector<sim::RushRoute> routes = e.rushResult();
+            for (const sim::RushRoute& r : routes) reached += r.reached ? 1 : 0;
+            t += L"\n" + std::to_wstring(routes.size()) + L" routes, " + std::to_wstring(reached) + L" reached";
         } else {
-            int workers = 9, gas = 3;
-            prefs::number(L"SimWorkers", workers, 1, 60), prefs::number(L"SimGasWorkers", gas, 0, 3);
-            t += L"\n" + std::to_wstring(gSim.bases) + L" bases, " + std::to_wstring(workers) + L" workers, " + std::to_wstring(gas) + L" on gas";
+            int workers = 9;
+            prefs::number(L"SimWorkers", workers, 1, 60);
+            t += L"\n" + std::to_wstring(gSim.bases) + L" bases, " + std::to_wstring(workers) + L" workers";
         }
     }
     if (!simSkipRunning() && !e.liveError().empty()) t += L"\nError: " + widen(e.liveError());
@@ -1118,13 +1237,13 @@ void simCombatSettingsMenu() {
     stardraft::kit::Menu::popup(*gRoot, gHost->mouse(*gRoot), items, stardraft::kit::Menu::measure(items, &measure), {});
 }
 
-// The mining's settings (the bar's gear): the workers on minerals and on gas at each base, as Program options has them;
-// a pick saves it and starts the mining again with it.
+// The mining's settings (the bar's gear): the workers on minerals at each base, as Program options has them; a pick
+// saves it and starts the mining again with it.
 void simulateMiningCommand();
 void simMiningSettingsMenu() {
     if (!gRoot || !gHost) return;
-    int workers = 9, gas = 3;
-    prefs::number(L"SimWorkers", workers, 1, 60), prefs::number(L"SimGasWorkers", gas, 0, 3);
+    int workers = 9;
+    prefs::number(L"SimWorkers", workers, 1, 60);
     std::vector<stardraft::kit::MenuItem> items;
     auto header = [&](const std::wstring& t) {
         if (!items.empty()) items.push_back(stardraft::kit::MenuItem{}), items.back().separator = true;
@@ -1140,9 +1259,30 @@ void simMiningSettingsMenu() {
     };
     header(L"Workers on minerals");
     for (int n : {4, 6, 8, 9, 12, 16, 18, 20, 24, 27, 30}) choice(std::to_wstring(n), n == workers, L"SimWorkers", n);
-    header(L"Gas");
-    choice(L"No gas", gas == 0, L"SimGasWorkers", 0);
-    for (int n = 1; n <= 3; ++n) choice(std::to_wstring(n) + (n == 1 ? L" worker" : L" workers"), n == gas, L"SimGasWorkers", n);
+    ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
+    kit_sdl::ImguiCanvas measure(list, nullptr);
+    stardraft::kit::Menu::popup(*gRoot, gHost->mouse(*gRoot), items, stardraft::kit::Menu::measure(items, &measure), {});
+}
+
+// The rush distance's settings (the bar's gear): the workers' race, as Program options > Simulate mining has it (Races);
+// a pick saves it and starts the rush again with it.
+void simulateRushCommand();
+void simRushSettingsMenu() {
+    if (!gRoot || !gHost) return;
+    int races = 0;
+    prefs::number(L"SimRaces", races, 0, 3);
+    std::vector<stardraft::kit::MenuItem> items;
+    items.push_back(stardraft::kit::MenuItem{}), items.back().label = L"Worker race", items.back().enabled = false;
+    items.push_back(stardraft::kit::MenuItem{}), items.back().separator = true;
+    const wchar_t* const names[4] = {L"As in the map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
+    for (int k = 0; k < 4; ++k) {
+        items.push_back(stardraft::kit::MenuItem{});
+        items.back().label = names[k], items.back().checked = k == races;
+        items.back().run = [k] {
+            prefs::setNumber(L"SimRaces", k);
+            shellPost([] { simulateRushCommand(); });  // (again with the new race)
+        };
+    }
     ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
     kit_sdl::ImguiCanvas measure(list, nullptr);
     stardraft::kit::Menu::popup(*gRoot, gHost->mouse(*gRoot), items, stardraft::kit::Menu::measure(items, &measure), {});
@@ -1177,7 +1317,7 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
         else if (was == 1) shellPost([] { simShowReport(); });
         else if (was == 4 || was == 5) simStepSpeed(was == 4 ? -1 : 1), simRedraw();
         else if (was == 6) simSkipToEnd();
-        else if (was == 7) shellPost([] { gSim.combat ? simCombatSettingsMenu() : simMiningSettingsMenu(); });
+        else if (was == 7) shellPost([] { gSim.combat ? simCombatSettingsMenu() : gSim.rush ? simRushSettingsMenu() : simMiningSettingsMenu(); });
         else if (was == 8) shellPost([] { showFeedbackFilledSdl(L"the simulation", simDiagnostics()); });
         return true;
     }
@@ -1185,7 +1325,7 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
     if (!in) return false;
     // (the bar takes the mouse; a press does what it does; a quick second click is a press too, not a double click)
     if ((e.kind != draw::MouseKind::Down && e.kind != draw::MouseKind::DoubleClick) || e.button != 0) return true;
-    if (!gSim.combat && hit(l.trackHit)) {
+    if (!gSim.combat && !gSim.rush && hit(l.trackHit)) {
         gSim.seeking = true;
         seekAt();
         return true;
@@ -1208,7 +1348,7 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
     if (in(l.minus)) return L"Slower";
     if (in(l.plus)) return L"Faster";
     if (in(l.skip)) return L"Skip to the end";
-    if (in(l.gear)) return gSim.combat ? L"Who fights whom" : L"Workers and gas";
+    if (in(l.gear)) return gSim.combat ? L"Who fights whom" : gSim.rush ? L"Worker race" : L"Workers on minerals";
     if (in(l.feedback)) return L"Report feedback on the simulation";
     if (in(l.second)) return gSim.done ? L"Show the report" : L"Speed";
     if (in(l.first)) return gSim.done ? L"Close" : L"Cancel the simulation";
@@ -1238,20 +1378,22 @@ void simFrame() {
     sim::Simulator& e = simEngine();
     bool ran = false, ended = false;
     if (gSim.skipping) {
-        if (gSimSkipEnded) ended = simSkipJoin(), simSounds(false);
+        if (gSimSkipEnded || gSimSkipReached) {
+            ended = simSkipJoin(), simSounds(false);
+            if (!ended) gSim.skipping = false, gSim.due = 0;  // (a seek's frame: the game goes on from there)
+        }
     } else {
         gSim.due += std::min(ms, 250.0) * gSim.speed / 42.0;
-        while (gSim.due >= 1 && !ended && clock::now() < budget) {
-            const int n = std::min(int(gSim.due), 8);
-            gSim.due -= n, ran = true;
-            ended = !e.step(n);
+        while (gSim.due >= 1 && !ended && clock::now() < budget) {  // (a frame at a time: a large map's frame is slow)
+            gSim.due -= 1, ran = true;
+            ended = !e.step(1);
         }
         gSim.behind = gSim.due >= 8;
         gSim.due = std::min(gSim.due, 1.0);  // (what did not fit is dropped: no backlog)
         if (ran) simSounds(true);
     }
     if (ended) {
-        const bool skipped = gSim.skipping;
+        const bool skipped = gSim.skipping && gSim.toEnd;
         gSim.skipping = gSim.behind = false;
         simEnd();
         if (skipped) shellPost([] { simShowReport(); });
@@ -1260,16 +1402,15 @@ void simFrame() {
 }
 
 // Tools > Simulate mining: at each start location, placed resource depot and group of mineral fields (at most 8), the
-// workers of Program options > Simulation (default 9 on minerals and 3 on gas), 30 seconds, then the measured game
-// minutes (default 3); the races as in the map (a random race for Random and a race picked in the lobby) or one race.
-// At the game's speed (the bar's - and + change it).
+// workers of Program options > Simulation (default 9) on the mineral fields within 12 tiles, 30 seconds, then the
+// measured game minutes (default 3); the races as in the map (a random race for Random and a race picked in the lobby)
+// or one race. Each base mines in a game of its own (bar_sim.h). At the game's speed (the bar's - and + change it).
 void simulateMiningCommand() {
-    int workers = 9, gas = 3, minutes = 3, races = 0;
-    prefs::number(L"SimWorkers", workers, 1, 60), prefs::number(L"SimGasWorkers", gas, 0, 3);
+    int workers = 9, minutes = 3, races = 0;
+    prefs::number(L"SimWorkers", workers, 1, 60);
     prefs::number(L"SimMinutes", minutes, 1, 60), prefs::number(L"SimRaces", races, 0, 3);
     sim::MiningOptions o;
     o.workers = {workers};
-    o.gas = gas > 0, o.gasWorkers = gas;
     o.frames = int(minutes * 60 * 1000 / 42);
     static const sim::Race kRace[4] = {sim::Terran, sim::Terran, sim::Protoss, sim::Zerg};
     o.races = {kRace[races]};
@@ -1278,6 +1419,22 @@ void simulateMiningCommand() {
     if (!simBegin(false, [o](std::string& err) { return simEngine().startMining(o, err); })) return;
     gState.ed->clearSelection();  // (the map's selection does not show over the game)
     gSim.speed = 1, gSim.workers = workers, gSim.bases = int(simEngine().miningResult().size());
+}
+
+// Tools > Simulate rush distance: a worker walks from each start location to each other start location (each route
+// a game of its own, all at the same time), until all arrive or stop; the races as Simulate mining has them (the bar's
+// gear). The result: the shortest and longest walk in game seconds; the report: each route's time and length.
+void simulateRushCommand() {
+    int races = 0;
+    prefs::number(L"SimRaces", races, 0, 3);
+    sim::RushOptions o;
+    static const sim::Race kRace[4] = {sim::Terran, sim::Terran, sim::Protoss, sim::Zerg};
+    o.races = {kRace[races]};
+    o.mapRaces = races == 0;
+    o.seed = uint32_t(std::chrono::steady_clock::now().time_since_epoch().count());  // (Random: another race each time)
+    if (!simBegin(false, [o](std::string& err) { return simEngine().startRush(o, err); }, true)) return;
+    gState.ed->clearSelection();  // (the map's selection does not show over the game)
+    gSim.speed = 1;
 }
 
 // Tools > Simulate combat of the selected units: the selected units of all players fight where they stand (each unit
@@ -1351,10 +1508,10 @@ int simStepForShot(int frames) {
     return e.frame();
 }
 
-// --dialog simreport:mining or simreport:combat (a snapshot): that simulation of the map runs to its end at once (combat:
+// --dialog simreport:mining, simreport:rush or simreport:combat (a snapshot): that simulation of the map runs to its end at once (combat:
 // the units of the map's first two players), and its report's window is the picture.
 draw::View* sdlSimReportShot(const std::string& arg, int& w, int& h) {
-    if (arg != "simreport:mining" && arg != "simreport:combat") return nullptr;
+    if (arg != "simreport:mining" && arg != "simreport:combat" && arg != "simreport:rush") return nullptr;
     changelog::setHtmlHooks(false);
     if (arg == "simreport:combat" && gState.ed && gState.ed->isOpen()) {  // 12 Marines and 4 Medics (Player 1), 6 Zealots and 4 Dragoons (Player 2)
         sim::CombatOptions o;
@@ -1363,6 +1520,8 @@ draw::View* sdlSimReportShot(const std::string& arg, int& w, int& h) {
         for (int t : {0, 34, 65, 66}) names[t] = widen(gState.ed->unitTypes().statText(uint32_t(t)));
         if (simBegin(true, [o](std::string& err) { return simEngine().startCombat(o, err); }))
             gSim.players[0] = 0, gSim.players[1] = 1, gSim.unitNames = names;
+    } else if (arg == "simreport:rush") {
+        simulateRushCommand();
     } else {
         simulateMiningCommand();
     }

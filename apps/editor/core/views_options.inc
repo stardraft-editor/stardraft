@@ -54,7 +54,7 @@ struct OptionsValues {
     std::wstring passagesFile;    // ... its file ("": none chosen)
     // Tools > Simulate mining (experimental): the workers on minerals at each base, on gas, the measured game minutes,
     // and the races (0: as in the map, 1 Terran, 2 Protoss, 3 Zerg).
-    int simWorkers = 9, simGas = 3, simMinutes = 3, simRace = 0;
+    int simWorkers = 9, simMinutes = 3, simRace = 0;
 };
 
 // The program's part of the options window (options_window.inc): the values, the commands and the pickers.
@@ -113,7 +113,6 @@ const wchar_t* const kUnitNameForms[4] = {L"Terran Marine", L"Terran Marine (Cus
 
 // Simulate mining's choices: the values of each dropdown's items (races: the names).
 inline const int kSimWorkers[] = {4, 6, 8, 9, 12, 16, 18, 20, 24, 27, 30};
-inline const int kSimGas[] = {0, 1, 2, 3};
 inline const int kSimMinutes[] = {1, 2, 3, 5, 10, 15, 20};
 const wchar_t* const kSimRaces[4] = {L"As in the map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
 
@@ -187,13 +186,11 @@ public:
             add(d, {0, 0, 0, 0}), d.setVisible(false);
         };
         {
-            std::vector<std::wstring> w, g, m, r;
+            std::vector<std::wstring> w, m, r;
             for (int n : optionsview::kSimWorkers) w.push_back(std::to_wstring(n));
-            for (int n : optionsview::kSimGas) g.push_back(n ? std::to_wstring(n) : std::wstring(L"0 (no refinery)"));
             for (int n : optionsview::kSimMinutes) m.push_back(std::to_wstring(n) + (n == 1 ? L" minute" : L" minutes"));
             for (const wchar_t* n : optionsview::kSimRaces) r.push_back(n);
             simDrop(simWorkers_, w, 0, optionsview::kSimWorkers);
-            simDrop(simGas_, g, 1, optionsview::kSimGas);
             simDrop(simMinutes_, m, 2, optionsview::kSimMinutes);
             simDrop(simRace_, r, 3, nullptr);
         }
@@ -435,7 +432,7 @@ private:
     stardraft::kit::CheckBox lastProject_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
-    stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
+    stardraft::kit::Dropdown simWorkers_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
     stardraft::kit::Slider slider_;
     stardraft::kit::TextField limit_[2], detail_, folder_, install_, cmbw_, overrideFile_, passagesFile_;
     std::vector<int> langChoices_;     // the choice index of each language dropdown item
@@ -522,7 +519,6 @@ void OptionsView::sync(const OptionsValues& v) {
         if (d.value() != at) d.setValue(at);
     };
     pick(simWorkers_, optionsview::kSimWorkers, std::size(optionsview::kSimWorkers), v.simWorkers);
-    pick(simGas_, optionsview::kSimGas, std::size(optionsview::kSimGas), v.simGas);
     pick(simMinutes_, optionsview::kSimMinutes, std::size(optionsview::kSimMinutes), v.simMinutes);
     if (simRace_.value() != v.simRace) simRace_.setValue(v.simRace);
     if (folder_.text() != v.projectsFolder) folder_.setText(v.projectsFolder);
@@ -799,7 +795,6 @@ void OptionsView::paint(draw::Canvas& c) {
         header(L"Simulate mining");
         const std::pair<const wchar_t*, std::pair<stardraft::kit::Dropdown*, const char*>> rows[] = {
             {L"Workers on minerals at each base", {&simWorkers_, "sim.workers"}},
-            {L"Workers on gas", {&simGas_, "sim.gas"}},
             {L"Measured game time", {&simMinutes_, "sim.minutes"}},
             {L"Races", {&simRace_, "sim.races"}}};
         for (const auto& [name, drop] : rows) {

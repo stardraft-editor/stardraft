@@ -5392,6 +5392,47 @@ CHECKS.update({
 })
 
 
+# The simulation bar (Tools > Simulate, experimental): mining after 900 game frames (the bar with its timeline, each
+# base's workers), rush distance after 400 frames (the workers on their way, their lines) and at its end (the bar's
+# result: the shortest and longest walk; the lines stay), and the reports of mining and rush distance.
+SCRIPTS["simmining"] = """command edit.simulate.mining
+simstep 900
+"""
+# Zoomed in on the base at the bottom middle (12 wheel notches: about 190%): each mineral field's round trip and minerals.
+SCRIPTS["simminingzoom"] = """command edit.simulate.mining
+simstep 1800
+wheel 830,700,0,12
+"""
+SCRIPTS["simrush"] = """command edit.simulate.rush
+simstep 400
+"""
+SCRIPTS["simrushend"] = """command edit.simulate.rush
+simstep 20000
+"""
+CASES += [("map-sim-mining", ["--script", "{script:simmining}"], "map"),
+          ("map-sim-mining-zoom", ["--script", "{script:simminingzoom}"], "map"),
+          ("map-sim-rush", ["--script", "{script:simrush}"], "map"),
+          ("map-sim-rush-end", ["--script", "{script:simrushend}"], "map"),
+          ("map-simreport-mining", ["--dialog", "simreport:mining"], "map"),
+          ("map-simreport-rush", ["--dialog", "simreport:rush"], "map")]
+def check_sim_step(want_end):
+    def check(output):
+        frames = [int(n) for n in re.findall(r"simstep: frame (-?\d+)", output)]
+        if not frames or frames[-1] <= 0:
+            return "the simulation did not start"
+        if want_end and frames[-1] >= 20000:
+            return "the rush did not end"
+        return None
+    return check
+CHECKS.update({
+    "map-sim-mining": check_sim_step(False),
+    "map-sim-mining-zoom": check_sim_step(False),
+    "map-sim-rush": check_sim_step(False),
+    "map-sim-rush-end": check_sim_step(True),
+    "map-simreport-mining": lambda o: None if "simreport: ended" in o else "the mining did not end",
+    "map-simreport-rush": lambda o: None if "simreport: ended" in o else "the rush did not end",
+})
+
 def crig_map(cmbwmap):
     """The mod's map whose trigger 1 has a Comment with CRIGs: in the mod's map folders, above the map --cmbwmap (else that map)."""
     folder = os.path.dirname(cmbwmap)

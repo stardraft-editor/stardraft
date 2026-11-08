@@ -695,7 +695,7 @@ public:
 
     bool mining(const MiningOptions& o, std::vector<MiningBase>& out, std::string& error) override {
         if (!check(error)) return false;
-        out = miningBases(tables_, map_, o);
+        out = sim::miningBases(tables_, map_, o);
         if (out.empty()) {
             error = "The map has no base to mine at";
             return false;
@@ -740,7 +740,7 @@ public:
     bool startMining(const MiningOptions& o, std::string& error) override {
         if (!check(error)) return false;
         stop();
-        liveBases_ = miningBases(tables_, map_, o);
+        liveBases_ = sim::miningBases(tables_, map_, o);
         if (liveBases_.size() > 8) liveBases_.resize(8);
         if (liveBases_.empty()) {
             error = "The map has no base to mine at";
@@ -807,6 +807,13 @@ public:
             out.push_back(b);
         }
         return out;
+    }
+    std::vector<MiningBase> miningBases(const MiningOptions& o, std::vector<Race>& races) const override {
+        races.clear();
+        if (!ready_ || !hasMap_) return {};
+        std::vector<MiningBase> bases = sim::miningBases(tables_, map_, o);
+        races = baseRaces(tables_, map_, bases, o);
+        return bases;
     }
     std::vector<PlayerState> players() const override {
         std::vector<PlayerState> out;

@@ -77,12 +77,12 @@ std::vector<MiningBase> miningBases(const Tables& t, const MapInfo& map, const M
         return false;
     };
     for (auto& p : map.units)
-        if (o.startLocations && isStart(t, p.type)) bases.push_back({p.x, p.y, true, {}, {}});
+        if (o.startLocations && isStart(t, p.type)) bases.push_back({p.x, p.y, true, int(p.owner), {}, {}});
     for (auto& p : map.units)
         if (o.placedDepots && !isStart(t, p.type) && (t.units[p.type].flags & kDepot) &&
             !baseNear(p.x, p.y, t.rules.depotNear))
-            bases.push_back({p.x, p.y, false, {}, {}});
-    for (auto& [x, y] : o.bases) bases.push_back({x, y, false, {}, {}});
+            bases.push_back({p.x, p.y, false, -1, {}, {}});
+    for (auto& [x, y] : o.bases) bases.push_back({x, y, false, -1, {}, {}});
     std::vector<MapInfo::Placed> fields;
     for (auto& p : map.units)
         if (isMinerals(t, p.type)) fields.push_back(p);
@@ -111,7 +111,7 @@ std::vector<MiningBase> miningBases(const Tables& t, const MapInfo& map, const M
             for (size_t i = 0; i < fields.size(); ++i)
                 if (group[i] == g) members.push_back(fields[i]);
             int x = 0, y = 0;
-            if (members.size() >= 3 && clusterSpot(t, map, members, x, y)) bases.push_back({x, y, false, {}, {}});
+            if (members.size() >= 3 && clusterSpot(t, map, members, x, y)) bases.push_back({x, y, false, -1, {}, {}});
         }
     }
     // Each field goes to its nearest base (within 12 tiles), nearest first.

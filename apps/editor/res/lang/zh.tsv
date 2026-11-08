@@ -3214,6 +3214,25 @@ Search technologies	搜索科技
 Map layers: terrain outside of map boundaries shows	地图图层：显示地图边界外的地形
 Map layers: terrain outside of map boundaries is hidden	地图图层：已隐藏地图边界外的地形
 Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	只能在地图上编辑地形。要在地图外放置地形，请先在图层上绘制，然后把图层移出去（地图图层 > 移动图层）
+Simulate r&ush distance (experimental)	模拟 Rush 距离(&U)（实验性）
+Rush distance	Rush 距离
+Worker race	工人种族
+Reached	已到达
+Not reached	未到达
+From	起点
+To	终点
+Game seconds	游戏秒数
+Distance (pixels)	距离（像素）
+Result	结果
+No worker reached the other start location	没有工人到达另一个起始位置
+Rush distance: no worker reached the other start location	Rush 距离：没有工人到达另一个起始位置
+%ls to %ls game seconds	游戏时间 %ls 至 %ls 秒
+Rush distance: %ls to %ls game seconds	Rush 距离：游戏时间 %ls 至 %ls 秒
+A worker walks from each start location to each other start location, at Fastest	一个工人从每个起始位置走到其他每个起始位置，最快速度
+The rush distance simulation is not available for Cosmonarchy BW maps. The mining simulation is.	Rush 距离模拟不适用于 Cosmonarchy BW 地图。采矿模拟可用。
+Mining: %ls minerals a minute	采矿：每分钟 %ls 晶矿
+%d workers on minerals at each base, %d game minute at Fastest	每个基地 %d 名采矿工人，最快速度 %d 游戏分钟
+%d workers on minerals at each base, %d game minutes at Fastest	每个基地 %d 名采矿工人，最快速度 %d 游戏分钟
 Select a music track	请选择一首音乐曲目
 Select a dot image	请选择一张点阵图
 The project has no music track "	项目中没有音乐曲目 "
@@ -3244,3 +3263,5 @@ draw the dot image {image} at {where} for {player} with {unit}, {px} pixels apar
 Draws a dot image of the project (Assets > Dot images) with units: one unit for each dot. The dots go row by row from the location, the given pixels apart. Each unit gets the color of its dot, as in EUD Editor 3's dot painter. White dots are the background: they get no unit. After the drawing, the location is where it was before.	用单位绘制项目中的点阵图（资源 > 点阵图）：每个点一个单位。点从该位置开始逐行排列，间隔为给定的像素。每个单位取其点的颜色，与 EUD Editor 3 的点阵绘图器相同。白色的点是背景，不放单位。绘制后，该位置回到原处。
 It first removes all the units of this type that the player owns: use a unit type that is only for the drawing. Each dot is one unit: a picture of 30 x 30 dots makes 900 units, and a map has room for 1700 units.	它会先移除该玩家拥有的这种类型的所有单位：请使用只用于绘制的单位类型。每个点是一个单位：30 x 30 点的图片需要 900 个单位，而一张地图最多容纳 1700 个单位。
 draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	为 Player 8 用 Terran Marine 在 Title 绘制点阵图 "Logo"，间隔 8 像素：在开始时显示地图的标志。
+No room	没有空间
+No room: the base has no room for its depot and workers.	没有空间：该基地没有放置主基地和农民的空间。
