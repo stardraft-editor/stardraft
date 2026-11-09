@@ -179,6 +179,7 @@ Give each test a new, empty scratch folder.
 | `commands_test` | `commands_test` | Without game data: the command table (shortcuts, run by id, enabled, checked, menus). |
 | `help_test` | `help_test` | Without game data: the help pages built into the program (`stardraft/help.h`), their links, the place of each .dat field (F1), the search, and the converted values of the Data form (`stardraft/dat_units.h`). |
 | `sim_test` | `sim_test [<install>]` (build with `-DSTARDRAFT_RENDERER=OFF` if you have no SDL) | The simulation (`tools/sim`, see `SIMULATION.md`): mining and three fights on `(2)Bottleneck.scm`, beside the reference results. |
+| `mining_workbench_test` | `mining_workbench_test <install> <map> [--finite-only]` | The mining adapter: all races, finite state/income/image fingerprints, delivered per-field income totals, continuous runs, independent searches and ghost identity. |
 | `platform_test` | `platform_test <dir>` | Without game data or network: `apps/common`'s self-update parts (unpacking, replacing a program file) and the crash report's title. |
 | `settings_test` | `settings_test <dir>` | Without game data: the settings file (each kind of value written and read again). |
 | `render_smoke_test` | `render_smoke_test [out.png]` | Without game data: the renderer's device and pipelines (each shader in the GPU API's format), and rectangles, lines and text in an offscreen frame. GitHub runs it on Linux (Vulkan on lavapipe). |

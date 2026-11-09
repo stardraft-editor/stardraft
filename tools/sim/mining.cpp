@@ -77,7 +77,7 @@ std::vector<MiningBase> miningBases(const Tables& t, const MapInfo& map, const M
         return false;
     };
     for (auto& p : map.units)
-        if (o.startLocations && isStart(t, p.type)) bases.push_back({p.x, p.y, true, int(p.owner), {}, {}});
+        if (o.startLocations && isStart(t, p.type) && p.owner<8 && (o.startPlayers&(1u<<p.owner))) bases.push_back({p.x, p.y, true, int(p.owner), {}, {}});
     for (auto& p : map.units)
         if (o.placedDepots && !isStart(t, p.type) && (t.units[p.type].flags & kDepot) &&
             !baseNear(p.x, p.y, t.rules.depotNear))

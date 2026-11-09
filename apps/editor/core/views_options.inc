@@ -58,7 +58,7 @@ struct OptionsValues {
     // Tools > Simulate mining (experimental): the workers on minerals (simKind 0: simPerField for each mineral field;
     // 1: simWorkers at each base), the measured game minutes, the races (0: as in the map, 1 Terran, 2 Protoss, 3 Zerg)
     // and a boost search's seconds.
-    int simKind = 1, simPerField = 1, simWorkers = 9, simMinutes = 3, simRace = 0;
+    int simKind = 0, simPerField = 1, simWorkers = 9, simMinutes = 3, simRace = 0;
     int simSearch[3] = {15, 15, 15};  // each boost search's search time in seconds: position, cargo, cycle
     bool simBoost[3] = {};  // the boost searches that are on: position, cargo, cycle
 };
@@ -111,7 +111,6 @@ inline const Tab kTabs[] = {
     {L"Appearance", kAppearance | kGraphics},
     {L"Mouse and keyboard", kMouse | kKeyboard},
     {L"Map", kUnitNames | kUnitLimit},
-    {L"Simulation", kSimulation},
     {L"Plugins", kPlugins},
     {L"Folders", kWorkingFolder | kStarCraftFolder},
     {L"Updates", kUpdates},
@@ -285,9 +284,9 @@ public:
         simStep(simPerField_, 4, 1, optionsview::kSimPerFieldMax, optionsview::simWorkersText);
         for (int k = 0; k < 3; ++k) {  // the boost searches: a check box each
             static const wchar_t* const names[3] = {L"Position boost", L"Cargo boost", L"Cycle boost"};
-            static const wchar_t* const tips[3] = {L"Search for better start places of the workers at each base",
-                                                   L"Search for the places where a worker returns its cargo sooner",
-                                                   L"Search for trips that go to the next mineral field and back (mineral walking)"};
+            static const wchar_t* const tips[3] = {L"Apply found position boosts. Start searches from the mining panel.",
+                                                   L"Apply found cargo boosts. Start searches from the mining panel.",
+                                                   L"Apply found cycle boosts. Start searches from the mining panel."};
             simBoost_[k].setLabel(names[k]), simBoost_[k].setTip(tips[k]);
             simBoost_[k].onChange = [this, k](bool on) { host_.setSimulation(6 + k, on ? 1 : 0); };
             add(simBoost_[k], {0, 0, 0, 0}), simBoost_[k].setVisible(false);
@@ -936,43 +935,6 @@ void OptionsView::paint(draw::Canvas& c) {
         segmented(y, crashSeg_, 3, "crashreports");
         y += rowH;
         y += pad;
-    }
-
-    // Simulate mining (experimental: Tools > Simulate mining).
-    if (shown & optionsview::kSimulation) {
-        header(L"Simulate mining");
-        {  // the workers: their kind, then the number (for each mineral field, or in all)
-            label(L"Workers on minerals at each base");
-            const draw::Rect kind{fx, fieldTop(y), std::min<int>(colRight, fx + scale(220)), fieldTop(y) + fieldH};
-            place(simKind_, kind, true);
-            parts_["sim.kind"] = kind;
-            const draw::Rect box{kind.right + scale(8), fieldTop(y), std::min<int>(colRight, kind.right + scale(8) + scale(140)), fieldTop(y) + fieldH};
-            place(simPerField_, box, v.simKind == 0), place(simWorkers_, box, v.simKind != 0);
-            parts_["sim.workers"] = box;
-            y += rowH;
-        }
-        const std::pair<const wchar_t*, std::pair<draw::View*, const char*>> rows[] = {
-            {L"Measured game time", {&simMinutes_, "sim.minutes"}},
-            {L"Races", {&simRace_, "sim.races"}}};
-        for (const auto& [name, view] : rows) {
-            label(name);
-            const int w = view.first == &simRace_ ? scale(300) : scale(180);  // (a step box: as wide as its longest value)
-            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + w), fieldTop(y) + fieldH};
-            place(*view.first, box, true);
-            parts_[view.second] = box;
-            y += rowH;
-        }
-        for (int k = 0; k < 3; ++k) {  // (the boost searches: when one is on, the mining starts with a search for it)
-            checkRow(y, simBoost_[k], "sim.boost" + std::to_string(k));
-            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(180)), fieldTop(y) + fieldH};  // (its search time)
-            place(simSearch_[k], box, true);
-            parts_["sim.search" + std::to_string(k)] = box;
-            y += rowH;
-        }
-        note(x0, y - scale(4), L"Each boost search runs before the game starts, for up to its search time.");
-        y += scale(20);
-        note(x0, y - scale(4), L"The first 30 game seconds are not measured: the workers get to their fields.");
-        y += scale(20) + pad;
     }
 
     // Plugins: an early preview (a line says so), each one loaded or not, what it does under it, and its

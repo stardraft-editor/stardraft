@@ -742,7 +742,7 @@ public:
         stop();
         liveBases_ = sim::miningBases(tables_, map_, o);
         if (liveBases_.size() > 8) liveBases_.resize(8);
-        if (liveBases_.empty()) {
+        if (liveBases_.empty()&&o.startPlayers!=0) {
             error = "The map has no base to mine at";
             return false;
         }

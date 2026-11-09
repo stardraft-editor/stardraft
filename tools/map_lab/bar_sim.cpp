@@ -111,13 +111,16 @@ public:
         if (o.gas) return error = "The mining simulation has no gas", false;
         std::vector<sim::Race> races;
         std::vector<sim::MiningBase> bases = classic_->miningBases(o, races);
-        if (bases.empty()) return error = "The map has no base to mine at", false;
+        for(size_t k=bases.size();k-->0;)if(bases[k].startLocation&&(bases[k].player<0||bases[k].player>=8||!(o.startPlayers&(1u<<bases[k].player)))) {
+            bases.erase(bases.begin()+std::ptrdiff_t(k));races.erase(races.begin()+std::ptrdiff_t(k));
+        }
+        if (bases.empty() && o.startPlayers!=0) return error = "The selected players have no starting locations", false;
         if (firstBases && bases.size() > size_t(kMaxBases)) bases.resize(size_t(kMaxBases)), races.resize(size_t(kMaxBases));
         // (the workers: a count for each base, or -n: n for each mineral field)
         const int count = o.workersPerField > 0 ? -o.workersPerField : o.workers.empty() ? 9 : o.workers[0];
         std::string key = std::to_string(count);
         for (size_t k = 0; k < bases.size(); ++k)
-            key += "," + std::to_string(bases[k].x) + ":" + std::to_string(bases[k].y) + ":" + std::to_string(int(races[k]));
+            key += "," + std::to_string(bases[k].x) + ":" + std::to_string(bases[k].y) + ":" + std::to_string(int(races[k]))+":"+std::to_string(bases[k].player);
         try {
             if (!loadSeed(error)) return false;
             if (key != setupKey_ || setups_.empty()) {
@@ -146,7 +149,7 @@ public:
                     }
                     setups_.push_back(std::move(s));
                 }
-                if (!any) return stopBoosts(), error = first, false;
+                if (!any && !bases.empty()) return stopBoosts(), error = first, false;
                 setupKey_ = key;
             }
             for (const auto& s : setups_) bases_.push_back(play(*s));
@@ -154,21 +157,24 @@ public:
             bases_.clear();
             return error = e.what(), false;
         }
-        warmup_ = o.warmupFrames, last_ = o.warmupFrames + o.frames;
+        continuous_ = firstBases && o.continuous;
+        warmup_ = o.warmupFrames, last_ = continuous_ ? 0 : o.warmupFrames + o.frames;
         mode_ = Mode::Mining;
         return true;
     }
 
     // A boost search at each base (kind 0 the workers' start places, 1 cargo returns, 2 cycles), `seconds` long, the
     // bases at the same time: the PR's Mining Lab searches. Again after one ended: it goes on from where it stopped.
-    // Meanwhile the game waits at its start; at the end the bases that a search made better start again with it.
+    // The independent search worlds leave live playback alone until improved findings are ready to apply.
     bool startBoost(int kind, double seconds, std::string& error) override {
         if (mode_ != Mode::Mining || kind < 0 || kind > 2) return error = "A boost search is only for mining", false;
         if (boosting()) return error = "A boost search runs", false;
         seconds = std::clamp(std::isfinite(seconds) ? seconds : 15.0, 0.05, 600.0);
         int placed = 0;
         for (const auto& s : setups_) placed += s->seed ? 1 : 0;
-        const unsigned threads = std::max(1u, ms::mining_compute::Executor::concurrency() / unsigned(std::max(1, placed)));
+        if(!placed)return error="Select a starting location before searching",false;
+        const unsigned capacity=ms::mining_compute::Executor::concurrency();
+        const unsigned threads = std::max(1u, (capacity>1?capacity-1:1) / unsigned(std::max(1, placed))); // leave room for live playback
         try {
             for (const auto& sp : setups_) {
                 Setup& s = *sp;
@@ -204,7 +210,6 @@ public:
         } catch (const std::exception& e) {
             return error = e.what(), false;
         }
-        restartPlay();  // (the game waits at its start while the search runs)
         return true;
     }
     // A boost search's state, all bases together.
@@ -229,6 +234,10 @@ public:
         out.finished = allDone && !out.running, out.exhausted = allExhausted && !out.running;
         out.progress = progress;
         return out;
+    }
+    sim::BoostStatus boostStatusForBase(int kind, int base) const override {
+        if(kind<0||kind>2||base<0||base>=int(setups_.size()))return {};
+        return setups_[size_t(base)]->status[size_t(kind)];
     }
     void clearBoost(int kind) override {
         if (mode_ != Mode::Mining || kind < 0 || kind > 2) return;
@@ -259,8 +268,7 @@ public:
         if (mode_ != Mode::Mining) return out;
         for (size_t k = 0; k < bases_.size() && k < setups_.size(); ++k) {
             const Base& b = bases_[k];
-            const Setup& s = *setups_[k];
-            out.insert(out.end(), s.fixed.begin(), s.fixed.end());
+            for(auto guide:b.fixed){guide.base=int(k);out.push_back(guide);}
             if (!b.world) continue;
             for (const std::vector<Control>* rules : {&b.cargo, &b.cycle})
                 for (const Control& r : *rules) {
@@ -269,13 +277,13 @@ public:
                     if (!w || !w->visible || w->dead) continue;
                     const int id = int(k) * 1000 + r.worker.index;
                     if (!r.cycle) {
-                        out.push_back({r.issuedAt.x, r.issuedAt.y, 0, 0, 1, 0, id});
+                        out.push_back({r.issuedAt.x, r.issuedAt.y, 0, 0, 1, 0, id, w->type, w->owner, int(k)});
                         continue;
                     }
                     const ms::UnitState *n = b.world->get(r.neighbor), *f = b.world->get(r.field);
                     if (!n || !f || !n->visible || !f->visible) continue;
-                    out.push_back({r.firstAt.x, r.firstAt.y, n->position.x, n->position.y, 2, 1, id});
-                    if (r.commands >= 2) out.push_back({r.secondAt.x, r.secondAt.y, f->position.x, f->position.y, 2, 2, id});
+                    out.push_back({r.firstAt.x, r.firstAt.y, n->position.x, n->position.y, 2, 1, id, w->type, w->owner, int(k)});
+                    if (r.commands >= 2) out.push_back({r.secondAt.x, r.secondAt.y, f->position.x, f->position.y, 2, 2, id, w->type, w->owner, int(k)});
                 }
         }
         return out;
@@ -326,6 +334,7 @@ public:
                         std::abs(u->position.y - w.fromY) > kRushStartSlack)
                         continue;  // (a blocked start: no walk from it for this unit)
                     r.route.path.push_back({u->position.x, u->position.y});
+                    r.route.currentX=u->position.x,r.route.currentY=u->position.y;
                     r.last = r.route.path.back();
                     r.world->move(r.worker, {w.toX, w.toY});
                     runners_.push_back(std::move(r));
@@ -346,10 +355,7 @@ public:
         if (mode_ == Mode::Classic) return classic_->step(frames);
         if (mode_ == Mode::None || done_) return false;
         try {
-            if (mode_ == Mode::Mining && boosting()) {  // (the game waits while a boost search runs)
-                pollBoosts();
-                return true;
-            }
+            if (mode_ == Mode::Mining && boosting()) pollBoosts();
             for (int i = 0; i < frames && !done_; ++i) {
                 if (mode_ == Mode::Mining) stepMining();
                 else stepRush();
@@ -385,6 +391,7 @@ public:
                 }
                 addImages(*b.world, list, out);
             }
+            if(!first)first=seed_.get();
             if (first) {
                 const ms::World& w = *first;
                 std::vector<ms::UnitHandle> list;
@@ -418,7 +425,7 @@ public:
         std::vector<sim::MiningBase> out;
         if (mode_ == Mode::Classic) return classic_->miningResult();
         if (mode_ != Mode::Mining) return out;
-        const double minutes = std::max(0, std::min(frame_, last_) - warmup_) * 42.0 / 60000.0;
+        const double minutes = std::max(0, (continuous_ ? frame_ : std::min(frame_, last_)) - warmup_) * 42.0 / 60000.0;
         for (const Base& b : bases_) {
             sim::MiningBase m = b.base;
             m.fields.clear();
@@ -439,6 +446,11 @@ public:
                 const auto amount = b.amount.find(p.index), mined = b.mined.find(p.index);
                 const int left = (amount != b.amount.end() ? amount->second : 0) - (mined != b.mined.end() ? mined->second : 0);
                 run.fieldMinerals.push_back(std::max(0, left));
+                const auto delivered=b.measuredMined.find(p.index);
+                run.fieldIncome.push_back(minutes>0 && delivered!=b.measuredMined.end() ? delivered->second/minutes : 0);
+                int latest=0;
+                for(const auto& worker:b.workers)if(worker.patch==p&&worker.lastCycle>0)latest=worker.lastCycle;
+                run.fieldCycleFrames.push_back(latest);
             }
             m.runs = {run};
             out.push_back(m);
@@ -525,7 +537,7 @@ private:
         ms::UnitHandle unit, patch;
         ms::UnitHandle mined;  // the field it gathers from now (the engine sends a worker to a free field when its own is busy)
         bool carrying = false;
-        int lastDelivery = -1;
+        int lastDelivery = -1, lastCycle = 0;
     };
     struct Trips {
         long long sum = 0, count = 0;  // the round trips (delivery to delivery) after the warm-up
@@ -539,8 +551,10 @@ private:
         std::vector<ms::UnitHandle> patches;  // nearest first
         std::map<int, Trips> trips;           // by the field's unit index: the trips of the workers that mined it
         std::map<int, int> amount, mined;     // by the field's unit index: its minerals in the map, those mined from it
+        std::map<int, int> measuredMined;     // delivered after warm-up, attributed to the source field
         int measured = -1;                   // the minerals delivered at the warm-up's end
         std::vector<Control> cargo, cycle;    // the boosts' commands (fresh copies of the setup's)
+        std::vector<sim::MiningGuide> fixed; // position helpers for the setup actually playing
     };
     // A base as it starts (the same each time the mining starts again), its boosts and their searches.
     struct Setup {
@@ -644,7 +658,7 @@ private:
         b.world = std::make_unique<ms::World>(*s.seed);
         b.patches = s.patches, b.amount = s.amount;
         for (const auto& [w, f] : s.assign) b.workers.push_back({w, f, f});
-        b.cargo = freshControls(s.cargo), b.cycle = freshControls(s.cycle);
+        b.cargo = freshControls(s.cargo), b.cycle = freshControls(s.cycle), b.fixed = s.fixed;
         return b;
     }
     // A boost's commands as they are before the game (the PR's freshControls).
@@ -698,7 +712,7 @@ private:
                                     ++st.found;
                                     const ms::UnitState *w = world->get(a.worker), *m = world->get(a.field);
                                     if (w && m)
-                                        s.fixed.push_back({w->position.x, w->position.y, m->position.x, m->position.y, 0, 0, s.owner * 1000 + w->handle.index});
+                                        s.fixed.push_back({w->position.x, w->position.y, m->position.x, m->position.y, 0, 0, s.owner * 1000 + w->handle.index, w->type, w->owner});
                                 }
                             }
                             s.seed = std::move(world);
@@ -752,6 +766,8 @@ private:
             for (Worker& w : b.workers) {
                 if (!w.carrying || (b.world->get(w.unit)->cargo & 2)) continue;
                 b.mined[(b.world->get(w.mined) ? w.mined : w.patch).index] += kMineralsPerTrip;
+                if(measuring)b.measuredMined[(b.world->get(w.mined) ? w.mined : w.patch).index] += kMineralsPerTrip;
+                if(w.lastDelivery>=0)w.lastCycle=now-w.lastDelivery;
                 if (measuring && w.lastDelivery >= 0) {
                     Trips& t = b.trips[(b.world->get(w.mined) ? w.mined : w.patch).index];
                     t.sum += now - w.lastDelivery, ++t.count;
@@ -759,7 +775,7 @@ private:
                 w.lastDelivery = now;
             }
         }
-        if (frame_ + 1 >= last_) done_ = true;
+        if (!continuous_ && frame_ + 1 >= last_) done_ = true;
         if ((frame_ & 15) == 0) takeCreep();
     }
 
@@ -775,6 +791,7 @@ private:
                 continue;
             }
             const std::pair<int, int> at{u->position.x, u->position.y}, before = r.last;
+            r.route.currentX=at.first,r.route.currentY=at.second;
             if (at != before) r.route.distance += std::hypot(double(at.first - before.first), double(at.second - before.second)), r.last = at;
             const double away = std::hypot(double(at.first - r.route.toX), double(at.second - r.route.toY));
             const bool nearer = away < r.nearest - 8;  // (8 pixels nearer than ever: on its way)
@@ -842,6 +859,7 @@ private:
     std::vector<Runner> runners_;
     int frame_ = 0, last_ = 0, warmup_ = 0;
     bool done_ = false;
+    bool continuous_ = false;
     std::string error_;
     std::vector<uint8_t> creep_;
     uint64_t creepChanges_ = 1;

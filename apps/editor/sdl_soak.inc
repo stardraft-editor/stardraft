@@ -22,6 +22,7 @@
 //   frame <file>       the picture of the frame after this line goes to that PNG file (videos: one line for each frame)
 //   stats              a line with the memory (the working set, the GPU's, the bitmaps with a texture), the undo
 //                      steps and the frame times since the last stats line
+//   simstate           the simulation's frame, budgets, searches, guide switches and map-label values
 //   history            a line with the workspace's undo history (Edit > Undo history): the steps done (their names,
 //                      the newest first), the steps to redo and a hash of the map; then what the workspace holds
 //                      (the input lines' state)
@@ -81,6 +82,7 @@ void sdlScriptTime(int t, const std::vector<std::pair<char, std::string>>& lines
 
 // Adds the script's inputs to `inputs` (main_sdl.cpp's inputArgs). False (and a line on stderr) when the file cannot
 // be read or a line has no such verb.
+void simWorkbenchTrace();
 bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::string>>& inputs) {
     std::string file = spec;
     int times = 1, minutes = 0;
@@ -97,7 +99,7 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
         {"wheel", 'h'},   {"pinch", 'p'},   {"wait", 'w'},      {"command", 'C'},   {"mode", 'M'},      {"rect", 'Q'},
         {"workspace", 'W'}, {"open", 'O'},  {"roundtrip", 'R'}, {"undocheck", 'U'}, {"stats", 'S'}, {"minimap", 'P'},
         {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}, {"panel", 'J'}, {"simstep", 'X'}, {"frame", 'Y'}, {"rclick", 'r'},
-        {"floatmove", 'V'}, {"hold", 'K'}};
+        {"floatmove", 'V'}, {"hold", 'K'}, {"simstate", 'Z'}};
     std::vector<std::pair<char, std::string>> lines;
     int lineNo = 0;
     for (std::string line; std::getline(in, line);) {
@@ -413,6 +415,7 @@ bool sdlScriptStep(char kind, const std::string& value) {
         return true;
     }
     case 'G': std::printf("%s\n", pathingStateLine().c_str()); return true;  // the pathing layer and check (core/pathing_layer.inc)
+    case 'Z': simWorkbenchTrace(); return true;
     case 'S': sdlSoakStats(); return true;
     case 'K': {
         SDL_Keymod held = SDL_KMOD_NONE;

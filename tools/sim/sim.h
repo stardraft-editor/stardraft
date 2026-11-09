@@ -32,6 +32,8 @@ struct MiningOptions {
     // lobby or Random gets a random race (from `seed`). Other bases: races[0]. Off: races[0] everywhere.
     bool mapRaces = false;
     uint32_t seed = 0;                      // (mapRaces: the random races)
+    bool continuous = false;                // interactive mining: run until stopped (batch jobs keep their limit)
+    unsigned startPlayers = 0xff;           // starting-location players to simulate; other base kinds follow their own options
 };
 struct MiningRun {
     Race race = Terran;
@@ -42,6 +44,8 @@ struct MiningRun {
     // run out). Empty: not counted.
     std::vector<int> fieldMinerals;
     bool placed = true;  // false: the base has no room for its depot and workers (no numbers)
+    std::vector<double> fieldIncome; // measured minerals per 60 game seconds, by the field actually mined
+    std::vector<int> fieldCycleFrames; // latest complete worker cycle, by assigned patch (Mining Lab's map labels)
 };
 struct MiningBase {
     int x = 0, y = 0;
@@ -123,6 +127,8 @@ struct BoostStatus {
 // next field, stage 2 back to its own; target: that field). `worker`: an id of the worker (the same for its guides).
 struct MiningGuide {
     int x = 0, y = 0, targetX = 0, targetY = 0, kind = 0, stage = 0, worker = 0;
+    int type = 7, owner = 0; // the ghost worker's actual race and player
+    int base = -1; // index in miningResult(), for per-base counts and helpers
 };
 
 // Rush distance (startRush): a worker walks from each start location to each other start location, a game for each
@@ -147,6 +153,7 @@ struct RushRoute {
     double distance = 0;                        // the length of the walk (map pixels)
     bool reached = false, finished = false;     // at the other start location; the walk ended
     std::vector<std::pair<int, int>> path;      // the worker's places on the way
+    int currentX = 0, currentY = 0;             // current worker position, independent of trail sampling
 };
 
 // A sound of the live game (sfxdata.dat id) where the game would play it: from the scripts (attacks, deaths, hits).
@@ -229,7 +236,7 @@ public:
     virtual std::vector<PlayerState> players() const = 0;  // (mining and Run the map)
     virtual std::vector<RushRoute> rushResult() const { return {}; }
     // Mining's boost searches (kind 0 position, 1 cargo, 2 cycle; `seconds` long; again: on from where it stopped).
-    // While one runs, step() waits at the game's start; at its end the bases that it made better start again.
+    // Playback continues while a search runs. Improved findings start a fresh measured run when applied.
     virtual bool startBoost(int kind, double seconds, std::string& error) {
         (void)kind, (void)seconds;
         error = "Boost searches are not in this simulation";
@@ -239,6 +246,7 @@ public:
         (void)kind;
         return {};
     }
+    virtual BoostStatus boostStatusForBase(int kind, int base) const { (void)base; return boostStatus(kind); }
     virtual bool boosting() const { return false; }
     // A boost turned off: the bases without it (and without the later boosts, which were found with it), from the
     // game's start.
