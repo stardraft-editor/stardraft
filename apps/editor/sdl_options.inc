@@ -316,11 +316,6 @@ public:
         }
         v.mapsWithSD2 = sdlMapsOpenWithUs();  // (Windows: .scm and .scx open with StarDraft 2; shell_sdl_win.inc)
         v.projectsFolder = defaultProjectsFolder().make_preferred().wstring();
-        prefs::number(L"SimWorkers", v.simWorkers, 1, optionsview::kSimWorkersMax);
-        prefs::number(L"SimWorkersPerField", v.simPerField, 1, optionsview::kSimPerFieldMax), prefs::number(L"SimWorkerKind", v.simKind, 0, 1);
-        prefs::flag(L"SimBoostPosition", v.simBoost[0]), prefs::flag(L"SimBoostCargo", v.simBoost[1]), prefs::flag(L"SimBoostCycle", v.simBoost[2]);
-        prefs::number(L"SimMinutes", v.simMinutes, 1, 60), prefs::number(L"SimRaces", v.simRace, 0, 3);
-        for (int k = 0; k < 3; ++k) v.simSearch[k] = optionsview::simBoostSeconds(k);
 #ifndef _WIN32
         v.mapsRow = false;  // (the file association is Windows only)
 #endif
@@ -339,7 +334,6 @@ public:
         gOptionsView.invalidate();
     }
     void setVolume(int value) override;
-    void setSimulation(int which, int value) override;
     void browseWorkingFolder() override;
     void useDefaultWorkingFolder() override;
     void themeShown(bool) override {}  // (the dialog's frame is the kit's: it paints with the tokens)
@@ -361,15 +355,6 @@ void OptionsProgramSdl::setUnitLimit(int k, int value) {
     int& limit = k == 0 ? gUnitLimitClassic : gUnitLimitEud;
     limit = std::clamp(value, 1, 65535);
     prefs::setNumber(k == 0 ? L"UnitLimitClassic" : L"UnitLimitEud", limit);
-    gOptionsView.invalidate();
-}
-// Simulate mining's settings (Tools > Simulate mining reads them when it starts).
-void OptionsProgramSdl::setSimulation(int which, int value) {
-    static const wchar_t* const names[12] = {L"SimWorkers", L"SimSearchSeconds", L"SimMinutes", L"SimRaces", L"SimWorkersPerField", L"SimWorkerKind",
-                                             L"SimBoostPosition", L"SimBoostCargo", L"SimBoostCycle", optionsview::kSimSearchKeys[0],
-                                             optionsview::kSimSearchKeys[1], optionsview::kSimSearchKeys[2]};
-    if (which < 0 || which > 11) return;
-    prefs::setNumber(names[which], value);
     gOptionsView.invalidate();
 }
 void OptionsProgramSdl::setVolume(int value) {

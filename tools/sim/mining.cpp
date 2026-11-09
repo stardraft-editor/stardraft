@@ -71,18 +71,27 @@ bool clusterSpot(const Tables& t, const MapInfo& map, const std::vector<MapInfo:
 
 std::vector<MiningBase> miningBases(const Tables& t, const MapInfo& map, const MiningOptions& o) {
     std::vector<MiningBase> bases;
+    // (the bases that mine: those left out stay in the list until each mineral field has its base)
+    std::vector<bool> keep;
     auto baseNear = [&](int x, int y, double d) {
         for (auto& b : bases)
             if (dist(b.x, b.y, x, y) <= d) return true;
         return false;
     };
     for (auto& p : map.units)
-        if (o.startLocations && isStart(t, p.type) && p.owner<8 && (o.startPlayers&(1u<<p.owner))) bases.push_back({p.x, p.y, true, int(p.owner), {}, {}});
+        if (o.startLocations && isStart(t, p.type)) {
+            bases.push_back({p.x, p.y, true, int(p.owner), {}, {}});
+            keep.push_back(p.owner < 8 ? ((o.startPlayers >> p.owner) & 1u) != 0 : o.startPlayers == 0xffu);
+        }
+    int depot = 0;  // (the placed depots' bits in placedDepotMask)
     for (auto& p : map.units)
         if (o.placedDepots && !isStart(t, p.type) && (t.units[p.type].flags & kDepot) &&
-            !baseNear(p.x, p.y, t.rules.depotNear))
+            !baseNear(p.x, p.y, t.rules.depotNear)) {
             bases.push_back({p.x, p.y, false, -1, {}, {}});
-    for (auto& [x, y] : o.bases) bases.push_back({x, y, false, -1, {}, {}});
+            keep.push_back(depot < 32 ? ((o.placedDepotMask >> depot) & 1u) != 0 : o.placedDepotMask == ~0u);
+            ++depot;
+        }
+    for (auto& [x, y] : o.bases) bases.push_back({x, y, false, -1, {}, {}}), keep.push_back(true);
     std::vector<MapInfo::Placed> fields;
     for (auto& p : map.units)
         if (isMinerals(t, p.type)) fields.push_back(p);
@@ -111,7 +120,7 @@ std::vector<MiningBase> miningBases(const Tables& t, const MapInfo& map, const M
             for (size_t i = 0; i < fields.size(); ++i)
                 if (group[i] == g) members.push_back(fields[i]);
             int x = 0, y = 0;
-            if (members.size() >= 3 && clusterSpot(t, map, members, x, y)) bases.push_back({x, y, false, -1, {}, {}});
+            if (members.size() >= 3 && clusterSpot(t, map, members, x, y)) bases.push_back({x, y, false, -1, {}, {}}), keep.push_back(true);
         }
     }
     // Each field goes to its nearest base (within 12 tiles), nearest first.
@@ -129,7 +138,10 @@ std::vector<MiningBase> miningBases(const Tables& t, const MapInfo& map, const M
             return dist(dx, dy, p.first, p.second) < dist(dx, dy, q.first, q.second);
         });
     }
-    return bases;
+    std::vector<MiningBase> out;
+    for (size_t k = 0; k < bases.size(); ++k)
+        if (keep[k]) out.push_back(std::move(bases[k]));
+    return out;
 }
 
 // Each base's race (MiningOptions::mapRaces): a start location's base gets its player's race in the map (SIDE: 0 Zerg,

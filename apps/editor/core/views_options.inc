@@ -54,12 +54,6 @@ struct OptionsValues {
     std::wstring overrideFile;    // ... its file ("": none chosen)
     bool passagesOn = false;      // ... Ramp and bridge mappings: a passages file (the Ramp and bridge mapper's) for the tools
     std::wstring passagesFile;    // ... its file ("": none chosen)
-    // Tools > Simulate mining (experimental): the workers on minerals (simKind 0: simPerField for each mineral field;
-    // 1: simWorkers at each base), the measured game minutes, the races (0: as in the map, 1 Terran, 2 Protoss, 3 Zerg)
-    // and a boost search's seconds.
-    int simKind = 0, simPerField = 1, simWorkers = 9, simMinutes = 3, simRace = 0;
-    int simSearch[3] = {15, 15, 15};  // each boost search's search time in seconds: position, cargo, cycle
-    bool simBoost[3] = {};  // the boost searches that are on: position, cargo, cycle
 };
 
 // The program's part of the options window (options_window.inc): the values, the commands and the pickers.
@@ -79,9 +73,6 @@ public:
     virtual void setVolume(int v) = 0;
     // Painting terrain's Detailed tiles (0 to 100%; GitHub #257).
     virtual void setDetailedTiles(int percent) { (void)percent; }
-    // Simulate mining's settings (which: 0 workers in all, 1 search seconds, 2 minutes, 3 races, 4 workers for each mineral
-    // field, 5 the workers' kind, 6 to 8 the position, cargo and cycle boost searches on (1) or off (0); OptionsValues::sim*).
-    virtual void setSimulation(int which, int value) { (void)which, (void)value; }
     // The working folder: a folder chosen by the user, or the default one.
     virtual void browseWorkingFolder() = 0;
     virtual void useDefaultWorkingFolder() = 0;
@@ -96,7 +87,7 @@ namespace optionsview {
 // The sections of the window, in their order (the headers), and the tabs: each tab shows some sections, in this order.
 enum Section : unsigned {
     kStart = 1u << 0, kAppearance = 1u << 1, kMouse = 1u << 2, kUnitNames = 1u << 3, kUnitLimit = 1u << 4,
-    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kSimulation = 1u << 8, kPlugins = 1u << 9,
+    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kPlugins = 1u << 9,
     kKeyboard = 1u << 10, kReset = 1u << 11, kLanguage = 1u << 12, kGraphics = 1u << 13, kAllSections = (1u << 14) - 1,
 };
 struct Tab {
@@ -119,21 +110,17 @@ constexpr int kTabCount = int(sizeof kTabs / sizeof kTabs[0]);
 // The names of the unit name forms (the dropdown's items).
 const wchar_t* const kUnitNameForms[4] = {L"Terran Marine", L"Terran Marine (Custom Name)", L"Custom Name (Terran Marine)", L"Custom Name"};
 
-// Simulate mining's races (the dropdown's items).
-const wchar_t* const kSimRaces[4] = {L"As defined in map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
-// The simulation's numbers: their ranges and default values (the settings SimWorkers, SimMinutes, and each boost search's kSimSearchKeys).
-constexpr int kSimWorkersMax = 60, kSimPerFieldMax = 8, kSimMinutesMax = 60, kSimSearchMin = 1, kSimSearchMax = 600, kSimSearchDefault = 15;
+// Simulate mining's numbers (its panel: sdl_mining_panel.inc): their ranges and default values (the settings
+// SimWorkers, SimWorkersPerField, and each boost search's kSimSearchKeys).
+constexpr int kSimWorkersMax = 60, kSimPerFieldMax = 8, kSimSearchMin = 1, kSimSearchMax = 600, kSimSearchDefault = 15;
 // Each boost search's own search time (position, cargo, cycle; the settings SimSearchPosition, SimSearchCargo and
-// SimSearchCycle; default value kSimSearchDefault), set here only (the gear's panel has Search and Continue).
+// SimSearchCycle; default value kSimSearchDefault), set in the boost searches' cards.
 inline const wchar_t* const kSimSearchKeys[3] = {L"SimSearchPosition", L"SimSearchCargo", L"SimSearchCycle"};
 inline int simBoostSeconds(int kind) {
     int s = kSimSearchDefault;
     prefs::number(kSimSearchKeys[kind], s, kSimSearchMin, kSimSearchMax);
     return s;
 }
-inline std::wstring simWorkersText(int n) { return std::to_wstring(n); }
-inline std::wstring simMinutesText(int n) { return std::to_wstring(n) + L" " + tr(n == 1 ? L"minute" : L"minutes"); }
-inline std::wstring simSecondsText(int n) { return std::to_wstring(n) + L" " + tr(n == 1 ? L"second" : L"seconds"); }
 
 // A number box with - and + (docs/dev/CONTROLS.md, "Step box"): - at the left end, the value in the middle, + at the
 // right end; a click on - or + (or the mouse wheel on the box) steps the value. `hot`, `down`: 0 none, 1 -, 2 +.
@@ -270,38 +257,6 @@ public:
         std::vector<stardraft::kit::DropdownItem> forms;
         for (const wchar_t* n : optionsview::kUnitNameForms) forms.push_back({n});
         unitNames_.setItems(forms);
-        // Simulate mining: step boxes for the numbers, a dropdown for the races.
-        auto simStep = [this](optionsview::StepBox& b, int which, int lo, int hi, std::wstring (*format)(int)) {
-            b.lo = lo, b.hi = hi, b.format = format;
-            b.onChange = [this, which](int v) { host_.setSimulation(which, v); };
-            add(b, {0, 0, 0, 0}), b.setVisible(false);
-        };
-        simStep(simWorkers_, 0, 1, optionsview::kSimWorkersMax, optionsview::simWorkersText);
-        simStep(simPerField_, 4, 1, optionsview::kSimPerFieldMax, optionsview::simWorkersText);
-        for (int k = 0; k < 3; ++k) {  // the boost searches: a check box each
-            static const wchar_t* const names[3] = {L"Position boost", L"Cargo boost", L"Cycle boost"};
-            static const wchar_t* const tips[3] = {L"Apply found position boosts. Start searches from the mining panel.",
-                                                   L"Apply found cargo boosts. Start searches from the mining panel.",
-                                                   L"Apply found cycle boosts. Start searches from the mining panel."};
-            simBoost_[k].setLabel(names[k]), simBoost_[k].setTip(tips[k]);
-            simBoost_[k].onChange = [this, k](bool on) { host_.setSimulation(6 + k, on ? 1 : 0); };
-            add(simBoost_[k], {0, 0, 0, 0}), simBoost_[k].setVisible(false);
-        }
-        {  // (the workers' kind: for each mineral field, or in all)
-            simKind_.setItems({{L"For each mineral field"}, {L"In all"}});
-            simKind_.onChange = [this](int i) { host_.setSimulation(5, i); };
-            add(simKind_, {0, 0, 0, 0}), simKind_.setVisible(false);
-        }
-        simStep(simMinutes_, 2, 1, optionsview::kSimMinutesMax, optionsview::simMinutesText);
-        for (int k = 0; k < 3; ++k)  // (each boost search's own search time)
-            simStep(simSearch_[k], 9 + k, optionsview::kSimSearchMin, optionsview::kSimSearchMax, optionsview::simSecondsText);
-        {
-            std::vector<stardraft::kit::DropdownItem> items;
-            for (const wchar_t* n : optionsview::kSimRaces) items.push_back({n});
-            simRace_.setItems(items);
-            simRace_.onChange = [this](int i) { host_.setSimulation(3, i); };
-            add(simRace_, {0, 0, 0, 0}), simRace_.setVisible(false);
-        }
         slider_.setRange(0, 100), slider_.setStep(1);
         slider_.onChange = [this](int v) { host_.setVolume(v), invalidate(); };
         add(slider_, {0, 0, 0, 0}), slider_.setVisible(false);
@@ -540,9 +495,6 @@ private:
     stardraft::kit::CheckBox lastProject_, tintIcons_, diagnostics_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
-    optionsview::StepBox simWorkers_, simPerField_, simMinutes_, simSearch_[3];
-    stardraft::kit::Dropdown simRace_{{}, -1}, simKind_{{}, -1};
-    stardraft::kit::CheckBox simBoost_[3];
     stardraft::kit::Slider slider_;
     stardraft::kit::TextField limit_[2], detail_, folder_, install_, cmbw_, overrideFile_, passagesFile_;
     std::vector<int> langChoices_;     // the choice index of each language dropdown item
@@ -628,11 +580,6 @@ void OptionsView::sync(const OptionsValues& v) {
             if (values[i] == value) at = int(i);
         if (d.value() != at) d.setValue(at);
     };
-    simWorkers_.set(v.simWorkers), simPerField_.set(v.simPerField), simMinutes_.set(v.simMinutes);
-    for (int k = 0; k < 3; ++k) simSearch_[k].set(v.simSearch[k]);
-    if (simKind_.value() != v.simKind) simKind_.setValue(v.simKind);
-    for (int k = 0; k < 3; ++k) simBoost_[k].setOn(v.simBoost[k]);
-    if (simRace_.value() != v.simRace) simRace_.setValue(v.simRace);
     if (folder_.text() != v.projectsFolder) folder_.setText(v.projectsFolder);
     const std::wstring inst = v.installInUse.empty() ? std::wstring(L"\x2014") : v.installInUse;
     if (install_.text() != inst) install_.setText(inst);

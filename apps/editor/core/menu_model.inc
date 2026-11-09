@@ -235,7 +235,7 @@ MenuModel buildMenuModel() {
         simulation.push_back(menuSeparator());
         for (const char* id : {"sim.play", "sim.restart", "sim.skip", "sim.slower", "sim.faster"}) menuCommand(simulation, id);
         simulation.push_back(menuSeparator());
-        for (const char* id : {"sim.settings", "sim.options", "sim.close"}) menuCommand(simulation, id);
+        for (const char* id : {"sim.settings", "sim.close"}) menuCommand(simulation, id);
         tools.push_back(menuPopup(L"&Simulation", simulation));
 #endif
     }
