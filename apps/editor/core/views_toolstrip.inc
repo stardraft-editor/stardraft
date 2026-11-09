@@ -301,7 +301,7 @@ int toolStripHeight(int width, bool titled) {
     const int tools = int(stripTools(app.mode).size());
     const int rows = (tools + perRow - 1) / perRow;  // (Terrain: the brush's shape is in its size field)
     // (the mirrors' row: Turns on it where it fits, as paint puts it; else a row of its own below)
-    const bool turnsBeside = width - (5 * (scale(28) + scale(3)) + scale(6)) >= scale(84);
+    const bool turnsBeside = width - (scale(30) + scale(6)) >= scale(68);  // (the symmetry button, then the narrow Brushes field)
     const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + (turnsBeside ? 0 : scale(26) + gap) : 0) +
                       (stripHasDensity() ? scale(26) + gap : 0) +
                       (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0) +  // Terrain: Isometric | Rectangle
@@ -544,15 +544,18 @@ struct MirrorPopoutView final : draw::View {
     }
 };
 MirrorPopoutView gMirrorPopout;
+std::chrono::steady_clock::time_point gMirrorPopoutClosedAt{};  // (a press outside closes it before the button's click comes)
 void stripMirrorPopout(draw::View& from, draw::Rect button) {
     draw::Host* host = from.host();
     if (!host) return;
     if (gMirrorPopout.open) return gMirrorPopout.close();  // (a second click on the button: it closes)
+    // (the press on the button closed it already, as a press outside the pop-out does: the click only closes it)
+    if (std::chrono::steady_clock::now() - gMirrorPopoutClosedAt < std::chrono::milliseconds(400)) return;
     const int w = int(std::size(kMirrorKinds)) * MirrorPopoutView::cell() + 2 * MirrorPopoutView::pad(),
               h = MirrorPopoutView::cell() + 2 * MirrorPopoutView::pad();
     const draw::Rect at{button.left - MirrorPopoutView::pad(), button.bottom + scale(2), button.left - MirrorPopoutView::pad() + w, button.bottom + scale(2) + h};
     gMirrorPopout.open = true;
-    host->openWindow(from, gMirrorPopout, draw::WindowSpec{draw::WindowKind::Popup, at, L""}, [] { gMirrorPopout.open = false, gMirrorPopout.hot = -1; });
+    host->openWindow(from, gMirrorPopout, draw::WindowSpec{draw::WindowKind::Popup, at, L""}, [] { gMirrorPopout.open = false, gMirrorPopout.hot = -1, gMirrorPopoutClosedAt = std::chrono::steady_clock::now(); });
 }
 
 // --- The view -----------------------------------------------------------------------------------------------------
@@ -710,8 +713,8 @@ public:
             const draw::Rect typed{std::max(value.left, value.right - scale(52)), value.top, value.right, value.bottom};  // (the field over the value)
             const std::wstring t = stripNumberText(which);
             const int nw = c.measure(t), nx = value.right - scale(6) - unitW - nw;
-            if (which != kNumTurns || editing) c.text({value.left + scale(8), value.top, (editing ? typed.left : nx) - scale(4), value.bottom}, name, kDim, draw::kMiddle | draw::kEllipsis);  // (Brushes: its dots alone)
-            if (!editing && which == kNumTurns) {  // (Brushes: as many dots as brushes, in a ring, in place of the number)
+            if (which != kNumTurns || editing || (appState().ed && appState().ed->turns() > 12)) c.text({value.left + scale(8), value.top, (editing ? typed.left : nx) - scale(4), value.bottom}, name, kDim, draw::kMiddle | draw::kEllipsis);  // (Brushes: its dots alone)
+            if (!editing && which == kNumTurns && (!appState().ed || appState().ed->turns() <= 12)) {  // (Brushes: as many dots as brushes, in a ring, in place of the number; more than 12: the number)
                 const int n = appState().ed ? appState().ed->turns() : 1, dw = std::min(value.right - value.left - scale(8), value.bottom - value.top), mid = (value.left + value.right) / 2;
                 turnDots(c, {mid - dw / 2, value.top, mid - dw / 2 + dw, value.bottom}, n, kText);
             } else if (!editing) {
@@ -740,7 +743,7 @@ public:
         };
         static const wchar_t* const kSizeTip = L"Brush size: 1 to 32. Click to type a size. The arrows and the mouse wheel change it (Alt+wheel on the map too).";
         static const wchar_t* const kTurnsTip =
-            L"Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).";
+            L"Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 64. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).";
         static const wchar_t* const kHeightTip =
             L"Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.";
         if (stripHasSize() && app.mode == Mode::Terrain) {

@@ -83,8 +83,8 @@ constexpr uint16_t kMapRevealerUnit = 101;
 namespace Mirror {
 constexpr int LeftRight = 1, TopBottom = 2, Diagonal = 4, AntiDiagonal = 8, All = 15;
 }
-constexpr int kMaxTurns = 8;
-constexpr size_t kMaxSymmetricPlaces = 32;
+constexpr int kMaxTurns = 64;
+constexpr size_t kMaxSymmetricPlaces = 1024;  // (64 brushes, each anchor: 8 brushes and 32 anchors paint 256 places)
 
 class Editor {
 public:
@@ -359,7 +359,7 @@ public:
     bool canCenterSymmetryAnchor(int index) const;
     // Anchors at exactly one point become one (the center stays the center). The number that went.
     int mergeSymmetryAnchors();
-    static constexpr int kMaxSymmetryAnchors = 8;
+    static constexpr int kMaxSymmetryAnchors = 32;
     // The masks (Alt+click in the lists): painting changes only the corners of these terrains (Isometric; the tool strip's
     // Rectangle checks its tiles' terrains) and the tiles of these values (Tile). Empty: all. Not in the map: a new map has none.
     const std::vector<uint16_t>& terrainMask() const { return terrainMask_; }

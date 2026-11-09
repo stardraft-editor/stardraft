@@ -2420,7 +2420,7 @@ Link selected units	Связать выбранные юниты
 Jump to linked unit	Перейти к связанному юниту
  locations	 местоположение(й)
 Brushes	Кисти
-Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Кисти: кисти идут вокруг центра симметрии равными шагами. 1: одна кисть, 2: две (пол-оборота), 4: четыре (четверти оборота), от 1 до 8. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его. На изометрическом рельефе копия идет к ближайшему ромбу, если поворот не сохраняет ромбы (2, и 4 на карте вдвое шире своей высоты).
+Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 64. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Кисти: кисти идут вокруг центра симметрии равными шагами. 1: одна кисть, 2: две (пол-оборота), 4: четыре (четверти оборота), от 1 до 64. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его. На изометрическом рельефе копия идет к ближайшему ромбу, если поворот не сохраняет ромбы (2, и 4 на карте вдвое шире своей высоты).
 Start locations	Начальные позиции
 &Place them	&Разместить их
 &Save anyway	&Всё равно сохранить

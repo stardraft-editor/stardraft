@@ -283,6 +283,7 @@ int symmetryHandleIndex(const AppState& app, int sx, int sy) {
 bool symmetryHandleAt(const AppState& app, int sx, int sy) { return symmetryHandleIndex(app, sx, sy) >= 0; }
 
 // (A modifier key that changes what a press does here has its mark next to the mouse: core/map_mod_mark.inc.)
+int gPastePressed = 0;  // (the units that the press of a paste stroke pasted)
 void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     LayersLiveAfter live{app};
     if (!app.ed || !app.ed->isOpen()) return;
@@ -323,7 +324,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
                    : (pasted < copied ? L"Pasted " + std::to_wstring(pasted) + L" of " + std::to_wstring(copied) + L" units (the other units do not fit here)"
                                       : L"Pasted " + std::to_wstring(pasted) + L" units") + L". To stop, right-click or press Esc.");
         ed.clearSelection();
-        app.lastPlaceX = pwx, app.lastPlaceY = pwy, app.placedInStroke = pasted;
+        app.lastPlaceX = pwx, app.lastPlaceY = pwy, app.placedInStroke = 0, gPastePressed = pasted;  // (the press's message stays unless the drag pastes more)
         app.drag = Drag::PasteUnitsStroke;
         app.dirty = true;
         return;
@@ -792,10 +793,15 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
     if (app.drag == Drag::PlaceStroke && app.ed && app.palette >= 0) strokeMove(wx, wy);
     if (app.drag == Drag::PasteUnitsStroke && app.ed) {  // the units' copy again a whole copy away from the last one
         float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
-        for (const Unit& u : app.ed->clipboard()) x0 = std::min(x0, float(int16_t(u.x))), y0 = std::min(y0, float(int16_t(u.y))), x1 = std::max(x1, float(int16_t(u.x))), y1 = std::max(y1, float(int16_t(u.y)));
+        for (Unit u : app.ed->clipboard()) {  // (the copy's extent: its units' boxes round the middle)
+            const int ux = int16_t(u.x), uy = int16_t(u.y);
+            u.x = uint16_t(4096 + ux), u.y = uint16_t(4096 + uy);
+            const Rect b = app.ed->unitBox(u);
+            x0 = std::min(x0, float(b.left - 4096)), y0 = std::min(y0, float(b.top - 4096)), x1 = std::max(x1, float(b.right - 4096)), y1 = std::max(y1, float(b.bottom - 4096));
+        }
         float pwx = wx, pwy = wy;
         snapUnitPoint(pwx, pwy);
-        if (std::abs(pwx - app.lastPlaceX) >= std::max(32.0f, x1 - x0 + 32) || std::abs(pwy - app.lastPlaceY) >= std::max(32.0f, y1 - y0 + 32)) {
+        if (std::abs(pwx - app.lastPlaceX) >= std::max(32.0f, x1 - x0) || std::abs(pwy - app.lastPlaceY) >= std::max(32.0f, y1 - y0)) {
             applyUnitLimit(*app.ed);
             app.placedInStroke += app.ed->paste(int(pwx), int(pwy), app.correction);
             app.ed->clearSelection();
@@ -966,7 +972,7 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
         break;
     case Drag::PasteUnitsStroke:
         ed.endStroke();
-        if (app.placedInStroke > 0) setMessage(app, L"Pasted " + std::to_wstring(app.placedInStroke) + L" units. To stop, right-click or press Esc.");
+        if (app.placedInStroke > 0) setMessage(app, L"Pasted " + std::to_wstring(gPastePressed + app.placedInStroke) + L" units. To stop, right-click or press Esc.");
         break;
     case Drag::PasteStroke:
         ed.endStroke();
@@ -1351,6 +1357,16 @@ bool mapBrushWheel(AppState& app, bool up) {
     setMessage(app, m);
     app.dirty = true;
     return true;
+}
+
+// A press that edits as one undo step (a stroke) ends where it is: the mode or the tab changes during it (no release
+// comes to the map). The release would end it; with the drag gone, nothing would.
+void mapStrokeEnd(AppState& app) {
+    if (!app.ed) return;
+    if (app.mode == Mode::Terrain && (app.drag == Drag::Paint || app.drag == Drag::Spray || app.drag == Drag::Jumble)) app.ed->endTerrainStroke();
+    else if (app.drag == Drag::PlaceStroke || app.drag == Drag::PasteStroke || app.drag == Drag::PasteUnitsStroke || app.drag == Drag::Spray ||
+             app.drag == Drag::Erase || app.drag == Drag::Paint || app.drag == Drag::Jumble)
+        app.ed->endStroke();
 }
 
 // --- The map's wheel, trackpad and pinch (one rule for every system) ----------------------------------------------

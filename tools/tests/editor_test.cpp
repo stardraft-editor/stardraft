@@ -1385,7 +1385,7 @@ static void turnCountTest(const GameData& data) {
     CHECK(ed.symmetricPoints(cx + 300, cy).size() == 6, "turns: 3 turns with a left/right mirror make six places");
     ed.setMirrors(0);
     ed.setTurns(99);
-    CHECK(ed.turns() == kMaxTurns, "turns: the number is kept to 1 to 8");
+    CHECK(ed.turns() == kMaxTurns, "turns: the number is kept to 1 to 64");
     // A placed sprite has its mirror image too, in one undo step (Discord feedback #132).
     ed.setTurns(1);
     ed.setMirrors(Mirror::LeftRight);

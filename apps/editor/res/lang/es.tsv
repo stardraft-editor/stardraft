@@ -2420,7 +2420,7 @@ Link selected units	Enlazar las unidades seleccionadas
 Jump to linked unit	Ir a la unidad enlazada
  locations	 ubicaciones
 Brushes	Pinceles
-Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Pinceles: los pinceles giran alrededor del centro de simetría a pasos iguales. 1: un pincel, 2: dos (media vuelta), 4: cuatro (cuartos de vuelta), de 1 a 8. Haz clic para escribir un número. Las flechas y la rueda del ratón lo cambian. En terreno isométrico, una copia va al rombo más cercano salvo que el giro conserve los rombos (2, y 4 en un mapa el doble de ancho que de alto).
+Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 64. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Pinceles: los pinceles giran alrededor del centro de simetría a pasos iguales. 1: un pincel, 2: dos (media vuelta), 4: cuatro (cuartos de vuelta), de 1 a 64. Haz clic para escribir un número. Las flechas y la rueda del ratón lo cambian. En terreno isométrico, una copia va al rombo más cercano salvo que el giro conserve los rombos (2, y 4 en un mapa el doble de ancho que de alto).
 Start locations	Posiciones de inicio
 &Place them	&Colocarlas
 &Save anyway	&Guardar de todos modos

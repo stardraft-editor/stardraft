@@ -2420,7 +2420,7 @@ Link selected units	连接所选单位
 Jump to linked unit	跳到连接的单位
  locations	 个位置
 Brushes	画笔数
-Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	画笔数：画笔以相等步长绕对称中心旋转。1：一个画笔，2：两个（半圈），4：四个（四分之一圈），1 到 8。单击可输入数字。箭头和鼠标滚轮可更改。在等距地形上，除非旋转能保持菱形（2，以及宽度为高度两倍的地图上的 4），否则副本会移到最近的菱形。
+Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 64. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	画笔数：画笔以相等步长绕对称中心旋转。1：一个画笔，2：两个（半圈），4：四个（四分之一圈），1 到 64。单击可输入数字。箭头和鼠标滚轮可更改。在等距地形上，除非旋转能保持菱形（2，以及宽度为高度两倍的地图上的 4），否则副本会移到最近的菱形。
 Start locations	起始位置
 &Place them	放置(&P)
 &Save anyway	仍然保存(&S)

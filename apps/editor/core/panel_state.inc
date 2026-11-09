@@ -198,6 +198,8 @@ void activatePanel(PanelState* p) {
     app.terrainPasting = false;
     rebuildList(app);
     mapLayersDragStop();  // (core/map_layers.inc)
+    void mapStrokeEnd(AppState&);  // (core/map_input.inc)
+    mapStrokeEnd(app);
     app.drag = Drag::None;
     app.dirty = true;
     shellPanelsChanged();

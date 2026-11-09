@@ -82,6 +82,8 @@ void stashActive() {
     d.hasTerrainSel = app.hasTerrainSel, d.terrainSel = app.terrainSel, d.terrainSelMask = app.terrainSelMask;
     d.pasting = app.pasting, d.terrainPasting = app.terrainPasting;
     panelsStash();  // (its active panel keeps its state for when the tab is back: panel_state.inc)
+    mapStrokeEnd(app);  // (a press under way: its undo step ends here, in this tab's editor)
+    app.drag = Drag::None;
     d.ed = std::move(app.ed);
 }
 // Options > Units > Many start locations for each player (ManyStartLocations; off: a player's new start

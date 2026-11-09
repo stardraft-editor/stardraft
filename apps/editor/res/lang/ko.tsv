@@ -2420,7 +2420,7 @@ Link selected units	선택한 유닛 연결
 Jump to linked unit	연결된 유닛으로 이동
  locations	 위치
 Brushes	브러시 수
-Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	브러시 수: 브러시가 대칭 중심을 같은 간격으로 돕니다. 1: 브러시 하나, 2: 둘(반 바퀴), 4: 넷(1/4 바퀴), 1~8. 클릭하여 숫자를 입력합니다. 화살표와 마우스 휠로 바꿉니다. 등각 지형에서는 회전이 다이아몬드를 유지하지 않으면(2, 그리고 너비가 높이의 두 배인 맵의 4는 유지) 복사본이 가장 가까운 다이아몬드로 갑니다.
+Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 64. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	브러시 수: 브러시가 대칭 중심을 같은 간격으로 돕니다. 1: 브러시 하나, 2: 둘(반 바퀴), 4: 넷(1/4 바퀴), 1~64. 클릭하여 숫자를 입력합니다. 화살표와 마우스 휠로 바꿉니다. 등각 지형에서는 회전이 다이아몬드를 유지하지 않으면(2, 그리고 너비가 높이의 두 배인 맵의 4는 유지) 복사본이 가장 가까운 다이아몬드로 갑니다.
 Start locations	시작 위치
 &Place them	배치(&P)
 &Save anyway	그래도 저장(&S)
