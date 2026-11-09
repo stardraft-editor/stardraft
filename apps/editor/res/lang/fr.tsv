@@ -3396,3 +3396,26 @@ Drag to make Variations taller or shorter	Faites glisser pour agrandir ou rédui
 Hide the variations	Masquer les variantes
 Show the variations	Afficher les variantes
 Symmetry: click to choose the mirrors (Alt+0 to Alt+4)	Symétrie : cliquez pour choisir les miroirs (Alt+0 à Alt+4)
+Show or hide the guides of this boost. The boost stays in use.	Afficher ou masquer les guides de cette optimisation. L'optimisation reste utilisée.
+Search for this boost at the selected bases. Continue searches on from where it stopped.	Rechercher cette optimisation aux bases sélectionnées. Continuer reprend la recherche là où elle s'est arrêtée.
+Workers that this boost made faster at the selected bases. A guide shows after its worker does its first command.	Ouvriers que cette optimisation a rendus plus rapides aux bases sélectionnées. Un guide s'affiche après la première commande de son ouvrier.
+Search time in seconds for the next Search or Continue	Durée de recherche en secondes pour le prochain Rechercher ou Continuer
+Select a base	Sélectionnez une base
+Searching…	Recherche…
+Not searched	Non recherché
+%d of %d guides show	%d guides sur %d affichés
+%.1f s searched	%.1f s de recherche
+s	s
+Show guides	Afficher les guides
+The selected bases share the processor. With fewer bases, each search does more work.	Les bases sélectionnées partagent le processeur. Avec moins de bases, chaque recherche fait plus de travail.
+The last trip of a worker at each mineral field, delivery to delivery, in frames. Zoom in to see the labels.	Le dernier trajet d'un ouvrier à chaque champ de minerai, de livraison à livraison, en images. Zoomez pour voir les étiquettes.
+The minerals that each mineral field gives in a game minute, after the first 30 game seconds. Zoom in to see the labels.	Les minéraux que donne chaque champ de minerai en une minute de jeu, après les 30 premières secondes de jeu. Zoomez pour voir les étiquettes.
+Mine at this base. At most 8 bases mine at the same time.	Récolter à cette base. Au plus 8 bases récoltent en même temps.
+Field labels	Étiquettes des champs
+Frames a trip	Images par trajet
+1 worker for each mineral field at each base, %.1f game minutes measured at Fastest	1 ouvrier pour chaque champ de minerai à chaque base, %.1f minutes de jeu mesurées en vitesse maximale
+%d workers for each mineral field at each base, %.1f game minutes measured at Fastest	%d ouvriers pour chaque champ de minerai à chaque base, %.1f minutes de jeu mesurées en vitesse maximale
+1 worker on minerals at each base, %.1f game minutes measured at Fastest	1 ouvrier sur les minéraux à chaque base, %.1f minutes de jeu mesurées en vitesse maximale
+%d workers on minerals at each base, %.1f game minutes measured at Fastest	%d ouvriers sur les minéraux à chaque base, %.1f minutes de jeu mesurées en vitesse maximale
+The map has no base to mine at	La carte n'a aucune base où récolter
+Select a base in the panel to play	Sélectionnez une base dans le panneau pour lire

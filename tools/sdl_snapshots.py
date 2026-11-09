@@ -3476,7 +3476,7 @@ def check_dock(output):
              "applicationDockMenu: yes; 4 items: \"(2)Bottleneck.scm\" \"(4)Lost Temple.scx\" | "
              "\"AshenCrown\"", "dock: build running: tile shows the bar, timer on",
              "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
-             "settings: toolbar style preference; 8 items: \"General\" \"Appearance\" \"Mouse and keyboard\" \"Map\" \"Simulation\" "
+             "settings: toolbar style preference; 7 items: \"General\" \"Appearance\" \"Mouse and keyboard\" \"Map\" "
              "\"Plugins\" \"Folders\" \"Updates\"; selected"]
     for w in wants:
         if w not in output:
@@ -5457,7 +5457,7 @@ history
 SCRIPTS["simspawns"] = """history
 command edit.simulate.mining
 simstate
-click 903,280
+click 934,280
 simstate
 click 1547,161
 key Ctrl+A
@@ -5468,12 +5468,12 @@ simstate
 wait 7000
 simstep 1
 simstate
-click 839,280
+click 850,280
 simstate
-click 903,280
+click 934,280
 key Space
 simstate
-click 903,280
+click 934,280
 key Space
 wait 300
 simstate

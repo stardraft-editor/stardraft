@@ -3396,3 +3396,26 @@ Drag to make Variations taller or shorter	Arrastre para hacer Variaciones más a
 Hide the variations	Ocultar las variaciones
 Show the variations	Mostrar las variaciones
 Symmetry: click to choose the mirrors (Alt+0 to Alt+4)	Simetría: clic para elegir los espejos (Alt+0 a Alt+4)
+Show or hide the guides of this boost. The boost stays in use.	Mostrar u ocultar las guías de esta mejora. La mejora sigue en uso.
+Search for this boost at the selected bases. Continue searches on from where it stopped.	Buscar esta mejora en las bases seleccionadas. Continuar sigue buscando desde donde se detuvo.
+Workers that this boost made faster at the selected bases. A guide shows after its worker does its first command.	Obreros que esta mejora hizo más rápidos en las bases seleccionadas. Una guía aparece después de que su obrero haga su primera orden.
+Search time in seconds for the next Search or Continue	Tiempo de búsqueda en segundos para el próximo Buscar o Continuar
+Select a base	Seleccione una base
+Searching…	Buscando…
+Not searched	Sin buscar
+%d of %d guides show	Se ven %d de %d guías
+%.1f s searched	%.1f s de búsqueda
+s	s
+Show guides	Mostrar guías
+The selected bases share the processor. With fewer bases, each search does more work.	Las bases seleccionadas comparten el procesador. Con menos bases, cada búsqueda hace más trabajo.
+The last trip of a worker at each mineral field, delivery to delivery, in frames. Zoom in to see the labels.	El último viaje de un obrero en cada campo de minerales, de entrega a entrega, en fotogramas. Acerque la vista para ver las etiquetas.
+The minerals that each mineral field gives in a game minute, after the first 30 game seconds. Zoom in to see the labels.	Los minerales que da cada campo de minerales en un minuto de juego, después de los primeros 30 segundos de juego. Acerque la vista para ver las etiquetas.
+Mine at this base. At most 8 bases mine at the same time.	Minar en esta base. Como máximo 8 bases minan a la vez.
+Field labels	Etiquetas de campos
+Frames a trip	Fotogramas por viaje
+1 worker for each mineral field at each base, %.1f game minutes measured at Fastest	1 obrero por cada campo de minerales en cada base, %.1f minutos de juego medidos a la máxima velocidad
+%d workers for each mineral field at each base, %.1f game minutes measured at Fastest	%d obreros por cada campo de minerales en cada base, %.1f minutos de juego medidos a la máxima velocidad
+1 worker on minerals at each base, %.1f game minutes measured at Fastest	1 obrero en minerales en cada base, %.1f minutos de juego medidos a la máxima velocidad
+%d workers on minerals at each base, %.1f game minutes measured at Fastest	%d obreros en minerales en cada base, %.1f minutos de juego medidos a la máxima velocidad
+The map has no base to mine at	El mapa no tiene ninguna base donde minar
+Select a base in the panel to play	Seleccione una base en el panel para jugar

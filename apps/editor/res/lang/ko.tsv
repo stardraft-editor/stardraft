@@ -3426,3 +3426,26 @@ Drag to make Variations taller or shorter	끌어서 변형 영역의 높이를 �
 Hide the variations	변형 숨기기
 Show the variations	변형 표시
 Symmetry: click to choose the mirrors (Alt+0 to Alt+4)	대칭: 클릭하여 거울 선택 (Alt+0 ~ Alt+4)
+Show or hide the guides of this boost. The boost stays in use.	이 최적화의 가이드를 표시하거나 숨깁니다. 최적화는 계속 사용됩니다.
+Search for this boost at the selected bases. Continue searches on from where it stopped.	선택한 기지에서 이 최적화를 검색합니다. 계속은 멈춘 곳부터 다시 검색합니다.
+Workers that this boost made faster at the selected bases. A guide shows after its worker does its first command.	선택한 기지에서 이 최적화로 더 빨라진 일꾼입니다. 가이드는 일꾼이 첫 명령을 수행한 후에 표시됩니다.
+Search time in seconds for the next Search or Continue	다음 검색 또는 계속의 검색 시간(초)
+Select a base	기지를 선택하세요
+Searching…	검색 중…
+Not searched	검색 안 함
+%d of %d guides show	가이드 %d/%d개 표시
+%.1f s searched	%.1f초 검색함
+s	초
+Show guides	가이드 표시
+The selected bases share the processor. With fewer bases, each search does more work.	선택한 기지들이 프로세서를 나눠 씁니다. 기지가 적을수록 각 검색이 더 많은 작업을 합니다.
+The last trip of a worker at each mineral field, delivery to delivery, in frames. Zoom in to see the labels.	각 광물 필드에서 일꾼의 마지막 왕복(전달에서 전달까지)을 프레임으로 표시합니다. 확대하면 라벨이 보입니다.
+The minerals that each mineral field gives in a game minute, after the first 30 game seconds. Zoom in to see the labels.	게임 시간 처음 30초 이후 각 광물 필드가 게임 1분 동안 주는 미네랄입니다. 확대하면 라벨이 보입니다.
+Mine at this base. At most 8 bases mine at the same time.	이 기지에서 채굴합니다. 동시에 최대 8개 기지가 채굴합니다.
+Field labels	필드 라벨
+Frames a trip	왕복당 프레임
+1 worker for each mineral field at each base, %.1f game minutes measured at Fastest	각 기지의 광물 필드마다 일꾼 1명, 가장 빠름으로 측정한 게임 시간 %.1f분
+%d workers for each mineral field at each base, %.1f game minutes measured at Fastest	각 기지의 광물 필드마다 일꾼 %d명, 가장 빠름으로 측정한 게임 시간 %.1f분
+1 worker on minerals at each base, %.1f game minutes measured at Fastest	기지마다 미네랄 일꾼 1명, 최고속으로 측정한 게임 %.1f분
+%d workers on minerals at each base, %.1f game minutes measured at Fastest	기지마다 미네랄 일꾼 %d명, 최고속으로 측정한 게임 %.1f분
+The map has no base to mine at	맵에 채굴할 기지가 없습니다
+Select a base in the panel to play	재생하려면 패널에서 기지를 선택하세요

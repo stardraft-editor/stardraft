@@ -3396,3 +3396,26 @@ Drag to make Variations taller or shorter	Перетащите, чтобы сд�
 Hide the variations	Скрыть варианты
 Show the variations	Показать варианты
 Symmetry: click to choose the mirrors (Alt+0 to Alt+4)	Симметрия: щёлкните, чтобы выбрать зеркала (Alt+0 – Alt+4)
+Show or hide the guides of this boost. The boost stays in use.	Показать или скрыть подсказки этого ускорения. Ускорение остаётся в силе.
+Search for this boost at the selected bases. Continue searches on from where it stopped.	Искать это ускорение на выбранных базах. «Продолжить» ищет дальше с того места, где поиск остановился.
+Workers that this boost made faster at the selected bases. A guide shows after its worker does its first command.	Рабочие, которых это ускорение сделало быстрее на выбранных базах. Подсказка появляется после первой команды её рабочего.
+Search time in seconds for the next Search or Continue	Время поиска в секундах для следующего поиска (Поиск или Продолжить)
+Select a base	Выберите базу
+Searching…	Поиск…
+Not searched	Поиск не выполнялся
+%d of %d guides show	Показано подсказок: %d из %d
+%.1f s searched	Поиск: %.1f с
+s	с
+Show guides	Показывать подсказки
+The selected bases share the processor. With fewer bases, each search does more work.	Выбранные базы делят процессор. Чем меньше баз, тем больше работы делает каждый поиск.
+The last trip of a worker at each mineral field, delivery to delivery, in frames. Zoom in to see the labels.	Последний рейс рабочего на каждом минеральном поле, от сдачи до сдачи, в кадрах. Приблизьте, чтобы увидеть подписи.
+The minerals that each mineral field gives in a game minute, after the first 30 game seconds. Zoom in to see the labels.	Минералы, которые даёт каждое минеральное поле за игровую минуту, после первых 30 игровых секунд. Приблизьте, чтобы увидеть подписи.
+Mine at this base. At most 8 bases mine at the same time.	Добывать на этой базе. Одновременно добывают не больше 8 баз.
+Field labels	Подписи полей
+Frames a trip	Кадров за рейс
+1 worker for each mineral field at each base, %.1f game minutes measured at Fastest	1 рабочий на каждое минеральное поле на каждой базе, измерено %.1f игровых минут на самой быстрой скорости
+%d workers for each mineral field at each base, %.1f game minutes measured at Fastest	%d рабочих на каждое минеральное поле на каждой базе, измерено %.1f игровых минут на самой быстрой скорости
+1 worker on minerals at each base, %.1f game minutes measured at Fastest	1 рабочий на минералах на каждой базе, измерено %.1f игровых минут на максимальной скорости
+%d workers on minerals at each base, %.1f game minutes measured at Fastest	%d рабочих на минералах на каждой базе, измерено %.1f игровых минут на максимальной скорости
+The map has no base to mine at	На карте нет базы для добычи
+Select a base in the panel to play	Выберите базу на панели, чтобы запустить

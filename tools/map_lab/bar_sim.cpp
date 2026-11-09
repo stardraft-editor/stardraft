@@ -105,41 +105,75 @@ public:
     bool startMining(const sim::MiningOptions& o, std::string& error) override { return beginMining(o, error, true); }
     // `firstBases`: at most 8 bases (the bar). A base with no room for its depot and workers is in the list, with no
     // numbers (MiningRun::placed false).
-    // The same map and settings again (Restart, the timeline): the bases as they were set up, with their boosts.
+    // The same map and settings again (Restart, the timeline): the bases as they were set up, with their boosts. Other
+    // bases selected (MiningOptions::startPlayers, placedDepotMask): each base that mined before keeps its setup and its
+    // boosts, also a base that is selected again.
     bool beginMining(const sim::MiningOptions& o, std::string& error, bool firstBases) {
         stopPlay();
         if (o.gas) return error = "The mining simulation has no gas", false;
         std::vector<sim::Race> races;
         std::vector<sim::MiningBase> bases = classic_->miningBases(o, races);
-        for(size_t k=bases.size();k-->0;)if(bases[k].startLocation&&(bases[k].player<0||bases[k].player>=8||!(o.startPlayers&(1u<<bases[k].player)))) {
-            bases.erase(bases.begin()+std::ptrdiff_t(k));races.erase(races.begin()+std::ptrdiff_t(k));
-        }
-        if (bases.empty() && o.startPlayers!=0) return error = "The selected players have no starting locations", false;
+        const bool all = o.startPlayers == 0xffu && o.placedDepotMask == ~0u;
+        if (bases.empty() && !sim::miningNoBaseSelected(o))
+            return error = all ? "The map has no base to mine at" : "The selected bases are not in the map", false;
         if (firstBases && bases.size() > size_t(kMaxBases)) bases.resize(size_t(kMaxBases)), races.resize(size_t(kMaxBases));
+        // Each base's player: a start location's is its player in the map; another base (a placed depot) takes the first
+        // player that no start location has (each base is a world of its own: the players only name and color the
+        // bases, as in the map). All the map's bases count, also those that are not selected: a base keeps its player.
+        std::vector<int> owners(bases.size(), -1);
+        {
+            std::vector<sim::Race> allRaces;
+            sim::MiningOptions every = o;
+            every.startPlayers = 0xffu, every.placedDepotMask = ~0u;
+            const std::vector<sim::MiningBase> map = all ? bases : classic_->miningBases(every, allRaces);
+            std::vector<bool> taken(size_t(kMaxBases), false);
+            for (const sim::MiningBase& b : map)
+                if (b.startLocation && b.player >= 0 && b.player < kMaxBases) taken[size_t(b.player)] = true;
+            for (size_t m = 0; m < map.size(); ++m) {
+                int owner = map[m].startLocation && map[m].player >= 0 && map[m].player < kMaxBases ? map[m].player : -1;
+                for (int p = 0; owner < 0 && p < kMaxBases; ++p)
+                    if (!taken[size_t(p)]) owner = p, taken[size_t(p)] = true;
+                if (owner < 0) owner = int(m % size_t(kMaxBases));  // (more bases than players: as before)
+                for (size_t k = 0; k < bases.size(); ++k)
+                    if (owners[k] < 0 && bases[k].x == map[m].x && bases[k].y == map[m].y && bases[k].startLocation == map[m].startLocation)
+                        owners[k] = owner;
+            }
+            for (size_t k = 0; k < bases.size(); ++k)
+                if (owners[k] < 0) owners[k] = int(k % size_t(kMaxBases));
+        }
         // (the workers: a count for each base, or -n: n for each mineral field)
         const int count = o.workersPerField > 0 ? -o.workersPerField : o.workers.empty() ? 9 : o.workers[0];
-        std::string key = std::to_string(count);
-        for (size_t k = 0; k < bases.size(); ++k)
-            key += "," + std::to_string(bases[k].x) + ":" + std::to_string(bases[k].y) + ":" + std::to_string(int(races[k]))+":"+std::to_string(bases[k].player);
+        std::vector<std::string> keys;
+        std::string key;
+        for (size_t k = 0; k < bases.size(); ++k) {
+            keys.push_back(std::to_string(count) + ":" + std::to_string(bases[k].x) + ":" + std::to_string(bases[k].y) + ":" +
+                           std::to_string(int(races[k])) + ":" + std::to_string(owners[k]));
+            key += keys.back() + ",";
+        }
         try {
             if (!loadSeed(error)) return false;
-            if (key != setupKey_ || setups_.empty()) {
-                stopBoosts();
+            if (key != setupKey_ || setupKey_.empty()) {
+                // (the setups that mined before wait, with their boosts, until their bases are selected again; those of
+                // another worker count go)
+                for (auto& s : setups_)
+                    if (!s->key.empty() && s->key.rfind(std::to_string(count) + ":", 0) == 0 &&
+                        std::none_of(s->status.begin(), s->status.end(), [](const sim::BoostStatus& st) { return st.running; }))
+                        parked_[s->key] = std::move(s);
+                setups_.clear();
+                for (auto it = parked_.begin(); it != parked_.end();)
+                    if (it->first.rfind(std::to_string(count) + ":", 0) != 0) it = parked_.erase(it);
+                    else ++it;
                 std::string first;
                 bool any = false;
-                // Each base's player: a start location's is its player in the map; another base (a placed depot) takes
-                // the first player that no start location has (each base is a world of its own: the players only
-                // name and color the bases, as in the map).
-                std::vector<bool> taken(size_t(kMaxBases), false);
-                for (const sim::MiningBase& b : bases)
-                    if (b.startLocation && b.player >= 0 && b.player < kMaxBases) taken[size_t(b.player)] = true;
                 for (size_t k = 0; k < bases.size(); ++k) {
-                    int owner = bases[k].startLocation && bases[k].player >= 0 && bases[k].player < kMaxBases ? bases[k].player : -1;
-                    for (int p = 0; owner < 0 && p < kMaxBases; ++p)
-                        if (!taken[size_t(p)]) owner = p, taken[size_t(p)] = true;
-                    if (owner < 0) owner = int(k % size_t(kMaxBases));  // (more bases than players: as before)
+                    if (const auto it = parked_.find(keys[k]); it != parked_.end()) {
+                        any = any || it->second->seed != nullptr;
+                        setups_.push_back(std::move(it->second));
+                        parked_.erase(it);
+                        continue;
+                    }
                     auto s = std::make_unique<Setup>();
-                    s->base = bases[k], s->race = races[k], s->owner = owner;
+                    s->base = bases[k], s->race = races[k], s->owner = owners[k], s->key = keys[k];
                     try {
                         makeSetup(*s, count);
                         any = true;
@@ -149,8 +183,8 @@ public:
                     }
                     setups_.push_back(std::move(s));
                 }
-                if (!any && !bases.empty()) return stopBoosts(), error = first, false;
-                setupKey_ = key;
+                if (!any && !bases.empty()) return stopBoosts(), error = first.empty() ? "The bases have no room for their depots and workers" : first, false;
+                setupKey_ = key.empty() ? std::string(",") : key;
             }
             for (const auto& s : setups_) bases_.push_back(play(*s));
         } catch (const std::exception& e) {
@@ -172,9 +206,10 @@ public:
         seconds = std::clamp(std::isfinite(seconds) ? seconds : 15.0, 0.05, 600.0);
         int placed = 0;
         for (const auto& s : setups_) placed += s->seed ? 1 : 0;
-        if(!placed)return error="Select a starting location before searching",false;
-        const unsigned capacity=ms::mining_compute::Executor::concurrency();
-        const unsigned threads = std::max(1u, (capacity>1?capacity-1:1) / unsigned(std::max(1, placed))); // leave room for live playback
+        if (!placed) return error = "No selected base has room for its depot and workers", false;
+        // (each base's search gets its share of the processor's threads; one thread stays for the game that plays)
+        const unsigned capacity = ms::mining_compute::Executor::concurrency();
+        const unsigned threads = std::max(1u, (capacity > 1 ? capacity - 1 : 1) / unsigned(std::max(1, placed)));
         try {
             for (const auto& sp : setups_) {
                 Setup& s = *sp;
@@ -236,7 +271,7 @@ public:
         return out;
     }
     sim::BoostStatus boostStatusForBase(int kind, int base) const override {
-        if(kind<0||kind>2||base<0||base>=int(setups_.size()))return {};
+        if (kind < 0 || kind > 2 || base < 0 || base >= int(setups_.size())) return {};
         return setups_[size_t(base)]->status[size_t(kind)];
     }
     void clearBoost(int kind) override {
@@ -268,7 +303,10 @@ public:
         if (mode_ != Mode::Mining) return out;
         for (size_t k = 0; k < bases_.size() && k < setups_.size(); ++k) {
             const Base& b = bases_[k];
-            for(auto guide:b.fixed){guide.base=int(k);out.push_back(guide);}
+            for (sim::MiningGuide guide : b.fixed) {
+                guide.base = int(k);
+                out.push_back(guide);
+            }
             if (!b.world) continue;
             for (const std::vector<Control>* rules : {&b.cargo, &b.cycle})
                 for (const Control& r : *rules) {
@@ -334,7 +372,7 @@ public:
                         std::abs(u->position.y - w.fromY) > kRushStartSlack)
                         continue;  // (a blocked start: no walk from it for this unit)
                     r.route.path.push_back({u->position.x, u->position.y});
-                    r.route.currentX=u->position.x,r.route.currentY=u->position.y;
+                    r.route.currentX = u->position.x, r.route.currentY = u->position.y;
                     r.last = r.route.path.back();
                     r.world->move(r.worker, {w.toX, w.toY});
                     runners_.push_back(std::move(r));
@@ -391,7 +429,7 @@ public:
                 }
                 addImages(*b.world, list, out);
             }
-            if(!first)first=seed_.get();
+            if (!first) first = seed_.get();  // (no base selected: the map's own units)
             if (first) {
                 const ms::World& w = *first;
                 std::vector<ms::UnitHandle> list;
@@ -446,10 +484,11 @@ public:
                 const auto amount = b.amount.find(p.index), mined = b.mined.find(p.index);
                 const int left = (amount != b.amount.end() ? amount->second : 0) - (mined != b.mined.end() ? mined->second : 0);
                 run.fieldMinerals.push_back(std::max(0, left));
-                const auto delivered=b.measuredMined.find(p.index);
-                run.fieldIncome.push_back(minutes>0 && delivered!=b.measuredMined.end() ? delivered->second/minutes : 0);
-                int latest=0;
-                for(const auto& worker:b.workers)if(worker.patch==p&&worker.lastCycle>0)latest=worker.lastCycle;
+                const auto delivered = b.measuredMined.find(p.index);
+                run.fieldIncome.push_back(minutes > 0 && delivered != b.measuredMined.end() ? delivered->second / minutes : 0);
+                int latest = 0;  // (the last worker of the field with a whole trip)
+                for (const Worker& worker : b.workers)
+                    if (worker.patch == p && worker.lastCycle > 0) latest = worker.lastCycle;
                 run.fieldCycleFrames.push_back(latest);
             }
             m.runs = {run};
@@ -523,7 +562,7 @@ private:
         creep_.clear(), ++creepChanges_;
     }
     void stopBoosts() {
-        setups_.clear();  // (each search's thread ends with it)
+        setups_.clear(), parked_.clear();  // (each search's thread ends with it)
         setupKey_.clear();
     }
     // The mining from its start again, with the setups as they are now (a boost search changed them).
@@ -551,13 +590,14 @@ private:
         std::vector<ms::UnitHandle> patches;  // nearest first
         std::map<int, Trips> trips;           // by the field's unit index: the trips of the workers that mined it
         std::map<int, int> amount, mined;     // by the field's unit index: its minerals in the map, those mined from it
-        std::map<int, int> measuredMined;     // delivered after warm-up, attributed to the source field
+        std::map<int, int> measuredMined;     // by the field's unit index: the minerals delivered after the warm-up
         int measured = -1;                   // the minerals delivered at the warm-up's end
         std::vector<Control> cargo, cycle;    // the boosts' commands (fresh copies of the setup's)
-        std::vector<sim::MiningGuide> fixed; // position helpers for the setup actually playing
+        std::vector<sim::MiningGuide> fixed;  // the position boosts' guides (a copy of the setup's)
     };
     // A base as it starts (the same each time the mining starts again), its boosts and their searches.
     struct Setup {
+        std::string key;  // the worker count, the base's place, race and player (beginMining)
         sim::MiningBase base;
         sim::Race race = sim::Terran;
         int owner = 0;
@@ -766,8 +806,8 @@ private:
             for (Worker& w : b.workers) {
                 if (!w.carrying || (b.world->get(w.unit)->cargo & 2)) continue;
                 b.mined[(b.world->get(w.mined) ? w.mined : w.patch).index] += kMineralsPerTrip;
-                if(measuring)b.measuredMined[(b.world->get(w.mined) ? w.mined : w.patch).index] += kMineralsPerTrip;
-                if(w.lastDelivery>=0)w.lastCycle=now-w.lastDelivery;
+                if (measuring) b.measuredMined[(b.world->get(w.mined) ? w.mined : w.patch).index] += kMineralsPerTrip;
+                if (w.lastDelivery >= 0) w.lastCycle = now - w.lastDelivery;
                 if (measuring && w.lastDelivery >= 0) {
                     Trips& t = b.trips[(b.world->get(w.mined) ? w.mined : w.patch).index];
                     t.sum += now - w.lastDelivery, ++t.count;
@@ -791,7 +831,7 @@ private:
                 continue;
             }
             const std::pair<int, int> at{u->position.x, u->position.y}, before = r.last;
-            r.route.currentX=at.first,r.route.currentY=at.second;
+            r.route.currentX = at.first, r.route.currentY = at.second;
             if (at != before) r.route.distance += std::hypot(double(at.first - before.first), double(at.second - before.second)), r.last = at;
             const double away = std::hypot(double(at.first - r.route.toX), double(at.second - r.route.toY));
             const bool nearer = away < r.nearest - 8;  // (8 pixels nearer than ever: on its way)
@@ -855,6 +895,7 @@ private:
     std::vector<Base> bases_;
     std::vector<std::unique_ptr<Setup>> setups_;  // each base's setup (Restart and the timeline start from them)
     std::string setupKey_;                        // the map's bases and settings that made them
+    std::map<std::string, std::unique_ptr<Setup>> parked_;  // the setups of bases not selected now, by Setup::key
     bool changed_ = false;                        // a boost search that ended changed a setup
     std::vector<Runner> runners_;
     int frame_ = 0, last_ = 0, warmup_ = 0;
