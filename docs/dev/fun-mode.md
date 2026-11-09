@@ -61,11 +61,11 @@ length, attack, the number of small hits in them and their energy in bands:
 
 ## Recorded sounds
 
-Water, mud, grass, dirt and rock play recorded sounds (from Freesound, picked by the user); the others are made in
+Water, mud, grass, dirt, rock and the built floors play recorded sounds (from Freesound, picked by the user); the others are made in
 code. Each recording gave up to 3 takes: its loudest moments (the splash, the squelch, the swish, the crunch), from
 just before the rise to where the hit has died to 12 % of its peak, with no lead-in or long tail (a 2 ms fade-in, a
-12 ms fade-out). Made tiny and bit-like: mono, 11,025 Hz, 64 levels, 8-bit WAV (0.08 to 0.15 s, 0.9 to 1.7 KB each,
-18 KB for all 14). A play takes one of the takes at random
+12 ms fade-out). Made tiny and bit-like: mono, 11,025 Hz, 64 levels, 8-bit WAV (0.08 to 0.18 s, 0.9 to 2 KB each,
+23 KB for all 17). A play takes one of the takes at random
 (not the last one again). The sounds made in code go through the same crush, so all of them sound alike.
 
 The WAV files are in `apps/editor/res/fun/`; `tools/fun_sounds_gen.py` makes `fun_sounds.inc` from them (the
@@ -78,6 +78,7 @@ program has them in it: no files beside it).
 | brush (grass, jungle, snow, dunes) | `brush1` to `brush3` | 543508 "grass_rustling_uncut.wav" | Clusman | CC0 1.0 |
 | crunch (dirt) | `crunch1` to `crunch3` | 512243 "Rock Smash" | NeoSpica | CC0 1.0 |
 | rock (rock, crags, shale, ice) | `rock1` to `rock3` | 336023 "Rocks.wav" | adamgryu | CC0 1.0 |
+| clank (platform, plating, structure, temple, basilica, outpost, the other built floors) | `clank1` to `clank3` | 558254 "Heavy Stone Push" | msavioti | CC0 1.0 |
 
 CC0 1.0: no rights reserved, no credit needed (given here anyway); they can ship.
 
