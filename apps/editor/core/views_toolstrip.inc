@@ -845,9 +845,9 @@ public:
             const int mx = br.right;
             // Turns: on the same row, after the mirrors (its name too where it fits); the row below when the strip is
             // too narrow.
-            const int minStep = scale(84), left = mx + scale(6);
+            const int minStep = scale(68), left = mx + scale(6);
             if (W - left >= minStep) {
-                spinner(kNumTurns, {left, y + scale(1), W, y + mb - scale(1)}, L"Brushes", L"", kTurnsTip);
+                spinner(kNumTurns, {left, y + scale(1), std::min(W, left + scale(68)), y + mb - scale(1)}, L"Brushes", L"", kTurnsTip);  // (narrow: its dots and the arrows)
                 y += mb + gap;
             } else {
                 y += mb + gap;
