@@ -410,6 +410,8 @@ target_link_libraries(sim_test PRIVATE stardraft_sim)
 # The simulation bar's engine: mining and rush distance on the Map Simulation engine (third_party/map-simulation, MIT),
 # combat on stardraft_sim (tools/map_lab/bar_sim.h).
 add_subdirectory(tools/map_lab)
+add_executable(mining_workbench_test tools/tests/mining_workbench_test.cpp)
+target_link_libraries(mining_workbench_test PRIVATE stardraft_map_lab)
 
 # The editor without a window, for scripts and agents (docs/dev/CLI.md). It needs no GPU and no SDL.
 add_executable(stardraft_cli apps/cli/main.cpp apps/common/build_stamp.cpp $<$<BOOL:${WIN32}>:apps/common/install_win32.cpp>)
