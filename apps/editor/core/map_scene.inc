@@ -642,6 +642,7 @@ const PlaceGhost& placeGhost(const Unit& u, float gx, float gy) {
 }
 
 int cursorTurnable(const AppState& app);  // (map_input.inc)
+void funScaleUnit(render::Scene& s, const Unit& u, size_t from);  // (core/fun_mode.inc)
 render::Scene buildScene() {
     // (the top bar's turn and mirror buttons: as soon as something comes onto the cursor or goes)
     static int turnable = -1;
@@ -758,7 +759,9 @@ render::Scene buildScene() {
             keepAnim(units[i]);
             continue;
         }
+        const size_t first = s.sprites.size();
         addUnitSprites(s, units[i], 0, 0, mapLayersUnitAlpha(ed, i), false, true);  // (a see-through layer's: core/map_layers.inc)
+        if (app.funMode) funScaleUnit(s, units[i], first);  // (Options > Fun mode: a placed unit's pop)
     }
     std::erase_if(gAnims, [](const auto& kv) { return kv.second.seen != gSceneNo; });
     if (gLiveScene) gLiveScene(s);  // (the live game's units and sprites)

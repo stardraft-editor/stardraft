@@ -40,6 +40,8 @@ struct SpriteDraw {
     // The draw function's state (the game's modifier data): cloaking and decloaking 0..8, the warp texture's frame,
     // the warp flash 48..63. -1: the look of a still picture (cloaked, the first frame, the flash at its start).
     int level = -1;
+    // A squash or stretch about (pivotX, pivotY), map pixels (Fun mode's pop: core/fun_mode.inc); 1: none.
+    float scaleX = 1, scaleY = 1, pivotX = 0, pivotY = 0;
 };
 
 struct RectDraw {

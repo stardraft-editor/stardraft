@@ -574,6 +574,8 @@ int sdlFrameClockOwn() {
         return 0;
     if (gSdlPreview.stream && SDL_GetTicks() - gSdlPreview.started < gSdlPreview.ms + 500) return 0;  // (its button: Stop, then Play)
     if ((gSdlSfx.stream && !gSdlSfx.paused && gWorkspace == Workspace::Data) || gSdlDataMoving) return 0;  // (a sound's bar)
+    // (Options > Fun mode: particles and pops; only while the map view has a size: it is what moves them on)
+    if (mapShown && funModeBusy() && gRoot->map.width() > 0 && gRoot->map.height() > 0) return gRoot->map.invalidate(), 16;
     if (mapShown && gState.animate && !gAnims.empty()) {  // (one game tick each 42 ms: only the map view paints)
         const uint64_t gone = animNowMs() - gAnimLast;
         if (gone < kTickMs) return int(kTickMs - gone);

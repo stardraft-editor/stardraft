@@ -175,6 +175,32 @@ void sfxPlayOnce(int sfx) {
     }
 }
 
+// Options > Fun mode's sounds (core/fun_mode.inc): mono samples, at most 6 at a time; a test run plays nothing.
+void funPlayPcm(const std::vector<float>& mono, int rate, const char* name) {
+    if (const char* dir = std::getenv("STARDRAFT_FUN_WAV"); dir && *dir && !mono.empty()) {  // (to listen to them: 16-bit mono WAV)
+        static int n = 0;
+        std::ofstream out(fs::path(widen(dir)) / (std::string(name) + "-" + std::to_string(++n) + ".wav"), std::ios::binary);
+        auto u32 = [&](uint32_t v) { out.write(reinterpret_cast<const char*>(&v), 4); };
+        auto u16 = [&](uint16_t v) { out.write(reinterpret_cast<const char*>(&v), 2); };
+        const uint32_t bytes = uint32_t(mono.size() * 2);
+        out.write("RIFF", 4), u32(36 + bytes), out.write("WAVEfmt ", 8), u32(16), u16(1), u16(1), u32(uint32_t(rate)), u32(uint32_t(rate) * 2), u16(2), u16(16);
+        out.write("data", 4), u32(bytes);
+        for (float s : mono) u16(uint16_t(int16_t(std::clamp(s, -1.0f, 1.0f) * 32767)));
+    }
+    static std::vector<SDL_AudioStream*> playing;
+    for (auto it = playing.begin(); it != playing.end();)
+        if (SDL_GetAudioStreamQueued(*it) <= 0) closeStreamSdl(*it), it = playing.erase(it);
+        else ++it;
+    if (playing.size() >= 6 || mono.empty()) return;
+    const SDL_AudioSpec spec{SDL_AUDIO_F32, 1, rate};
+    if (SDL_AudioStream* s = openPlaybackSdl(&spec)) {
+        SDL_PutAudioStreamData(s, mono.data(), int(mono.size() * sizeof(float)));
+        SDL_FlushAudioStream(s);
+        playStreamSdl(s);
+        playing.push_back(s);
+    }
+}
+
 // An SFX data entry's sound, as the Windows program's sfxLoad: its file under sound\ in the game's data, decoded
 // (Remastered's sounds are Ogg Vorbis under their .wav names; 1.16.1's are WAV).
 bool sdlSfxLoad(int sfx, SDL_AudioSpec& spec, std::vector<Uint8>& pcm) {
