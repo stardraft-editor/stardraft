@@ -12,12 +12,14 @@ when the map is edited:
 - A placed unit thuds softly (a building lower), squashes and springs back about its feet, and the first one says its
   ready sound (units.dat's Ready Sound: units 0 to 105; buildings have none). A placed doodad thunks and shakes the
   view a little. A deleted unit or doodad puffs.
-- Small shards of the placed terrain hop off (low and few: 1 or 2 a tile): each one is a jagged shape of 3 to 6
-  corners, 5 to 12 pixels across, cut with the terrain's own pixels (from a tile of the edit that is all of the new
-  terrain, so grass painted on dirt throws grass only). Each one goes its own way at its own speed, turns at its own
-  rate and way, falls, gets smaller and fades. Water also throws white drops; metal throws sparks. A placed unit or
-  doodad throws shards of the ground under it and a little dust.
-- The sound and the shards are by the tiles that got a terrain they did not have: the dirt round a grass stroke,
+- Every changed tile throws small shards of its own new tile (a border tile its own mix of terrains), low and few:
+  2 a tile, 1 when more than 40 tiles changed, spread over all of them (about 110 tiles at most a time). Each one is a
+  jagged shape of 3 to 6 corners, 5 to 12 pixels across, cut from a place in the tile with its own pixels; it goes
+  its own way at its own speed as its terrain moves (water higher, grass floats down, metal fast and short, space
+  floats away), turns at its own rate and way, falls, gets smaller and fades. A placed doodad throws shards of its own
+  tiles, a deleted one of its old tiles (it crumbles), a placed or deleted unit of the ground under it. No flat-color
+  dots.
+- The sound is by the tiles that got a terrain they did not have: the dirt round a grass stroke,
   which the brush makes again, makes no dirt sound.
 - What is placed is louder than what it replaces: the sound of the terrain that the edited tiles lost (dirt under
   painted grass, the ground under a doodad) plays with it at 35 % of its level.
@@ -97,8 +99,8 @@ anyway); they can ship.
 - A unit's ready sound: at half the volume, at most one each 0.6 s (a row or a paste of many units says it once), at
   most 2 at a time.
 - A sound's level goes up with the number of tiles that changed (log2), from 45 % to 100 %.
-- At most 1,200 particles, of them at most 120 shards (up to about 100 rects each). About 100 tiles of an edit make
-  shards (1 or 2 each); a fill of the whole map makes a few, spread out.
+- At most 120 shards fly at a time (up to about 100 rects each); about 110 tiles of an edit throw them, spread
+  over all its tiles, so a fill of the whole map makes a few.
 
 ## Open questions
 

@@ -39,10 +39,9 @@ Kind kindOfTerrain(const std::string& name) {
 // --- The state ------------------------------------------------------------------------------------------------------
 struct Particle {
     float x, y, vx, vy, life, age, size;  // (map pixels; vx, vy and size: screen pixels, the zoom then)
-    uint32_t rgb;
     float gravity;
     // A shard of the terrain: its pixels (dx2, dy2: twice the place from its middle) in the tile's own colors, turned
-    // by `angle` (radians), which changes by `spin` a second. Empty: a dot in `rgb`.
+    // by `angle` (radians), which changes by `spin` a second.
     struct Pix {
         int8_t dx2, dy2;
         uint32_t rgb;
@@ -66,9 +65,6 @@ struct State {
     std::unordered_map<uint32_t, Pop> pops;  // by serial
     uint64_t shakeStart = 0, lastFrame = 0;
     uint64_t lastSound[size_t(Kind::Count)]{};
-    std::vector<uint32_t> megaColors;
-    const Tileset* colorsFor = nullptr;
-    int colorsEra = -1;
     std::mt19937 rng{12345};
 } g;
 constexpr size_t kMaxParticles = 1200, kMaxShards = 120;  // (a shard is up to about 100 rects)
@@ -140,17 +136,6 @@ void play(Kind k, float pitch = 1, float level = 1, uint64_t gapMs = 80) {
     funPlayPcm(out, kRate, kKindNames[size_t(k)]);
 }
 
-uint32_t tileColor(const Tileset& ts, uint16_t tile) {
-    if (g.colorsFor != &ts || g.colorsEra != int(ts.era)) g.megaColors = megatileColors(ts), g.colorsFor = &ts, g.colorsEra = int(ts.era);
-    const int m = ts.megatileFor(tile);
-    return m >= 0 && size_t(m) < g.megaColors.size() ? g.megaColors[size_t(m)] : 0x808080u;
-}
-
-uint32_t shade(uint32_t rgb, float f) {
-    auto c = [&](int sh) { return uint32_t(std::clamp(float(rgb >> sh & 0xFF) * f, 0.0f, 255.0f)) << sh; };
-    return c(16) | c(8) | c(0);
-}
-
 // A shard of the tile at map pixel (tileX, tileY) (megatile `mega` of `ts`): a jagged shape of 3 to 6 corners, 5 to
 // 12 pixels across, cut from a place in the tile at random, with the tile's own pixels. False: no pixels.
 bool cutShard(const Tileset& ts, int mega, float tileX, float tileY, Particle& p) {
@@ -184,48 +169,34 @@ bool cutShard(const Tileset& ts, int mega, float tileX, float tileY, Particle& p
     return !p.pix.empty();
 }
 
-// Particles from the area (x0, y0)-(x1, y1) (map pixels): `n` of them in `rgb`, flying up and out as `kind` does
-// (their speeds and sizes are screen pixels: an edit looks the same at each zoom). With `ts`: shards of the tile
-// `tile` (cutShard), each from its place in the tile at (x0, y0), flying and turning its own way.
-void burst(Kind k, float x0, float y0, float x1, float y1, uint32_t rgb, int n, const Tileset* ts = nullptr, uint16_t tile = 0) {
+// `n` shards of the tile `tile` at map pixel (tileX, tileY) (cutShard: its own pixels), each from its place in the
+// tile, flying and turning its own way as `kind` moves (speeds in screen pixels: an edit looks the same at each zoom).
+void burst(Kind k, float tileX, float tileY, int n, const Tileset& ts, uint16_t tile) {
     std::uniform_real_distribution<float> u(0.0f, 1.0f);
-    const int mega = ts ? ts->megatileFor(tile) : -1;
-    for (int i = 0; i < n && g.particles.size() < kMaxParticles; ++i) {
+    const int mega = ts.megatileFor(tile);
+    if (mega < 0 || size_t(mega) >= ts.megatiles.size()) return;
+    for (int i = 0; i < n && g.particles.size() < kMaxParticles && shardCount < kMaxShards; ++i) {
         Particle p{};
-        p.x = x0 + (x1 - x0) * u(g.rng), p.y = y0 + (y1 - y0) * u(g.rng);
-        if (mega >= 0 && size_t(mega) < ts->megatiles.size() && shardCount < kMaxShards && cutShard(*ts, mega, x0, y0, p)) ++shardCount;
-        if (ts && p.pix.empty()) break;  // (no shard: too many fly now)
+        if (!cutShard(ts, mega, tileX, tileY, p)) continue;
+        ++shardCount;
         const float a = 6.2831853f * u(g.rng);
         float speed = 40 + 80 * u(g.rng), up = 60 + 90 * u(g.rng);  // (low: a hop, not a fountain)
-        p.gravity = 600, p.life = 0.45f + 0.35f * u(g.rng), p.size = 3 + 2.5f * u(g.rng);
-        p.rgb = shade(rgb, 0.75f + 0.5f * u(g.rng));
+        p.gravity = 600, p.life = 0.45f + 0.35f * u(g.rng);
         switch (k) {
-        case Kind::Splash:  // (droplets: high, light)
-            up *= 1.5f, p.size -= 1, p.rgb = u(g.rng) < 0.5f ? shade(rgb, 1.6f) : 0xD8F0FFu;
-            break;
-        case Kind::Brush:  // (blades: slow, they float down)
-            speed *= 0.6f, up *= 0.5f, p.gravity = 160, p.life += 0.3f;
-            break;
-        case Kind::Clank:  // (sparks: fast and short)
-            speed *= 2, up *= 0.8f, p.life *= 0.5f, p.size = 2.5f, p.rgb = u(g.rng) < 0.6f ? 0xFFE080u : 0xFFFFFFu;
-            break;
-        case Kind::Rock: p.size += 1.5f; break;
+        case Kind::Splash: up *= 1.5f; break;  // (water: higher)
+        case Kind::Brush: speed *= 0.6f, up *= 0.5f, p.gravity = 160, p.life += 0.3f; break;  // (blades: they float down)
+        case Kind::Clank: speed *= 2, up *= 0.8f, p.life *= 0.5f; break;  // (metal: fast and short)
         case Kind::Void: speed *= 0.4f, up = -30, p.gravity = -70; break;  // (bits that float away)
-        case Kind::Poof: speed *= 0.5f, up *= 0.4f, p.gravity = -60, p.size += 2, p.life += 0.2f; break;
+        case Kind::Poof: speed *= 0.5f, up *= 0.4f, p.gravity = -60, p.life += 0.2f; break;
         case Kind::Plop:
-        case Kind::Thunk:  // (dust out to the sides: the ground's color, lighter)
-            speed *= 1.3f, up *= 0.35f, p.gravity = 360, p.rgb = (p.rgb >> 1 & 0x7F7F7Fu) + 0x645F55u;
-            break;
+        case Kind::Thunk: speed *= 1.3f, up *= 0.35f, p.gravity = 360; break;  // (out to the sides)
         default: break;
         }
-        if (!p.pix.empty()) {  // (a shard: any way, its own speed and spin; low, small)
-            const float r = u(g.rng);
-            const float s = r < 0.3f ? 0.45f : 0.8f;
-            speed *= 0.6f + 0.5f * u(g.rng), up *= s;
-            p.gravity *= 0.9f + 0.4f * u(g.rng), p.life += 0.05f * u(g.rng);
-            p.angle = 6.2831853f * u(g.rng), p.spin = (2 + 14 * u(g.rng)) * (u(g.rng) < 0.5f ? -1.0f : 1.0f);
-            p.size = std::max(shellState().zoom, 1.0f) * (0.9f + 0.3f * u(g.rng));  // (a pixel's screen size: at least 1)
-        }
+        // Its own speed and spin; low, small.
+        speed *= 0.6f + 0.5f * u(g.rng), up *= u(g.rng) < 0.3f ? 0.45f : 0.8f;
+        p.gravity *= 0.9f + 0.4f * u(g.rng), p.life += 0.05f * u(g.rng);
+        p.angle = 6.2831853f * u(g.rng), p.spin = (2 + 14 * u(g.rng)) * (u(g.rng) < 0.5f ? -1.0f : 1.0f);
+        p.size = std::max(shellState().zoom, 1.0f) * (0.9f + 0.3f * u(g.rng));  // (a pixel's screen size: at least 1)
         p.vx = std::cos(a) * speed, p.vy = std::sin(a) * speed * 0.5f - up;
         g.particles.push_back(p);
     }
@@ -273,6 +244,15 @@ void watch(const Editor& ed) {
         removed.erase(r), a = added.erase(a);
     }
     int placedDoodads = 0, deletedDoodads = 0;
+    // Shards of each tile under a box (map pixels), from the tiles now or before the edit, `per` a tile.
+    auto boxShards = [&](Kind k, float x0, float y0, float x1, float y1, bool before, int per) {
+        const std::vector<uint16_t>& tiles = before ? g.tiles : ed.terrain().tiles;
+        for (int ty = std::max(0, int(y0) / 32); ty <= std::min(ed.height() - 1, int(y1 - 1) / 32); ++ty)
+            for (int tx = std::max(0, int(x0) / 32); tx <= std::min(ed.width() - 1, int(x1 - 1) / 32); ++tx) {
+                const size_t i = size_t(ty) * ed.width() + size_t(tx);
+                if (i < tiles.size()) burst(k, float(tx * 32), float(ty * 32), per, ts, tiles[i]);
+            }
+    };
     auto doodadBox = [&](uint64_t key, float& x0, float& y0, float& x1, float& y1) {
         const float x = float(key >> 16 & 0xFFFF), y = float(key & 0xFFFF);
         const DoodadType* t = ed.doodadTypes().find(uint16_t(key >> 32));
@@ -282,15 +262,12 @@ void watch(const Editor& ed) {
     for (uint64_t key : added) {
         float x0, y0, x1, y1;
         doodadBox(key, x0, y0, x1, y1);
-        const int tx = std::clamp(int((x0 + x1) / 64), 0, ed.width() - 1), ty = std::clamp(int(y1 / 32) - 1, 0, ed.height() - 1);
-        const uint16_t ground = ed.terrain().tiles[size_t(ty) * ed.width() + size_t(tx)];
-        if (++placedDoodads <= 12)
-            burst(Kind::Thunk, x0, y1 - 8, x1, y1 + 4, tileColor(ts, ground), 14), burst(Kind::Thunk, float(tx * 32), float(ty * 32), 0, 0, 0, 6, &ts, ground);
+        if (++placedDoodads <= 12) boxShards(Kind::Thunk, x0, y0, x1, y1, false, 1);  // (its own tiles)
     }
     for (uint64_t key : removed) {
         float x0, y0, x1, y1;
         doodadBox(key, x0, y0, x1, y1);
-        if (++deletedDoodads <= 12) burst(Kind::Poof, x0, y0, x1, y1, 0xB0B0B0u, 12);
+        if (++deletedDoodads <= 12) boxShards(Kind::Poof, x0, y0, x1, y1, true, 1);  // (its tiles before: it crumbles)
     }
     if (placedDoodads) play(Kind::Thunk, 1, 1, 60), g.shakeStart = nowMs();
     else if (deletedDoodads) play(Kind::Poof);
@@ -307,15 +284,12 @@ void watch(const Editor& ed) {
         const bool big = hw >= 32;
         if (++placed <= 64) {  // (each one a little after the one before: a row lands one by one)
             g.pops[un.serial] = {nowMs() + uint64_t(placed - 1) * 15, hh};
-            const int tx = std::clamp(un.x / 32, 0, ed.width() - 1), ty = std::clamp((un.y + int(hh)) / 32, 0, ed.height() - 1);
-            const uint16_t ground = ed.terrain().tiles[size_t(ty) * ed.width() + size_t(tx)];
-            burst(Kind::Plop, un.x - hw, un.y + hh - 6, un.x + hw, un.y + hh + 2, tileColor(ts, ground), big ? 22 : 8);
-            burst(Kind::Plop, float(tx * 32), float(ty * 32), 0, 0, 0, big ? 8 : 3, &ts, ground);
+            boxShards(Kind::Plop, un.x - hw, un.y + hh - 8, un.x + hw, un.y + hh, false, big ? 3 : 2);  // (the ground under it)
         }
         if (placed == 1) pitch = big ? 0.8f : 1.1f, readyType = un.type;  // (a building lower)
     }
     for (const auto& [serial, x, y] : g.unitPlaces)
-        if (!serials.count(serial) && ++deleted <= 64) burst(Kind::Poof, x - 12.0f, y - 12.0f, x + 12.0f, y + 12.0f, 0xB8B8B8u, 6);
+        if (!serials.count(serial) && ++deleted <= 64) boxShards(Kind::Poof, x - 8.0f, y - 8.0f, x + 8.0f, y + 8.0f, false, 2);
     if (placed) play(Kind::Plop, pitch, 1, 50);
     else if (deleted) play(Kind::Poof);
     // The first placed unit's ready sound (units.dat's Ready Sound: units 0 to 105 have one), at most one each 0.6 s:
@@ -360,8 +334,7 @@ void watch(const Editor& ed) {
             // Each tile's terrain that it did not have before (grass painted on dirt: the grass of its edge tiles; 0:
             // none, a tile of the same terrain made again). Only those tiles count when there are any: the dirt round a
             // grass stroke that the brush made again is no dirt sound and throws no dirt.
-            std::vector<uint16_t> added(changed.size(), 0);
-            std::unordered_map<uint16_t, uint16_t> solid;  // a changed tile that is all of that terrain: the shards' source
+            std::vector<uint16_t> gained(changed.size(), 0);
             bool anyAdded = false;
             // Tiles that are all of a terrain they did not have: what was painted (the brush's rings of the terrains
             // between it and the ground, Platform and High Platform round painted Space, are not).
@@ -369,30 +342,30 @@ void watch(const Editor& ed) {
             for (size_t c = 0; c < changed.size(); ++c) {
                 const auto nt = terrainsOf(now[changed[c]]), ot = terrainsOf(g.tiles[changed[c]]);
                 for (uint16_t t : nt)
-                    if (t && t != ot[0] && t != ot[1]) added[c] = t, anyAdded = true;
-                if (nt[0] && !nt[1]) {
-                    solid.try_emplace(nt[0], now[changed[c]]);
-                    if (nt[0] != ot[0] && nt[0] != ot[1]) ++wholeNew[nt[0]];
-                }
+                    if (t && t != ot[0] && t != ot[1]) gained[c] = t, anyAdded = true;
+                if (nt[0] && !nt[1] && nt[0] != ot[0] && nt[0] != ot[1]) ++wholeNew[nt[0]];
             }
             int counts[size_t(Kind::Count)]{};
             std::unordered_map<uint16_t, Kind> kinds;
-            size_t counted = 0;
-            for (size_t c = 0; c < changed.size(); ++c) counted += !anyAdded || added[c];
-            const size_t step = std::max<size_t>(1, counted / 100);  // (at most about 100 tiles make particles)
-            for (size_t c = 0, n = 0; c < changed.size(); ++c) {
-                if (anyAdded && !added[c]) continue;
+            for (size_t c = 0; c < changed.size(); ++c) {
+                if (anyAdded && !gained[c]) continue;
                 const size_t i = changed[c];
-                const uint16_t terrain = anyAdded ? added[c] : terrainsOf(now[i])[0];
+                const uint16_t terrain = anyAdded ? gained[c] : terrainsOf(now[i])[0];
                 auto it = kinds.find(terrain);
                 if (it == kinds.end()) it = kinds.emplace(terrain, kindOf(terrain)).first;
                 ++counts[size_t(it->second)];
-                if (n++ % step) continue;
+            }
+            // Every changed tile throws shards of its own new tile (a border tile its own mix of terrains), moving as its
+            // terrain does; spread over all of them, fewer a tile when there are many (about 110 tiles at most).
+            const size_t every = std::max<size_t>(1, changed.size() / 110);
+            const int per = changed.size() <= 40 ? 2 : 1;
+            for (size_t c = size_t(u(g.rng) * float(every)); c < changed.size(); c += every) {
+                const size_t i = changed[c];
+                const uint16_t terrain = gained[c] ? gained[c] : terrainsOf(now[i])[0];
+                auto it = kinds.find(terrain);
+                if (it == kinds.end()) it = kinds.emplace(terrain, kindOf(terrain)).first;
                 const float x = float(i % ed.width()) * 32, y = float(i / ed.width()) * 32;
-                const auto src = solid.find(terrain);  // (shards of that terrain alone, where the edit has a tile of it)
-                const uint16_t from = src != solid.end() ? src->second : now[i];
-                burst(it->second, x, y, x + 32, y + 32, tileColor(ts, from), 1 + (u(g.rng) < 0.4f), &ts, from);
-                if (it->second == Kind::Splash || it->second == Kind::Clank) burst(it->second, x, y, x + 32, y + 32, tileColor(ts, from), 2);
+                burst(it->second, x, y, per, ts, now[i]);
             }
             Kind top = Kind(std::max_element(std::begin(counts), std::end(counts)) - std::begin(counts));
             if (!wholeNew.empty())
@@ -446,18 +419,14 @@ void funModeScene(render::Scene& s) {
     fun::step(dt, zoom);
     for (const fun::Particle& p : fun::g.particles) {
         const float fade = std::clamp((p.life - p.age) / (p.life * 0.35f), 0.0f, 1.0f);
-        const float half = p.size * 0.5f / zoom;
-        if (!p.pix.empty()) {  // (each pixel at its turned place; a little larger than its step, so no gaps show)
-            const float cell = p.size / zoom * (0.5f + 0.5f * fade), h = cell * 0.6f;
-            const float ca = std::cos(p.angle) * cell * 0.5f, sa = std::sin(p.angle) * cell * 0.5f;
-            const uint32_t alpha = uint32_t(255 * std::min(1.0f, fade * 1.5f));
-            for (const fun::Particle::Pix& q : p.pix) {
-                const float x = p.x + q.dx2 * ca - q.dy2 * sa, y = p.y + q.dx2 * sa + q.dy2 * ca;
-                s.rects.push_back({x - h, y - h, x + h, y + h, q.rgb << 8 | alpha, true});
-            }
-            continue;
+        // (each pixel at its turned place; a little larger than its step, so no gaps show)
+        const float cell = p.size / zoom * (0.5f + 0.5f * fade), h = cell * 0.6f;
+        const float ca = std::cos(p.angle) * cell * 0.5f, sa = std::sin(p.angle) * cell * 0.5f;
+        const uint32_t alpha = uint32_t(255 * std::min(1.0f, fade * 1.5f));
+        for (const fun::Particle::Pix& q : p.pix) {
+            const float x = p.x + q.dx2 * ca - q.dy2 * sa, y = p.y + q.dx2 * sa + q.dy2 * ca;
+            s.rects.push_back({x - h, y - h, x + h, y + h, q.rgb << 8 | alpha, true});
         }
-        s.rects.push_back({p.x - half, p.y - half, p.x + half, p.y + half, p.rgb << 8 | uint32_t(255 * fade), true});
     }
     if (const uint64_t gone = now - fun::g.shakeStart; gone < fun::kShakeMs) {  // (a doodad's thunk: the view shakes)
         const float k = 1 - float(gone) / fun::kShakeMs, amp = 3.0f / zoom * k;
