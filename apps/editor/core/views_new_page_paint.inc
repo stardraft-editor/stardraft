@@ -264,6 +264,7 @@ void NewPageView::paint(draw::Canvas& c) {
                 if (era != e) era = e, terrain = 0, changed();
             });
             hits.back().name = std::wstring(L"the tileset ") + kTilesetNames[e];
+            hits.back().twice = [this] { shellPost([this] { create(); }); };  // (a double click: Create, after the event)
             y = r.bottom;
         }
         y += scale(12);
@@ -484,7 +485,9 @@ bool NewPageView::mouse(const draw::MouseEvent& e) {
             return true;
         }
         if (h.click) {
+            const std::function<void()> twice = e.kind == draw::MouseKind::DoubleClick ? h.twice : nullptr;
             h.click();
+            if (twice) twice();
             invalidate();
             return true;
         }

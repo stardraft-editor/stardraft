@@ -508,6 +508,7 @@ public:
         std::function<void()> click;            // a press that acts once
         std::function<void(draw::Point)> press;  // a press at a point, and the drag after it (a slider)
         std::function<void(int)> wheel;         // a notch of the wheel over it (up: 1)
+        std::function<void()> twice;            // a double click, after its click (a tileset: Create)
         std::wstring tip, name;
         draw::Cursor cursor = draw::Cursor::Arrow;
     };
