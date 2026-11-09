@@ -1,8 +1,8 @@
 // Options > Fun mode (a spike, off by default): edits on the map give feedback. Each edit makes a short sound made in
 // code (as bfxr and sfxr make them: a wave, a pitch slide, an envelope and a filter; no sound files), by what was
 // edited: water splashes, grass brushes, dirt and rock crunch, metal clanks, a doodad thunks (the view shakes a
-// little), a unit plops (it squashes and springs back), a deleted unit or doodad goes poof. Chunks of the placed tiles
-// (8 x 8 pieces of their own pixels) fly off the edited tiles.
+// little), a unit plops (it squashes and springs back), a deleted unit or doodad goes poof. Shards of the placed tiles
+// (jagged pieces of their own pixels) fly off the edited tiles, each its own way, turning.
 // How it finds the edits: each frame (funModeScene, after buildScene) it compares the map with the copy from the last
 // frame: the tiles when terrainRevision changed, the units (by serial) and the doodads when revision changed. A map read
 // anew (open, undo, redo: loadMark) or another tab only takes a new copy. Notes: docs/dev/fun-mode.md.
@@ -147,8 +147,14 @@ struct Particle {
     float x, y, vx, vy, life, age, size;  // (map pixels; vx, vy and size: screen pixels, the zoom then)
     uint32_t rgb;
     float gravity;
-    int mini = -1;  // a chunk of the terrain: this minitile of the tileset (8 x 8 of its pixels); -1: a dot in `rgb`
-    bool flip = false;
+    // A shard of the terrain: its pixels (dx2, dy2: twice the place from its middle) in the tile's own colors, turned
+    // by `angle` (radians), which changes by `spin` a second. Empty: a dot in `rgb`.
+    struct Pix {
+        int8_t dx2, dy2;
+        uint32_t rgb;
+    };
+    std::vector<Pix> pix;
+    float angle = 0, spin = 0;
 };
 struct Pop {
     uint64_t start;
@@ -171,8 +177,8 @@ struct State {
     int colorsEra = -1;
     std::mt19937 rng{12345};
 } g;
-constexpr size_t kMaxParticles = 1200, kMaxChunks = 320;  // (a chunk is 64 rects)
-size_t chunkCount = 0;
+constexpr size_t kMaxParticles = 1200, kMaxShards = 200;  // (a shard is up to about 250 rects)
+size_t shardCount = 0;
 constexpr uint64_t kPopMs = 420, kShakeMs = 140;
 
 uint64_t skewMs = 0;  // (a snapshot's --wait: the time that went by in the run, funAdvanceFor)
@@ -183,9 +189,10 @@ void step(float dt, float zoom) {
         p.age += dt;
         p.vy += p.gravity * dt, p.x += p.vx * dt / zoom, p.y += p.vy * dt / zoom;
         p.vx *= 1 - 1.5f * dt;
+        p.angle += p.spin * dt;
     }
     std::erase_if(g.particles, [](const Particle& p) { return p.age >= p.life; });
-    chunkCount = size_t(std::count_if(g.particles.begin(), g.particles.end(), [](const Particle& p) { return p.mini >= 0; }));
+    shardCount = size_t(std::count_if(g.particles.begin(), g.particles.end(), [](const Particle& p) { return !p.pix.empty(); }));
 }
 
 // A sound of `kind`, unless one of that kind started less than `gapMs` ago (a long stroke: about 12 a second at most).
@@ -207,24 +214,50 @@ uint32_t shade(uint32_t rgb, float f) {
     return c(16) | c(8) | c(0);
 }
 
+// A shard of the tile at map pixel (tileX, tileY) (megatile `mega` of `ts`): a jagged shape of 3 to 6 corners, 7 to
+// 19 pixels across, cut from a place in the tile at random, with the tile's own pixels. False: no pixels.
+bool cutShard(const Tileset& ts, int mega, float tileX, float tileY, Particle& p) {
+    std::uniform_real_distribution<float> u(0.0f, 1.0f);
+    const int n = 7 + int(u(g.rng) * 12.99f);
+    const int ox = int(u(g.rng) * float(32 - n)), oy = int(u(g.rng) * float(32 - n));
+    const int corners = 3 + int(u(g.rng) * 3.99f);
+    float cx[6], cy[6];
+    const float start = 6.2831853f * u(g.rng);
+    for (int i = 0; i < corners; ++i) {  // (round the middle, each at its own angle and distance: jagged)
+        const float a = start + 6.2831853f * (float(i) + 0.7f * (u(g.rng) - 0.5f)) / float(corners);
+        const float r = float(n) * 0.5f * (0.55f + 0.45f * u(g.rng));
+        cx[i] = r * std::cos(a), cy[i] = r * std::sin(a);
+    }
+    const auto& mt = ts.megatiles[size_t(mega)];
+    for (int py = 0; py < n; ++py)
+        for (int px = 0; px < n; ++px) {
+            const float x = float(px) + 0.5f - float(n) * 0.5f, y = float(py) + 0.5f - float(n) * 0.5f;
+            bool in = false;  // (a ray to the right crosses the edges an odd number of times)
+            for (int i = 0, j = corners - 1; i < corners; j = i++)
+                if ((cy[i] > y) != (cy[j] > y) && x < (cx[j] - cx[i]) * (y - cy[i]) / (cy[j] - cy[i]) + cx[i]) in = !in;
+            if (!in) continue;
+            const int X = ox + px, Y = oy + py;
+            const uint32_t ref = mt[size_t((Y / 8) * 4 + X / 8)];
+            if ((ref >> 1) >= ts.minitiles.size()) continue;
+            const int ix = (ref & 1) ? 7 - X % 8 : X % 8;
+            const Rgb c = ts.palette[ts.minitiles[ref >> 1][size_t((Y % 8) * 8 + ix)]];
+            p.pix.push_back({int8_t(2 * px + 1 - n), int8_t(2 * py + 1 - n), uint32_t(c.r) << 16 | uint32_t(c.g) << 8 | c.b});
+        }
+    p.x = tileX + float(ox) + float(n) * 0.5f, p.y = tileY + float(oy) + float(n) * 0.5f;
+    return !p.pix.empty();
+}
+
 // Particles from the area (x0, y0)-(x1, y1) (map pixels): `n` of them in `rgb`, flying up and out as `kind` does
-// (their speeds and sizes are screen pixels: an edit looks the same at each zoom). With `ts`: chunks of the tile
-// `tile` (its own pixels), each from its place in the tile at (x0, y0).
+// (their speeds and sizes are screen pixels: an edit looks the same at each zoom). With `ts`: shards of the tile
+// `tile` (cutShard), each from its place in the tile at (x0, y0), flying and turning its own way.
 void burst(Kind k, float x0, float y0, float x1, float y1, uint32_t rgb, int n, const Tileset* ts = nullptr, uint16_t tile = 0) {
     std::uniform_real_distribution<float> u(0.0f, 1.0f);
     const int mega = ts ? ts->megatileFor(tile) : -1;
     for (int i = 0; i < n && g.particles.size() < kMaxParticles; ++i) {
         Particle p{};
         p.x = x0 + (x1 - x0) * u(g.rng), p.y = y0 + (y1 - y0) * u(g.rng);
-        if (mega >= 0 && size_t(mega) < ts->megatiles.size() && chunkCount < kMaxChunks) {
-            const int at = int(u(g.rng) * 15.99f);  // (one of its 4 x 4 minitiles, from where it is in the tile)
-            const uint32_t ref = ts->megatiles[size_t(mega)][size_t(at)];
-            if ((ref >> 1) < ts->minitiles.size()) {
-                p.mini = int(ref >> 1), p.flip = ref & 1, ++chunkCount;
-                p.x = x0 + float(at % 4) * 8 + 4, p.y = y0 + float(at / 4) * 8 + 4;
-            }
-        }
-        if (ts && p.mini < 0) break;  // (no chunk: too many fly now)
+        if (mega >= 0 && size_t(mega) < ts->megatiles.size() && shardCount < kMaxShards && cutShard(*ts, mega, x0, y0, p)) ++shardCount;
+        if (ts && p.pix.empty()) break;  // (no shard: too many fly now)
         const float a = 6.2831853f * u(g.rng);
         float speed = 50 + 110 * u(g.rng), up = 110 + 160 * u(g.rng);
         p.gravity = 600, p.life = 0.45f + 0.35f * u(g.rng), p.size = 3 + 2.5f * u(g.rng);
@@ -248,7 +281,14 @@ void burst(Kind k, float x0, float y0, float x1, float y1, uint32_t rgb, int n, 
             break;
         default: break;
         }
-        if (p.mini >= 0) p.size = std::max(8 * shellState().zoom, 10.0f) * (0.9f + 0.4f * u(g.rng)), p.life += 0.15f;  // (about its size on the map)
+        if (!p.pix.empty()) {  // (a shard: any way, its own speed and spin; some skid low, some go high)
+            const float r = u(g.rng);
+            const float s = r < 0.25f ? 0.35f : r > 0.85f ? 1.6f : 1.0f;
+            speed *= 1.4f + 0.8f * u(g.rng), up *= s;
+            p.gravity *= 0.75f + 0.5f * u(g.rng), p.life += 0.2f + 0.3f * u(g.rng);
+            p.angle = 6.2831853f * u(g.rng), p.spin = (2 + 14 * u(g.rng)) * (u(g.rng) < 0.5f ? -1.0f : 1.0f);
+            p.size = std::max(shellState().zoom, 1.6f) * (1.0f + 0.6f * u(g.rng));  // (a pixel's screen size: at least 1.6)
+        }
         p.vx = std::cos(a) * speed, p.vy = std::sin(a) * speed * 0.5f - up;
         g.particles.push_back(p);
     }
@@ -369,7 +409,7 @@ void watch(const Editor& ed) {
                 ++counts[size_t(it->second)];
                 if (c % step) continue;
                 const float x = float(i % ed.width()) * 32, y = float(i / ed.width()) * 32;
-                burst(it->second, x, y, x + 32, y + 32, tileColor(ts, now[i]), 3, &ts, now[i]);  // (chunks of the new tile)
+                burst(it->second, x, y, x + 32, y + 32, tileColor(ts, now[i]), 3, &ts, now[i]);  // (shards of the new tile)
                 if (it->second == Kind::Splash || it->second == Kind::Clank) burst(it->second, x, y, x + 32, y + 32, tileColor(ts, now[i]), 3);
             }
             const Kind top = Kind(std::max_element(std::begin(counts), std::end(counts)) - std::begin(counts));
@@ -422,19 +462,14 @@ void funModeScene(render::Scene& s) {
     for (const fun::Particle& p : fun::g.particles) {
         const float fade = std::clamp((p.life - p.age) / (p.life * 0.35f), 0.0f, 1.0f);
         const float half = p.size * 0.5f / zoom;
-        if (p.mini >= 0) {
-            const Tileset& ts = app.ed->tileset();
-            if (size_t(p.mini) >= ts.minitiles.size()) continue;
-            const float cell = 2 * half * (0.55f + 0.45f * fade) / 8, x0 = p.x - cell * 4, y0 = p.y - cell * 4;
+        if (!p.pix.empty()) {  // (each pixel at its turned place; a little larger than its step, so no gaps show)
+            const float cell = p.size / zoom * (0.5f + 0.5f * fade), h = cell * 0.6f;
+            const float ca = std::cos(p.angle) * cell * 0.5f, sa = std::sin(p.angle) * cell * 0.5f;
             const uint32_t alpha = uint32_t(255 * std::min(1.0f, fade * 1.5f));
-            const float sh = 2 / zoom;  // (its shadow, 2 screen pixels down and right: a chunk shows on its own terrain too)
-            s.rects.push_back({x0 + sh, y0 + sh, x0 + sh + cell * 8, y0 + sh + cell * 8, alpha * 2 / 5, true});
-            for (int py = 0; py < 8; ++py)
-                for (int px = 0; px < 8; ++px) {
-                    const Rgb c = ts.palette[ts.minitiles[size_t(p.mini)][size_t(py * 8 + (p.flip ? 7 - px : px))]];
-                    const float cx = x0 + px * cell, cy = y0 + py * cell;
-                    s.rects.push_back({cx, cy, cx + cell, cy + cell, uint32_t(c.r) << 24 | uint32_t(c.g) << 16 | uint32_t(c.b) << 8 | alpha, true});
-                }
+            for (const fun::Particle::Pix& q : p.pix) {
+                const float x = p.x + q.dx2 * ca - q.dy2 * sa, y = p.y + q.dx2 * sa + q.dy2 * ca;
+                s.rects.push_back({x - h, y - h, x + h, y + h, q.rgb << 8 | alpha, true});
+            }
             continue;
         }
         s.rects.push_back({p.x - half, p.y - half, p.x + half, p.y + half, p.rgb << 8 | uint32_t(255 * fade), true});
