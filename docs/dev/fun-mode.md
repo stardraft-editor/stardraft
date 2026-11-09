@@ -19,6 +19,8 @@ when the map is edited:
   doodad throws shards of the ground under it and a little dust.
 - The sound and the shards are by the tiles that got a terrain they did not have: the dirt round a grass stroke,
   which the brush makes again, makes no dirt sound.
+- What is placed is louder than what it replaces: the sound of the terrain that the edited tiles lost (dirt under
+  painted grass, the ground under a doodad) plays with it at 35 % of its level.
 
 ## How it works
 

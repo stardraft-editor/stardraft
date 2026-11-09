@@ -524,12 +524,28 @@ void watch(const Editor& ed) {
         std::vector<size_t> changed;
         for (size_t i = 0; i < now.size(); ++i)
             if (now[i] != g.tiles[i]) changed.push_back(i);
+        const auto& groupTerrains = solidGroupTerrains();
+        auto terrainsOf = [&](uint16_t tile) {
+            const size_t group = tile >> 4;
+            return group < groupTerrains.size() ? groupTerrains[group] : std::array<uint16_t, 2>{};
+        };
+        auto kindOf = [&](uint16_t terrain) { return terrain ? kindOfTerrain(ed.terrainName(terrain)) : Kind::Crunch; };
+        // What the edit replaces: the terrain each tile had and has no more (grass painted on dirt: dirt); the most
+        // common one's sound plays under the placed one's, at 35 % of its level (Kind::Count: none).
+        Kind replaced = Kind::Count;
+        if (!changed.empty()) {
+            int lost[size_t(Kind::Count)]{};
+            bool any = false;
+            for (size_t i : changed) {
+                const auto nt = terrainsOf(now[i]), ot = terrainsOf(g.tiles[i]);
+                for (uint16_t t : ot)
+                    if (t && t != nt[0] && t != nt[1]) ++lost[size_t(kindOf(t))], any = true;
+            }
+            if (any) replaced = Kind(std::max_element(std::begin(lost), std::end(lost)) - std::begin(lost));
+        }
+        const float level = std::clamp(0.45f + 0.12f * std::log2(float(std::max<size_t>(changed.size(), 1))), 0.45f, 1.0f);
+        if (doodadsChanged && placedDoodads && replaced != Kind::Count && replaced != Kind::Thunk) play(replaced, 1, 0.35f);  // (under the thunk)
         if (!changed.empty() && !doodadsChanged) {
-            const auto& groupTerrains = solidGroupTerrains();
-            auto terrainsOf = [&](uint16_t tile) {
-                const size_t group = tile >> 4;
-                return group < groupTerrains.size() ? groupTerrains[group] : std::array<uint16_t, 2>{};
-            };
             // Each tile's terrain that it did not have before (grass painted on dirt: the grass of its edge tiles; 0:
             // none, a tile of the same terrain made again). Only those tiles count when there are any: the dirt round a
             // grass stroke that the brush made again is no dirt sound and throws no dirt.
@@ -552,7 +568,7 @@ void watch(const Editor& ed) {
                 const size_t i = changed[c];
                 const uint16_t terrain = anyAdded ? added[c] : terrainsOf(now[i])[0];
                 auto it = kinds.find(terrain);
-                if (it == kinds.end()) it = kinds.emplace(terrain, terrain ? kindOfTerrain(ed.terrainName(terrain)) : Kind::Crunch).first;
+                if (it == kinds.end()) it = kinds.emplace(terrain, kindOf(terrain)).first;
                 ++counts[size_t(it->second)];
                 if (n++ % step) continue;
                 const float x = float(i % ed.width()) * 32, y = float(i / ed.width()) * 32;
@@ -562,7 +578,8 @@ void watch(const Editor& ed) {
                 if (it->second == Kind::Splash || it->second == Kind::Clank) burst(it->second, x, y, x + 32, y + 32, tileColor(ts, from), 2);
             }
             const Kind top = Kind(std::max_element(std::begin(counts), std::end(counts)) - std::begin(counts));
-            play(top, 1, std::clamp(0.45f + 0.12f * std::log2(float(changed.size())), 0.45f, 1.0f));
+            play(top, 1, level);  // (what is placed: louder than what it replaces)
+            if (replaced != Kind::Count && replaced != top) play(replaced, 1, level * 0.35f);
         }
         g.tiles = now, g.terrainRevision = ed.terrainRevision();
     }
