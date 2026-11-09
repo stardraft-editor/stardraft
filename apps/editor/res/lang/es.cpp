@@ -3381,6 +3381,12 @@ constexpr UiText kRows[] = {
     {L"Variations of tile %d, %d", L"Variaciones de la casilla %d, %d"},
     {L"Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile", L"Variaci\u00F3n %d (com\u00FAn). Clic: la casilla, su rect\u00E1ngulo y su pila. May\u00FAs+clic: solo la casilla"},
     {L"Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile", L"Variaci\u00F3n %d (rara). Clic: la casilla, su rect\u00E1ngulo y su pila. May\u00FAs+clic: solo la casilla"},
+    {L"F&un mode", L"Modo &divertido"},
+    {L"Fun mode", L"Modo divertido"},
+    {L"Sounds and effects when you edit the map", L"Sonidos y efectos al editar el mapa"},
+    {L"Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce", L"Cada edici\u00F3n hace un sonido corto, saltan trozos del terreno y las unidades colocadas rebotan"},
+    {L"Turned on Fun mode", L"Se activ\u00F3 el modo divertido"},
+    {L"Turned off Fun mode", L"Se desactiv\u00F3 el modo divertido"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

@@ -288,6 +288,7 @@ public:
         flag = false;
         prefs::flag(L"OpenLastProject", flag), v.openLast = flag;
         v.tintIcons = tintIconsOn();
+        v.funMode = gState.funMode;
         v.diagnostics = diagnosticsOn();
         flag = true;
         prefs::flag(L"AskStartLocations", flag), v.askStartLocations = flag;

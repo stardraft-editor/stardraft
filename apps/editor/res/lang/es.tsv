@@ -3382,3 +3382,9 @@ Tile %d, %d has no variations	La casilla %d, %d no tiene variaciones
 Variations of tile %d, %d	Variaciones de la casilla %d, %d
 Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile	Variación %d (común). Clic: la casilla, su rectángulo y su pila. Mayús+clic: solo la casilla
 Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile	Variación %d (rara). Clic: la casilla, su rectángulo y su pila. Mayús+clic: solo la casilla
+F&un mode	Modo &divertido
+Fun mode	Modo divertido
+Sounds and effects when you edit the map	Sonidos y efectos al editar el mapa
+Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	Cada edición hace un sonido corto, saltan trozos del terreno y las unidades colocadas rebotan
+Turned on Fun mode	Se activó el modo divertido
+Turned off Fun mode	Se desactivó el modo divertido

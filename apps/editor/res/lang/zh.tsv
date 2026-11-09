@@ -3382,3 +3382,9 @@ Tile %d, %d has no variations	图块 %d, %d 没有变体
 Variations of tile %d, %d	图块 %d, %d 的变体
 Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile	变体 %d（常见）。单击：图块、其矩形和其堆叠。Shift+单击：仅图块
 Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile	变体 %d（稀有）。单击：图块、其矩形和其堆叠。Shift+单击：仅图块
+F&un mode	趣味模式(&U)
+Fun mode	趣味模式
+Sounds and effects when you edit the map	编辑地图时的声音和效果
+Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	每次编辑都会发出短促的声音，地形碎块飞起，放置的单位会弹跳
+Turned on Fun mode	已开启趣味模式
+Turned off Fun mode	已关闭趣味模式

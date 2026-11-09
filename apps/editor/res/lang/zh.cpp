@@ -3381,6 +3381,12 @@ constexpr UiText kRows[] = {
     {L"Variations of tile %d, %d", L"\u56FE\u5757 %d, %d \u7684\u53D8\u4F53"},
     {L"Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile", L"\u53D8\u4F53 %d\uFF08\u5E38\u89C1\uFF09\u3002\u5355\u51FB\uFF1A\u56FE\u5757\u3001\u5176\u77E9\u5F62\u548C\u5176\u5806\u53E0\u3002Shift+\u5355\u51FB\uFF1A\u4EC5\u56FE\u5757"},
     {L"Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile", L"\u53D8\u4F53 %d\uFF08\u7A00\u6709\uFF09\u3002\u5355\u51FB\uFF1A\u56FE\u5757\u3001\u5176\u77E9\u5F62\u548C\u5176\u5806\u53E0\u3002Shift+\u5355\u51FB\uFF1A\u4EC5\u56FE\u5757"},
+    {L"F&un mode", L"\u8DA3\u5473\u6A21\u5F0F(&U)"},
+    {L"Fun mode", L"\u8DA3\u5473\u6A21\u5F0F"},
+    {L"Sounds and effects when you edit the map", L"\u7F16\u8F91\u5730\u56FE\u65F6\u7684\u58F0\u97F3\u548C\u6548\u679C"},
+    {L"Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce", L"\u6BCF\u6B21\u7F16\u8F91\u90FD\u4F1A\u53D1\u51FA\u77ED\u4FC3\u7684\u58F0\u97F3\uFF0C\u5730\u5F62\u788E\u5757\u98DE\u8D77\uFF0C\u653E\u7F6E\u7684\u5355\u4F4D\u4F1A\u5F39\u8DF3"},
+    {L"Turned on Fun mode", L"\u5DF2\u5F00\u542F\u8DA3\u5473\u6A21\u5F0F"},
+    {L"Turned off Fun mode", L"\u5DF2\u5173\u95ED\u8DA3\u5473\u6A21\u5F0F"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

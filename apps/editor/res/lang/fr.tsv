@@ -3382,3 +3382,9 @@ Tile %d, %d has no variations	La tuile %d, %d n'a pas de variantes
 Variations of tile %d, %d	Variantes de la tuile %d, %d
 Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile	Variante %d (courante). Clic : la tuile, son rectangle et sa pile. Maj+clic : seulement la tuile
 Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile	Variante %d (rare). Clic : la tuile, son rectangle et sa pile. Maj+clic : seulement la tuile
+F&un mode	Mode &amusant
+Fun mode	Mode amusant
+Sounds and effects when you edit the map	Sons et effets quand vous modifiez la carte
+Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	Chaque modification fait un son court, des morceaux du terrain s'envolent et les unités placées rebondissent
+Turned on Fun mode	Mode amusant activé
+Turned off Fun mode	Mode amusant désactivé

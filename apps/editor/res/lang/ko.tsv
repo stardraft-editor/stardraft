@@ -3412,3 +3412,9 @@ Tile %d, %d has no variations	타일 %d, %d에는 변형이 없습니다
 Variations of tile %d, %d	타일 %d, %d의 변형
 Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile	변형 %d (일반). 클릭: 타일, 사각형, 스택. Shift+클릭: 타일만
 Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile	변형 %d (희귀). 클릭: 타일, 사각형, 스택. Shift+클릭: 타일만
+F&un mode	재미 모드(&U)
+Fun mode	재미 모드
+Sounds and effects when you edit the map	맵을 편집할 때 소리와 효과
+Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	편집할 때마다 짧은 소리가 나고, 지형 조각이 튀어 오르고, 배치한 유닛이 튕깁니다
+Turned on Fun mode	재미 모드를 켰습니다
+Turned off Fun mode	재미 모드를 껐습니다

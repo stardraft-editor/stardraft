@@ -1275,6 +1275,10 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         GpuInstance in{};
         in.pos[0] = left, in.pos[1] = top;
         in.size[0] = f.w, in.size[1] = f.h;
+        if (s.scaleX != 1 || s.scaleY != 1) {  // (a squash or stretch about the pivot)
+            in.pos[0] = s.pivotX + (left - s.pivotX) * s.scaleX, in.pos[1] = s.pivotY + (top - s.pivotY) * s.scaleY;
+            in.size[0] = f.w * s.scaleX, in.size[1] = f.h * s.scaleY;
+        }
         float u0 = uf.u0 / t->texW, u1 = uf.u1 / t->texW;
         in.uv[0] = s.flip ? u1 : u0, in.uv[1] = uf.v0 / t->texH, in.uv[2] = s.flip ? u0 : u1, in.uv[3] = uf.v1 / t->texH;
         const float* rgb = kPlayerRgb[std::min<int>(s.owner, 11)];

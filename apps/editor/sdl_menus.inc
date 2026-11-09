@@ -289,6 +289,7 @@ bool sdlRuns(int id) {
     case ID_OPT_SNAPBUILDINGS:
     case ID_OPT_DRAGBACK:
     case ID_OPT_DRAGOBJECTS:
+    case ID_OPT_FUNMODE:
     case ID_OPT_MANYSTARTS:
     case ID_OPT_ANIMATE:
     case ID_DOODAD_FIT:
@@ -907,6 +908,7 @@ bool sdlShotInputNext() {
     else if (kind == 'w') {  // --wait ms: the program's timers that are due in that time run (a page that reads the map again)
         if (gHost) gHost->snapshotTimers(std::atoi(value.c_str()));
         advanceAnimsFor(std::atoi(value.c_str()));  // (Animate units: the units' ticks of that time)
+        funAdvanceFor(std::atoi(value.c_str()));  // (Options > Fun mode: core/fun_mode.inc)
         runPosted();
         sdlInputLine("wait " + value);
     }
@@ -1234,7 +1236,7 @@ void sdlPinchShot(const std::string& spec) {
 // view.grid, view.ranges...) or one of the names below, as its menu item runs it. The output says whether the item is
 // enabled (a gray item: "(WRONG)").
 void sdlCommandShot(const std::string& name) {
-    static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.animate", ID_OPT_ANIMATE}, {"options.dragobjects", ID_OPT_DRAGOBJECTS}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
+    static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.animate", ID_OPT_ANIMATE}, {"options.dragobjects", ID_OPT_DRAGOBJECTS}, {"options.funmode", ID_OPT_FUNMODE}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
                                                          {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO}, {"edit.history", ID_EDIT_HISTORY},
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT}, {"project.addmusic", ID_PROJ_ADDMUSIC}, {"project.adddots", ID_PROJ_ADDDOTS},
                                                          {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART},

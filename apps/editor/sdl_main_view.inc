@@ -182,7 +182,8 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     gRenderer->setExactTeamColors(exact);
     // The scene (core/map_scene.inc), with the units' idle animations at the game's speed (View > Animate units).
     if (gState.animate) advanceAnims();
-    const render::Scene scene = buildScene();
+    render::Scene scene = buildScene();
+    funModeScene(scene);  // (Options > Fun mode: core/fun_mode.inc)
     static const std::vector<std::pair<int, uint16_t>> kNoTiles;
     gRenderer->setTerrainPreview(gState.mouseIn ? ghostTiles : kNoTiles);  // (both lists by reference: no copy each frame)
     gRenderer->drawTo(cmd, gMapTex, uint32_t(w), uint32_t(h), scene);

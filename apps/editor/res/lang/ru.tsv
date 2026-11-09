@@ -3382,3 +3382,9 @@ Tile %d, %d has no variations	У тайла %d, %d нет вариантов
 Variations of tile %d, %d	Варианты тайла %d, %d
 Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile	Вариант %d (обычный). Щелчок: тайл, его прямоугольник и стопка. Shift+щелчок: только тайл
 Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile	Вариант %d (редкий). Щелчок: тайл, его прямоугольник и стопка. Shift+щелчок: только тайл
+F&un mode	&Весёлый режим
+Fun mode	Весёлый режим
+Sounds and effects when you edit the map	Звуки и эффекты при правке карты
+Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	Каждая правка издаёт короткий звук, куски местности взлетают, а поставленные юниты подпрыгивают
+Turned on Fun mode	Весёлый режим включён
+Turned off Fun mode	Весёлый режим выключен
