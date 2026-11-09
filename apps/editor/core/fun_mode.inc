@@ -200,7 +200,21 @@ void play(Kind k, float pitch = 1, float level = 1, uint64_t gapMs = 80) {
     const uint64_t now = nowMs();
     if (now - g.lastSound[size_t(k)] < gapMs) return;
     g.lastSound[size_t(k)] = now;
-    funPlayPcm(makeSound(k, pitch, level, g.rng), kRate, kKindNames[size_t(k)]);
+    // Each time a pitch of its own: -4 to +4 semitones, another than the last one. The whole sound plays faster or
+    // slower (also noise, whose own pitch does not change it).
+    static int lastStep = 0;
+    int step = lastStep;
+    while (step == lastStep) step = int(std::uniform_int_distribution<int>(-4, 4)(g.rng));
+    lastStep = step;
+    const std::vector<float> made = makeSound(k, pitch, level, g.rng);
+    const double rate = std::pow(2.0, step / 12.0);
+    std::vector<float> out(size_t(double(made.size()) / rate));
+    for (size_t i = 0; i < out.size(); ++i) {  // (linear between the samples)
+        const double at = double(i) * rate;
+        const size_t a = std::min(size_t(at), made.size() - 1), b2 = std::min(a + 1, made.size() - 1);
+        out[i] = made[a] + float(at - double(a)) * (made[b2] - made[a]);
+    }
+    funPlayPcm(out, kRate, kKindNames[size_t(k)]);
 }
 
 uint32_t tileColor(const Tileset& ts, uint16_t tile) {
