@@ -197,8 +197,9 @@ void stripNumberStep(int which, int dir) {
         if (app.ed) app.ed->setTurns(app.ed->turns() + dir);
     } else if (which == kNumMix) {
         app.fillMix = std::clamp(app.fillMix + dir, 1, 10);
-    } else if (which == kNumDetail) {
-        stardraft::setDetailedTilePercent(stardraft::detailedTilePercent() + dir);
+    } else if (which == kNumDetail) {  // (as Density: 0, 1, 5, 10, ... 100)
+        const int d = stardraft::detailedTilePercent();
+        stardraft::setDetailedTilePercent(std::clamp(dir > 0 ? (d == 0 ? 1 : (d / 5 + 1) * 5) : d <= 1 ? 0 : d <= 5 ? 1 : (d - 1) / 5 * 5, 0, 100));
         shellSettingsChanged();
     } else {
         // (in fives: 1, 5, 10, ... 100; typed: any number)
@@ -248,7 +249,7 @@ void pickStripTool(const StripItem& it) {
     else {
         app.toolByMode[int(app.mode)] = it.tool;
         if (app.mode == Mode::Terrain)  // (its group's button shows it from now on)
-            for (int g : {1, 2, 3, 4})
+            for (int g : {1, 2, 3, 4, 5})
                 for (const StripItem& s : stripTools(app.mode))
                     for (const StripItem& m : s.members)
                         if (s.group == g && m.tool == it.tool) app.lastInGroup[g] = it.tool;
@@ -301,7 +302,7 @@ int toolStripHeight(int width, bool titled) {
     const int tools = int(stripTools(app.mode).size());
     const int rows = (tools + perRow - 1) / perRow;  // (Terrain: the brush's shape is in its size field)
     // (the mirrors' row: Turns on it where it fits, as paint puts it; else a row of its own below)
-    const bool turnsBeside = width - (scale(30) + scale(6)) >= scale(68);  // (the symmetry button, then the narrow Brushes field)
+    const bool turnsBeside = true;  // (the symmetry button and the Brushes field are one control on one row)
     const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + (turnsBeside ? 0 : scale(26) + gap) : 0) +
                       (stripHasDensity() ? scale(26) + gap : 0) +
                       (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0) +  // Terrain: Isometric | Rectangle
@@ -697,10 +698,10 @@ public:
         // A stepper: - and + at the ends of the box, the value between them (a click there types one).
         // A number's box: its name inside at the left, its value (and a small unit) at the right, the spin's arrows after it,
         // as the brush's width and height. A click on the box types the value; the arrows and the wheel step it.
-        auto spinner = [&](int which, const draw::Rect& vb, const wchar_t* name, const wchar_t* unit, const wchar_t* tip) {
+        auto spinner = [&](int which, const draw::Rect& vb, const wchar_t* name, const wchar_t* unit, const wchar_t* tip, bool framed = true) {
             const bool editing = editing_ == which;
             const int spin = scale(14), pad = scale(4), mid = (vb.top + vb.bottom) / 2;
-            box(c, vb, kCtl, editing ? kAccent : kBorder);
+            if (framed) box(c, vb, kCtl, editing ? kAccent : kBorder);
             const draw::Rect value{vb.left, vb.top, vb.right - spin, vb.bottom}, up{vb.right - spin, vb.top + pad, vb.right - scale(2), mid},
                 down{vb.right - spin, mid, vb.right - scale(2), vb.bottom - pad};
             const int unitW = [&] {
@@ -838,24 +839,22 @@ public:
         // The symmetry: one button that shows the mirrors in use together (their axes in one square); a click opens
         // the row of No symmetry and the four mirrors (stripMirrorPopout), which combine.
         if (stripHasMirrors() && app.ed) {
+            // One control: the symmetry button, a line, then the brushes (its dots and arrows), in one frame.
             const int mb = scale(28);
             const int mask = app.ed->mirrors();
-            const draw::Rect br{0, y, mb + scale(2), y + mb};
+            const draw::Rect br{0, y, mb + scale(2), y + mb}, joined{0, y, std::min(W, br.right + scale(68)), y + mb};
             const bool on = mask != 0, over2 = hot(br) || gMirrorPopout.open;
-            c.roundBox(br, on ? kSel : over2 ? kCtlHot : kCtl, on ? kAccentLine : kBorder, float(scale(kModeBoxRadius)));
+            c.roundBox(joined, kCtl, editing_ == kNumTurns ? kAccent : kBorder, float(scale(kModeBoxRadius)));
+            if (on || over2) {  // (the button's part: its fill inside the frame, the left corners round)
+                c.pushClip({br.left, br.top, br.right, br.bottom});
+                c.roundBox({br.left, br.top, br.right + scale(8), br.bottom}, on ? kSel : kCtlHot, on ? kAccentLine : kNoLine, float(scale(kModeBoxRadius)));
+                c.popClip();
+            }
+            c.fill({br.right, br.top + 1, br.right + 1, br.bottom - 1}, kBorder);  // (the line between the two)
             mirrorIcon(c, square(br), mask, on ? kAccentBright : over2 ? kText : kDim, on ? kSel : over2 ? kCtlHot : kCtl);
             addHit(br, [this, br] { stripMirrorPopout(*this, br); }, tr(L"Symmetry: click to choose the mirrors (Alt+0 to Alt+4)"));
-            const int mx = br.right;
-            // Turns: on the same row, after the mirrors (its name too where it fits); the row below when the strip is
-            // too narrow.
-            const int minStep = scale(68), left = mx + scale(6);
-            if (W - left >= minStep) {
-                spinner(kNumTurns, {left, y + scale(1), std::min(W, left + scale(68)), y + mb - scale(1)}, L"Brushes", L"", kTurnsTip);  // (narrow: its dots and the arrows)
-                y += mb + gap;
-            } else {
-                y += mb + gap;
-                numberRow(kNumTurns, L"Brushes", kTurnsTip);
-            }
+            spinner(kNumTurns, {br.right + 1, y, joined.right, y + mb}, L"Brushes", L"", kTurnsTip, false);
+            y += mb + gap;
         }
         // More: a fold (a chevron and its name, then a line), and its rows when it is open.
         if (stripHasMore()) {
@@ -975,12 +974,17 @@ public:
             }
             return true;
         }
-        case draw::MouseKind::Wheel: {  // over a number box: one step
+        case draw::MouseKind::Wheel: {  // over a number box: a step; a fast scroll more steps for each notch (up to 8)
             if (e.wheel == 0) return false;
             for (const auto& n : numbers_)
                 if (n.first.contains(e.pt)) {
                     endEdit(true);
-                    stripNumberStep(n.second, e.wheel > 0 ? 1 : -1);
+                    static auto last = std::chrono::steady_clock::time_point{};
+                    static int streak = 0;
+                    const auto now = std::chrono::steady_clock::now();
+                    streak = now - last < std::chrono::milliseconds(90) ? streak + 1 : 0, last = now;
+                    const int steps = n.second == kNumShape ? 1 : std::min(8, 1 + streak / 2);
+                    for (int k = 0; k < steps; ++k) stripNumberStep(n.second, e.wheel > 0 ? 1 : -1);
                     return true;
                 }
             return false;
