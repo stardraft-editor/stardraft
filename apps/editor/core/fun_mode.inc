@@ -280,6 +280,32 @@ void step(float dt, float zoom) {
 }
 
 // A sound of `kind`, unless one of that kind started less than `gapMs` ago (a long stroke: about 12 a second at most).
+#include "../res/fun/fun_sounds.inc"  // (recorded sounds: tools/fun_sounds_gen.py; sources and licenses: docs/dev/fun-mode.md)
+
+// A recorded sound of the kind (one of its takes at random, not the last one again), at the program's rate: each
+// sample held (no smoothing: bit-like), `pitch` faster; at `level`. Empty: the kind has none (it is made in code).
+std::vector<float> recorded(Kind k, float pitch, float level) {
+    std::vector<const FunSample*> takes;
+    for (const FunSample& f : kFunSamples)
+        if (std::strcmp(f.kind, kKindNames[size_t(k)]) == 0) takes.push_back(&f);
+    if (takes.empty()) return {};
+    static const FunSample* last = nullptr;
+    const FunSample* f = takes[std::uniform_int_distribution<size_t>(0, takes.size() - 1)(g.rng)];
+    if (f == last && takes.size() > 1) f = takes[(size_t(std::find(takes.begin(), takes.end(), f) - takes.begin()) + 1) % takes.size()];
+    last = f;
+    const double step = double(f->rate) * pitch / kRate;
+    std::vector<float> out(size_t(double(f->size) / step));
+    for (size_t i = 0; i < out.size(); ++i)
+        out[i] = (float(f->data[std::min(f->size - 1, size_t(double(i) * step))]) - 128) / 128 * 0.6f * level;
+    return out;
+}
+
+// As the recorded sounds: 11,025 samples a second, 64 levels (the sounds made in code too, so they all sound alike).
+void crush(std::vector<float>& v) {
+    for (size_t i = 0; i < v.size(); i += 4)
+        for (size_t k = i; k < std::min(v.size(), i + 4); ++k) v[k] = std::round(v[i] * 31) / 31;
+}
+
 void play(Kind k, float pitch = 1, float level = 1, uint64_t gapMs = 80) {
     const uint64_t now = nowMs();
     if (now - g.lastSound[size_t(k)] < gapMs) return;
@@ -290,7 +316,8 @@ void play(Kind k, float pitch = 1, float level = 1, uint64_t gapMs = 80) {
     int step = lastStep;
     while (step == lastStep) step = int(std::uniform_int_distribution<int>(-4, 4)(g.rng));
     lastStep = step;
-    const std::vector<float> made = makeSound(k, pitch, level, g.rng);
+    std::vector<float> made = recorded(k, pitch, level);
+    if (made.empty()) made = makeSound(k, pitch, level, g.rng);
     const double rate = std::pow(2.0, step / 12.0);
     std::vector<float> out(size_t(double(made.size()) / rate));
     for (size_t i = 0; i < out.size(); ++i) {  // (linear between the samples)
@@ -298,6 +325,7 @@ void play(Kind k, float pitch = 1, float level = 1, uint64_t gapMs = 80) {
         const size_t a = std::min(size_t(at), made.size() - 1), b2 = std::min(a + 1, made.size() - 1);
         out[i] = made[a] + float(at - double(a)) * (made[b2] - made[a]);
     }
+    crush(out);
     funPlayPcm(out, kRate, kKindNames[size_t(k)]);
 }
 
