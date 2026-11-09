@@ -311,9 +311,11 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     if (app.mode == Mode::Layers) return mapLayersMoveDown(app, wx, wy);
     if (app.pasting) {
         // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted
-        // units are not selected, so the next paste does not move them.
+        // units are not selected, so the next paste does not move them. A drag pastes the copy again along the way,
+        // each time the mouse is a whole copy away from the last one (one undo step).
         float pwx = wx, pwy = wy;
         snapUnitPoint(pwx, pwy);  // Options > Units > Snap to the grid: the middle of the copy on the grid lines
+        ed.beginStroke();
         applyUnitLimit(ed);
         const int copied = int(ed.pasteUnits(int(pwx), int(pwy)).size());  // (the symmetric copies too)
         const int pasted = ed.paste(int(pwx), int(pwy), app.correction);
@@ -321,7 +323,8 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
                    : (pasted < copied ? L"Pasted " + std::to_wstring(pasted) + L" of " + std::to_wstring(copied) + L" units (the other units do not fit here)"
                                       : L"Pasted " + std::to_wstring(pasted) + L" units") + L". To stop, right-click or press Esc.");
         ed.clearSelection();
-        app.drag = Drag::None;
+        app.lastPlaceX = pwx, app.lastPlaceY = pwy, app.placedInStroke = pasted;
+        app.drag = Drag::PasteUnitsStroke;
         app.dirty = true;
         return;
     }
@@ -787,6 +790,18 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
     }
     if (app.drag == Drag::PendingPlace && app.dragMoved) app.drag = Drag::BoxSelect;
     if (app.drag == Drag::PlaceStroke && app.ed && app.palette >= 0) strokeMove(wx, wy);
+    if (app.drag == Drag::PasteUnitsStroke && app.ed) {  // the units' copy again a whole copy away from the last one
+        float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+        for (const Unit& u : app.ed->clipboard()) x0 = std::min(x0, float(int16_t(u.x))), y0 = std::min(y0, float(int16_t(u.y))), x1 = std::max(x1, float(int16_t(u.x))), y1 = std::max(y1, float(int16_t(u.y)));
+        float pwx = wx, pwy = wy;
+        snapUnitPoint(pwx, pwy);
+        if (std::abs(pwx - app.lastPlaceX) >= std::max(32.0f, x1 - x0 + 32) || std::abs(pwy - app.lastPlaceY) >= std::max(32.0f, y1 - y0 + 32)) {
+            applyUnitLimit(*app.ed);
+            app.placedInStroke += app.ed->paste(int(pwx), int(pwy), app.correction);
+            app.ed->clearSelection();
+            app.lastPlaceX = pwx, app.lastPlaceY = pwy;
+        }
+    }
     if (app.drag == Drag::PasteStroke && app.ed) {  // the copy again where the mouse is a whole copy away from the last one
         const Rect box = app.ed->terrainClipboardBox();
         if (std::abs(wx - app.lastPlaceX) >= float(std::max(32, box.right)) || std::abs(wy - app.lastPlaceY) >= float(std::max(32, box.bottom))) {
@@ -948,6 +963,10 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
         } else {
             ed.selectRect({int(app.dragWX), int(app.dragWY), int(wx), int(wy)}, shift || (mods & draw::kCtrl));
         }
+        break;
+    case Drag::PasteUnitsStroke:
+        ed.endStroke();
+        if (app.placedInStroke > 0) setMessage(app, L"Pasted " + std::to_wstring(app.placedInStroke) + L" units. To stop, right-click or press Esc.");
         break;
     case Drag::PasteStroke:
         ed.endStroke();
@@ -1182,7 +1201,7 @@ bool mapCancelStep(AppState& app) {
     }
     if (const bool pressed = app.drag == Drag::Shape; shapeCancel()) return pressed;  // (Line, Contour, Polygon: the shape only)
     bool stroke = false;
-    if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::Paint ||
+    if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::PasteUnitsStroke || app.drag == Drag::Paint ||
                    app.drag == Drag::Jumble || app.drag == Drag::Erase || app.drag == Drag::Tiles)) {
         void tilesStrokeCancelled();  // (tiles_edit.inc)
         if (app.drag == Drag::Tiles) tilesStrokeCancelled();
