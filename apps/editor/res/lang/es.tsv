@@ -3386,9 +3386,12 @@ Turned on Fun mode	Se activó el modo divertido
 Turned off Fun mode	Se desactivó el modo divertido
 Select at most %d x %d tiles to see their variations	Seleccione como máximo %d x %d casillas para ver sus variaciones
 The selected tiles have no variations	Las casillas seleccionadas no tienen variaciones
-Variations of the selection (%d x %d tiles)	Variaciones de la selección (%d x %d casillas)
 Variation %d. Click: put it on the selected tiles	Variación %d. Clic: ponerla en las casillas seleccionadas
 The selected tiles use this variation already	Las casillas seleccionadas ya usan esta variación
 Variation %d on %d tiles (Ctrl+Z undoes it)	Variación %d en %d casillas (Ctrl+Z lo deshace)
 Variation %d on the tile (Ctrl+Z undoes it)	Variación %d en la casilla (Ctrl+Z lo deshace)
 No tile changed: the selected tiles are protected	Ninguna casilla cambió: las casillas seleccionadas están protegidas
+Variations	Variaciones
+Drag to make Variations taller or shorter	Arrastre para hacer Variaciones más alto o más bajo
+Hide the variations	Ocultar las variaciones
+Show the variations	Mostrar las variaciones

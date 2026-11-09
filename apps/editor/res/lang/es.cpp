@@ -3385,12 +3385,15 @@ constexpr UiText kRows[] = {
     {L"Turned off Fun mode", L"Se desactiv\u00F3 el modo divertido"},
     {L"Select at most %d x %d tiles to see their variations", L"Seleccione como m\u00E1ximo %d x %d casillas para ver sus variaciones"},
     {L"The selected tiles have no variations", L"Las casillas seleccionadas no tienen variaciones"},
-    {L"Variations of the selection (%d x %d tiles)", L"Variaciones de la selecci\u00F3n (%d x %d casillas)"},
     {L"Variation %d. Click: put it on the selected tiles", L"Variaci\u00F3n %d. Clic: ponerla en las casillas seleccionadas"},
     {L"The selected tiles use this variation already", L"Las casillas seleccionadas ya usan esta variaci\u00F3n"},
     {L"Variation %d on %d tiles (Ctrl+Z undoes it)", L"Variaci\u00F3n %d en %d casillas (Ctrl+Z lo deshace)"},
     {L"Variation %d on the tile (Ctrl+Z undoes it)", L"Variaci\u00F3n %d en la casilla (Ctrl+Z lo deshace)"},
     {L"No tile changed: the selected tiles are protected", L"Ninguna casilla cambi\u00F3: las casillas seleccionadas est\u00E1n protegidas"},
+    {L"Variations", L"Variaciones"},
+    {L"Drag to make Variations taller or shorter", L"Arrastre para hacer Variaciones m\u00E1s alto o m\u00E1s bajo"},
+    {L"Hide the variations", L"Ocultar las variaciones"},
+    {L"Show the variations", L"Mostrar las variaciones"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

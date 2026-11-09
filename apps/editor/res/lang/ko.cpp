@@ -3415,12 +3415,15 @@ constexpr UiText kRows[] = {
     {L"Turned off Fun mode", L"\uC7AC\uBBF8 \uBAA8\uB4DC\uB97C \uAED0\uC2B5\uB2C8\uB2E4"},
     {L"Select at most %d x %d tiles to see their variations", L"\uBCC0\uD615\uC744 \uBCF4\uB824\uBA74 \uD0C0\uC77C\uC744 \uCD5C\uB300 %d x %d\uAC1C\uAE4C\uC9C0 \uC120\uD0DD\uD558\uC138\uC694"},
     {L"The selected tiles have no variations", L"\uC120\uD0DD\uD55C \uD0C0\uC77C\uC5D0\uB294 \uBCC0\uD615\uC774 \uC5C6\uC2B5\uB2C8\uB2E4"},
-    {L"Variations of the selection (%d x %d tiles)", L"\uC120\uD0DD \uC601\uC5ED\uC758 \uBCC0\uD615 (%d x %d \uD0C0\uC77C)"},
     {L"Variation %d. Click: put it on the selected tiles", L"\uBCC0\uD615 %d. \uD074\uB9AD: \uC120\uD0DD\uD55C \uD0C0\uC77C\uC5D0 \uC801\uC6A9"},
     {L"The selected tiles use this variation already", L"\uC120\uD0DD\uD55C \uD0C0\uC77C\uC774 \uC774\uBBF8 \uC774 \uBCC0\uD615\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4"},
     {L"Variation %d on %d tiles (Ctrl+Z undoes it)", L"\uBCC0\uD615 %d\uC744(\uB97C) \uD0C0\uC77C %d\uAC1C\uC5D0 \uC801\uC6A9 (Ctrl+Z\uB85C \uCDE8\uC18C)"},
     {L"Variation %d on the tile (Ctrl+Z undoes it)", L"\uD0C0\uC77C\uC5D0 \uBCC0\uD615 %d \uC801\uC6A9 (Ctrl+Z\uB85C \uCDE8\uC18C)"},
     {L"No tile changed: the selected tiles are protected", L"\uBC14\uB010 \uD0C0\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4: \uC120\uD0DD\uD55C \uD0C0\uC77C\uC774 \uBCF4\uD638\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4"},
+    {L"Variations", L"\uBCC0\uD615"},
+    {L"Drag to make Variations taller or shorter", L"\uB04C\uC5B4\uC11C \uBCC0\uD615 \uC601\uC5ED\uC758 \uB192\uC774\uB97C \uBC14\uAFC9\uB2C8\uB2E4"},
+    {L"Hide the variations", L"\uBCC0\uD615 \uC228\uAE30\uAE30"},
+    {L"Show the variations", L"\uBCC0\uD615 \uD45C\uC2DC"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

@@ -3386,9 +3386,12 @@ Turned on Fun mode	Mode amusant activé
 Turned off Fun mode	Mode amusant désactivé
 Select at most %d x %d tiles to see their variations	Sélectionnez au plus %d x %d tuiles pour voir leurs variantes
 The selected tiles have no variations	Les tuiles sélectionnées n'ont pas de variantes
-Variations of the selection (%d x %d tiles)	Variantes de la sélection (%d x %d tuiles)
 Variation %d. Click: put it on the selected tiles	Variante %d. Clic : la mettre sur les tuiles sélectionnées
 The selected tiles use this variation already	Les tuiles sélectionnées utilisent déjà cette variante
 Variation %d on %d tiles (Ctrl+Z undoes it)	Variante %d sur %d tuiles (Ctrl+Z l'annule)
 Variation %d on the tile (Ctrl+Z undoes it)	Variante %d sur la tuile (Ctrl+Z l'annule)
 No tile changed: the selected tiles are protected	Aucune tuile n'a changé : les tuiles sélectionnées sont protégées
+Variations	Variantes
+Drag to make Variations taller or shorter	Faites glisser pour agrandir ou réduire Variantes
+Hide the variations	Masquer les variantes
+Show the variations	Afficher les variantes

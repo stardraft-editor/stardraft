@@ -1071,15 +1071,16 @@ struct MainView final : draw::View {
         side(gSortBtnSdl, L.sortBtn, L.sortBtn.visible && !locs && !layersMode && here && !tiles && m != Mode::Terrain);
         side(gPieBtnSdl, L.sortBtn, here && !tiles && m == Mode::Terrain);
         side(gLocSortBtnSdl, L.sortBtn, locs && here);
-        // Terrain with a terrain selection: the Variations strip under the list (at most half of the list's room).
+        // Terrain with a terrain selection: the Variations strip under the list (the list keeps at least 96 px).
         PaneSlot palSlot = L.palette, varSlot = L.palette;
         const bool listShown = !locs && !layersMode && here && !tiles;
         const int varH = listShown && m == Mode::Terrain && L.palette.placed
-                             ? std::min(gVariationsView.heightFor(int(L.palette.rc.right - L.palette.rc.left)), int(L.palette.rc.bottom - L.palette.rc.top) / 2)
+                             ? std::min(gVariationsView.heightFor(int(L.palette.rc.right - L.palette.rc.left)), std::max(VariationsView::titleH(), int(L.palette.rc.bottom - L.palette.rc.top) - scale(96)))
                              : 0;
         if (varH > 0) palSlot.rc.bottom -= varH, varSlot.rc.top = palSlot.rc.bottom;
         varCanShow = listShown && m == Mode::Terrain && L.palette.placed, varShownH = varH;
-        varW = int(L.palette.rc.right - L.palette.rc.left), varCap = int(L.palette.rc.bottom - L.palette.rc.top) / 2;
+        varW = int(L.palette.rc.right - L.palette.rc.left), varCap = std::max(VariationsView::titleH(), int(L.palette.rc.bottom - L.palette.rc.top) - scale(96));
+        if (varCanShow) gVariationsView.capH = varCap;
         side(gPalList, palSlot, listShown);
         side(gVariationsView, varSlot, varH > 0);
         side(gFilterSdl, L.filter, locs && here);

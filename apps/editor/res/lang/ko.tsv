@@ -3416,9 +3416,12 @@ Turned on Fun mode	재미 모드를 켰습니다
 Turned off Fun mode	재미 모드를 껐습니다
 Select at most %d x %d tiles to see their variations	변형을 보려면 타일을 최대 %d x %d개까지 선택하세요
 The selected tiles have no variations	선택한 타일에는 변형이 없습니다
-Variations of the selection (%d x %d tiles)	선택 영역의 변형 (%d x %d 타일)
 Variation %d. Click: put it on the selected tiles	변형 %d. 클릭: 선택한 타일에 적용
 The selected tiles use this variation already	선택한 타일이 이미 이 변형을 사용합니다
 Variation %d on %d tiles (Ctrl+Z undoes it)	변형 %d을(를) 타일 %d개에 적용 (Ctrl+Z로 취소)
 Variation %d on the tile (Ctrl+Z undoes it)	타일에 변형 %d 적용 (Ctrl+Z로 취소)
 No tile changed: the selected tiles are protected	바뀐 타일이 없습니다: 선택한 타일이 보호되어 있습니다
+Variations	변형
+Drag to make Variations taller or shorter	끌어서 변형 영역의 높이를 바꿉니다
+Hide the variations	변형 숨기기
+Show the variations	변형 표시

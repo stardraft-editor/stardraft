@@ -3386,9 +3386,12 @@ Turned on Fun mode	Весёлый режим включён
 Turned off Fun mode	Весёлый режим выключен
 Select at most %d x %d tiles to see their variations	Выберите не больше %d x %d тайлов, чтобы увидеть их варианты
 The selected tiles have no variations	У выбранных тайлов нет вариантов
-Variations of the selection (%d x %d tiles)	Варианты выделения (%d x %d тайлов)
 Variation %d. Click: put it on the selected tiles	Вариант %d. Щелчок: поставить его на выбранные тайлы
 The selected tiles use this variation already	Выбранные тайлы уже используют этот вариант
 Variation %d on %d tiles (Ctrl+Z undoes it)	Вариант %d на %d тайлах (Ctrl+Z отменяет)
 Variation %d on the tile (Ctrl+Z undoes it)	Вариант %d на тайле (Ctrl+Z отменяет)
 No tile changed: the selected tiles are protected	Ни один тайл не изменился: выбранные тайлы защищены
+Variations	Варианты
+Drag to make Variations taller or shorter	Перетащите, чтобы сделать «Варианты» выше или ниже
+Hide the variations	Скрыть варианты
+Show the variations	Показать варианты

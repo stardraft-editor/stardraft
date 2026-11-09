@@ -3385,12 +3385,15 @@ constexpr UiText kRows[] = {
     {L"Turned off Fun mode", L"\u5DF2\u5173\u95ED\u8DA3\u5473\u6A21\u5F0F"},
     {L"Select at most %d x %d tiles to see their variations", L"\u6700\u591A\u9009\u62E9 %d x %d \u4E2A\u56FE\u5757\u624D\u80FD\u67E5\u770B\u5176\u53D8\u4F53"},
     {L"The selected tiles have no variations", L"\u6240\u9009\u56FE\u5757\u6CA1\u6709\u53D8\u4F53"},
-    {L"Variations of the selection (%d x %d tiles)", L"\u6240\u9009\u533A\u57DF\u7684\u53D8\u4F53\uFF08%d x %d \u4E2A\u56FE\u5757\uFF09"},
     {L"Variation %d. Click: put it on the selected tiles", L"\u53D8\u4F53 %d\u3002\u5355\u51FB\uFF1A\u5C06\u5176\u7528\u4E8E\u6240\u9009\u56FE\u5757"},
     {L"The selected tiles use this variation already", L"\u6240\u9009\u56FE\u5757\u5DF2\u5728\u4F7F\u7528\u6B64\u53D8\u4F53"},
     {L"Variation %d on %d tiles (Ctrl+Z undoes it)", L"\u53D8\u4F53 %d \u7528\u4E8E %d \u4E2A\u56FE\u5757\uFF08Ctrl+Z \u53EF\u64A4\u9500\uFF09"},
     {L"Variation %d on the tile (Ctrl+Z undoes it)", L"\u56FE\u5757\u4F7F\u7528\u53D8\u4F53 %d\uFF08Ctrl+Z \u53EF\u64A4\u9500\uFF09"},
     {L"No tile changed: the selected tiles are protected", L"\u6CA1\u6709\u56FE\u5757\u6539\u53D8\uFF1A\u6240\u9009\u56FE\u5757\u53D7\u4FDD\u62A4"},
+    {L"Variations", L"\u53D8\u4F53"},
+    {L"Drag to make Variations taller or shorter", L"\u62D6\u52A8\u4EE5\u8C03\u6574\u53D8\u4F53\u533A\u57DF\u7684\u9AD8\u5EA6"},
+    {L"Hide the variations", L"\u9690\u85CF\u53D8\u4F53"},
+    {L"Show the variations", L"\u663E\u793A\u53D8\u4F53"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

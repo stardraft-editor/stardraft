@@ -3385,12 +3385,15 @@ constexpr UiText kRows[] = {
     {L"Turned off Fun mode", L"Mode amusant d\u00E9sactiv\u00E9"},
     {L"Select at most %d x %d tiles to see their variations", L"S\u00E9lectionnez au plus %d x %d tuiles pour voir leurs variantes"},
     {L"The selected tiles have no variations", L"Les tuiles s\u00E9lectionn\u00E9es n'ont pas de variantes"},
-    {L"Variations of the selection (%d x %d tiles)", L"Variantes de la s\u00E9lection (%d x %d tuiles)"},
     {L"Variation %d. Click: put it on the selected tiles", L"Variante %d. Clic : la mettre sur les tuiles s\u00E9lectionn\u00E9es"},
     {L"The selected tiles use this variation already", L"Les tuiles s\u00E9lectionn\u00E9es utilisent d\u00E9j\u00E0 cette variante"},
     {L"Variation %d on %d tiles (Ctrl+Z undoes it)", L"Variante %d sur %d tuiles (Ctrl+Z l'annule)"},
     {L"Variation %d on the tile (Ctrl+Z undoes it)", L"Variante %d sur la tuile (Ctrl+Z l'annule)"},
     {L"No tile changed: the selected tiles are protected", L"Aucune tuile n'a chang\u00E9 : les tuiles s\u00E9lectionn\u00E9es sont prot\u00E9g\u00E9es"},
+    {L"Variations", L"Variantes"},
+    {L"Drag to make Variations taller or shorter", L"Faites glisser pour agrandir ou r\u00E9duire Variantes"},
+    {L"Hide the variations", L"Masquer les variantes"},
+    {L"Show the variations", L"Afficher les variantes"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }
