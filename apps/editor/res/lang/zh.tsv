@@ -3370,3 +3370,5 @@ Nothing more to search	没有更多可搜索的内容
 %.0f FPS	%.0f FPS
 %.0f FPS  ·  %.0f MB	%.0f FPS  ·  %.0f MB
 %.0f MB	%.0f MB
+Copy as te&xt	复制为文本(&X)
+Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	已将所选地形复制为文本。在地形模式中按 Ctrl+V 可将其设为画笔

@@ -158,17 +158,16 @@ void stampsRemoveReplaced(const std::vector<fs::path>& old, const fs::path& now)
 
 std::wstring gStampsLastName;  // the name typed last (the prompt starts with it)
 
-// Right-click the terrain selection > Save as custom terrain: its tiles (the selection's tiles in their box; the others
-// are not in it) under a name that the user types. A name that is there already for this tileset: Replace?
-void stampsSaveSelection() {
-    static const wchar_t* const kTitle = L"Save as custom terrain";
+// The terrain selection as custom terrain with no name: the selection's tiles in their box (the others are not in it).
+// False: no map, or no selection (a message says so).
+bool stampOfSelection(TerrainStamp& s) {
     AppState& app = appState();
-    if (!app.ed || !app.ed->isOpen()) return;
+    if (!app.ed || !app.ed->isOpen()) return false;
     const std::vector<std::pair<int, int>> tiles = terrainSelTiles();
-    if (tiles.empty()) return setMessage(L"Select tiles with the Select tool first");
+    if (tiles.empty()) return setMessage(L"Select tiles with the Select tool first"), false;
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
     for (const auto& [x, y] : tiles) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
-    TerrainStamp s;
+    s = TerrainStamp{};
     s.era = uint16_t(app.ed->era() & 7);
     s.width = x1 - x0 + 1, s.height = y1 - y0 + 1;
     s.created = int64_t(std::time(nullptr));
@@ -180,6 +179,15 @@ void stampsSaveSelection() {
         s.tiles[i] = map[size_t(y) * size_t(app.ed->width()) + size_t(x)];
         s.mask[i] = 1;
     }
+    return true;
+}
+
+// Right-click the terrain selection > Save as custom terrain: its tiles under a name that the user types. A name that
+// is there already for this tileset: Replace?
+void stampsSaveSelection() {
+    static const wchar_t* const kTitle = L"Save as custom terrain";
+    TerrainStamp s;
+    if (!stampOfSelection(s)) return;
     std::wstring name = gStampsLastName;
     if (!shellPromptText(tr(kTitle), name)) return;
     name = stampsTrim(name);
@@ -327,6 +335,17 @@ void stampsCopyText(const TerrainStamp& s, draw::Host* host) {
     if (!host) return;
     host->setClipboardText(terrainStampText(s));
     setMessage(tr(L"Copied the custom terrain ") + widen(s.name) + tr(L" as text"));
+}
+
+// Right-click the terrain selection > Copy as text: its tiles as custom terrain's text on the clipboard (no file), for
+// Ctrl+V here or in another map of the tileset, or to give to other people.
+void shellSetClipboardText(const std::string& utf8);  // (shell_sdl.inc)
+void stampsCopySelectionText() {
+    TerrainStamp s;
+    if (!stampOfSelection(s)) return;
+    s.name = "Copied terrain";
+    shellSetClipboardText(terrainStampText(s));
+    setMessage(L"Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush");
 }
 
 // The list's menu: Import from clipboard (custom terrain copied as text). It goes to the folder of its tileset, under

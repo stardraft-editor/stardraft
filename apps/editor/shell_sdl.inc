@@ -192,6 +192,11 @@ std::string shellClipboardText() {
     if (gSilent) return gClipboardArg;
     return gHost ? gHost->clipboardText() : std::string();
 }
+// Text to the system's clipboard; a test run: to the test's clipboard (shellClipboardText gives it back).
+void shellSetClipboardText(const std::string& utf8) {
+    if (gSilent) return void(gClipboardArg = utf8);
+    if (gHost) gHost->setClipboardText(utf8);
+}
 // Report feedback on `on`, the box holding `text` already (Report feedback on the selected terrain: its tiles).
 void shellReportFeedback(const std::wstring& on, const std::wstring& text) {
     if (gSilent) return void(std::printf("feedback on %s:%c%s%c", narrow(on).c_str(), 10, narrow(text).c_str(), 10));  // (a test sends nothing)

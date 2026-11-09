@@ -3370,3 +3370,5 @@ Nothing more to search	No queda nada por buscar
 %.0f FPS	%.0f FPS
 %.0f FPS  ·  %.0f MB	%.0f FPS  ·  %.0f MB
 %.0f MB	%.0f MB
+Copy as te&xt	Copiar como te&xto
+Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	Se copió el terreno seleccionado como texto. Ctrl+V en el modo Terreno lo convierte en el pincel

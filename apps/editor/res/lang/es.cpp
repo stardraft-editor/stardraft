@@ -3369,6 +3369,8 @@ constexpr UiText kRows[] = {
     {L"%.0f FPS", L"%.0f FPS"},
     {L"%.0f FPS  \u00B7  %.0f MB", L"%.0f FPS  \u00B7  %.0f MB"},
     {L"%.0f MB", L"%.0f MB"},
+    {L"Copy as te&xt", L"Copiar como te&xto"},
+    {L"Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush", L"Se copi\u00F3 el terreno seleccionado como texto. Ctrl+V en el modo Terreno lo convierte en el pincel"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

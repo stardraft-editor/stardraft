@@ -3369,6 +3369,8 @@ constexpr UiText kRows[] = {
     {L"%.0f FPS", L"%.0f FPS"},
     {L"%.0f FPS  \u00B7  %.0f MB", L"%.0f FPS  \u00B7  %.0f MB"},
     {L"%.0f MB", L"%.0f MB"},
+    {L"Copy as te&xt", L"\u590D\u5236\u4E3A\u6587\u672C(&X)"},
+    {L"Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush", L"\u5DF2\u5C06\u6240\u9009\u5730\u5F62\u590D\u5236\u4E3A\u6587\u672C\u3002\u5728\u5730\u5F62\u6A21\u5F0F\u4E2D\u6309 Ctrl+V \u53EF\u5C06\u5176\u8BBE\u4E3A\u753B\u7B14"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

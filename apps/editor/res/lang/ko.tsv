@@ -3400,3 +3400,5 @@ Nothing more to search	더 검색할 것이 없음
 %.0f FPS	%.0f FPS
 %.0f FPS  ·  %.0f MB	%.0f FPS  ·  %.0f MB
 %.0f MB	%.0f MB
+Copy as te&xt	텍스트로 복사(&X)
+Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	선택한 지형을 텍스트로 복사했습니다. 지형 모드에서 Ctrl+V를 누르면 브러시가 됩니다

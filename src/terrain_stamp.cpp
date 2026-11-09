@@ -180,7 +180,11 @@ bool readTerrainStamp(const fs::path& file, TerrainStamp& out, std::string& erro
 }
 
 bool parseTerrainStamp(const std::string& text, TerrainStamp& out, std::string& error) {
-    JsonParser p{text};
+    // (from the first "{" to the last "}": text round it, such as a chat's code block, is not part of it)
+    const size_t first = text.find('{'), last = text.rfind('}');
+    if (first == std::string::npos || last == std::string::npos || last < first) return error = "it is not custom terrain", false;
+    const std::string json = text.substr(first, last - first + 1);
+    JsonParser p{json};
     const Json j = p.value();
     // (custom terrain: its fields; a "format" of the earlier texts, when there, is one of theirs)
     const std::string format = j.type == Json::Type::Object ? j.str("format") : std::string();

@@ -60,7 +60,7 @@ void locationMenuPick(int loc, int pick) {
 // buffer. Units add Properties; a location adds its own menu (rename, elevations).
 enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN,
        ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK, ID_MAPMENU_SAVESTAMP, ID_MAPMENU_COPYTILE, ID_MAPMENU_FEEDBACKSEL,
-       ID_MAPMENU_PROTECT, ID_MAPMENU_UNPROTECT, ID_MAPMENU_ADDANCHOR, ID_MAPMENU_REMOVEANCHOR, ID_MAPMENU_CENTERANCHOR, ID_MAPMENU_CLEARMASK };
+       ID_MAPMENU_PROTECT, ID_MAPMENU_UNPROTECT, ID_MAPMENU_ADDANCHOR, ID_MAPMENU_REMOVEANCHOR, ID_MAPMENU_CENTERANCHOR, ID_MAPMENU_CLEARMASK, ID_MAPMENU_COPYTEXT };
 constexpr int ID_MAPMENU_LAYERROW = 9300;  // + a layer's row + 1 (0: the Background), Map Layers' menu on the map
 
 int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
@@ -252,6 +252,7 @@ MenuModel mapMenuModel(float wx, float wy) {
     const bool terrain = app.mode == Mode::Terrain;
     item(ID_EDIT_CUT, L"Cu&t", L"Ctrl+X", has);  // terrain: null tiles in its place
     item(ID_EDIT_COPY, L"&Copy", L"Ctrl+C", has);
+    if (terrain) item(ID_MAPMENU_COPYTEXT, L"Copy as te&xt", L"", has);  // (custom terrain's text: Ctrl+V, or to give to other people)
     item(ID_EDIT_PASTE, L"&Paste", L"Ctrl+V", canPaste);
     item(ID_EDIT_DUPLICATE, L"D&uplicate", L"Ctrl+D", has && !terrain);
     item(ID_EDIT_DELETE, L"&Delete", L"Del", has && !terrain);
@@ -322,6 +323,7 @@ void mapMenuPick(int pick) {
     else if (pick == ID_MAPMENU_REPLACE) shellShowQuickPicker(true, false);
     else if (pick == ID_MAPMENU_FILLSEL) tilesFillSelection();
     else if (pick == ID_MAPMENU_SAVESTAMP) stampsSaveSelection();
+    else if (pick == ID_MAPMENU_COPYTEXT) stampsCopySelectionText();
     else if (pick == ID_MAPMENU_ADDANCHOR && app.ed) {
         if (gMapMenuAnchor < 0 ? app.ed->addSymmetryAnchor(int(gMapMenuWX), int(gMapMenuWY)) >= 0 : addAnchorNextTo(*app.ed, gMapMenuAnchor, app.zoom)) {
             if (gMapMenuAnchor >= 0 && !inSelection()) enterSelection();  // (the Select tool: a drag moves the new one)

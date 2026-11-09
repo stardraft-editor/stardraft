@@ -38,6 +38,7 @@ int main(int argc, char** argv) {
         TerrainStamp back;
         check(text.find("format") == std::string::npos && text.find("mask") == std::string::npos, "custom terrain text: no format, no mask when whole");
         check(parseTerrainStamp(text, back, err) && back.width == 2 && back.tiles == t.tiles && back.mask == t.mask, "custom terrain text reads back");
+        check(parseTerrainStamp("Here:\n```json\n" + text + "```\n", back, err) && back.tiles == t.tiles, "custom terrain text in a chat's code block reads");
         t.mask = {1, 0};
         check(terrainStampText(t).find("\"mask\": \"10\"") != std::string::npos, "custom terrain text: the mask with a hole");
         const std::string old = R"({"format": "StarCraft custom terrain", "version": 1, "name": "Old", "tileset": "platform", "era": 1, "width": 1, "height": 1, "tiles": [5], "mask": "1"})";
