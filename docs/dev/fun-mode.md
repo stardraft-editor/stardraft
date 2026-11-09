@@ -3,15 +3,13 @@
 Options > Fun mode, and Program options > Appearance > Fun mode (the same setting; off by default), gives feedback
 when the map is edited:
 
-- A short sound, made in code (no sound files; see "The sounds"). The sound is by what was edited:
-  - terrain, by the terrain that the edited tiles have now and did not have before (painting water on dirt: the
-    shore tiles count as water): water splashes and bubbles; tar, lava, magma and mud gloop; grass, jungle, snow and
-    dunes rustle; dirt crunches; rock, crags, shale and ice click and crack; platform, plating, structure and the
-    other built floors clank; space and pits drop away;
-  - a placed doodad lands with a heavy thump, and the view shakes a little;
-  - a placed unit lands softly (a building lower than a small unit), squashes and springs back about its feet, and
-    the first one says its ready sound (units.dat's Ready Sound: units 0 to 105; buildings have none);
-  - a deleted unit or doodad goes poof.
+- Painted terrain plays a short recorded sound (see "The sounds"), by the terrain that the edited tiles have now and
+  did not have before (painting water on dirt: the shore tiles count as water): water splashes; tar, lava, magma and
+  mud squelch; grass, jungle, snow and dunes swish; dirt crunches; rock, crags, shale and ice crunch; platform,
+  plating, structure and the other built floors clank. Space and pits make no sound.
+- A placed unit squashes and springs back about its feet, and the first one says its ready sound (units.dat's Ready
+  Sound: units 0 to 105; buildings have none). A placed doodad shakes the view a little. A deleted unit or doodad
+  puffs. None of these has a sound of its own.
 - Small shards of the placed terrain hop off (low and few: 1 or 2 a tile): each one is a jagged shape of 3 to 6
   corners, 5 to 12 pixels across, cut with the terrain's own pixels (from a tile of the edit that is all of the new
   terrain, so grass painted on dirt throws grass only). Each one goes its own way at its own speed, turns at its own
@@ -20,7 +18,7 @@ when the map is edited:
 - The sound and the shards are by the tiles that got a terrain they did not have: the dirt round a grass stroke,
   which the brush makes again, makes no dirt sound.
 - What is placed is louder than what it replaces: the sound of the terrain that the edited tiles lost (dirt under
-  painted grass, the ground under a doodad) plays with it at 35 % of its level.
+  painted grass) plays with it at 35 % of its level.
 
 ## How it works
 
@@ -28,7 +26,7 @@ when the map is edited:
 its copy from the frame before.
 
 - The tiles, when `terrainRevision` changed (a full compare of MTXM: 65,536 values at most, only on a change).
-- The units by serial (a moved unit keeps its serial: no plop), the doodads by (id, x, y), when `revision` changed.
+- The units by serial (a moved unit keeps its serial: no pop), the doodads by (id, x, y), when `revision` changed.
 - A map that was read anew (`loadMark`: open, undo, redo) or another tab only takes a new copy: undo makes no sound.
 - The pop is a new `SpriteDraw::scaleX/scaleY` about a pivot in the renderer. A shard is `RectDraw` fills, one for each
   of its pixels at its turned place (a little larger than a pixel, so no gaps show); the shake moves the scene's
@@ -42,31 +40,17 @@ The demo: `--script` with `command options.funmode`, the edits, and `wait 33` / 
 
 ## The sounds
 
-They started as bfxr and sfxr sounds (a wave, a pitch slide, an envelope, one-pole filters). Then they were made more
-natural from recorded game sounds (steps and landings on grass, dirt and sand, stone hits, item drops), measured for
-length, attack, the number of small hits in them and their energy in bands:
-
-- A step or a landing is 0.15 to 0.5 s of 4 to 13 small hits, not one smooth sound. Most of its energy is at 150 Hz
-  to 2.5 kHz, very little above 6 kHz; a landing is brighter at its start than at its end. A soft landing on sand is
-  mostly a thump under 150 Hz; a stone hit is a 13 ms click at 1 to 6 kHz.
-- So the sounds are made of: grains (2 to 30 ms of noise through a two-pole band-pass, more of them early, each
-  softer), a low thump (a sine that falls in pitch), bubbles (a sine that goes up as it rings out: water) and a metal
-  plate's partials (not in tune with each other, each dying at its own speed). Grass keeps the user's bfxr swish
-  (quieter, darker) under its rustle.
-- Measured against the recordings: dirt has 11 to 14 hits and its center at about 1.9 kHz (the steps: 7 to 13, 1.8
-  to 2.9 kHz); grass 6 to 12 hits at 2.5 to 3.3 kHz (the steps: 2 to 7, 1.9 to 3.1 kHz); a doodad's thump has 42 %
-  of its energy under 150 Hz and 41 % at 400 Hz to 2.5 kHz (a hard landing: 35 % and 55 %).
-- Each sound plays at a pitch of its own: 4 semitones down to 4 up, never the same step twice in a row (the whole
-  sound faster or slower, so noise changes too). Each kind is set to one peak level (louder for larger edits).
+Every sound is a recorded take; the sounds first made in code (bfxr and sfxr style, then more natural layers of
+grains, thumps and bubbles) are gone. Each play is at a pitch of its own: 4 semitones down to 4 up, never the same
+step twice in a row (the whole sound faster or slower). Its level is louder for larger edits.
 
 ## Recorded sounds
 
-Water, mud, grass, dirt, rock and the built floors play recorded sounds (from Freesound, picked by the user); the others are made in
-code. Each recording gave up to 3 takes: its loudest moments (the splash, the squelch, the swish, the crunch), from
+Water, mud, grass, dirt, rock and the built floors play recorded sounds (from Freesound, picked by the user). Each
+recording gave up to 3 takes: its loudest moments (the splash, the squelch, the swish, the crunch), from
 just before the rise to where the hit has died to 12 % of its peak, with no lead-in or long tail (a 2 ms fade-in, a
 12 ms fade-out). Made tiny and bit-like: mono, 11,025 Hz, 64 levels, 8-bit WAV (0.08 to 0.18 s, 0.9 to 2 KB each,
-23 KB for all 17). A play takes one of the takes at random
-(not the last one again). The sounds made in code go through the same crush, so all of them sound alike.
+23 KB for all 17). A play takes one of the takes at random (not the last one again).
 
 The WAV files are in `apps/editor/res/fun/`; `tools/fun_sounds_gen.py` makes `fun_sounds.inc` from them (the
 program has them in it: no files beside it).
@@ -92,8 +76,8 @@ CC0 1.0: no rights reserved, no credit needed (given here anyway); they can ship
 
 ## Limits now (rate and volume)
 
-- At most one sound of each kind each 80 ms (50 to 60 ms for plops and thunks), at most 6 at a time. A long brush
-  stroke is about 12 sounds a second. Each one is a little different (its pitch step, its grains at random).
+- At most one sound of each kind each 80 ms, at most 6 at a time. A long brush stroke is about 12 sounds a second.
+  Each one is a little different (its take and its pitch step).
 - A unit's ready sound: at half the volume, at most one each 0.6 s (a row or a paste of many units says it once), at
   most 2 at a time.
 - A sound's level goes up with the number of tiles that changed (log2), from 45 % to 100 %.
@@ -106,7 +90,8 @@ CC0 1.0: no rights reserved, no credit needed (given here anyway); they can ship
   for some people: a "calm" level that plays only at a stroke's start and end?
 - Should a stroke's sound pitch follow the mouse speed, or the brush size?
 - Undo: silent now. A reversed sound could be fun.
-- Moved units and doodads: no feedback now (a small thud at the drop?).
+- Moved units and doodads: no feedback now.
+- Doodads, deletes and space have no sound now (their sounds made in code were taken out): recorded ones for them?
 - Sprites, locations, triggers: nothing yet.
 - Mod terrains (Cosmonarchy) are sorted by name; names that do not match go to the dirt crunch.
 - The pop changes only the map's draw (not the minimap, the map image export or a layer's ghost).

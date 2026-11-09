@@ -1,8 +1,7 @@
-// Options > Fun mode (a spike, off by default): edits on the map give feedback. Each edit makes a short sound made in
-// code (as bfxr and sfxr make them: a wave, a pitch slide, an envelope and a filter; no sound files), by what was
-// edited: water splashes, grass brushes, dirt and rock crunch, metal clanks, a doodad thunks (the view shakes a
-// little), a unit plops (it squashes and springs back), a deleted unit or doodad goes poof. Shards of the placed tiles
-// (jagged pieces of their own pixels) fly off the edited tiles, each its own way, turning.
+// Options > Fun mode (a spike, off by default): edits on the map give feedback. Painted terrain plays a short recorded
+// sound by its terrain (water splashes, mud squelches, grass swishes, dirt and rock crunch, built floors clank;
+// res/fun), and shards of the placed tiles (jagged pieces of their own pixels) fly off, each its own way, turning. A
+// placed unit squashes and springs back and says its ready sound; a placed doodad shakes the view; a delete puffs.
 // How it finds the edits: each frame (funModeScene, after buildScene) it compares the map with the copy from the last
 // frame: the tiles when terrainRevision changed, the units (by serial) and the doodads when revision changed. A map read
 // anew (open, undo, redo: loadMark) or another tab only takes a new copy. Notes: docs/dev/fun-mode.md.
@@ -16,62 +15,7 @@ const DatTable* rangeTable(const std::string& name);  // (map_scene.inc: units.d
 
 namespace fun {
 
-// --- The sounds: a small sfxr ---------------------------------------------------------------------------------------
-enum Wave { Square, Saw, Sine, Noise };
-struct Voice {
-    Wave wave = Square;
-    float freq = 440, slide = 0;  // Hz at the start; octaves a second (+ up)
-    float duty = 0.5f;            // (Square)
-    float attack = 0, sustain = 0.02f, decay = 0.1f, punch = 0;  // seconds; punch: more at the sustain's start
-    float lpf = 1, lpfSweep = 0, hpf = 0;  // one-pole filters' coefficients (1: open), lpfSweep a second
-    float grain = 0;  // 0..1: the level jumps at random every few milliseconds (a crunch)
-    float vibDepth = 0, vibRate = 0;
-    float vol = 0.5f;
-    float arpMult = 1, arpTime = 0;  // the pitch times arpMult once, arpTime seconds in (0: never)
-};
-constexpr int kRate = 44100;
-
-// Adds the voice to `out` (made longer as necessary).
-void render(const Voice& v, std::vector<float>& out, std::mt19937& rng) {
-    const float len = v.attack + v.sustain + v.decay;
-    const size_t n = size_t(len * kRate);
-    if (out.size() < n) out.resize(n, 0.0f);
-    std::uniform_real_distribution<float> uni(-1.0f, 1.0f);
-    float phase = 0, freq = v.freq, lp = 0, hp = 0, noise = uni(rng), grainLevel = 1, lpf = v.lpf;
-    int grainLeft = 0;
-    const float slideStep = std::pow(2.0f, v.slide / kRate);
-    for (size_t i = 0; i < n; ++i) {
-        const float t = float(i) / kRate;
-        float f = freq * (1 + v.vibDepth * std::sin(6.2831853f * v.vibRate * t));
-        if (v.arpTime > 0 && i == size_t(v.arpTime * kRate)) freq *= v.arpMult;
-        phase += std::clamp(f, 10.0f, v.wave == Noise ? float(kRate) : 20000.0f) / kRate;  // (noise: up to white)
-        if (phase >= 1) {
-            phase -= std::floor(phase);
-            noise = uni(rng);  // (noise: a new value each period, as sfxr: its pitch is how fast the values change)
-        }
-        float x = 0;
-        switch (v.wave) {
-        case Square: x = phase < v.duty ? 0.6f : -0.6f; break;
-        case Saw: x = 2 * phase - 1; break;
-        case Sine: x = std::sin(6.2831853f * phase); break;
-        case Noise: x = noise; break;
-        }
-        freq *= slideStep;
-        lpf = std::clamp(lpf + v.lpfSweep / kRate, 0.005f, 1.0f);
-        lp += lpf * (x - lp);
-        hp += v.hpf * (lp - hp);
-        x = v.hpf > 0 ? lp - hp : lp;
-        float env;
-        if (t < v.attack) env = t / v.attack;
-        else if (t < v.attack + v.sustain) env = 1 + v.punch * (1 - (t - v.attack) / v.sustain);
-        else env = 1 - (t - v.attack - v.sustain) / v.decay, env *= env;
-        if (v.grain > 0 && --grainLeft <= 0) {
-            grainLeft = int(kRate * (0.002f + 0.006f * (uni(rng) * 0.5f + 0.5f)));
-            grainLevel = 1 - v.grain * (uni(rng) * 0.5f + 0.5f);
-        }
-        out[i] += x * env * v.vol * (v.grain > 0 ? grainLevel : 1);
-    }
-}
+constexpr int kRate = 44100;  // (the rate the sounds play at)
 
 enum class Kind { Splash, Gloop, Brush, Crunch, Rock, Clank, Void, Thunk, Plop, Poof, Count };
 const char* const kKindNames[] = {"splash", "gloop", "brush", "crunch", "rock", "clank", "void", "thunk", "plop", "poof"};
@@ -89,141 +33,6 @@ Kind kindOfTerrain(const std::string& name) {
         has("Substructure"))
         return Kind::Clank;
     return Kind::Crunch;
-}
-
-// --- Natural layers (as recorded steps, landings and hits are made: docs/dev/fun-mode.md, "The sounds") -------------
-// A two-pole filter (RBJ's biquad): band-pass (q: how narrow) or low-pass.
-struct Biquad {
-    float b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0;
-    void set(bool band, float f, float q) {
-        const float w = 6.2831853f * std::clamp(f, 20.0f, kRate * 0.45f) / kRate, al = std::sin(w) / (2 * q), c = std::cos(w), a0 = 1 + al;
-        if (band) b0 = al / a0, b1 = 0, b2 = -al / a0;
-        else b0 = (1 - c) / 2 / a0, b1 = (1 - c) / a0, b2 = (1 - c) / 2 / a0;
-        a1 = -2 * c / a0, a2 = (1 - al) / a0;
-    }
-    float run(float x) {
-        const float y = b0 * x + z1;
-        z1 = b1 * x - a1 * y + z2, z2 = b2 * x - a2 * y;
-        return y;
-    }
-};
-void addAt(std::vector<float>& out, size_t at, float v) {
-    if (out.size() <= at) out.resize(at + 1, 0.0f);
-    out[at] += v;
-}
-// `count` grains of noise (a rustle, a crunch, grit) in `span` seconds from `start`, more of them early: each 2 to 14 ms
-// (grainMs), band-passed round a frequency between lo and hi (Hz, at random on a log scale), a sharp start and a quick
-// fall. Each one is softer than the one before by `fall` (0..1) of the way.
-void grains(std::vector<float>& out, std::mt19937& rng, int count, float start, float span, float lo, float hi, float grainMsLo, float grainMsHi,
-            float q, float vol, float fall = 0.7f) {
-    std::uniform_real_distribution<float> u(0.0f, 1.0f), n(-1.0f, 1.0f);
-    for (int i = 0; i < count; ++i) {
-        const float r = float(i) / std::max(1, count - 1);
-        const float t = start + span * std::pow(u(rng), 1.6f);
-        const float len = (grainMsLo + (grainMsHi - grainMsLo) * u(rng)) / 1000;
-        Biquad f;
-        f.set(true, lo * std::pow(hi / lo, u(rng)), q);
-        const float amp = vol * (0.35f + 0.65f * u(rng)) * (1 - fall * r);
-        const size_t at = size_t(t * kRate), m = size_t(len * kRate);
-        for (size_t k = 0; k < m + size_t(0.01f * kRate); ++k) {  // (and the filter's ring after it)
-            const float e = k < 22 ? float(k) / 22 : std::exp(-float(k) / (float(m) * 0.35f));
-            addAt(out, at + k, f.run(k < m ? n(rng) : 0.0f) * e * amp * 3);
-        }
-    }
-}
-// A low thump: a sine that falls from f0 to f1 (Hz) and dies in `ms`.
-void thump(std::vector<float>& out, float start, float f0, float f1, float ms, float vol) {
-    const size_t at = size_t(start * kRate), n = size_t(ms / 1000 * kRate * 3);
-    float ph = 0;
-    for (size_t k = 0; k < n; ++k) {
-        const float t = float(k) / kRate, f = f1 + (f0 - f1) * std::exp(-t / (ms / 1000 * 0.5f));
-        ph += f / kRate;
-        const float e = std::min(1.0f, float(k) / 40) * std::exp(-t / (ms / 1000));
-        addAt(out, at + k, std::sin(6.2831853f * ph) * e * vol);
-    }
-}
-// A bubble (as water makes them: a sine whose pitch goes up as it rings out).
-void bubble(std::vector<float>& out, float start, float f, float ms, float vol) {
-    const size_t at = size_t(start * kRate), n = size_t(ms / 1000 * kRate * 4);
-    float ph = 0;
-    for (size_t k = 0; k < n; ++k) {
-        const float t = float(k) / kRate;
-        ph += f * (1 + 2.5f * t / (ms / 1000) * 0.25f) / kRate;
-        addAt(out, at + k, std::sin(6.2831853f * ph) * std::min(1.0f, float(k) / 30) * std::exp(-t / (ms / 1000)) * vol);
-    }
-}
-// A struck piece of metal: its partials (not in tune with each other), each dies at its own speed.
-void modes(std::vector<float>& out, float f, float ms, float vol) {
-    static const float kRatio[] = {1.0f, 2.32f, 4.25f, 6.63f}, kAmp[] = {1.0f, 0.6f, 0.35f, 0.2f};
-    const size_t n = size_t(ms / 1000 * kRate * 4);
-    for (int m = 0; m < 4; ++m)
-        for (size_t k = 0; k < n; ++k) {
-            const float t = float(k) / kRate;
-            addAt(out, k, std::sin(6.2831853f * f * kRatio[m] * t) * std::exp(-t / (ms / 1000 / (1 + m * 0.7f))) * kAmp[m] * vol);
-        }
-}
-
-// The sound of a kind, a little different each time. `pitch`: 1 as made; more is higher (a small unit plops higher).
-// After the bfxr-style start, the sounds were made more natural from recorded steps, landings and hits (energy
-// mostly at 150 Hz to 2.5 kHz, little above 6 kHz; many small hits, not one smooth sound; brighter at the start).
-std::vector<float> makeSound(Kind k, float pitch, float level, std::mt19937& rng) {
-    std::uniform_real_distribution<float> j(0.88f, 1.12f), u(0.0f, 1.0f);
-    std::vector<float> out;
-    auto add = [&](Voice v) {
-        v.freq *= pitch * j(rng);  // (the level: at the end)
-        render(v, out, rng);
-    };
-    const float p = pitch * j(rng);
-    switch (k) {
-    case Kind::Splash:  // (a wash of water darker as it goes, the drops, and 3 to 5 bubbles)
-        grains(out, rng, 26, 0, 0.22f, 500 * p, 4000 * p, 4, 16, 0.9f, 0.5f);
-        for (int i = 3 + int(u(rng) * 2.99f); i > 0; --i) bubble(out, 0.01f + 0.2f * u(rng), (500 + 700 * u(rng)) * p, 18 + 20 * u(rng), 0.2f);
-        thump(out, 0, 140 * p, 70 * p, 35, 0.12f);
-        break;
-    case Kind::Gloop:  // (thick: low bubbles, slow)
-        grains(out, rng, 10, 0, 0.25f, 200 * p, 1200 * p, 8, 25, 1.2f, 0.4f);
-        for (int i = 2 + int(u(rng) * 2.99f); i > 0; --i) bubble(out, 0.02f + 0.25f * u(rng), (140 + 180 * u(rng)) * p, 45 + 30 * u(rng), 0.4f);
-        break;
-    case Kind::Brush:  // (the user's bfxr grass swish, darker, under a rustle of grass: many small dry grains)
-        add({Noise, 2643 * 32, 0.2f, 0.5f, 0.1263f, 0.0025f, 0.0082f, 0.514f, 0.2f, 0, 0.072f, 0, 0.0465f, 16.82f, 0.15f, 1.018f, 0.0122f});
-        grains(out, rng, 22, 0.02f, 0.25f, 600 * p, 3200 * p, 2, 9, 1.4f, 0.35f, 0.5f);
-        thump(out, 0, 110 * p, 60 * p, 30, 0.05f);
-        break;
-    case Kind::Crunch:  // (dirt: low-mid grit, 10 to 14 small hits, and a soft thud)
-        grains(out, rng, 12 + int(u(rng) * 4.99f), 0, 0.4f, 300 * p, 2000 * p, 2, 8, 1.1f, 0.6f, 0.6f);
-        thump(out, 0, 130 * p, 70 * p, 30, 0.08f);
-        break;
-    case Kind::Rock:  // (a stone's click, a few sharp cracks, a thud)
-        grains(out, rng, 1, 0, 0.001f, 2000 * p, 3500 * p, 6, 9, 2.0f, 0.7f, 0);
-        grains(out, rng, 5 + int(u(rng) * 3.99f), 0.005f, 0.16f, 700 * p, 4500 * p, 2, 6, 1.8f, 0.45f);
-        thump(out, 0, 160 * p, 80 * p, 35, 0.12f);
-        break;
-    case Kind::Clank:  // (a struck plate: a short click on its partials)
-        modes(out, (420 + 120 * u(rng)) * p, 90, 0.22f);
-        grains(out, rng, 2, 0, 0.02f, 2500 * p, 6000 * p, 2, 4, 1.5f, 0.35f, 0);
-        break;
-    case Kind::Void:
-        add({Sine, 700, -3.0f, 0.5f, 0.01f, 0.03f, 0.22f, 0, 1, 0, 0, 0, 0.03f, 11, 0.28f});
-        break;
-    case Kind::Thunk:  // (a heavy landing: a deep thump and the grit round it)
-        thump(out, 0, 110 * p, 50 * p, 70, 0.12f);
-        grains(out, rng, 14, 0, 0.3f, 300 * p, 2200 * p, 3, 12, 1.0f, 1.0f);
-        break;
-    case Kind::Plop:  // (a soft landing on sand: a low thump and a little grit, darker after the start)
-        thump(out, 0, 160 * p, 80 * p, 40, 0.2f);
-        grains(out, rng, 10, 0, 0.18f, 250 * p, 1800 * p, 3, 10, 1.0f, 0.55f);
-        break;
-    case Kind::Poof:  // (dust: a soft low wash)
-        grains(out, rng, 14, 0.01f, 0.2f, 200 * p, 1200 * p, 10, 30, 0.8f, 0.3f, 0.4f);
-        break;
-    default: break;
-    }
-    // The same level for each kind (`level`: louder for larger edits), then a soft limit.
-    float peak = 0;
-    for (float s : out) peak = std::max(peak, std::abs(s));
-    const float gain = peak > 0 ? 0.6f * level / peak : 0;
-    for (float& s : out) s = std::tanh(s * gain);
-    return out;
 }
 
 // --- The state ------------------------------------------------------------------------------------------------------
@@ -306,18 +115,19 @@ void crush(std::vector<float>& v) {
         for (size_t k = i; k < std::min(v.size(), i + 4); ++k) v[k] = std::round(v[i] * 31) / 31;
 }
 
+// The recorded sound of a kind (none: no sound).
 void play(Kind k, float pitch = 1, float level = 1, uint64_t gapMs = 80) {
     const uint64_t now = nowMs();
     if (now - g.lastSound[size_t(k)] < gapMs) return;
     g.lastSound[size_t(k)] = now;
     // Each time a pitch of its own: -4 to +4 semitones, another than the last one. The whole sound plays faster or
-    // slower (also noise, whose own pitch does not change it).
+    // slower.
     static int lastStep = 0;
     int step = lastStep;
     while (step == lastStep) step = int(std::uniform_int_distribution<int>(-4, 4)(g.rng));
     lastStep = step;
-    std::vector<float> made = recorded(k, pitch, level);
-    if (made.empty()) made = makeSound(k, pitch, level, g.rng);
+    const std::vector<float> made = recorded(k, pitch, level);
+    if (made.empty()) return;
     const double rate = std::pow(2.0, step / 12.0);
     std::vector<float> out(size_t(double(made.size()) / rate));
     for (size_t i = 0; i < out.size(); ++i) {  // (linear between the samples)
@@ -439,8 +249,8 @@ void watch(const Editor& ed) {
     if (g.revision == ed.revision() && g.terrainRevision == ed.terrainRevision()) return;
     std::uniform_real_distribution<float> u(0.0f, 1.0f);
     const Tileset& ts = ed.tileset();
-    // Doodads: placed ones thunk (their tiles change too: no terrain sound then), deleted ones go poof. One gone and one
-    // of the same doodad come is a move: nothing.
+    // Doodads: placed ones shake the view (their tiles change too: no terrain sound then), deleted ones puff. One gone
+    // and one of the same doodad come is a move: nothing.
     std::unordered_map<uint64_t, int> doodads;
     for (const Doodad& d : ed.doodads()) ++doodads[uint64_t(d.id) << 32 | uint64_t(d.x) << 16 | d.y];
     std::vector<uint64_t> added, removed;
@@ -481,13 +291,11 @@ void watch(const Editor& ed) {
         doodadBox(key, x0, y0, x1, y1);
         if (++deletedDoodads <= 12) burst(Kind::Poof, x0, y0, x1, y1, 0xB0B0B0u, 12);
     }
-    if (placedDoodads) play(Kind::Thunk, 1, 1, 60), g.shakeStart = nowMs();
-    else if (deletedDoodads) play(Kind::Poof);
+    if (placedDoodads) g.shakeStart = nowMs();
     g.doodads = std::move(doodads);
-    // Units: placed ones plop (by serial: a moved unit keeps it), deleted ones go poof.
+    // Units: placed ones pop (by serial: a moved unit keeps it), deleted ones puff.
     std::unordered_set<uint32_t> serials;
     int placed = 0, deleted = 0, readyType = 1000;
-    float pitch = 1;
     for (const Unit& un : ed.units()) {
         serials.insert(un.serial);
         if (g.serials.count(un.serial)) continue;
@@ -501,11 +309,10 @@ void watch(const Editor& ed) {
             burst(Kind::Plop, un.x - hw, un.y + hh - 6, un.x + hw, un.y + hh + 2, tileColor(ts, ground), big ? 22 : 8);
             burst(Kind::Plop, float(tx * 32), float(ty * 32), 0, 0, 0, big ? 8 : 3, &ts, ground);
         }
-        if (placed == 1) pitch = big ? 0.6f : 1.15f, readyType = un.type;
+        if (placed == 1) readyType = un.type;
     }
     for (const auto& [serial, x, y] : g.unitPlaces)
         if (!serials.count(serial) && ++deleted <= 64) burst(Kind::Poof, x - 12.0f, y - 12.0f, x + 12.0f, y + 12.0f, 0xB8B8B8u, 6);
-    if (placed) play(Kind::Plop, pitch, 1, 50);
     // The first placed unit's ready sound (units.dat's Ready Sound: units 0 to 105 have one), at most one each 0.6 s:
     // a row or a paste of many units says it once.
     static uint64_t lastReady = 0;
@@ -513,7 +320,6 @@ void watch(const Editor& ed) {
         if (const DatTable* units = rangeTable("units"))
             if (const DatField* f = units->field("Ready Sound"); f && readyType >= f->first && readyType <= f->last)
                 if (const uint32_t sfx = units->value(*f, readyType); sfx > 0) funPlaySfx(int(sfx)), lastReady = nowMs();
-    else if (deleted) play(Kind::Poof);
     g.serials = std::move(serials);
     g.unitPlaces.clear();
     for (const Unit& un : ed.units()) g.unitPlaces.push_back({un.serial, un.x, un.y});
@@ -544,7 +350,6 @@ void watch(const Editor& ed) {
             if (any) replaced = Kind(std::max_element(std::begin(lost), std::end(lost)) - std::begin(lost));
         }
         const float level = std::clamp(0.45f + 0.12f * std::log2(float(std::max<size_t>(changed.size(), 1))), 0.45f, 1.0f);
-        if (doodadsChanged && placedDoodads && replaced != Kind::Count && replaced != Kind::Thunk) play(replaced, 1, 0.35f);  // (under the thunk)
         if (!changed.empty() && !doodadsChanged) {
             // Each tile's terrain that it did not have before (grass painted on dirt: the grass of its edge tiles; 0:
             // none, a tile of the same terrain made again). Only those tiles count when there are any: the dirt round a
