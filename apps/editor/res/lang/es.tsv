@@ -3388,3 +3388,6 @@ Sounds and effects when you edit the map	Sonidos y efectos al editar el mapa
 Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	Cada edición hace un sonido corto, saltan trozos del terreno y las unidades colocadas rebotan
 Turned on Fun mode	Se activó el modo divertido
 Turned off Fun mode	Se desactivó el modo divertido
+Tile %d, %d: no variations	Casilla %d, %d: sin variaciones
+Tile %d, %d	Casilla %d, %d
+Variations of %d tiles	Variaciones de %d casillas

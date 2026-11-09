@@ -3388,3 +3388,6 @@ Sounds and effects when you edit the map	Звуки и эффекты при п�
 Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	Каждая правка издаёт короткий звук, куски местности взлетают, а поставленные юниты подпрыгивают
 Turned on Fun mode	Весёлый режим включён
 Turned off Fun mode	Весёлый режим выключен
+Tile %d, %d: no variations	Тайл %d, %d: нет вариантов
+Tile %d, %d	Тайл %d, %d
+Variations of %d tiles	Варианты %d тайлов

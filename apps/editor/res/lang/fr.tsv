@@ -3388,3 +3388,6 @@ Sounds and effects when you edit the map	Sons et effets quand vous modifiez la c
 Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	Chaque modification fait un son court, des morceaux du terrain s'envolent et les unités placées rebondissent
 Turned on Fun mode	Mode amusant activé
 Turned off Fun mode	Mode amusant désactivé
+Tile %d, %d: no variations	Tuile %d, %d : pas de variantes
+Tile %d, %d	Tuile %d, %d
+Variations of %d tiles	Variantes de %d tuiles

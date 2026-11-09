@@ -185,7 +185,8 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     render::Scene scene = buildScene();
     funModeScene(scene);  // (Options > Fun mode: core/fun_mode.inc)
     static const std::vector<std::pair<int, uint16_t>> kNoTiles;
-    gRenderer->setTerrainPreview(gState.mouseIn ? ghostTiles : kNoTiles);  // (both lists by reference: no copy each frame)
+    // (both lists by reference: no copy each frame; the mouse over a variation in the side bar: that preview)
+    gRenderer->setTerrainPreview(!gVarPreview.empty() ? gVarPreview : gState.mouseIn ? ghostTiles : kNoTiles);
     gRenderer->drawTo(cmd, gMapTex, uint32_t(w), uint32_t(h), scene);
     {  // (the map's frames of the last second: the debug build's status bar shows them as fps)
         const auto now = std::chrono::steady_clock::now();
@@ -891,22 +892,21 @@ struct MainView final : draw::View {
         pie.hot = pie.sliceAt(at);
         pie.invalidate();
     }
-    // The Variations strip after the mouse or the terrain selection changed: laid out again when it needs another
-    // height (it shows or goes), else drawn again when it shows another tile.
+    // The Variations strip after the terrain selection or its tiles changed: laid out again when it needs another
+    // height (it shows or goes), else drawn again when its tiles changed (an edit, an undo).
     // (varCanShow, varW, varCap: the room that the last layout had for it; varShownH: the height it got)
     bool varCanShow = false;
-    int varShownH = 0, varW = 0, varCap = 0, varLastX = -1, varLastY = -1, varLastT = -1;
+    int varShownH = 0, varW = 0, varCap = 0;
+    uint64_t varKey = 0;
     void variationsSync() {
-        variationsTrack();
         const int want = varCanShow ? std::min(gVariationsView.heightFor(varW), varCap) : 0;
         if (want != varShownH) {
             relayout();
             invalidate();
         }
-        int x = -1, y = -1, t = -1;
-        if (variationsTile(x, y) && gState.ed) t = mapTileAt(*gState.ed, x, y);
-        if (x != varLastX || y != varLastY || t != varLastT) gVariationsView.invalidate();  // (another tile, or its value changed: an undo)
-        varLastX = x, varLastY = y, varLastT = t;
+        if (varShownH == 0 && !gVarPreview.empty()) setVariationPreview({});  // (the strip went: its preview too)
+        const uint64_t key = gState.ed ? variationsKey() : 0;
+        if (key != varKey) varKey = key, gVariationsView.invalidate(), gVariationsView.refresh();  // (the preview of the tiles as they are now)
     }
     // The ring goes away with no change, and gives back the mouse.
     void pieClose() {

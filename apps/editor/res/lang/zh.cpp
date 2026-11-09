@@ -3387,6 +3387,9 @@ constexpr UiText kRows[] = {
     {L"Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce", L"\u6BCF\u6B21\u7F16\u8F91\u90FD\u4F1A\u53D1\u51FA\u77ED\u4FC3\u7684\u58F0\u97F3\uFF0C\u5730\u5F62\u788E\u5757\u98DE\u8D77\uFF0C\u653E\u7F6E\u7684\u5355\u4F4D\u4F1A\u5F39\u8DF3"},
     {L"Turned on Fun mode", L"\u5DF2\u5F00\u542F\u8DA3\u5473\u6A21\u5F0F"},
     {L"Turned off Fun mode", L"\u5DF2\u5173\u95ED\u8DA3\u5473\u6A21\u5F0F"},
+    {L"Tile %d, %d: no variations", L"\u56FE\u5757 %d, %d\uFF1A\u6CA1\u6709\u53D8\u4F53"},
+    {L"Tile %d, %d", L"\u56FE\u5757 %d, %d"},
+    {L"Variations of %d tiles", L"%d \u4E2A\u56FE\u5757\u7684\u53D8\u4F53"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

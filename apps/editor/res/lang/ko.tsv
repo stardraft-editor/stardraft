@@ -3418,3 +3418,6 @@ Sounds and effects when you edit the map	맵을 편집할 때 소리와 효과
 Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	편집할 때마다 짧은 소리가 나고, 지형 조각이 튀어 오르고, 배치한 유닛이 튕깁니다
 Turned on Fun mode	재미 모드를 켰습니다
 Turned off Fun mode	재미 모드를 껐습니다
+Tile %d, %d: no variations	타일 %d, %d: 변형 없음
+Tile %d, %d	타일 %d, %d
+Variations of %d tiles	타일 %d개의 변형

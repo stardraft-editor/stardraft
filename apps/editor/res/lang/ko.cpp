@@ -3417,6 +3417,9 @@ constexpr UiText kRows[] = {
     {L"Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce", L"\uD3B8\uC9D1\uD560 \uB54C\uB9C8\uB2E4 \uC9E7\uC740 \uC18C\uB9AC\uAC00 \uB098\uACE0, \uC9C0\uD615 \uC870\uAC01\uC774 \uD280\uC5B4 \uC624\uB974\uACE0, \uBC30\uCE58\uD55C \uC720\uB2DB\uC774 \uD295\uAE41\uB2C8\uB2E4"},
     {L"Turned on Fun mode", L"\uC7AC\uBBF8 \uBAA8\uB4DC\uB97C \uCF30\uC2B5\uB2C8\uB2E4"},
     {L"Turned off Fun mode", L"\uC7AC\uBBF8 \uBAA8\uB4DC\uB97C \uAED0\uC2B5\uB2C8\uB2E4"},
+    {L"Tile %d, %d: no variations", L"\uD0C0\uC77C %d, %d: \uBCC0\uD615 \uC5C6\uC74C"},
+    {L"Tile %d, %d", L"\uD0C0\uC77C %d, %d"},
+    {L"Variations of %d tiles", L"\uD0C0\uC77C %d\uAC1C\uC758 \uBCC0\uD615"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

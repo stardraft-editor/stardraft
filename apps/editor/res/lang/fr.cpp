@@ -3387,6 +3387,9 @@ constexpr UiText kRows[] = {
     {L"Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce", L"Chaque modification fait un son court, des morceaux du terrain s'envolent et les unit\u00E9s plac\u00E9es rebondissent"},
     {L"Turned on Fun mode", L"Mode amusant activ\u00E9"},
     {L"Turned off Fun mode", L"Mode amusant d\u00E9sactiv\u00E9"},
+    {L"Tile %d, %d: no variations", L"Tuile %d, %d : pas de variantes"},
+    {L"Tile %d, %d", L"Tuile %d, %d"},
+    {L"Variations of %d tiles", L"Variantes de %d tuiles"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

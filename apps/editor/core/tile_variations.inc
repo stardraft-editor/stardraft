@@ -1,9 +1,11 @@
-// A tile's variations (TODO: subtile replacement): the other megatiles of its CV5 group, which the brushes pick from at
+// A tile's variations (subtile replacement): the other megatiles of its CV5 group, which the brushes pick from at
 // random (src/isom.cpp: the common ones before the first empty megatile, the rare ones after it). Terrain mode shows
-// them for the selected tile under the mouse (core/views_variations.inc, in the side bar) and Alt + wheel on a tile
-// steps through them (core/map_input.inc: mapWheel). A variation goes to the tile, to the other half of its ISOM rect
+// them for the selected tiles (core/views_variations.inc, in the side bar) and Alt + wheel on a tile steps through
+// them (core/map_input.inc: mapWheel). A variation goes to the tile, to the other half of its ISOM rect
 // (the next or the one before group, the same subtile), and to the tiles of the stack above and under them (a wall or
 // cliff: StarEdit gives a stack one variation, so a gate keeps its parts), unless only the tile is asked for.
+
+void invalidateMapView();  // (the host's: the map view is drawn again)
 
 struct TileVariations {
     uint16_t group = 0;
@@ -108,24 +110,34 @@ bool stepTileVariation(int x, int y, bool back) {
     return setTileVariation(x, y, v.subs[size_t((k + (back ? n - 1 : 1)) % n)], true);
 }
 
-// The tile that the side bar's strip shows the variations of: the selected tile that the mouse was over last on the map
-// (the mouse can then go to the strip), else the selection's first tile. False: no terrain selection.
-int gVarX = -1, gVarY = -1;
-bool variationsTile(int& x, int& y) {
+// The tiles that the side bar's strip shows the variations of: the selected tiles, in rows (at most kVariationRows;
+// the user selects fewer to see the others).
+constexpr size_t kVariationRows = 64;
+std::vector<std::pair<int, int>> variationsTiles() {
     const AppState& app = appState();
-    if (app.mode != Mode::Terrain || !app.hasTerrainSel || !app.ed || !app.ed->isOpen()) return false;
-    if (gVarX >= 0 && terrainSelHas(gVarX, gVarY)) return x = gVarX, y = gVarY, true;
-    const std::vector<std::pair<int, int>> tiles = terrainSelTiles();
-    if (tiles.empty()) return false;
-    x = tiles.front().first, y = tiles.front().second;
-    return true;
+    if (app.mode != Mode::Terrain || !app.hasTerrainSel || !app.ed || !app.ed->isOpen()) return {};
+    std::vector<std::pair<int, int>> tiles;  // (as terrainSelTiles, up to the rows: a big selection is not gone through each frame)
+    const Rect& r = app.terrainSel;
+    for (int y = std::max(0, r.top / 32); y <= std::min(int(app.ed->height()) - 1, (r.bottom - 1) / 32) && tiles.size() < kVariationRows; ++y)
+        for (int x = std::max(0, r.left / 32); x <= std::min(int(app.ed->width()) - 1, (r.right - 1) / 32) && tiles.size() < kVariationRows; ++x)
+            if (terrainSelHas(x, y)) tiles.push_back({x, y});
+    return tiles;
 }
-// The mouse moved on the map: true when the strip shows another tile now.
-bool variationsTrack() {
+// A number that changes when the strip has to be drawn again: the selected tiles and their values.
+uint64_t variationsKey() {
     const AppState& app = appState();
-    if (app.mode != Mode::Terrain || !app.hasTerrainSel || app.zoom <= 0) return false;
-    const int tx = int(std::floor((app.camX + app.mouseX / app.zoom) / 32)), ty = int(std::floor((app.camY + app.mouseY / app.zoom) / 32));
-    if ((tx == gVarX && ty == gVarY) || !terrainSelHas(tx, ty)) return false;
-    gVarX = tx, gVarY = ty;
-    return true;
+    uint64_t h = 1469598103934665603ull;
+    auto mix = [&](uint64_t v) { h = (h ^ v) * 1099511628211ull; };
+    mix(uint64_t(reinterpret_cast<uintptr_t>(app.ed.get())));  // (another map: its tiles)
+    for (const auto& [x, y] : variationsTiles()) mix(uint64_t(x) << 40 | uint64_t(y) << 20 | mapTileAt(*app.ed, x, y));
+    return h;
+}
+// The map's preview while the mouse is over a variation in the strip (MTXM index, tile value): drawn in place of the
+// tiles (the host's terrain preview), with no change to the map.
+std::vector<std::pair<int, uint16_t>> gVarPreview;
+void setVariationPreview(const std::vector<Editor::TileAt>& cells) {
+    std::vector<std::pair<int, uint16_t>> now;
+    if (const AppState& app = appState(); app.ed)
+        for (const Editor::TileAt& c : cells) now.push_back({c.y * int(app.ed->width()) + c.x, c.value});
+    if (now != gVarPreview) gVarPreview = std::move(now), invalidateMapView();
 }
