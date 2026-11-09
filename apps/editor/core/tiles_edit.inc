@@ -141,7 +141,7 @@ bool tilesStampOn() { return !gTiles->solid && (gTiles->stamp.size() > 1 || (!gT
 void tilesToBrush() {
     AppState& app = appState();
     app.terrainPasting = false;
-    if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || currentTool(app) == TWand || currentTool(app) == TLasso)) {
+    if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || currentTool(app) == TWand || currentTool(app) == TLasso || currentTool(app) == TErase)) {
         app.toolByMode[int(Mode::Terrain)] = TBrush;
         fillToolCombo(app);
     }
@@ -238,7 +238,7 @@ void tilesStampTurned(int turn, bool upDown) {
 void tilesPick(int value, bool fromMap) {
     gTiles->picked = value, gTiles->stampCopied = false;
     gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0, gTiles->stampName.clear();
-    if (!fromMap && value >= 0) tilesToBrush();
+    if ((!fromMap || currentTool(appState()) == TErase) && value >= 0) tilesToBrush();  // (Erase: a Ctrl+click's tile too)
     gTiles->anchor = value;
     gTiles->chosen.clear();
     if (value >= 0) gTiles->chosen.push_back(uint16_t(value));

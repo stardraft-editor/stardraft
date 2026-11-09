@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "dropdown.h"
+#include "scroll_view.h"
 #include "kit_check.h"
 
 using namespace stardraft;
@@ -171,8 +172,13 @@ KIT_TEST(dropdown_wheel_steps_the_closed_field) {
 KIT_TEST(dropdown_wheel_steps_after_a_rest_with_small_moves) {
     draw::View root;
     FakeHost host(root);
+    kit::ScrollView page;  // (in a page that scrolls: the rest rule)
+    draw::View content;
+    root.add(page, {0, 0, 300, 300});
+    content.setFrame({0, 0, 300, 300});
+    page.setContent(&content);
     kit::Dropdown dd(colours(), 0);
-    root.add(dd, {10, 10, 210, 34});
+    content.add(dd, {10, 10, 210, 34});
     std::this_thread::sleep_for(std::chrono::milliseconds(400));  // (the wheel of the tests before: still a while ago)
     host.move(50, 20);
     host.wheel(50, 20, -1);  // no rest yet: the page gets it (one early notch)
@@ -193,8 +199,13 @@ KIT_TEST(dropdown_wheel_steps_after_a_rest_with_small_moves) {
 KIT_TEST(dropdown_wheel_skips_after_a_scroll_over_it) {
     draw::View root;
     FakeHost host(root);
+    kit::ScrollView page;  // (in a page that scrolls: the rest rule)
+    draw::View content;
+    root.add(page, {0, 0, 300, 300});
+    content.setFrame({0, 0, 300, 300});
+    page.setContent(&content);
     kit::Dropdown dd(colours(), 0);
-    root.add(dd, {10, 10, 210, 34});
+    content.add(dd, {10, 10, 210, 34});
     std::this_thread::sleep_for(std::chrono::milliseconds(400));
     host.move(50, 20);
     host.wheel(50, 20, -1), host.wheel(50, 20, -1), host.wheel(50, 20, -1);  // a scroll goes on
@@ -212,11 +223,28 @@ KIT_TEST(dropdown_wheel_skips_after_a_scroll_over_it) {
 KIT_TEST(dropdown_wheel_skips_a_field_not_moved_onto) {
     draw::View root;
     FakeHost host(root);
+    kit::ScrollView page;  // (in a page that scrolls: the rest rule)
+    draw::View content;
+    root.add(page, {0, 0, 300, 300});
+    content.setFrame({0, 0, 300, 300});
+    page.setContent(&content);
     kit::Dropdown dd(colours(), 0);
-    root.add(dd, {10, 10, 210, 34});
+    content.add(dd, {10, 10, 210, 34});
     std::this_thread::sleep_for(std::chrono::milliseconds(400));
     host.wheel(50, 20, -1);
     CHECK(dd.value() == 0);
+    host.runTimers();
+}
+
+// Outside a page that scrolls (a side bar, a tool bar, a dialog): the wheel steps a field without the focus at once.
+KIT_TEST(dropdown_wheel_steps_at_once_outside_a_page) {
+    draw::View root;
+    FakeHost host(root);
+    kit::Dropdown dd(colours(), 0);
+    root.add(dd, {10, 10, 210, 34});
+    host.move(50, 20);
+    host.wheel(50, 20, -1);
+    CHECK(dd.value() == 1);
     host.runTimers();
 }
 

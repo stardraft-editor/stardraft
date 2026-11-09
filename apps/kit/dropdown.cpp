@@ -536,10 +536,13 @@ bool Dropdown::mouse(const MouseEvent& e) {
         return true;
     case MouseKind::DoubleClick: return enabled_;  // the press has opened (or closed) the list already
     case MouseKind::Wheel: {
-        // A field without the focus steps only after a rest (draw::WheelRest); else the wheel scrolls the page under it,
-        // so that a scroll past a field changes nothing.
+        // In a page that scrolls (a view over it that scrollsContent), a field without the focus steps only after a rest
+        // (draw::WheelRest); else the wheel scrolls the page under it, so that a scroll past a field changes nothing.
+        // In a place that does not scroll (a side bar, a tool bar, a dialog), the wheel steps it at once.
         if (!enabled_ || listOpen_ || items_.empty() || !wheelSteps) return false;
-        if (!hasFocus() && !wheelRest_.allows(e)) return wheelAcc_ = 0, false;
+        bool inPage = false;
+        for (const View* v = parent(); v && !inPage; v = v->parent()) inPage = v->scrollsContent();
+        if (inPage && !hasFocus() && !wheelRest_.allows(e)) return wheelAcc_ = 0, false;
         wheelAcc_ += e.wheel;
         while (wheelAcc_ >= 1) wheelAcc_ -= 1, step(-1);
         while (wheelAcc_ <= -1) wheelAcc_ += 1, step(1);

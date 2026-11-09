@@ -208,6 +208,7 @@ private:
 
 class OptionsView final : public draw::View {
 public:
+    bool scrollsContent() const override { return true; }  // (its rows scroll: a dropdown in them waits for a rest)
     explicit OptionsView(OptionsHost& host) : host_(host) {
         lightSeg_[0].setText(L"Dark"), lightSeg_[0].setTip(L"Dark theme (default)");
         lightSeg_[1].setText(L"Light"), lightSeg_[1].setTip(L"Light theme");

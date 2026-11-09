@@ -56,6 +56,7 @@ public:
     void paint(draw::Canvas&) override;
     void paintOver(draw::Canvas&) override;
     void resized() override { refresh(); }
+    bool scrollsContent() const override { return true; }
     bool mouse(const draw::MouseEvent& e) override;
     bool key(const draw::KeyEvent& e) override;
     // Tab stops on the view only when nothing inside it takes the focus, so keys can scroll it.

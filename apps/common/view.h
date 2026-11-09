@@ -220,6 +220,9 @@ public:
     virtual bool sizeGrip(Point) { return false; }
     // true: the host shows tip() as a tooltip while the mouse is over the view (the text is asked for where it is).
     virtual bool hoverTip() const { return false; }
+    // A page that scrolls its content with the wheel (a scroll view): a field in it (a dropdown) does not take the wheel
+    // of a scroll that goes past it (kit/dropdown.cpp).
+    virtual bool scrollsContent() const { return false; }
     // Whether Tab stops on it (and a click gives it the focus).
     virtual bool focusable() const { return false; }
     // A view that takes the letters and digits it is given (a text field): while it has the focus, the window's

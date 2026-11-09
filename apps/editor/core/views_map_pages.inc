@@ -168,6 +168,7 @@ private:
 class MapScrollView final : public draw::View {
 public:
     explicit MapScrollView(MapPagesHost& host) : host_(host) {}
+    bool scrollsContent() const override { return true; }
 
     int scrollX() const { return x_; }
     int scrollY() const { return y_; }

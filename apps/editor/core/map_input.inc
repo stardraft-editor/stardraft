@@ -307,7 +307,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     if (modeLayerHidden()) return modeLayerHiddenClick();  // (core/map_edit.inc)
     if (terrainEditBlockedAt(app, wx, wy)) return terrainEditBlockedMessage();  // (Terrain: on the map only)
     if (trigUnitPickClick(wx, wy)) return;
-    if (mapLayersEraseOn(app)) return mapLayersEraseDown(app, wx, wy);
+    if (mapLayersEraseOn(app) && !(mods & draw::kCtrl)) return mapLayersEraseDown(app, wx, wy);  // (Ctrl+click: picks the terrain, below)
     if (app.mode == Mode::Layers) return mapLayersMoveDown(app, wx, wy);
     if (app.pasting) {
         // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted
@@ -422,7 +422,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             app.drag = Drag::TerrainMove;
             break;
         }
-        if (currentTool(app) == TErase) {  // Erase: Dirt with the isometric brush (in Rectangle, Tile and Custom too)
+        if (currentTool(app) == TErase && !(ctrl && !gTiles->stamps)) {  // Erase: Dirt with the isometric brush (in Rectangle, Tile and Custom too; Ctrl+click picks the terrain or tile, below: not in Custom)
             if (!ed.canPaintTerrain()) {
                 setMessage(app, L"Could not erase: the map has no isometric terrain data");
                 break;
@@ -492,8 +492,8 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
                 selectPalette(app, t);
             }
             shellPaletteReveal(t);  // (the list scrolls to it)
-            // Placement: from Select (or a paste), the Brush paints with it; Spray, Fill and Replace keep their tool.
-            if (currentTool(app) == TSelect) app.toolByMode[int(Mode::Terrain)] = TBrush, app.terrainPasting = false;
+            // Placement: from Select (or a paste) and Erase, the Brush paints with it; Spray, Fill and Replace keep their tool.
+            if (currentTool(app) == TSelect || currentTool(app) == TErase) app.toolByMode[int(Mode::Terrain)] = TBrush, app.terrainPasting = false;
             app.palette = t;
             fillToolCombo(app), updateStatus(app);
             setMessage(app, L"Painting " + widen(ed.terrainName(t)) +

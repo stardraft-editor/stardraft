@@ -486,8 +486,8 @@ void pickUnit(AppState& app, int v, bool add) {
             app.palette = v;
         }
         app.terrainPasting = false;
-        // (Select, and the tools that change the terrain there without the pick: Bridge, Ramp, Jumble: the Brush paints it)
-        if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || terrainToolIgnoresPick(currentTool(app)))) {
+        // (Select, Erase, and the tools that change the terrain there without the pick: Bridge, Ramp, Jumble: the Brush paints it)
+        if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || currentTool(app) == TErase || terrainToolIgnoresPick(currentTool(app)))) {
             app.toolByMode[int(Mode::Terrain)] = TBrush;
             fillToolCombo(app);
         }
