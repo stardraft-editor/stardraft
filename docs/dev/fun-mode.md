@@ -57,6 +57,26 @@ length, attack, the number of small hits in them and their energy in bands:
 - Each sound plays at a pitch of its own: 4 semitones down to 4 up, never the same step twice in a row (the whole
   sound faster or slower, so noise changes too). Each kind is set to one peak level (louder for larger edits).
 
+## Recorded sounds
+
+Water, mud, grass, dirt and rock play recorded sounds (from Freesound, picked by the user); the others are made in
+code. Each recording gave 3 short takes (a hit at a time, trimmed, faded), made tiny and bit-like: mono, 11,025 Hz,
+64 levels, 8-bit WAV (0.15 to 0.45 s, 1.7 to 5 KB each, 43 KB for all 14). A play takes one of the takes at random
+(not the last one again). The sounds made in code go through the same crush, so all of them sound alike.
+
+The WAV files are in `apps/editor/res/fun/`; `tools/fun_sounds_gen.py` makes `fun_sounds.inc` from them (the
+program has them in it: no files beside it).
+
+| Sound | Takes | Freesound | Author | License |
+|---|---|---|---|---|
+| splash (water) | `splash1`, `splash2` | 763619 "Rock splash" | KalanaJ | CC0 1.0 |
+| gloop (tar, lava, mud) | `gloop1` to `gloop3` | 207142 "MudSquelch.wav" | ahill86 | CC0 1.0 |
+| brush (grass, jungle, snow, dunes) | `brush1` to `brush3` | 543508 "grass_rustling_uncut.wav" | Clusman | CC0 1.0 |
+| crunch (dirt) | `crunch1` to `crunch3` | 512243 "Rock Smash" | NeoSpica | CC0 1.0 |
+| rock (rock, crags, shale, ice) | `rock1` to `rock3` | 336023 "Rocks.wav" | adamgryu | CC0 1.0 |
+
+CC0 1.0: no rights reserved, no credit needed (given here anyway); they can ship.
+
 ## What works
 
 - Every tool gets it because it is done from the map's changes: brush, spray, fill, shapes, paste, custom terrain,
