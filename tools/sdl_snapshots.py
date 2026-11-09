@@ -5400,12 +5400,13 @@ CHECKS.update({
 SCRIPTS["simmining"] = """command edit.simulate.mining
 simstep 900
 """
-# Zoomed in on the base at the bottom middle (12 wheel notches: about 190%): each mineral field's round trip and minerals.
+# Zoomed in on Bottleneck's active start: each mineral field's numeric cycle label.
 SCRIPTS["simminingzoom"] = """command edit.simulate.mining
 simstep 1800
-wheel 830,700,0,12
+wheel 1198,594,0,12
+wheel 1100,650,50,0:precise:mac
 """
-# The gear's panel (the mining's settings, the boost searches); a cycle search of 6 seconds with 1 worker for each
+# The persistent mining panel; a manual cycle search of 6 seconds with 1 worker for each
 # mineral field, Protoss ({simboostsettings}), then the game from its start with the boosts: zoomed in on the base at
 # the bottom middle, the cycles' numbered arrows. The rush's fog of war ({rushfogsettings}): what all players see. The rush
 # between two points (the gear's Two points of the map; the command edit.simulate.rushpoints: A and B at the start
@@ -5413,18 +5414,70 @@ wheel 830,700,0,12
 # ({rushunitsettings}), the fog of war on (what all players see), at its end; and its report.
 SCRIPTS["simpanel"] = """command edit.simulate.mining
 simstep 300
-click 832,128
+simstate
 """
 # A new game waits for Play: the bar with Play in its ring (Space plays it), the game at 0:00.
 SCRIPTS["simwaits"] = """command edit.simulate.mining
 wait 500
 """
 SCRIPTS["simcycle"] = """command edit.simulate.mining
+click 1539,415
 wait 9000
 simstep 1
-click 832,128
-wheel 830,700,0,12
+wheel 1198,594,0,12
+wheel 1100,650,50,0:precise:mac
 simstep 1800
+simstate
+"""
+SCRIPTS["simworkbench"] = """history
+command edit.simulate.mining
+click 1547,161
+key Ctrl+A
+type 1
+key Enter
+click 1547,263
+key Ctrl+A
+type 2
+key Enter
+click 1547,365
+key Ctrl+A
+type 3
+key Enter
+simstep 6000
+simstate
+click 997,245
+simstate
+click 1397,211
+click 1397,313
+click 1397,415
+click 1100,650
+simstate
+history
+"""
+SCRIPTS["simspawns"] = """history
+command edit.simulate.mining
+simstate
+click 903,280
+simstate
+click 1547,161
+key Ctrl+A
+type 1
+key Enter
+click 1539,211
+simstate
+wait 7000
+simstep 1
+simstate
+click 839,280
+simstate
+click 903,280
+key Space
+simstate
+click 903,280
+key Space
+wait 300
+simstate
+history
 """
 # Map layers (the 0.9.0 release's picture): a new layer with Solar Array painted on it, its linked duplicate (Ctrl+Alt+D)
 # moved down with Move layer, in the Map layers mode ({layersinfosettings}: the one-time note seen).
@@ -5454,6 +5507,7 @@ simstep 3000
 """
 SCRIPTS["simrush"] = """command edit.simulate.rush
 simstep 400
+simstate
 """
 SCRIPTS["simrushend"] = """command edit.simulate.rush
 simstep 20000
@@ -5461,6 +5515,8 @@ simstep 20000
 CASES += [("map-sim-mining", ["--script", "{script:simmining}"], "map"),
           ("map-sim-mining-zoom", ["--script", "{script:simminingzoom}"], "map"),
           ("map-sim-mining-panel", ["--script", "{script:simpanel}"], "map"),
+          ("map-sim-mining-workbench", ["--script", "{script:simworkbench}"], "map"),
+          ("map-sim-mining-spawns", ["--script", "{script:simspawns}"], "map"),
           ("map-sim-waits", ["--script", "{script:simwaits}"], "map"),
           ("map-sim-mining-cycle", ["--settings", "{simboostsettings}", "--script", "{script:simcycle}"], "map"),
           ("map-sim-rush-fog", ["--settings", "{rushfogsettings}", "--script", "{script:simrushfog}"], "map"),
@@ -5486,10 +5542,18 @@ CHECKS.update({
     "map-sim-mining-zoom": check_sim_step(False),
     "map-sim-mining-panel": check_sim_step(False),
     "map-sim-waits": lambda o: None,
-    "map-sim-mining-cycle": lambda o: None if re.search(r"simstep: frame 18\d\d", o) else "the boosted mining did not run",
+    "map-sim-mining-cycle": lambda o: None if re.search(r"simstep: frame 18\d\d", o) and re.search(r"sim-search: kind=2 running=0 finished=1", o) else "the manual cycle search did not finish",
+    "map-sim-mining-spawns": lambda o: None if all(x in o for x in (
+        "selected=1 bases=1 playing=0 notice=0 players=1,", "selected=3 bases=2", "notice=1 players=1,2,",
+        "selected=0 bases=0 playing=0", "selected=2 bases=1 playing=1", "history: 0 done, 0 to redo"))
+        else "spawn defaults, multiple selection, empty selection, playback or shared-budget notice failed",
+    "map-sim-mining-workbench": lambda o: None if all(x in o for x in (
+        "panel=1 frame=6000 limit=0 done=0 metric=0 budgets=1,2,3 guides=111",
+        "panel=1 frame=6000 limit=0 done=0 metric=1 budgets=1,2,3 guides=000",
+        "history: 0 done, 0 to redo")) and re.search(r"sim-values: (?:\d+\.\d+ ?)+", o) else "budgets, guide switches, patch income or continuous mining failed",
     "map-sim-rush-fog": check_sim_step(False),
     "map-sim-rush-points": check_sim_step(True),
-    "map-sim-rush": check_sim_step(False),
+    "map-sim-rush": lambda o: check_sim_step(False)(o) or (None if "sim-timer: 16.80 s at " in o else "the moving workers have no travel-time labels"),
     "map-sim-rush-end": check_sim_step(True),
     "map-simreport-mining": lambda o: None if "simreport: ended" in o else "the mining did not end",
     "map-simreport-mining-fields": lambda o: None if "simreport: ended" in o else "the mining did not end",
@@ -5657,6 +5721,11 @@ def main():
             write_once(path, write_text(path, json.dumps({"Layout/LeftWidth": int(m.group(1))})))
             return path.replace("{", "{{").replace("}", "}}")
         args = [re.sub(r"\{leftwidth:(\d+)\}", leftwidth, re.sub(r"\{script:(\w+)\}", script, x)).format(**paths) for x in args]
+        # The mining controls write preferences. Never let a snapshot change the user's settings.
+        if name.startswith("map-sim") and "--settings" not in args:
+            settings = os.path.join(a.out, name + "-settings.json")
+            write_once(settings, write_text(settings, "{}"))
+            args += ["--settings", settings]
         if needs == "map" and not given:
             cmd.append(a.map)
         elif needs == "project" and not given:

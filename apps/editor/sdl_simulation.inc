@@ -23,6 +23,10 @@
 
 void sfxPlayOnce(int sfx);  // (sdl_data.inc)
 void simulateCombatOf(std::set<int> selected);  // (below: a fight of these units)
+void simMiningControlsFrame();
+void simHideMiningControls();
+draw::View* simMiningOverlayView();
+void simInvalidateMiningControls();
 bool sdlSfxLoad(int sfx, SDL_AudioSpec& spec, std::vector<Uint8>& pcm);
 float mapTextScale();  // (core/map_scene.inc)
 
@@ -237,6 +241,21 @@ int simRushMarkerAt(int x, int y) {
 }
 std::wstring simUnitName(int type);  // (below: the unit's name in the map)
 
+// Antialiased, fixed-screen-size values on the map, separate from the game's bitmap font.
+void simPaintMapValue(draw::Canvas& c, draw::Rect view, float x, float y, const std::wstring& text, draw::Color color, bool patch=false) {
+    const auto old=c.setFont(c.font({draw::Face::Ui,scale(12)}));
+    const int h=c.metrics().height,pad=scale(3),w=c.measure(text);
+    if(patch&&32*gState.zoom<h+scale(2)){c.setFont(old);return;}
+    const int sx=view.left+int(std::lround((x-gState.camX)*gState.zoom));
+    const int sy=view.top+int(std::lround((y-gState.camY)*gState.zoom));
+    draw::Rect box{sx-w/2-pad,sy-h/2-scale(1),sx+(w+1)/2+pad,sy+(h+1)/2+scale(1)};
+    if(box.right>view.left&&box.left<view.right&&box.bottom>view.top&&box.top<view.bottom) {
+        c.roundBox(box,draw::rgb(16,23,27),draw::rgb(66,80,83),float(scale(3)));
+        c.text(box,text,color,draw::kCenter|draw::kMiddle);
+    }
+    c.setFont(old);
+}
+
 // Rush distance: each worker's way so far (a place each 8 pixels), a line in its player's color (a copy, kept while a
 // skip runs).
 std::vector<sim::RushRoute> gSimRoutes;
@@ -277,6 +296,11 @@ void simPaintRush(draw::Canvas& c, draw::Rect view) {
             for (size_t k = 1; k < pts.size(); ++k)
                 if (shown(pts[k - 1], pts[k])) c.smoothLine(pts[k - 1], pts[k], pass ? line : draw::rgb(16, 16, 20), (pass ? 2.0f : 4.0f) * u, pass ? 255 : 110);
     }
+    for(const auto& route:gSimRoutes) {
+        if(route.finished || (route.from>=0 && !simFogShows(route.from)))continue;
+        char value[40];std::snprintf(value,sizeof value,"%.2f s",route.frames*.042);
+        simPaintMapValue(c,view,float(route.currentX)+18/zoom,float(route.currentY)-18/zoom,widen(value),draw::rgb(234,247,255));
+    }
     if (!gRushPoints.on || gRushPoints.ed != gState.ed.get()) return;
     auto pin = [&](std::pair<int, int> point, draw::Color fill, bool held) {
         const P tip = at(point);
@@ -294,46 +318,25 @@ void simPaintRush(draw::Canvas& c, draw::Rect view) {
     pin(gRushPoints.to, draw::rgb(255, 69, 58), gRushDrag == 2);
 }
 
-// Mining: at each base's mineral fields, two lines over the field: its mean round trip in frames (after the warm-up;
-// none before its first trip) and its minerals left (the map's amount less those mined). Zoomed out (the two lines
-// do not fit on a field): one label under each base's depot, its fields' mean round trip and their minerals left. A
-// copy, kept while a skip runs. The map font, as the map's other labels (core/path_overlay.inc).
+struct SimMapLabel {float x,y;std::string text;uint32_t color;bool patch=false;};
+std::vector<SimMapLabel> gSimMapLabels;
+int gSimGhostCount=0;
+// One number per field: cycle frames, or measured minerals per 60 game seconds.
 std::vector<sim::MiningBase> gSimFields;
 void simFieldLabels(render::Scene& s) {
+    (void)s;
     if (!simSkipRunning()) gSimFields = simEngine().miningResult();
-    const float unit = mapTextScale(), px = unit / std::max(0.05f, gState.zoom);  // a font unit in map pixels
-    // (a field is 64 x 32 map pixels; the widest line, "1500 minerals", is about 60 font units)
-    const bool perField = 60 * px <= 62 && 24 * px <= 32;
-    auto lines = [&](float cx, float top, const char* first, const char* second) {
-        int line = 0;
-        for (const char* t : {first, second}) {
-            if (!*t) continue;
-            const float w = float(render::textWidth(t)) * px, y = top + float(line) * 12 * px;
-            s.texts.push_back({cx - w / 2, y, t, t == first ? 0xFFFFFFFFu : 0xD8E4F0FFu, true, unit});
-            ++line;
-        }
-    };
+    int metric=0;prefs::number(L"SimPatchMetric",metric,0,1);
     std::set<std::pair<int, int>> labeled;  // the fields with a label
     for (const sim::MiningBase& b : gSimFields) {
         if (b.runs.empty() || !b.runs[0].placed) continue;
         const sim::MiningRun& r = b.runs[0];
-        char cycle[48] = "", left[48] = "";
-        if (!perField) {
-            double sum = 0;
-            int timed = 0, minerals = 0;
-            for (double t : r.tripFrames) sum += t, timed += t > 0 ? 1 : 0;
-            for (int n : r.fieldMinerals) minerals += n;
-            if (timed) std::snprintf(cycle, sizeof cycle, "%.0f frames a trip", sum / timed);
-            if (!r.fieldMinerals.empty()) std::snprintf(left, sizeof left, "%d minerals", minerals);
-            lines(float(b.x), float(b.y) + 56, cycle, left);
-            continue;
-        }
         for (size_t f = 0; f < b.fields.size(); ++f) {
             if (!labeled.insert(b.fields[f]).second) continue;  // (a field near two depots: the first base's label)
-            cycle[0] = left[0] = 0;
-            if (f < r.tripFrames.size() && r.tripFrames[f] > 0) std::snprintf(cycle, sizeof cycle, "%.0f frames", r.tripFrames[f]);
-            if (f < r.fieldMinerals.size()) std::snprintf(left, sizeof left, "%d minerals", r.fieldMinerals[f]);
-            lines(float(b.fields[f].first), float(b.fields[f].second) - 12 * px, cycle, left);
+            char value[48];
+            if(metric==0){if(f>=r.fieldCycleFrames.size()||r.fieldCycleFrames[f]<=0)continue;std::snprintf(value,sizeof value,"%d",r.fieldCycleFrames[f]);}
+            else {if(f>=r.fieldIncome.size())continue;std::snprintf(value,sizeof value,"%.1f",r.fieldIncome[f]);}
+            gSimMapLabels.push_back({float(b.fields[f].first),float(b.fields[f].second),value,0xFFF2B8FFu,true});
         }
     }
 }
@@ -360,6 +363,14 @@ void simGuides(render::Scene& s) {
         return colors[unsigned(worker) % 6];
     };
     for (const sim::MiningGuide& g : gSimGuides) {
+        static const wchar_t* showKeys[]={L"SimShowPosition",L"SimShowCargo",L"SimShowCycle"};
+        if(g.kind<0||g.kind>2)continue;
+        bool show=true;prefs::flag(showKeys[g.kind],show);if(!show)continue;
+        if(g.type>=0&&g.type<int(gState.ed->unitTypes().size())) {
+            auto ghost=makeUnit(gState.ed->unitTypes()[size_t(g.type)],uint8_t(std::clamp(g.owner,0,11)),uint16_t(g.x),uint16_t(g.y));
+            addUnitSprites(s,ghost,0,0,.4f);
+            ++gSimGhostCount;
+        }
         const float x = float(g.x), y = float(g.y);
         const uint32_t color = colorOf(g.worker);
         if (g.kind == 0) {
@@ -399,7 +410,7 @@ void simGuides(render::Scene& s) {
                 line(tx, ty, tx - ux * 7 * k - uy * 4 * k, ty - uy * 7 * k + ux * 4 * k, color);
                 line(tx, ty, tx - ux * 7 * k + uy * 4 * k, ty - uy * 7 * k - ux * 4 * k, color);
             }
-            s.texts.push_back({x, y - 14 * k, std::to_string(g.stage), color, true, mapTextScale()});
+            gSimMapLabels.push_back({x,y-14*k,std::to_string(g.stage),color,false});
         }
     }
 }
@@ -458,6 +469,7 @@ std::vector<int> simFogPlayers() {
 
 // The live game's images in place of the map's units and sprites (core/map_scene.inc: gLiveScene).
 void simScene(render::Scene& s) {
+    gSimMapLabels.clear();gSimGhostCount=0;
     if (!gState.ed) return;
     UnitSprites& sp = gState.ed->unitSprites();
     const std::vector<sim::LiveImage>& images = simImages();
@@ -519,6 +531,7 @@ bool simMinimap(std::vector<MinimapDot>& dots) {
 }
 
 void simRedraw() {
+    simInvalidateMiningControls();
     gState.dirty = true;
     if (gRoot) gRoot->map.invalidate(), gRoot->minimap.invalidate();
     invalidateMapView();
@@ -670,7 +683,9 @@ SimReportView gSimReport;
 std::wstring gSimTitle, gSimLine;  // the report's title and the line under it
 SimDoc gSimDoc;
 
+void simMakeReport();
 void simShowReport() {
+    if(gSim.shown&&!gSim.done&&!simSkipRunning())simMakeReport();
     gSimReport.set(gSimTitle, gSimLine, gSimDoc);
     if (gSimReport.open || !gRoot || !gHost) return;
     changelog::setHtmlHooks(!gSilent);  // (the HTML view's measuring canvas)
@@ -716,9 +731,8 @@ std::wstring simAfter(const std::wstring& result, const std::wstring& secs) {
 }
 
 // The end: the result in the bar, the report for Report.
-void simEnd() {
+void simMakeReport() {
     sim::Simulator& e = simEngine();
-    gSim.done = true;
     gSimDoc = SimDoc{};
     if (!e.liveError().empty()) {
         const std::wstring err = widen(e.liveError());
@@ -968,18 +982,9 @@ void simEnd() {
         gSim.endText = gSim.result = txt;
         std::swprintf(txt, 1024, tr(L"Mining: %ls minerals a minute"), simNum(minerals).c_str());
         gSimTitle = txt;
-        int minutes = 3;
-        prefs::number(L"SimMinutes", minutes, 1, 60);
-        if (gSim.perField && gSim.workers == 1)
-            std::swprintf(txt, 1024, tr(minutes == 1 ? L"1 worker for each mineral field at each base, %d game minute at Fastest"
-                                                     : L"1 worker for each mineral field at each base, %d game minutes at Fastest"), minutes);
-        else if (gSim.perField)
-            std::swprintf(txt, 1024, tr(minutes == 1 ? L"%d workers for each mineral field at each base, %d game minute at Fastest"
-                                                     : L"%d workers for each mineral field at each base, %d game minutes at Fastest"), int(gSim.workers), minutes);
-        else if (minutes == 1)
-            std::swprintf(txt, 1024, tr(L"%d workers on minerals at each base, %d game minute at Fastest"), int(gSim.workers), minutes);
-        else
-            std::swprintf(txt, 1024, tr(L"%d workers on minerals at each base, %d game minutes at Fastest"), int(gSim.workers), minutes);
+        const double minutes=std::max(0,simEngine().frame()-720)*.042/60;
+        std::swprintf(txt,1024,tr(L"%d workers %ls; %.2f measured game minutes at Fastest"),gSim.workers,
+            gSim.perField?tr(L"for each mineral field"):tr(L"at each base"),minutes);
         gSimLine = txt;
         d.table({tr(L"Base"), tr(L"Race"), tr(L"Tile"), tr(L"Fields"), tr(L"Workers"), tr(L"Minerals a minute")}, rows, 3);
         if (unplaced) d.para(tr(L"No room: the base has no room for its depot and workers."), true);
@@ -1002,6 +1007,8 @@ void simEnd() {
     simRedraw();
 }
 
+void simEnd() {gSim.done=true;simMakeReport();}
+
 // While a game shows, the rest of the program is held: the map only shows the game (its view still moves), and the
 // panels around it (the side bars, the tool bar, the tabs, the minimap, the floating palettes and the palette panels)
 // are dimmed under a shield that takes their mouse. The menus stay. The shields are the last children (on top) of the
@@ -1017,7 +1024,8 @@ void simShield(draw::View& v, std::vector<draw::Rect> rects) {
     while (list.size() < rects.size()) list.push_back(std::make_unique<SimShield>());
     rects.resize(list.size(), draw::Rect(0, 0, 0, 0));  // (shields that are not needed now: no size)
     const auto& kids = v.children();
-    const bool onTop = kids.size() >= list.size() && std::equal(list.begin(), list.end(), kids.end() - std::ptrdiff_t(list.size()),
+    const size_t end=kids.size()-size_t(!kids.empty()&&kids.back()==simMiningOverlayView());
+    const bool onTop = end >= list.size() && std::equal(list.begin(), list.end(), kids.begin()+std::ptrdiff_t(end-list.size()),
                                                                  [](const std::unique_ptr<SimShield>& a, draw::View* b) { return a.get() == b; });
     for (size_t k = 0; k < list.size(); ++k) {
         if (!onTop) v.add(*list[k], rects[k]);  // (again: after a view that was added since, or a new view at a freed address)
@@ -1061,7 +1069,7 @@ void simStopSounds();
 // The mining's settings panel (the bar's gear; below: simPaintPanel): open, its part under the mouse and pressed.
 struct SimPanel {
     bool open = false;
-    int hot = 0, down = 0;
+    int hot = 0, down = 0, base = -1; // -1: follow the base nearest the map view's centre
 } gSimPanel;
 void simClose() {
     simSkipJoin();
@@ -1070,6 +1078,7 @@ void simClose() {
     gLiveScene = nullptr, gLiveMinimap = nullptr, gLiveCreep = nullptr;
     gSimCreep.clear(), gSimCreepChanges = ~0ull;
     gSimRoutes.clear(), gSimFields.clear(), gSimGuides.clear();
+    gSimMapLabels.clear();simHideMiningControls();
     gSim = LiveSim{};
     gSimPanel = SimPanel{};
     gRushDrag = 0;
@@ -1307,7 +1316,7 @@ SimBarLayout simLayout(draw::Rect r) {
         l.chip = {x + pad, y + pad, x + pad + ib, y + pad + ib};  // the info icon
     }
     l.text = {menuGear ? x + pad + scale(10) : l.chip.right + scale(6), y, firstButton.left - scale(8), y + h};
-    if (gSim.combat || gSim.rush) return l;  // (no timeline: a combat goes on until no side can fight, a rush until all arrive)
+    if (!gSim.shown || !gSim_ || gSim.combat || gSim.rush || simEngine().lastFrame()==0) return l;  // inactive layouts and unlimited runs have no timeline
     const int inset = h / 2;
     l.track = {x + inset, l.bar.bottom - scale(4), l.bar.right - inset, l.bar.bottom - scale(2)};
     l.trackHit = {l.track.left - scale(6), l.bar.bottom - scale(9), l.track.right + scale(6), l.bar.bottom + scale(3)};
@@ -1360,6 +1369,7 @@ void simRunAhead(int target) {
     simRedraw();
 }
 void simSkipToEnd() {
+    if(!gSim.combat&&!gSim.rush&&simEngine().lastFrame()==0)return;
     gSim.playing = true;
     if (gSim.skipping && !gSim.toEnd) simSkipJoin(), gSim.skipping = false;  // (a seek runs: on from where it is)
     simRunAhead(INT_MAX);
@@ -1388,286 +1398,12 @@ void simRushDragLost() {
 // The races of Program options > Simulate mining (SimRaces), as the bar's gear lists them.
 const wchar_t* const kSimRaceNames[4] = {L"As defined in map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
 
-// The mining's settings (the bar's gear): a panel under the bar. The workers on minerals at each base: for each mineral
-// field or in all (a choice of two), and their number (a step box); the races (a list); the measured game time (a step
-// box); the three boost searches (position, cargo, cycle: the pull request's Mining Lab searches, each base at the same
-// time) as check boxes, each with its state and Search (Continue); and a link to Program options >
-// Simulation, which has the same settings. A change of the workers or the races starts the mining again (its boosts
-// are searched again: they were for those workers); the game time keeps them.
-// The panel's parts (gSimPanel.hot, .down): 1 and 2 the workers' - and +, 13 and 14 for each field and in all, 3 the
-// races, 4 and 5 the game time's - and +, 8 to 10 the position, cargo and cycle check boxes, 11 the link, 12 the rest
-// of the panel, 21 to 23 the boosts' Search (Continue).
-void simulateMiningCommand();
-void simMiningNewTime();
-// The panel: three rows (the workers, the races, the game time), then a row for each boost search: its check box and
-// name, its state and Search (Continue once it has searched; its search time is Program options > Simulation's), then
-// the link.
-struct SimPanelLayout {
-    draw::Rect box, value[3], kind[2], check[3], state[3], button[3], link;
-    int rowY[3] = {}, headY = 0;
-};
-SimPanelLayout simPanelLayout(const SimBarLayout& l, draw::Rect r) {
-    SimPanelLayout p;
-    const int w = std::min(int(r.right - r.left) - scale(16), scale(500)), pad = scale(12), rowH = scale(34), boxH = scale(26);
-    const int right = std::min(int(r.right) - scale(8), int(l.gear.right) + scale(60)), left = std::max(int(r.left) + scale(8), right - w);
-    int y = l.bar.bottom + scale(6) + pad / 2;
-    const int valueW = scale(260), stepW = scale(120);
-    for (int k = 0; k < 3; ++k) {
-        p.rowY[k] = y;
-        const int top = y + (rowH - boxH) / 2;
-        p.value[k] = {left + w - pad - (k == 0 ? stepW : valueW), top, left + w - pad, top + boxH};
-        y += rowH;
-    }
-    // (the workers' row: the two kinds, then the number)
-    const int kx = left + w - pad - valueW, kw = (valueW - stepW - scale(8)) / 2;
-    p.kind[0] = {kx, p.value[0].top, kx + kw, p.value[0].bottom};
-    p.kind[1] = {kx + kw, p.value[0].top, kx + 2 * kw, p.value[0].bottom};
-    y += scale(6);
-    p.headY = y;
-    y += scale(24);
-    const int buttonW = scale(84);
-    for (int k = 0; k < 3; ++k, y += rowH) {
-        const int top = y + (rowH - boxH) / 2;
-        p.check[k] = {left + pad, y, left + pad + scale(110), y + rowH};
-        p.button[k] = {left + w - pad - buttonW, top, left + w - pad, top + boxH};
-        p.state[k] = {p.check[k].right + scale(4), y, p.button[k].left - scale(8), y + rowH};
-    }
-    y += scale(6);
-    p.link = {left + pad, y, left + w - pad, y + scale(24)};
-    y += scale(24) + pad / 2;
-    p.box = {left, l.bar.bottom + scale(6), left + w, y};
-    return p;
-}
-int simPanelPart(const SimPanelLayout& p, draw::Point pt) {
-    auto in = [&](draw::Rect b) { return pt.x >= b.left && pt.x < b.right && pt.y >= b.top && pt.y < b.bottom; };
-    if (!in(p.box)) return 0;
-    for (int k : {0, 2}) {
-        const int first = k == 0 ? 1 : 4;
-        if (in(optionsview::stepBoxMinus(p.value[k]))) return first;
-        if (in(optionsview::stepBoxPlus(p.value[k]))) return first + 1;
-    }
-    for (int k = 0; k < 3; ++k)  // (each boost search's Search: 21 to 23)
-        if (in(p.button[k])) return 21 + k;
-    if (in(p.kind[0])) return 13;
-    if (in(p.kind[1])) return 14;
-    if (in(p.value[1])) return 3;
-    for (int k = 0; k < 3; ++k)
-        if (in(p.check[k])) return 8 + k;
-    const int lw = std::min(int(p.link.right - p.link.left), scale(160));
-    if (in({p.link.left, p.link.top, p.link.left + lw, p.link.bottom})) return 11;
-    return 12;
-}
-// The settings as the panel shows them (optionsview has their ranges and default values).
-struct SimSettings {
-    int kind = 1, perField = 1, total = 9;  // the workers: 0 for each mineral field (perField), 1 in all (total)
-    int minutes = 3, races = 0;
-    int search[3] = {};  // each boost search's search time in seconds (optionsview::simBoostSeconds)
-    bool boost[3] = {};  // the boost searches that are on (position, cargo, cycle)
-    int workers() const { return kind == 0 ? perField : total; }
-};
-const wchar_t* const kSimBoostKeys[3] = {L"SimBoostPosition", L"SimBoostCargo", L"SimBoostCycle"};
-SimSettings simSettings() {
-    SimSettings s;
-    prefs::number(L"SimWorkerKind", s.kind, 0, 1), prefs::number(L"SimWorkersPerField", s.perField, 1, optionsview::kSimPerFieldMax);
-    prefs::number(L"SimWorkers", s.total, 1, optionsview::kSimWorkersMax), prefs::number(L"SimMinutes", s.minutes, 1, optionsview::kSimMinutesMax);
-    prefs::number(L"SimRaces", s.races, 0, 3);
-    for (int k = 0; k < 3; ++k) s.search[k] = optionsview::simBoostSeconds(k);
-    for (int k = 0; k < 3; ++k) prefs::flag(kSimBoostKeys[k], s.boost[k]);
-    return s;
-}
-const wchar_t* const kSimBoostNames[3] = {L"Position", L"Cargo", L"Cycle"};
-// A boost search's state beside its check box: searching, how many workers it made faster, or nothing yet.
-std::wstring simBoostState(int kind) {
-    const sim::BoostStatus st = simEngine().boostStatus(kind);
-    wchar_t t[128];
-    if (st.running) return tr(L"Looking for boosts\x2026");
-    if (!st.finished) return {};
-    if (st.failed && st.found == 0) return tr(L"Could not search");  // (some bases found boosts: those show)
-    if (st.found == 0) return tr(L"None found");
-    if (st.found == 1) return tr(L"1 worker faster");
-    std::swprintf(t, 128, tr(L"%d workers faster"), st.found);
-    return t;
-}
-void simPaintPanel(draw::Canvas& c, const SimBarLayout& l, draw::Rect r) {
-    const SimPanelLayout p = simPanelLayout(l, r);
-    const SimSettings s = simSettings();
-    const bool busy = simSkipRunning() || simEngine().boosting();
-    c.roundBox(p.box, kPanel, kBorder, float(scale(8)));
-    const int pad = scale(12);
-    const wchar_t* const names[3] = {L"Workers on minerals", L"Races", L"Measured game time"};
-    for (int k = 0; k < 3; ++k)
-        c.text({p.box.left + pad, p.rowY[k], (k == 0 ? p.kind[0].left : p.value[k].left) - scale(8), p.rowY[k] + scale(34)}, names[k], kText,
-               draw::kMiddle | draw::kEllipsis);
-    auto step = [&](int k, int first, const std::wstring& text, bool atMin, bool atMax) {
-        const int hot = gSimPanel.hot == first ? 1 : gSimPanel.hot == first + 1 ? 2 : 0;
-        const int down = gSimPanel.down == first ? 1 : gSimPanel.down == first + 1 ? 2 : 0;
-        optionsview::paintStepBox(c, p.value[k], text, hot, down, atMin, atMax);
-    };
-    // The workers' two kinds: the one that is on in the accent (a segmented choice).
-    for (int k = 0; k < 2; ++k) {
-        const bool on = s.kind == k, over = gSimPanel.hot == 13 + k;
-        c.roundBox(p.kind[k], on ? kAccentFill : over ? kCtlHot : kCtl, on ? kAccent : kBorder, float(scale(stardraft::kit::kRadius)));
-        c.text(p.kind[k], k == 0 ? tr(L"Each field") : tr(L"In all"), on ? kText : kDim, draw::kCenter | draw::kMiddle | draw::kEllipsis);
-    }
-    const int lo = 1, hi = s.kind == 0 ? optionsview::kSimPerFieldMax : optionsview::kSimWorkersMax;
-    step(0, 1, std::to_wstring(s.workers()), s.workers() <= lo, s.workers() >= hi);
-    kitpaint::drawPickFace(c, p.value[1], s.races == 0 ? std::wstring(tr(L"As defined in map")) : std::wstring(kSimRaceNames[s.races]), false, gSimPanel.hot == 3);
-    step(2, 4, optionsview::simMinutesText(s.minutes), s.minutes <= 1, s.minutes >= optionsview::kSimMinutesMax);
-    // (each search that is on runs before the game starts, for up to the boost search time)
-    c.text({p.box.left + pad, p.headY, p.box.right - pad, p.headY + scale(24)}, L"Boost searches: they run before the game starts", kDim,
-           draw::kMiddle | draw::kEllipsis);
-    for (int k = 0; k < 3; ++k) {
-        const draw::Rect b = p.check[k];
-        const int cs = scale(16), cy = (b.top + b.bottom - cs) / 2;
-        kitpaint::drawCheckMark(c, {b.left, cy, b.left + cs, cy + cs}, s.boost[k], gSimPanel.hot == 8 + k && !busy, !busy);
-        c.text({b.left + cs + scale(8), b.top, b.right, b.bottom}, kSimBoostNames[k], busy ? kDim : kText, draw::kMiddle | draw::kEllipsis);
-        c.text(p.state[k], simBoostState(k), kDim, draw::kMiddle | draw::kEllipsis);
-        // Search (Continue: it searches on from where it stopped, for its search time again).
-        const bool can = !busy && !simEngine().boostStatus(k).exhausted, over = can && gSimPanel.hot == 21 + k, pressed = over && gSimPanel.down == 21 + k;
-        c.roundBox(p.button[k], pressed ? kCtlDown : over ? kCtlHot : kCtl, kBorder, float(scale(stardraft::kit::kRadius)));
-        c.text(p.button[k], simEngine().boostStatus(k).finished ? tr(L"Continue") : tr(L"Search"), can ? kText : kDim,
-               draw::kCenter | draw::kMiddle | draw::kEllipsis);
-    }
-    c.text(p.link, L"Simulation options", gSimPanel.hot == 11 ? kAccentBright : kAccent, draw::kMiddle | draw::kEllipsis);
-}
-// The boost searches that are on, one after another (position, cargo, cycle: each later one is found with the earlier
-// ones), and the ones turned off taken out. Each window frame of the mining (simFrame) and when it starts.
-void simBoostSync() {
-    if (!gSim.shown || gSim.combat || gSim.rush || simSkipRunning() || modTab()) return;  // (a Cosmonarchy map: no boosts)
-    sim::Simulator& e = simEngine();
-    const SimSettings s = simSettings();
-    for (int k = 0; k < 3; ++k) {
-        const sim::BoostStatus st = e.boostStatus(k);
-        if (!s.boost[k] && (st.running || st.finished)) e.clearBoost(k), simRedraw();
-    }
-    if (e.boosting()) return;
-    for (int k = 0; k < 3; ++k) {
-        if (!s.boost[k] || e.boostStatus(k).finished || (gSim.boostFailed & (1 << k))) continue;
-        std::string err;
-        if (!e.startBoost(k, double(s.search[k]), err)) {  // (it cannot search: once for this game, and why)
-            gSim.boostFailed |= 1 << k;
-            if (gRoot) shellPost([err] { msgbox::ask(*gRoot, tr(L"Simulation"), widen(err), {tr(L"OK")}, msgbox::Icon::Info); });
-            continue;
-        }
-        gSim.done = false, gSim.due = 0;
-        simRedraw();
-        return;
-    }
-}
-// A boost row's Search (or Continue): the boost is on, and its search starts now for its own search time; a search that
-// finished goes on from where it stopped (the engine keeps what it found).
-void simBoostSearchNow(int k) {
-    if (!gSim.shown || gSim.combat || gSim.rush || simSkipRunning() || modTab()) return;
-    sim::Simulator& e = simEngine();
-    if (e.boosting() || e.boostStatus(k).exhausted) return;  // (nothing more to search: Continue would only start the game again)
-    prefs::setNumber(kSimBoostKeys[k], 1);
-    gSim.boostFailed &= ~(1 << k);
-    std::string err;
-    if (!e.startBoost(k, double(optionsview::simBoostSeconds(k)), err)) {
-        gSim.boostFailed |= 1 << k;
-        if (gRoot) shellPost([err] { msgbox::ask(*gRoot, tr(L"Simulation"), widen(err), {tr(L"OK")}, msgbox::Icon::Info); });
-        return;
-    }
-    gSim.done = false, gSim.due = 0;
-    simRedraw();
-}
-// The races' list (the panel's Races): a pick saves it and starts the mining again.
-void simMiningRacesMenu() {
-    if (!gRoot || !gHost) return;
-    const int races = simSettings().races;
-    std::vector<stardraft::kit::MenuItem> items;
-    for (int k = 0; k < 4; ++k) {
-        items.push_back(stardraft::kit::MenuItem{});
-        items.back().label = kSimRaceNames[k], items.back().checked = k == races;
-        items.back().run = [k] {
-            prefs::setNumber(L"SimRaces", k);
-            shellPost([] { simKeepPlay(simulateMiningCommand), gSimPanel.open = gSim.shown; });
-        };
-    }
-    ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
-    kit_sdl::ImguiCanvas measure(list, nullptr);
-    stardraft::kit::Menu::popup(*gRoot, gHost->mouse(*gRoot), items, stardraft::kit::Menu::measure(items, &measure), {});
-}
-// A press on the panel's part.
-void simPanelPress(int part) {
-    SimSettings s = simSettings();
-    auto change = [](const wchar_t* key, int value, bool restart) {
-        prefs::setNumber(key, value);
-        if (restart) shellPost([] { simKeepPlay(simulateMiningCommand), gSimPanel.open = gSim.shown; });  // (the panel stays open)
-        simRedraw();
-    };
-    switch (part) {
-    case 1: case 2:
-        if (s.kind == 0) change(L"SimWorkersPerField", std::clamp(s.perField + (part == 1 ? -1 : 1), 1, optionsview::kSimPerFieldMax), true);
-        else change(L"SimWorkers", std::clamp(s.total + (part == 1 ? -1 : 1), 1, optionsview::kSimWorkersMax), true);
-        break;
-    case 13: case 14:
-        if (s.kind != part - 13) change(L"SimWorkerKind", part - 13, true);
-        break;
-    case 4: case 5:
-        change(L"SimMinutes", std::clamp(s.minutes + (part == 4 ? -1 : 1), 1, optionsview::kSimMinutesMax), false);
-        simMiningNewTime();
-        break;
-    case 21: case 22: case 23: simBoostSearchNow(part - 21); break;    case 3: shellPost([] { simMiningRacesMenu(); }); break;
-    case 8: case 9: case 10:
-        prefs::setNumber(kSimBoostKeys[part - 8], s.boost[part - 8] ? 0 : 1);
-        simBoostSync();
-        simRedraw();
-        break;
-    case 11: gSimPanel.open = false, shellPost([] { showOptionsTab(L"Simulation"); }); break;
-    default: break;
-    }
-}
-// The mouse on the open panel (true: taken). The wheel on a step box steps it.
-bool simPanelMouse(const draw::MouseEvent& e, const SimBarLayout& l, draw::Rect r) {
-    if (!gSimPanel.open || gSim.combat || gSim.rush) return false;
-    const SimPanelLayout p = simPanelLayout(l, r);
-    const int part = e.kind == draw::MouseKind::Leave ? 0 : simPanelPart(p, e.pt);
-    if (part != gSimPanel.hot) gSimPanel.hot = part, simRedraw();
-    if (e.kind == draw::MouseKind::Up && gSimPanel.down) {
-        gSimPanel.down = 0, simRedraw();
-        return part != 0;
-    }
-    if (!part) return false;
-    // (a search or a skip runs: the workers, the races and the game time wait; the search time, the links and the
-    // check boxes do not: a check box off stops its search)
-    const bool busy = simSkipRunning() || simEngine().boosting();
-    const bool waits = busy && (part <= 5 || part == 13 || part == 14);
-    if (e.kind == draw::MouseKind::Wheel && e.wheel != 0) {
-        const int up = e.wheel > 0 ? 1 : 0;
-        if (waits) return true;
-        if (part == 1 || part == 2) simPanelPress(up ? 2 : 1);
-        else if (part == 4 || part == 5) simPanelPress(up ? 5 : 4);
-        return true;
-    }
-    if ((e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick) && e.button == 0 && part != 12) {
-        if (waits || (simSkipRunning() && part >= 8 && part <= 10) || (busy && part >= 21 && part <= 23)) return true;
-        gSimPanel.down = part, simRedraw();
-        simPanelPress(part);
-    }
-    return true;
-}
-std::wstring simPanelTip(const SimBarLayout& l, draw::Rect r, draw::Point pt) {
-    if (!gSimPanel.open || gSim.combat || gSim.rush) return {};
-    switch (simPanelPart(simPanelLayout(l, r), pt)) {
-    case 8: return L"Search for better start places of the workers at each base. The search runs before the game starts.";
-    case 9: return L"Search for the places where a worker returns its cargo sooner. The search runs before the game starts.";
-    case 10: return L"Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.";
-    case 21: case 22: case 23:
-    {
-        const sim::BoostStatus st = simEngine().boostStatus(simPanelPart(simPanelLayout(l, r), pt) - 21);
-        return st.exhausted ? L"Nothing more to search" : st.finished ? L"Search again for its search time, on from where it stopped"
-                                                                      : L"Search now, for its search time";
-    }
-    case 13: return L"A number of workers for each mineral field of a base";
-    case 14: return L"A number of workers for each base";
-    case 11: return L"Program options > Simulation";
-    default: return {};
-    }
-}
+#include "sdl_mining_panel.inc"
 
 void simPaintBar(draw::Canvas& c, draw::Rect r) {
     simPaintRush(c, r);  // (the rush's ways and points over the map, under the bar)
+    for(const auto& label:gSimMapLabels)
+        simPaintMapValue(c,r,label.x,label.y,widen(label.text),draw::rgb(int(label.color>>24),int(label.color>>16&255),int(label.color>>8&255)),label.patch);
     const SimBarLayout l = simLayout(r);
     const float round = float((l.bar.bottom - l.bar.top) / 2);
     c.roundBox(l.bar, kPanel, kBorder, round);
@@ -1681,9 +1417,9 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         c.text(l.text, gSim.result, kText, draw::kMiddle | draw::kEllipsis);
     } else {
         const bool boosting = !simSkipRunning() && !gSim.combat && !gSim.rush && e.boosting();
-        const std::wstring what = gSim.combat ? L"Combat" : gSim.rush ? L"Rush distance" : boosting ? L"Looking for boosts\x2026" : L"Mining";
+        const std::wstring what = gSim.combat ? L"Combat" : gSim.rush ? L"Rush distance" : L"Mining";
         const int frame = simSkipRunning() ? gSimSkipFrame.load() : e.frame();
-        const std::wstring time = boosting ? std::wstring() : gSim.combat || gSim.rush ? simClock(frame)
+        const std::wstring time = gSim.combat || gSim.rush || e.lastFrame()==0 ? simClock(frame)
                                                              : simClock(frame) + L" / " + simClock(e.lastFrame());
         const int ww = c.measure(what);
         c.text(l.text, what, kText, draw::kMiddle);
@@ -1703,7 +1439,7 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         }
     }
     // The timeline (mining), along the bottom edge.
-    if (!gSim.combat && !gSim.rush) {
+    if (!gSim.combat && !gSim.rush && !l.track.empty()) {
         const float rr = float((l.track.bottom - l.track.top) / 2);
         c.roundBox(l.track, kBorder, draw::kNone, rr);
         const int last = std::max(1, e.lastFrame());
@@ -1732,12 +1468,13 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         textButton(1, l.second, L"Report", true);
     } else {
         // Play while it waits (with the keyboard's ring: Space plays it), Pause while it runs.
-        if (!gSim.playing) c.roundBox(l.play, draw::kNone, kAccent, float((l.play.bottom - l.play.top) / 2));
-        c.icon(l.play, int(gSim.playing ? UiIcon::Pause : UiIcon::Play), face(10, l.play, false) || !gSim.playing ? kText : kDim, scale(16));
+        const bool canPlay=gSim.combat||gSim.rush||simActiveSpawnMask()!=0;
+        if (!gSim.playing&&canPlay) c.roundBox(l.play, draw::kNone, kAccent, float((l.play.bottom - l.play.top) / 2));
+        c.icon(l.play, int(gSim.playing ? UiIcon::Pause : UiIcon::Play), canPlay&&(face(10, l.play, false)||!gSim.playing)?kText:kDim, scale(16));
         textButton(4, l.minus, L"\x2212", false);
         c.text(l.second, simSpeedText(gSim.speed), kText, draw::kCenter | draw::kMiddle);
         textButton(5, l.plus, L"+", false);
-        iconButton(6, l.skip, UiIcon::ToEnd);
+        iconButton(6,l.skip,!gSim.combat&&!gSim.rush&&e.lastFrame()==0?UiIcon::Data:UiIcon::ToEnd);
     }
     iconButton(0, l.first, UiIcon::Close);
     if (gSimPanel.open && !gSim.combat && !gSim.rush) simPaintPanel(c, l, r);
@@ -2010,17 +1747,13 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
         else if (was == 0) gSimPanel.open = false, simClose();
         else if (was == 1) shellPost([] { simShowReport(); });
         else if (was == 4 || was == 5) simStepSpeed(was == 4 ? -1 : 1), simRedraw();
-        else if (was == 6) simSkipToEnd();
+        else if (was == 6) {if(!gSim.combat&&!gSim.rush&&simEngine().lastFrame()==0)shellPost([]{simShowReport();});else simSkipToEnd();}
         else if (was == 7 && !gSim.combat && !gSim.rush) gSimPanel.open = !gSimPanel.open, gSimPanel.hot = gSimPanel.down = 0, simRedraw();
         else if (was == 7) shellPost([] { gSim.combat ? simCombatSettingsMenu() : simRushSettingsMenu(); });
         else if (was == 8) shellPost([] { showFeedbackFilledSdl(L"the simulation", simDiagnostics()); });
         return true;
     }
     const bool in = hit(l.bar);
-    if (!in && gSimPanel.open && e.kind == draw::MouseKind::Down) {  // (a press elsewhere closes the panel)
-        gSimPanel.open = false, simRedraw();
-        return true;
-    }
     if (!in) return false;
     // (the bar takes the mouse; a press does what it does; a quick second click is a press too, not a double click)
     if ((e.kind != draw::MouseKind::Down && e.kind != draw::MouseKind::DoubleClick) || e.button != 0) return true;
@@ -2044,10 +1777,10 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
     if (in(l.chip)) return kSimInfoTip;
     if (const int n = in(l.bar) ? 0 : simRushMarkerAt(pt.x, pt.y)) return n == 1 ? L"The start point (drag it)" : L"The end point (drag it)";
     if (in(l.third)) return gSim.done ? L"Play again from the start" : L"Restart";
-    if (in(l.play)) return gSim.playing ? L"Pause (Space)" : L"Play (Space)";
+    if (in(l.play)) return !gSim.combat&&!gSim.rush&&!simActiveSpawnMask()?L"Select a spawn to play":gSim.playing ? L"Pause (Space)" : L"Play (Space)";
     if (in(l.minus)) return L"Slower";
     if (in(l.plus)) return L"Faster";
-    if (in(l.skip)) return L"Skip to the end";
+    if(in(l.skip))return !gSim.combat&&!gSim.rush&&simEngine().lastFrame()==0?L"Show the current report":L"Skip to the end";
     if (in(l.gear)) return gSim.combat ? L"Who fights whom" : gSim.rush ? L"Units, start and end" : L"Settings and boost searches";
     if (in(l.feedback)) return L"Report feedback on the simulation";
     if (in(l.second)) return gSim.done ? L"Show the report" : L"Speed";
@@ -2058,14 +1791,17 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
 // Play (a new game waits at its start) or Pause.
 void simPlayPause() {
     if (!gSim.shown || gSim.done) return;
+    if(!gSim.combat&&!gSim.rush&&!simActiveSpawnMask())return;
     gSim.playing = !gSim.playing;
     gSim.due = 0, gSim.last = std::chrono::steady_clock::now();
     simRedraw();
 }
 // Tools > Simulation: the bar's commands (the menu's items, with their keys): enabled only while the bar shows.
 bool simCommandEnabled(int id) {
-    if (id == ID_SIM_OPTIONS) return true;
+    if (id == ID_SIM_OPTIONS) return false;
     if (!gSim.shown) return false;
+    if(id==ID_SIM_PLAY&&!gSim.combat&&!gSim.rush&&!simActiveSpawnMask())return false;
+    if(id==ID_SIM_SKIP&&!gSim.combat&&!gSim.rush&&simEngine().lastFrame()==0)return false;
     if (id == ID_SIM_PLAY || id == ID_SIM_SLOWER || id == ID_SIM_FASTER || id == ID_SIM_SKIP) return !gSim.done && !gRushDrag;
     return true;
 }
@@ -2080,7 +1816,6 @@ void simCommand(int id) {
         if (!gSim.combat && !gSim.rush) gSimPanel.open = true, gSimPanel.hot = gSimPanel.down = 0, simRedraw();
         else shellPost([] { gSim.combat ? simCombatSettingsMenu() : simRushSettingsMenu(); });
         break;
-    case ID_SIM_OPTIONS: showOptionsTab(L"Simulation"); break;
     case ID_SIM_CLOSE: gSimPanel.open = false, simClose(); break;
     default: break;
     }
@@ -2098,6 +1833,7 @@ bool simKey(const draw::KeyEvent& e) {
 
 bool gSimShotStepping = false;  // (--script's simstep: only it runs the game's frames, for even pictures)
 void simFrame() {
+    simMiningControlsFrame();
     if (!gSim.shown) return;
     if (gState.ed.get() != gSim.ed) return simClose();  // (another tab, or the map closed)
     const auto now = std::chrono::steady_clock::now();
@@ -2150,7 +1886,9 @@ sim::MiningOptions simMiningOptions(uint32_t seed) {
     sim::MiningOptions o;
     o.workers = {s.kind == 0 ? 0 : s.total};
     o.workersPerField = s.kind == 0 ? s.perField : 0;
-    o.frames = int(s.minutes * 60 * 1000 / 42);
+    o.continuous = !modTab();
+    o.startPlayers = simActiveSpawnMask();
+    o.placedDepots = false;
     static const sim::Race kRace[4] = {sim::Terran, sim::Terran, sim::Protoss, sim::Zerg};
     o.races = {kRace[s.races]};
     o.mapRaces = s.races == 0;
@@ -2159,25 +1897,16 @@ sim::MiningOptions simMiningOptions(uint32_t seed) {
     return o;
 }
 void simulateMiningCommand() {
-    const uint32_t seed = uint32_t(std::chrono::steady_clock::now().time_since_epoch().count());  // (Random: another race each time)
+    if(!gSimKeepPlay)simResetSpawnSelection();
+    const uint32_t seed = gSimKeepPlay&&gSim.shown?gSim.seed:uint32_t(std::chrono::steady_clock::now().time_since_epoch().count()); // keep Random races while editing the active spawn set
     const sim::MiningOptions o = simMiningOptions(seed);
     if (!simBegin(false, [o](std::string& err) { return simEngine().startMining(o, err); })) return;
     gState.ed->clearSelection();  // (the map's selection does not show over the game)
     const SimSettings s = simSettings();
     gSim.speed = 1, gSim.workers = s.workers(), gSim.perField = s.kind == 0, gSim.bases = int(simEngine().miningResult().size()), gSim.seed = seed;
-    simBoostSync();  // (the boost searches that are on)
-}
-// The mining again from its start with the settings' game time, on the same engine: the bases and their boosts stay.
-void simMiningNewTime() {
-    if (!gSim.shown || gSim.combat || gSim.rush) return;
-    simSkipJoin();
-    gSim.skipping = false;
-    const sim::MiningOptions o = simMiningOptions(gSim.seed);
-    gSim.start = [o](std::string& err) { return simEngine().startMining(o, err); };
-    std::string err;
-    if (!simEngine().setMap(gSim.chk, err) || !gSim.start(err)) return simClose();
-    gSim.done = false, gSim.due = 0, gSim.last = std::chrono::steady_clock::now();
-    simRedraw();
+    gSimPanel.open=true;simMiningControlsFrame();
+    if(!o.startPlayers)gSim.playing=false;
+    simBoostSync();  // apply only explicitly requested search results
 }
 
 // Tools > Simulate rush distance: a worker walks from each start location to each other start location (each route
@@ -2296,6 +2025,34 @@ int simStepForShot(int frames) {
     simRedraw();
     return e.frame();
 }
+// Isolated snapshot workflows: state and hit targets, without stepping or changing the simulation.
+void simWorkbenchTrace() {
+    if(!gSim.shown||!gSim_){std::printf("sim-workbench: closed\n");return;}
+    const auto settings=simSettings();
+    std::printf("sim-workbench: panel=%d frame=%d limit=%d done=%d metric=%d budgets=%d,%d,%d guides=%d%d%d ghosts=%d\n",
+        int(gSimPanel.open),simEngine().frame(),simEngine().lastFrame(),int(gSim.done),settings.metric,
+        settings.search[0],settings.search[1],settings.search[2],int(settings.guides[0]),int(settings.guides[1]),int(settings.guides[2]),gSimGhostCount);
+    if(gRoot&&!gSim.combat&&!gSim.rush) {
+        const auto p=simPanelLayout(simLayout({0,0,gRoot->map.width(),gRoot->map.height()}),{0,0,gRoot->map.width(),gRoot->map.height()});
+        const auto offset=gRoot->map.frame();
+        auto point=[&](const char* name,int kind,draw::Rect r){std::printf("sim-target: %s%d=%d,%d\n",name,kind,offset.left+(r.left+r.right)/2,offset.top+(r.top+r.bottom)/2);};
+        const auto boost=simBoostLayout({0,0,gSimBoostView.width(),gSimBoostView.height()});
+        const auto rail=gSimBoostView.frame();
+        auto boostPoint=[&](const char* name,int kind,draw::Rect r){std::printf("sim-target: %s%d=%d,%d\n",name,kind,rail.left+(r.left+r.right)/2,rail.top+(r.top+r.bottom)/2);};
+        for(int k=0;k<3;++k){boostPoint("budget",k,boost.budget[k]);boostPoint("guide",k,boost.check[k]);boostPoint("search",k,boost.button[k]);}
+        for(int player=0;player<8;++player)if(!p.spawns[player].empty())point("spawn",player,p.spawns[player]);
+        for(int k=0;k<2;++k)point("metric",k,p.metric[k]);
+    }
+    for(int k=0;k<3;++k){const auto s=simEngine().boostStatus(k);std::printf("sim-search: kind=%d running=%d finished=%d found=%d seconds=%.3f\n",k,int(s.running),int(s.finished),s.found,s.seconds);}
+    if(!gSim.combat&&!gSim.rush) {
+        const auto bases=simEngine().miningResult();
+        std::printf("sim-spawns: available=%u selected=%u bases=%zu playing=%d notice=%d players=",simAvailableSpawns(),simActiveSpawnMask(),bases.size(),int(gSim.playing),int(std::chrono::steady_clock::now()<gSimShareUntil));
+        for(const auto& base:bases)std::printf("%d,",base.player+1);std::printf("\n");
+        for(int k=0;k<3;++k)std::printf("sim-card: kind=%d %s | %s\n",k,narrow(simBoostState(k)).c_str(),narrow(simBoostDetail(k)).c_str());
+    }
+    std::printf("sim-values:");for(const auto& label:gSimMapLabels)if(label.patch)std::printf(" %s",label.text.c_str());std::printf("\n");
+    if(gSim.rush)for(const auto& r:gSimRoutes)if(!r.finished)std::printf("sim-timer: %.2f s at %d,%d\n",r.frames*.042,r.currentX,r.currentY);
+}
 
 // --dialog simreport:mining, simreport:rush or simreport:combat (a snapshot): that simulation of the map runs to its end at once (combat:
 // the units of the map's first two players), and its report's window is the picture.
@@ -2315,8 +2072,10 @@ draw::View* sdlSimReportShot(const std::string& arg, int& w, int& h) {
         simulateMiningCommand();
     }
     if (gSim.shown) {
-        for (int n = 0; n < 100000 && !gSim.done; ++n)
+        const bool sample=!gSim.combat&&!gSim.rush&&simEngine().lastFrame()==0;
+        for (int n = 0; n < 100000 && !gSim.done && (!sample||simEngine().frame()<5040); ++n)
             if (!simEngine().step(60)) simEnd();
+        if(sample&&!gSim.done)simEnd(); // a bounded report snapshot; interactive mining has no time limit
     }
     std::printf("simreport: %s, %s\n", gSim.done ? "ended" : "not run (WRONG)", narrow(gSim.endText).c_str());
     const draw::Point sz = SimReportView::size();
@@ -2333,6 +2092,7 @@ bool simRushPointCursor(int, int, draw::Rect) { return false; }
 bool simRushDragging() { return false; }
 void simRushDragLost() {}
 int simStepForShot(int) { return -1; }
+void simWorkbenchTrace() {std::printf("sim-workbench: unavailable\n");}
 void simPaintBar(draw::Canvas&, draw::Rect) {}
 bool simBarMouse(const draw::MouseEvent&, draw::Rect) { return false; }
 std::wstring simBarTip(draw::Point, draw::Rect) { return {}; }

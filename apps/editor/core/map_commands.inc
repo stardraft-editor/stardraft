@@ -426,7 +426,7 @@ void registerMapCommands() {
         {ID_SIM_PLAY, "sim.play", L"&Play or pause", L""}, {ID_SIM_RESTART, "sim.restart", L"&Restart", L""},
         {ID_SIM_SKIP, "sim.skip", L"S&kip to the end", L""}, {ID_SIM_SLOWER, "sim.slower", L"S&lower", L""},
         {ID_SIM_FASTER, "sim.faster", L"&Faster", L""}, {ID_SIM_SETTINGS, "sim.settings", L"Simulation &settings", L""},
-        {ID_SIM_OPTIONS, "sim.options", L"Simulation &options\x2026", L""}, {ID_SIM_CLOSE, "sim.close", L"&Close the simulation", L""}};
+        {ID_SIM_CLOSE, "sim.close", L"&Close the simulation", L""}};
     for (const auto& [native, id, label, key] : bar) addCommand(native, id, label, "Edit/Simulation", key, [n = native] { simCommand(n); });
     addCommand(ID_SIM_COMBAT, "edit.simulate.combat", L"Simulate com&bat of the selected units (experimental)", "Edit/Tools", L"Ctrl+Alt+C", [] { simulateCombatCommand(); });
 #endif

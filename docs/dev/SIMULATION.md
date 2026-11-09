@@ -18,22 +18,27 @@ left of it). The editor and the command line use one engine for them, `maplab::c
 `tools/map_lab/bar_sim.cpp` uses the rules of the pull request's Mining Lab and Rush adapters:
 
 - **Mining.** The bases are those of `miningBases` (`tools/sim/mining.cpp`: start locations, placed depots, groups of
-  mineral fields), at most 8, each with its race (Program options > Simulate mining > Races). Each base is a game of
+  mineral fields), at most 8, each with its race. The editor's workbench runs only checked starting locations, with
+  player-colored chips under Spawns. Player 1 is checked initially, or the first available player if Player 1 has no
+  start. Any subset can be checked; with none checked, Play and searches are disabled. The CLI keeps all starting
+  locations by default (`MiningOptions::startPlayers = 0xff`). Each active base is a game of
   its own: the map's mineral fields, geysers, critters and neutral units (no player units), then the melee start of its
   race at the base (a finished depot, its workers, and for Zerg the larvae and the Overlord), then more or fewer
   workers for the count (the bar's gear). Each worker gathers from a mineral field within 12 tiles of the depot,
   nearest first, round and round; the fields do not run out. The measures start after the 30-second warm-up: the
   minerals delivered a minute, and each field's mean round trip (delivery to delivery). There is no gas. While it
-  runs, the map shows each field's mean round trip in frames and its minerals left (its amount in the map less the
-  minerals mined from it, warm-up included); zoomed out, where these do not fit on a field, one label under each
-  depot gives its fields' mean round trip and their minerals left. A base with no room for its depot and workers
+  runs, the workbench's Patch labels selects the latest completed worker cycle in frames (as in the original Mining
+  Lab) or its actual delivered minerals
+  per 60 game seconds, after warm-up. The map shows just the number, in the UI font, with a dark backplate; zoom in
+  to see it. Interactive mining keeps running until stopped, without a game-time limit. Batch/CLI runs remain finite.
+  A base with no room for its depot and workers
   stays in the report with no numbers ("No room"). The bar shows at most 8 bases; the command line all of them.
 - **Rush distance.** From each start location to each other start location, a worker of the start location's race
   (its player's race in the map, or the race of the bar's gear) walks from the start location's center to the other
   one, in a game of its own (the map's neutral units only). It stops when its move ends (it is there when it stops within a tile of the
   center: a fast unit stops a little past it, and a point where it cannot stand ends its way next to it), when for 480
   frames it comes neither to a new part of the map (a 128 pixel square) nor nearer to the end (it stands, or goes back and forth: the path search
-  finds no way on), or at 24000 frames. The result is each walk's game time and length. The gear's Race
+  finds no way on), or at 24000 frames. A timer next to each moving worker shows elapsed travel time. The result is each walk's game time and length. The gear's Race
   comes first; its Unit row names the unit that walks each route in place of the worker (setting SimRushUnit), and
   a click opens the searchable list of the units that can walk or fly, with their icons: the worker, the race's
   units (As defined in map: each race's), then all other units. A race picked after the unit (in the gear or in the
@@ -47,26 +52,37 @@ left of it). The editor and the command line use one engine for them, `maplab::c
   the engine's own vision of the units (their sight ranges, high ground), black where they have not been, darker where
   they saw before, clear where they see now (with several players, each tile the most one of them sees); only the
   checked players' ways show. Before the game plays (at 0:00, waiting for Play) the whole map shows, with no fog.
-- **Boost searches** (mining: check boxes in the gear's panel and in Program options > Simulation; settings
-  SimBoostPosition, SimBoostCargo, SimBoostCycle): the pull request's three searches, at each base at the same time
-  (each base's search gets its share of the processor's threads), each for its own search time (Program options >
-  Simulation only; settings SimSearchPosition, SimSearchCargo, SimSearchCycle; default 15 seconds). The gear's panel has
-  a Search button for each (it turns the boost on and searches now; after a search, Continue searches on from where it
-  stopped, for its search time again). The ones that are on run when the mining starts, one after another (position, cargo, cycle: each later one is found with the
-  earlier ones); a check box turned off takes its boost out (and the later ones, which run again if they are on).
+- **Boost searches**: the pull request's three searches, at each active base at the same time (each base's search gets its
+  share of the processor's threads). The workbench opens with mining and stays visible while using the map; the gear
+  can collapse it. Each card has an editable compute budget (SimSearchPosition, SimSearchCargo, SimSearchCycle,
+  default 15 seconds) and its own Search button. Continue preserves findings and searches for another budget.
+  The boost cards use the right sidebar during mining, with a colored accent for each technique. The compact setup
+  controls stay below the simulation bar. Searches start only when requested, independently; they never automatically chain. Editing a budget changes the
+  next Search/Continue. Show guides (SimShowPosition, SimShowCargo, SimShowCycle) only hides that boost's helpers;
+  it leaves the found boost applied. Search results apply only to the checked starting locations.
+  The reports retain the average round-trip measurement after warm-up; it is separate from the map's latest-cycle
+  labels. With several workers assigned to one field, its label follows the last assigned worker with a complete
+  cycle, matching the original editor's convention.
   Position: better start places for the workers. Cargo: where a worker returns its cargo before it gets to the
   depot's usual place. Cycle: a trip to the next mineral field and back that ends sooner (mineral walking). While a
-  search runs, the bar says "Looking for boosts..." with a spinner and the game waits at its start; at its end the
-  bases that it made better start again with it, and the panel says how many workers got faster. The boosts stay for
-  Restart, the timeline and a new game time; a change of the workers or the races searches again.
+  search runs, mining keeps playing at the chosen speed, with its existing helpers and measurements. Starting a search
+  does not reset or pause the units. When improved findings are ready, they are applied in a fresh measured run;
+  that restart keeps the new start positions and command policies consistent with their validated setup.
+  The sidebar shows total findings across active spawns. If some command helpers have not appeared yet, it shows
+  their count too (cargo and cycle helpers appear on first execution; a cycle's two arrows count as one worker).
+  Starting a search with several active spawns shows a six-second tip: search CPU time is shared, so fewer active
+  spawns allow deeper analysis. Each active spawn still gets the configured wall-clock budget.
+  The boosts stay for
+  Restart; changing the workers or races clears findings for that setup and waits for a new search.
 - **Workers** (mining): a number for each mineral field of a base (1 to 8; SimWorkerKind 0, SimWorkersPerField), or a
-  number for each base in all (1 to 60; SimWorkerKind 1, SimWorkers, default 9).
+  number for each base in all (1 to 60; SimWorkerKind 1, SimWorkers). The default is one worker per mineral field.
 - **The bar**: a new game waits at its start until Play (the Play button has a ring: Space plays it, and pauses it);
   a new game of the bar's own settings keeps the play as it was. Tools > Simulation has each simulation and the bar's
-  commands (Play or pause, Restart, Skip to the end, Slower, Faster, Simulation settings, Simulation options, Close
+  commands (Play or pause, Restart, Skip to the end, Slower, Faster, Simulation settings, Close
   the simulation). Rush distance's and combat's gear opens a drop-down, which also has Report feedback and the
-  experimental notice (mining has them on the bar: its gear opens a panel). The map shows them as the pull request's guides: a ring at a worker's start place, a
-  turn-back mark where a worker returns its cargo, and each cycle's two commands as numbered arrows.
+  experimental notice (mining has them on the bar: its gear toggles the workbench). Mining's report button shows the
+  current measurements without ending the run. Its helpers use translucent ghost workers, a turn-back mark for cargo,
+  and numbered cycle arrows with the cancelled remainder of the first command dotted.
 
 The two tests do not use the pull request's launch intervals or its windows: the bar has the same controls for each
 test, and the gear's panel has the mining's settings (step boxes, as Program options > Simulation). Against the black-box reference results
