@@ -113,9 +113,18 @@ void crush(std::vector<float>& v) {
 }
 
 // The recorded sound of a kind (none: no sound).
+// Many at once (a long stroke, a big fill) are one soft texture, not a wall: at most kVoices play at a time (a sound
+// that would be one more does not start), and each one that plays makes the next one softer (ducked: 1 / (1 + 0.5 n),
+// so 4 together add up to about 2.1 times one). Each sound fades in for 8 ms and out for 30 ms (no hard start or
+// stop). The replaced terrain's sound starts after the placed one's, so it is ducked too: it stays the quieter one.
+constexpr size_t kVoices = 4;
+std::vector<uint64_t> playingUntil;  // (the end of each sound that plays now, in nowMs)
+
 void play(Kind k, float pitch = 1, float level = 1, uint64_t gapMs = 80) {
     const uint64_t now = nowMs();
     if (now - g.lastSound[size_t(k)] < gapMs) return;
+    std::erase_if(playingUntil, [&](uint64_t end) { return end <= now; });
+    if (playingUntil.size() >= kVoices) return;
     g.lastSound[size_t(k)] = now;
     // Each time a pitch of its own: -4 to +4 semitones, another than the last one. The whole sound plays faster or
     // slower.
@@ -133,6 +142,15 @@ void play(Kind k, float pitch = 1, float level = 1, uint64_t gapMs = 80) {
         out[i] = made[a] + float(at - double(a)) * (made[b2] - made[a]);
     }
     crush(out);
+    const float duck = 1.0f / (1.0f + 0.5f * float(playingUntil.size()));
+    const size_t in = std::min(out.size() / 4, size_t(0.008f * kRate)), fadeOut = std::min(out.size() / 2, size_t(0.03f * kRate));
+    for (size_t i = 0; i < out.size(); ++i) {
+        float e = duck;
+        if (i < in) e *= float(i) / float(in);
+        if (i + fadeOut > out.size()) e *= float(out.size() - i) / float(fadeOut);
+        out[i] *= e;
+    }
+    playingUntil.push_back(now + uint64_t(out.size() * 1000 / kRate));
     funPlayPcm(out, kRate, kKindNames[size_t(k)]);
 }
 

@@ -94,8 +94,12 @@ anyway); they can ship.
 
 ## Limits now (rate and volume)
 
-- At most one sound of each kind each 80 ms, at most 6 at a time. A long brush stroke is about 12 sounds a second.
-  Each one is a little different (its take and its pitch step).
+- At most one sound of each kind each 80 ms, and at most 4 terrain, unit and doodad sounds at a time (one more does
+  not start). Each one that plays makes the next one softer (1 / (1 + 0.5 n): 4 together are about 2.1 times one), so
+  a long stroke or a big fill is one soft texture, not a wall. The replaced terrain's sound starts after the placed
+  one's, so it is ducked too and stays the quieter one.
+- Each sound fades in for 8 ms and out for 30 ms (no hard start or stop); the takes stay short and punchy.
+- Each one is a little different (its take and its pitch step).
 - A unit's ready sound: at half the volume, at most one each 0.6 s (a row or a paste of many units says it once), at
   most 2 at a time.
 - A sound's level goes up with the number of tiles that changed (log2), from 45 % to 100 %.
