@@ -3371,6 +3371,16 @@ constexpr UiText kRows[] = {
     {L"%.0f MB", L"%.0f MB"},
     {L"Copy as te&xt", L"Copier en te&xte"},
     {L"Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush", L"Le terrain s\u00E9lectionn\u00E9 est copi\u00E9 en texte. Ctrl+V en mode Terrain en fait le pinceau"},
+    {L"A doodad is on this tile. Doodad tiles have no variations", L"Un doodad est sur cette tuile. Les tuiles de doodads n'ont pas de variantes"},
+    {L"This tile has no such variation", L"Cette tuile n'a pas cette variante"},
+    {L"The tile uses variation %d of %d already", L"La tuile utilise d\u00E9j\u00E0 la variante %d sur %d"},
+    {L"Variation %d of %d on the tile (Ctrl+Z undoes it)", L"Variante %d sur %d sur la tuile (Ctrl+Z l'annule)"},
+    {L"Variation %d of %d on %d tiles (Ctrl+Z undoes it)", L"Variante %d sur %d sur %d tuiles (Ctrl+Z l'annule)"},
+    {L"This tile has no other variations", L"Cette tuile n'a pas d'autres variantes"},
+    {L"Tile %d, %d has no variations", L"La tuile %d, %d n'a pas de variantes"},
+    {L"Variations of tile %d, %d", L"Variantes de la tuile %d, %d"},
+    {L"Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile", L"Variante %d (courante). Clic : la tuile, son rectangle et sa pile. Maj+clic : seulement la tuile"},
+    {L"Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile", L"Variante %d (rare). Clic : la tuile, son rectangle et sa pile. Maj+clic : seulement la tuile"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

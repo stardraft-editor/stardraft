@@ -27,6 +27,7 @@
 #include "views_stub.inc"
 #include "map_edit.inc"
 #include "tiles_edit.inc"
+#include "tile_variations.inc"  // a tile's variations: the other megatiles of its group (Alt + wheel, the side bar's strip)
 #include "terrain_shapes.inc"  // Terrain's Line, Contour and Polygon: the shape, its preview and its end
 #include "panel_state.inc"  // each palette panel's own pick, tools, brush, player, mirrors, Isometric or Rectangle and tiles
 #include "path_overlay.inc"
@@ -98,6 +99,7 @@
 #include "views_classic_batch.inc"
 #include "views_classic_value.inc"
 #include "views_list_pick.inc"
+#include "views_variations.inc"  // the side bar's Variations strip (a selected tile's variations: core/tile_variations.inc)
 #include "views_palette.inc"  // the palette's list and grid (PaletteGridView) and the pie palette (PieView): the SDL program's
 #include "views_palette_float.inc"  // the floating palettes' window and its note in the side bar
 #include "views_classic_page.inc"

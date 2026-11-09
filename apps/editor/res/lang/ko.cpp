@@ -3401,6 +3401,16 @@ constexpr UiText kRows[] = {
     {L"%.0f MB", L"%.0f MB"},
     {L"Copy as te&xt", L"\uD14D\uC2A4\uD2B8\uB85C \uBCF5\uC0AC(&X)"},
     {L"Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush", L"\uC120\uD0DD\uD55C \uC9C0\uD615\uC744 \uD14D\uC2A4\uD2B8\uB85C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4. \uC9C0\uD615 \uBAA8\uB4DC\uC5D0\uC11C Ctrl+V\uB97C \uB204\uB974\uBA74 \uBE0C\uB7EC\uC2DC\uAC00 \uB429\uB2C8\uB2E4"},
+    {L"A doodad is on this tile. Doodad tiles have no variations", L"\uC774 \uD0C0\uC77C\uC5D0 \uB450\uB300\uB4DC\uAC00 \uC788\uC2B5\uB2C8\uB2E4. \uB450\uB300\uB4DC \uD0C0\uC77C\uC5D0\uB294 \uBCC0\uD615\uC774 \uC5C6\uC2B5\uB2C8\uB2E4"},
+    {L"This tile has no such variation", L"\uC774 \uD0C0\uC77C\uC5D0\uB294 \uADF8\uB7F0 \uBCC0\uD615\uC774 \uC5C6\uC2B5\uB2C8\uB2E4"},
+    {L"The tile uses variation %d of %d already", L"\uD0C0\uC77C\uC774 \uC774\uBBF8 \uBCC0\uD615 %d/%d\uC744(\uB97C) \uC0AC\uC6A9\uD569\uB2C8\uB2E4"},
+    {L"Variation %d of %d on the tile (Ctrl+Z undoes it)", L"\uD0C0\uC77C\uC5D0 \uBCC0\uD615 %d/%d \uC801\uC6A9 (Ctrl+Z\uB85C \uCDE8\uC18C)"},
+    {L"Variation %d of %d on %d tiles (Ctrl+Z undoes it)", L"\uBCC0\uD615 %d/%d\uC744(\uB97C) \uD0C0\uC77C %d\uAC1C\uC5D0 \uC801\uC6A9 (Ctrl+Z\uB85C \uCDE8\uC18C)"},
+    {L"This tile has no other variations", L"\uC774 \uD0C0\uC77C\uC5D0\uB294 \uB2E4\uB978 \uBCC0\uD615\uC774 \uC5C6\uC2B5\uB2C8\uB2E4"},
+    {L"Tile %d, %d has no variations", L"\uD0C0\uC77C %d, %d\uC5D0\uB294 \uBCC0\uD615\uC774 \uC5C6\uC2B5\uB2C8\uB2E4"},
+    {L"Variations of tile %d, %d", L"\uD0C0\uC77C %d, %d\uC758 \uBCC0\uD615"},
+    {L"Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile", L"\uBCC0\uD615 %d (\uC77C\uBC18). \uD074\uB9AD: \uD0C0\uC77C, \uC0AC\uAC01\uD615, \uC2A4\uD0DD. Shift+\uD074\uB9AD: \uD0C0\uC77C\uB9CC"},
+    {L"Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile", L"\uBCC0\uD615 %d (\uD76C\uADC0). \uD074\uB9AD: \uD0C0\uC77C, \uC0AC\uAC01\uD615, \uC2A4\uD0DD. Shift+\uD074\uB9AD: \uD0C0\uC77C\uB9CC"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

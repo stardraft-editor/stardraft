@@ -3371,6 +3371,16 @@ constexpr UiText kRows[] = {
     {L"%.0f MB", L"%.0f MB"},
     {L"Copy as te&xt", L"\u590D\u5236\u4E3A\u6587\u672C(&X)"},
     {L"Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush", L"\u5DF2\u5C06\u6240\u9009\u5730\u5F62\u590D\u5236\u4E3A\u6587\u672C\u3002\u5728\u5730\u5F62\u6A21\u5F0F\u4E2D\u6309 Ctrl+V \u53EF\u5C06\u5176\u8BBE\u4E3A\u753B\u7B14"},
+    {L"A doodad is on this tile. Doodad tiles have no variations", L"\u6B64\u56FE\u5757\u4E0A\u6709\u88C5\u9970\u7269\u3002\u88C5\u9970\u7269\u56FE\u5757\u6CA1\u6709\u53D8\u4F53"},
+    {L"This tile has no such variation", L"\u6B64\u56FE\u5757\u6CA1\u6709\u8BE5\u53D8\u4F53"},
+    {L"The tile uses variation %d of %d already", L"\u56FE\u5757\u5DF2\u5728\u4F7F\u7528\u53D8\u4F53 %d/%d"},
+    {L"Variation %d of %d on the tile (Ctrl+Z undoes it)", L"\u56FE\u5757\u4F7F\u7528\u53D8\u4F53 %d/%d\uFF08Ctrl+Z \u53EF\u64A4\u9500\uFF09"},
+    {L"Variation %d of %d on %d tiles (Ctrl+Z undoes it)", L"\u53D8\u4F53 %d/%d \u7528\u4E8E %d \u4E2A\u56FE\u5757\uFF08Ctrl+Z \u53EF\u64A4\u9500\uFF09"},
+    {L"This tile has no other variations", L"\u6B64\u56FE\u5757\u6CA1\u6709\u5176\u4ED6\u53D8\u4F53"},
+    {L"Tile %d, %d has no variations", L"\u56FE\u5757 %d, %d \u6CA1\u6709\u53D8\u4F53"},
+    {L"Variations of tile %d, %d", L"\u56FE\u5757 %d, %d \u7684\u53D8\u4F53"},
+    {L"Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile", L"\u53D8\u4F53 %d\uFF08\u5E38\u89C1\uFF09\u3002\u5355\u51FB\uFF1A\u56FE\u5757\u3001\u5176\u77E9\u5F62\u548C\u5176\u5806\u53E0\u3002Shift+\u5355\u51FB\uFF1A\u4EC5\u56FE\u5757"},
+    {L"Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile", L"\u53D8\u4F53 %d\uFF08\u7A00\u6709\uFF09\u3002\u5355\u51FB\uFF1A\u56FE\u5757\u3001\u5176\u77E9\u5F62\u548C\u5176\u5806\u53E0\u3002Shift+\u5355\u51FB\uFF1A\u4EC5\u56FE\u5757"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

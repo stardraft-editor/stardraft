@@ -356,8 +356,8 @@ private:
 // (its middle ringSize() / 2 down) and a row for the name under it; the ring is wider with more terrains (radius). Its slices go clockwise from the top, each filled
 // with its terrain's picture (the host's: 8 x 8 tiles), all at one size (32 px a tile), and a terrain that stands on
 // another ("X (Y)") has Y as a band at the slice's outer end; the hot one has an accent rim. Each slice has its terrain's name when every
-// name fits in its slice; the row under the ring has the hot slice's name (or what letting go does). The mouse over it
-// picks the hot slice.
+// name fits in its slice; the row under the ring has the hot slice's name (or what letting go does). While it shows, it has the
+// mouse (the host's capture): the mouse's direction from the middle picks the hot slice, anywhere on the screen.
 struct PieView : draw::View {
     std::vector<uint16_t> items;
     int hot = -1;
@@ -379,8 +379,13 @@ struct PieView : draw::View {
         if (h != hot) hot = h, invalidate();
     }
     std::function<void()> onClick;  // a left click: the slice under it is picked (the ring opened from the menu)
+    std::function<void()> onCancel;  // another button, or the capture went away: the ring closes with no change
+    void captureLost() override {
+        if (shown() && onCancel) onCancel();
+    }
     bool mouse(const draw::MouseEvent& e) override {
         if (e.kind == draw::MouseKind::Down && e.button == 0 && onClick) return track(e.pt), onClick(), true;
+        if (e.kind == draw::MouseKind::Down && onCancel) return onCancel(), true;
         if (e.kind != draw::MouseKind::Move) return false;
         track(e.pt);
         return true;

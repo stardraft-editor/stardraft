@@ -21,6 +21,7 @@ MainView* gRoot = nullptr;
 LoadingView gLoadingView;  // the map's loading view (core/views_loading.inc): over the workspace while a map opens
 bool sdlPieClickAway();  // (the pie palette that shows: a click on the map closes it, below)
 bool sdlPieShown();
+void sdlVariationsSync();  // (the Variations strip after the mouse changed the selection or a tile: below)
 bool gTilesShown = false;  // the Tiles panel shows (Rectangle mode, in the Map workspace with a map: MainView::relayout)
 
 // The map's texture: the renderer draws the open map into it each frame, and the map view shows it.
@@ -191,6 +192,7 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
         while (now - gState.frameTimes.front() > std::chrono::seconds(1)) gState.frameTimes.pop_front();
     }
     mapFrameDone(gState);  // the title, the Locations list and the status bar (core/map_scene.inc)
+    sdlVariationsSync();   // the Variations strip after an undo or a new selection (it does nothing when they are as before)
 }
 
 // The start page and the Files page (sdl_start.inc, sdl_files.inc): defined after this file's root view is read.
@@ -407,6 +409,7 @@ struct MapView final : draw::View {
             }
             if (!open()) return false;
             mapMouseMove(gState, e.pt.x, e.pt.y, e.mods);
+            sdlVariationsSync();
             invalidate();
             return true;
         case draw::MouseKind::Up:
@@ -426,6 +429,7 @@ struct MapView final : draw::View {
             if (e.button == 1 || !open()) return false;
             mapMouseUp(gState, e.pt.x, e.pt.y, e.mods);
             if (draw::Host* h = host()) h->capture(*this, false);
+            sdlVariationsSync();
             invalidate();
             return true;
         case draw::MouseKind::Wheel:  // a wheel zooms at the mouse, a trackpad's scroll moves the map (core/map_input.inc: mapWheel)
@@ -434,6 +438,7 @@ struct MapView final : draw::View {
                           (e.mods & draw::kAlt) != 0))
                 return false;
             updateStatus();
+            sdlVariationsSync();
             invalidate();
             return true;
         case draw::MouseKind::Pinch:  // the zoom around the point between the fingers (core/map_input.inc: mapPinch)
@@ -570,6 +575,7 @@ struct MainView final : draw::View {
         add(gViewBtnSdl, draw::Rect(0, 0, 0, 0));
         add(gLocSortBtnSdl, draw::Rect(0, 0, 0, 0));
         add(gPalList, draw::Rect(0, 0, 0, 0));
+        add(gVariationsView, draw::Rect(0, 0, 0, 0));  // (core/views_variations.inc: under the terrain list)
         gTilesDockPanel.holdGrid(gTilesDockGrid);  // the Tiles panel (core/views_tiles.inc): the grid is in the panel on this system
         add(gTilesDockPanel, draw::Rect(0, 0, 0, 0));
         add(gLocList, draw::Rect(0, 0, 0, 0));
@@ -658,11 +664,7 @@ struct MainView final : draw::View {
         // Enter on the map: the selected location's or unit's properties (the Windows map's key).
         if (e.down && !e.repeat && e.key == draw::Key::Enter && !e.mods && !typing && map.shown() && mapEnterSdl()) return true;
         // Esc with the pie palette open (from the menu): it closes with no change.
-        if (e.down && e.key == draw::Key::Escape && pie.shown()) {
-            pie.setVisible(false);
-            invalidate();
-            return true;
-        }
+        if (e.down && e.key == draw::Key::Escape && pie.shown()) return pieClose(), true;
         // Esc while a trigger waits for a unit picked on the map: back to the triggers (the Windows cancelStep).
         if (e.down && e.key == draw::Key::Escape && trigUnitPickActive()) return trigCancelUnitPick(), true;
         // Esc with the New page (Cancel) or the start page over the open map (File > New): the page closes. (A field of the
@@ -680,9 +682,7 @@ struct MainView final : draw::View {
         // WM_KILLFOCUS).
         if (e.key == draw::Key::Space && !e.down && pie.shown()) {
             if (SDL_GetKeyboardFocus()) return pieRelease((e.mods & (draw::kShift | draw::kCtrl)) != 0), true;
-            pie.setVisible(false);
-            invalidate();
-            return true;
+            return pieClose(), true;
         }
         if (e.key == draw::Key::Space && e.down && !(e.mods & ~unsigned(draw::kShift)) && !typing && map.shown() &&
             (map.hasFocus() || !hasFocusIn(*this))) {
@@ -874,6 +874,7 @@ struct MainView final : draw::View {
         pie.onClick = [this] {  // (from the menu: a click picks; with Space held, a click picks too)
             pieRelease(shellCtrlOrShiftDown());
         };
+        pie.onCancel = [this] { pieClose(); };
         pie.items = pieTerrains(gState);
         if (pie.items.empty() || !map.shown()) return;
         const draw::Rect m = map.frame();
@@ -884,16 +885,41 @@ struct MainView final : draw::View {
         const int s = pie.ringSize(), cx = (m.left + m.right) / 2, cy = (m.top + m.bottom) / 2;  // (the ring in the map's middle)
         pie.setFrame({cx - s / 2, cy - s / 2, cx - s / 2 + s, cy - s / 2 + s + PieView::labelHeight()});
         pie.setVisible(true);
+        if (host()) host()->capture(pie, true);  // (the mouse's direction picks the slice also far outside the ring)
         const draw::Point at = host() ? host()->mouse(pie) : pie.middle();
         pie.hot = pie.sliceAt(at);
         pie.invalidate();
+    }
+    // The Variations strip after the mouse or the terrain selection changed: laid out again when it needs another
+    // height (it shows or goes), else drawn again when it shows another tile.
+    // (varCanShow, varW, varCap: the room that the last layout had for it; varShownH: the height it got)
+    bool varCanShow = false;
+    int varShownH = 0, varW = 0, varCap = 0, varLastX = -1, varLastY = -1, varLastT = -1;
+    void variationsSync() {
+        variationsTrack();
+        const int want = varCanShow ? std::min(gVariationsView.heightFor(varW), varCap) : 0;
+        if (want != varShownH) {
+            relayout();
+            invalidate();
+        }
+        int x = -1, y = -1, t = -1;
+        if (variationsTile(x, y) && gState.ed) t = mapTileAt(*gState.ed, x, y);
+        if (x != varLastX || y != varLastY || t != varLastT) gVariationsView.invalidate();  // (another tile, or its value changed: an undo)
+        varLastX = x, varLastY = y, varLastT = t;
+    }
+    // The ring goes away with no change, and gives back the mouse.
+    void pieClose() {
+        if (pie.shown()) {
+            pie.setVisible(false);
+            if (host()) host()->capture(pie, false);
+        }
+        invalidate();
     }
     // Space is let go: the brush paints with the slice's terrain (none in the middle). `add` (Shift or Ctrl held, as a
     // click in the palette): it goes into the picks that Spray and Fill use; the terrain in use stays a pick.
     void pieRelease(bool add = false) {
         const int h = pie.hot;
-        pie.setVisible(false);
-        invalidate();
+        pieClose();
         if (h < 0 || h >= int(pie.items.size())) return;
         const bool picks = add && !gState.terrainRect;
         if (picks && pie.items[size_t(h)] == gState.palette) return;  // (the terrain in use: it stays a pick, and the others too)
@@ -1044,7 +1070,17 @@ struct MainView final : draw::View {
         side(gSortBtnSdl, L.sortBtn, L.sortBtn.visible && !locs && !layersMode && here && !tiles && m != Mode::Terrain);
         side(gPieBtnSdl, L.sortBtn, here && !tiles && m == Mode::Terrain);
         side(gLocSortBtnSdl, L.sortBtn, locs && here);
-        side(gPalList, L.palette, !locs && !layersMode && here && !tiles);
+        // Terrain with a terrain selection: the Variations strip under the list (at most half of the list's room).
+        PaneSlot palSlot = L.palette, varSlot = L.palette;
+        const bool listShown = !locs && !layersMode && here && !tiles;
+        const int varH = listShown && m == Mode::Terrain && L.palette.placed
+                             ? std::min(gVariationsView.heightFor(int(L.palette.rc.right - L.palette.rc.left)), int(L.palette.rc.bottom - L.palette.rc.top) / 2)
+                             : 0;
+        if (varH > 0) palSlot.rc.bottom -= varH, varSlot.rc.top = palSlot.rc.bottom;
+        varCanShow = listShown && m == Mode::Terrain && L.palette.placed, varShownH = varH;
+        varW = int(L.palette.rc.right - L.palette.rc.left), varCap = int(L.palette.rc.bottom - L.palette.rc.top) / 2;
+        side(gPalList, palSlot, listShown);
+        side(gVariationsView, varSlot, varH > 0);
         side(gFilterSdl, L.filter, locs && here);
         side(gLocList, L.list, locs && here);
         apply(gPal2List, L.palette2, L.palette2.visible && mapWs && !tiles2 && L.secondMode != Mode::Layers);
@@ -1167,8 +1203,8 @@ void sdlPieShot() {
     for (const uint16_t t : p.items) names += (names.empty() ? "" : "; ") + narrow(p.terrainName(t));
     std::printf("pie: terrains %s\n", names.c_str());
 }
-// View > Terrain pie palette: the ring that Space held opens, in Terrain mode, open until a click (on a slice: its
-// terrain; elsewhere: no change) or Esc.
+// View > Terrain pie palette: the ring that Space held opens, in Terrain mode, open until a click (the slice in the
+// mouse's direction, anywhere: its terrain; in the middle: no change), another button or Esc.
 void sdlPieFromMenu() {
     if (!gRoot || !gState.ed || !gState.ed->isOpen()) return;
     setWorkspace(Workspace::Map);
@@ -1191,10 +1227,12 @@ void shellLoadingDone() {
     gRoot->invalidate();
 }
 bool sdlPieShown() { return gRoot && gRoot->pie.shown(); }
+void sdlVariationsSync() {
+    if (gRoot) gRoot->variationsSync();
+}
 bool sdlPieClickAway() {
     if (!gRoot || !gRoot->pie.shown()) return false;
-    gRoot->pie.setVisible(false);
-    gRoot->invalidate();
+    gRoot->pieClose();
     return true;
 }
 void sdlPieShotRelease() {

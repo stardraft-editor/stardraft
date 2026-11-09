@@ -3372,3 +3372,13 @@ Nothing more to search	No queda nada por buscar
 %.0f MB	%.0f MB
 Copy as te&xt	Copiar como te&xto
 Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	Se copió el terreno seleccionado como texto. Ctrl+V en el modo Terreno lo convierte en el pincel
+A doodad is on this tile. Doodad tiles have no variations	Hay un doodad en esta casilla. Las casillas de doodads no tienen variaciones
+This tile has no such variation	Esta casilla no tiene esa variación
+The tile uses variation %d of %d already	La casilla ya usa la variación %d de %d
+Variation %d of %d on the tile (Ctrl+Z undoes it)	Variación %d de %d en la casilla (Ctrl+Z lo deshace)
+Variation %d of %d on %d tiles (Ctrl+Z undoes it)	Variación %d de %d en %d casillas (Ctrl+Z lo deshace)
+This tile has no other variations	Esta casilla no tiene otras variaciones
+Tile %d, %d has no variations	La casilla %d, %d no tiene variaciones
+Variations of tile %d, %d	Variaciones de la casilla %d, %d
+Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile	Variación %d (común). Clic: la casilla, su rectángulo y su pila. Mayús+clic: solo la casilla
+Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile	Variación %d (rara). Clic: la casilla, su rectángulo y su pila. Mayús+clic: solo la casilla

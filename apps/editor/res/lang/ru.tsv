@@ -3372,3 +3372,13 @@ Nothing more to search	Больше нечего искать
 %.0f MB	%.0f MB
 Copy as te&xt	Копировать как &текст
 Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	Выбранный рельеф скопирован как текст. Ctrl+V в режиме рельефа делает его кистью
+A doodad is on this tile. Doodad tiles have no variations	На этом тайле есть дудад. У тайлов дудадов нет вариантов
+This tile has no such variation	У этого тайла нет такого варианта
+The tile uses variation %d of %d already	Тайл уже использует вариант %d из %d
+Variation %d of %d on the tile (Ctrl+Z undoes it)	Вариант %d из %d на тайле (Ctrl+Z отменяет)
+Variation %d of %d on %d tiles (Ctrl+Z undoes it)	Вариант %d из %d на %d тайлах (Ctrl+Z отменяет)
+This tile has no other variations	У этого тайла нет других вариантов
+Tile %d, %d has no variations	У тайла %d, %d нет вариантов
+Variations of tile %d, %d	Варианты тайла %d, %d
+Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile	Вариант %d (обычный). Щелчок: тайл, его прямоугольник и стопка. Shift+щелчок: только тайл
+Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile	Вариант %d (редкий). Щелчок: тайл, его прямоугольник и стопка. Shift+щелчок: только тайл

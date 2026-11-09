@@ -3402,3 +3402,13 @@ Nothing more to search	더 검색할 것이 없음
 %.0f MB	%.0f MB
 Copy as te&xt	텍스트로 복사(&X)
 Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	선택한 지형을 텍스트로 복사했습니다. 지형 모드에서 Ctrl+V를 누르면 브러시가 됩니다
+A doodad is on this tile. Doodad tiles have no variations	이 타일에 두대드가 있습니다. 두대드 타일에는 변형이 없습니다
+This tile has no such variation	이 타일에는 그런 변형이 없습니다
+The tile uses variation %d of %d already	타일이 이미 변형 %d/%d을(를) 사용합니다
+Variation %d of %d on the tile (Ctrl+Z undoes it)	타일에 변형 %d/%d 적용 (Ctrl+Z로 취소)
+Variation %d of %d on %d tiles (Ctrl+Z undoes it)	변형 %d/%d을(를) 타일 %d개에 적용 (Ctrl+Z로 취소)
+This tile has no other variations	이 타일에는 다른 변형이 없습니다
+Tile %d, %d has no variations	타일 %d, %d에는 변형이 없습니다
+Variations of tile %d, %d	타일 %d, %d의 변형
+Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile	변형 %d (일반). 클릭: 타일, 사각형, 스택. Shift+클릭: 타일만
+Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile	변형 %d (희귀). 클릭: 타일, 사각형, 스택. Shift+클릭: 타일만

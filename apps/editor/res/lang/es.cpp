@@ -3371,6 +3371,16 @@ constexpr UiText kRows[] = {
     {L"%.0f MB", L"%.0f MB"},
     {L"Copy as te&xt", L"Copiar como te&xto"},
     {L"Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush", L"Se copi\u00F3 el terreno seleccionado como texto. Ctrl+V en el modo Terreno lo convierte en el pincel"},
+    {L"A doodad is on this tile. Doodad tiles have no variations", L"Hay un doodad en esta casilla. Las casillas de doodads no tienen variaciones"},
+    {L"This tile has no such variation", L"Esta casilla no tiene esa variaci\u00F3n"},
+    {L"The tile uses variation %d of %d already", L"La casilla ya usa la variaci\u00F3n %d de %d"},
+    {L"Variation %d of %d on the tile (Ctrl+Z undoes it)", L"Variaci\u00F3n %d de %d en la casilla (Ctrl+Z lo deshace)"},
+    {L"Variation %d of %d on %d tiles (Ctrl+Z undoes it)", L"Variaci\u00F3n %d de %d en %d casillas (Ctrl+Z lo deshace)"},
+    {L"This tile has no other variations", L"Esta casilla no tiene otras variaciones"},
+    {L"Tile %d, %d has no variations", L"La casilla %d, %d no tiene variaciones"},
+    {L"Variations of tile %d, %d", L"Variaciones de la casilla %d, %d"},
+    {L"Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile", L"Variaci\u00F3n %d (com\u00FAn). Clic: la casilla, su rect\u00E1ngulo y su pila. May\u00FAs+clic: solo la casilla"},
+    {L"Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile", L"Variaci\u00F3n %d (rara). Clic: la casilla, su rect\u00E1ngulo y su pila. May\u00FAs+clic: solo la casilla"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

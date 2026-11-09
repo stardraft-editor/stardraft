@@ -3372,3 +3372,13 @@ Nothing more to search	Plus rien à rechercher
 %.0f MB	%.0f MB
 Copy as te&xt	Copier en te&xte
 Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	Le terrain sélectionné est copié en texte. Ctrl+V en mode Terrain en fait le pinceau
+A doodad is on this tile. Doodad tiles have no variations	Un doodad est sur cette tuile. Les tuiles de doodads n'ont pas de variantes
+This tile has no such variation	Cette tuile n'a pas cette variante
+The tile uses variation %d of %d already	La tuile utilise déjà la variante %d sur %d
+Variation %d of %d on the tile (Ctrl+Z undoes it)	Variante %d sur %d sur la tuile (Ctrl+Z l'annule)
+Variation %d of %d on %d tiles (Ctrl+Z undoes it)	Variante %d sur %d sur %d tuiles (Ctrl+Z l'annule)
+This tile has no other variations	Cette tuile n'a pas d'autres variantes
+Tile %d, %d has no variations	La tuile %d, %d n'a pas de variantes
+Variations of tile %d, %d	Variantes de la tuile %d, %d
+Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile	Variante %d (courante). Clic : la tuile, son rectangle et sa pile. Maj+clic : seulement la tuile
+Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile	Variante %d (rare). Clic : la tuile, son rectangle et sa pile. Maj+clic : seulement la tuile

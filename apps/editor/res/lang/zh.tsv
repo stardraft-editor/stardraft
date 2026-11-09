@@ -3372,3 +3372,13 @@ Nothing more to search	没有更多可搜索的内容
 %.0f MB	%.0f MB
 Copy as te&xt	复制为文本(&X)
 Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	已将所选地形复制为文本。在地形模式中按 Ctrl+V 可将其设为画笔
+A doodad is on this tile. Doodad tiles have no variations	此图块上有装饰物。装饰物图块没有变体
+This tile has no such variation	此图块没有该变体
+The tile uses variation %d of %d already	图块已在使用变体 %d/%d
+Variation %d of %d on the tile (Ctrl+Z undoes it)	图块使用变体 %d/%d（Ctrl+Z 可撤销）
+Variation %d of %d on %d tiles (Ctrl+Z undoes it)	变体 %d/%d 用于 %d 个图块（Ctrl+Z 可撤销）
+This tile has no other variations	此图块没有其他变体
+Tile %d, %d has no variations	图块 %d, %d 没有变体
+Variations of tile %d, %d	图块 %d, %d 的变体
+Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile	变体 %d（常见）。单击：图块、其矩形和其堆叠。Shift+单击：仅图块
+Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile	变体 %d（稀有）。单击：图块、其矩形和其堆叠。Shift+单击：仅图块
