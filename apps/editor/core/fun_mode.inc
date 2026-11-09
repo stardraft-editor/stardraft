@@ -13,6 +13,8 @@
 void funPlayPcm(const std::vector<float>& mono, int rate, const char* name);
 // Plays an SFX data entry's sound (a unit's ready sound) at half the volume, at most 2 at a time (sdl_data.inc).
 void funPlaySfx(int sfx);
+// Plays the sound file `path` of `data` (a mod's ready sound) as funPlaySfx (sdl_data.inc).
+void funPlaySoundFile(const GameData& data, const std::string& path);
 const DatTable* rangeTable(const std::string& name);  // (map_scene.inc: units.dat, the project's or the game's)
 
 namespace fun {
@@ -293,7 +295,7 @@ void watch(const Editor& ed) {
     g.doodads = std::move(doodads);
     // Units: placed ones thud and pop (by serial: a moved unit keeps it), deleted ones puff.
     std::unordered_set<uint32_t> serials;
-    int placed = 0, deleted = 0, readyType = 1000;
+    int placed = 0, deleted = 0, readyType = -1;
     float pitch = 1;
     for (const Unit& un : ed.units()) {
         serials.insert(un.serial);
@@ -311,10 +313,15 @@ void watch(const Editor& ed) {
         if (!serials.count(serial) && ++deleted <= 64) boxShards(Kind::Poof, x - 8.0f, y - 8.0f, x + 8.0f, y + 8.0f, false, 2);
     if (placed) play(Kind::Plop, pitch, 1, 50);
     else if (deleted) play(Kind::Poof);
-    // The first placed unit's ready sound (units.dat's Ready Sound: units 0 to 105 have one), at most one each 0.6 s:
-    // a row or a paste of many units says it once.
+    // The first placed unit's ready sound, at most one each 0.6 s (a row or a paste of many units says it once): on a
+    // Cosmonarchy map the mod's (cmbw::unitReadySound), else, or when the mod has none, the game's (units.dat's Ready
+    // Sound: units 0 to 105 have one).
     static uint64_t lastReady = 0;
-    if (placed && readyType < 106 && nowMs() - lastReady >= 600)
+    std::string modSound;
+    if (placed && readyType >= 0 && nowMs() - lastReady >= 600 && modTab())
+        modSound = stardraft::cmbw::unitReadySound(ed.gameData(), uint16_t(readyType));
+    if (!modSound.empty()) funPlaySoundFile(ed.gameData(), modSound), lastReady = nowMs();
+    else if (placed && readyType >= 0 && readyType < 106 && nowMs() - lastReady >= 600)
         if (const DatTable* units = rangeTable("units"))
             if (const DatField* f = units->field("Ready Sound"); f && readyType >= f->first && readyType <= f->last)
                 if (const uint32_t sfx = units->value(*f, readyType); sfx > 0) funPlaySfx(int(sfx)), lastReady = nowMs();

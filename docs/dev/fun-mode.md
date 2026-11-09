@@ -12,7 +12,9 @@ click turns it off ("Craft mode off"). It is in no menu and not in Program optio
   tiles that became all of a terrain they did not have (the brush's rings of the terrains between it and the ground,
   Platform and High Platform round painted Space, do not count).
 - A placed unit thuds softly (a building lower), squashes and springs back about its feet, and the first one says its
-  ready sound (units.dat's Ready Sound: units 0 to 105; buildings have none). A placed doodad thunks and shakes the
+  ready sound (units.dat's Ready Sound: units 0 to 105; buildings have none). On a Cosmonarchy BW map it is the
+  mod's (cmbw::unitReadySound: units.datex's Ready Sound, the mod's arr\sfxdata.dat and arr\sounds.txt, the file from
+  the mod's data), else, or when the mod has none, the game's. A placed doodad thunks and shakes the
   view a little. A deleted unit or doodad puffs.
 - Every changed tile throws small shards of its own new tile (a border tile its own mix of terrains), low and few:
   2 a tile, 1 when more than 40 tiles changed, spread over all of them (about 110 tiles at most a time). Each one is a
