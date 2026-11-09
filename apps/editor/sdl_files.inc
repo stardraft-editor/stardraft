@@ -64,6 +64,9 @@ std::string gSoundAsked;
 SDL_AudioDeviceID gPlaybackDevice = 0;
 SDL_AudioSpec gPlaybackSpec{};
 std::set<SDL_AudioStream*> gPlaybackStreams;  // (the streams of openPlaybackSdl not closed yet)
+// Craft mode's mixer stream (sdl_data.inc, funPlayPcm): bound while the device is open, its queue never empty (it fills
+// itself), so it does not count as a sound that plays; each of its sounds keeps the device awake (playbackDeviceSdl).
+SDL_AudioStream* gFunMixStream = nullptr;
 uint64_t gPlaybackFailedAt = 0, gPlaybackSoundAt = 0;
 void playbackIdleCheckSdl() {
     if (!gHost) return;
@@ -71,7 +74,7 @@ void playbackIdleCheckSdl() {
         if (!gPlaybackDevice) return;
         if (gWorkspace == Workspace::Briefing || gWorkspace == Workspace::Files) gPlaybackSoundAt = SDL_GetTicks();
         for (SDL_AudioStream* s : gPlaybackStreams)
-            if (SDL_GetAudioStreamDevice(s) && SDL_GetAudioStreamQueued(s) > 0) gPlaybackSoundAt = SDL_GetTicks();
+            if (s != gFunMixStream && SDL_GetAudioStreamDevice(s) && SDL_GetAudioStreamQueued(s) > 0) gPlaybackSoundAt = SDL_GetTicks();
         if (SDL_GetTicks() - gPlaybackSoundAt < 20000) return playbackIdleCheckSdl();
         for (SDL_AudioStream* s : gPlaybackStreams) SDL_UnbindAudioStream(s);
         SDL_CloseAudioDevice(gPlaybackDevice);

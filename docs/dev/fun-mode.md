@@ -100,9 +100,11 @@ anyway); they can ship.
 
 ## Limits now (rate and volume)
 
-- At most one sound of each kind each 80 ms, and at most 4 terrain, unit and doodad sounds at a time (one more does
-  not start). Each one that plays makes the next one softer (1 / (1 + 0.5 n): 4 together are about 2.1 times one), so
-  a long stroke or a big fill is one soft texture, not a wall. The replaced terrain's sound starts after the placed
+- Each sound plays to its end: the program mixes them itself, on one playback stream, each on a voice of its own (12
+  voices; the sum through a soft limit, so many at once never clip). At most one sound of each kind each 80 ms, and at
+  most 12 at a time: with all voices busy, a new sound takes the voice of the one nearest its end only when that one
+  is in its fade-out (no loud stop), else it does not play. Each one that plays makes the next one softer (1 / (1 +
+  0.5 n): 4 together are about 2.6 times one, 12 about 4.4), so a long stroke or a big fill is one soft texture, not a wall. The replaced terrain's sound starts after the placed
   one's, so it is ducked too and stays the quieter one.
 - Each sound fades in for 8 ms and out for 30 ms (no hard start or stop); the takes stay short and punchy.
 - Each one is a little different (its take and its pitch step).

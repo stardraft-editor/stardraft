@@ -117,11 +117,12 @@ void crush(std::vector<float>& v) {
 }
 
 // The recorded sound of a kind (none: no sound).
-// Many at once (a long stroke, a big fill) are one soft texture, not a wall: at most kVoices play at a time (a sound
-// that would be one more does not start), and each one that plays makes the next one softer (ducked: 1 / (1 + 0.5 n),
-// so 4 together add up to about 2.1 times one). Each sound fades in for 8 ms and out for 30 ms (no hard start or
+// Many at once (a long stroke, a big fill) are one soft texture, not a wall: each plays to its end on a voice of its
+// own in the program's mixer (sdl_data.inc, gFunMix: 12 voices, a soft limit on their sum); at most kVoices play at a
+// time (one more does not start), and each one that plays makes the next one softer (ducked: 1 / (1 + 0.5 n), so 4
+// together add up to about 2.6 times one, 12 to about 4.4). Each sound fades in for 8 ms and out for 30 ms (no hard start or
 // stop). The replaced terrain's sound starts after the placed one's, so it is ducked too: it stays the quieter one.
-constexpr size_t kVoices = 4;
+constexpr size_t kVoices = 12;
 std::vector<uint64_t> playingUntil;  // (the end of each sound that plays now, in nowMs)
 
 void play(Kind k, float pitch = 1, float level = 1, uint64_t gapMs = 80) {

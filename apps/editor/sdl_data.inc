@@ -175,7 +175,34 @@ void sfxPlayOnce(int sfx) {
     }
 }
 
-// Options > Fun mode's sounds (core/fun_mode.inc): mono samples, at most 6 at a time; a test run plays nothing.
+// Craft mode's mixer: the sounds that play now, each from its start to its end, added together.
+struct FunMix {
+    struct Voice {
+        std::vector<float> s;
+        size_t at = 0;
+    };
+    static constexpr size_t kVoices = 12;
+    std::mutex lock;  // (the audio thread mixes them: funMixSdl)
+    std::vector<Voice> voices;
+} gFunMix;
+// The stream's callback (the audio thread): `additional` bytes more of the voices added together, through a soft limit
+// (tanh: many at once never clip). Silence when none plays.
+void SDLCALL funMixSdl(void*, SDL_AudioStream* stream, int additional, int) {
+    if (additional <= 0) return;
+    std::vector<float> out;
+    {
+        std::lock_guard<std::mutex> lock(gFunMix.lock);
+        if (gFunMix.voices.empty()) return;  // (none plays: the device plays silence)
+        out.assign(size_t(additional) / sizeof(float), 0.0f);
+        for (FunMix::Voice& v : gFunMix.voices)
+            for (size_t i = 0; i < out.size() && v.at < v.s.size(); ++i) out[i] += v.s[v.at++];
+        std::erase_if(gFunMix.voices, [](const FunMix::Voice& v) { return v.at >= v.s.size(); });
+    }
+    for (float& x : out) x = std::tanh(x);
+    SDL_PutAudioStreamData(stream, out.data(), int(out.size() * sizeof(float)));
+}
+
+// Craft mode's sounds (core/fun_mode.inc): mono samples, into the mixer (gFunMix); a test run plays nothing.
 void funPlayPcm(const std::vector<float>& mono, int rate, const char* name) {
     if (const char* dir = std::getenv("STARDRAFT_FUN_WAV"); dir && *dir && !mono.empty()) {  // (to listen to them: 16-bit mono WAV)
         static int n = 0;
@@ -187,18 +214,31 @@ void funPlayPcm(const std::vector<float>& mono, int rate, const char* name) {
         out.write("data", 4), u32(bytes);
         for (float s : mono) u16(uint16_t(int16_t(std::clamp(s, -1.0f, 1.0f) * 32767)));
     }
-    static std::vector<SDL_AudioStream*> playing;
-    for (auto it = playing.begin(); it != playing.end();)
-        if (SDL_GetAudioStreamQueued(*it) <= 0) closeStreamSdl(*it), it = playing.erase(it);
-        else ++it;
-    if (playing.size() >= 6 || mono.empty()) return;
-    const SDL_AudioSpec spec{SDL_AUDIO_F32, 1, rate};
-    if (SDL_AudioStream* s = openPlaybackSdl(&spec)) {
-        SDL_PutAudioStreamData(s, mono.data(), int(mono.size() * sizeof(float)));
-        SDL_FlushAudioStream(s);
-        playStreamSdl(s);
-        playing.push_back(s);
+    if (mono.empty()) return;
+    // One stream for all of them, which mixes its voices as the device asks for more (funMixSdl): each sound plays to
+    // its end, at the same time as the others (no stream of its own that a new one stops).
+    SDL_AudioStream*& stream = gFunMixStream;  // (sdl_files.inc: the idle check does not count it)
+    static int streamRate = 0;
+    if (stream && streamRate != rate) closeStreamSdl(stream), stream = nullptr;
+    if (!stream) {
+        const SDL_AudioSpec spec{SDL_AUDIO_F32, 1, rate};
+        if (!(stream = openPlaybackSdl(&spec))) return;  // (a test run, or no device)
+        streamRate = rate;
+        SDL_SetAudioStreamGetCallback(stream, funMixSdl, nullptr);
     }
+    if (!playbackDeviceSdl()) return;  // (the device again, after 20 seconds with no sound it closed)
+    SDL_SetAudioStreamGain(stream, float(gDock.volume) / 100.0f);
+    if (!SDL_GetAudioStreamDevice(stream)) playStreamSdl(stream);
+    std::lock_guard<std::mutex> lock(gFunMix.lock);
+    if (gFunMix.voices.size() >= FunMix::kVoices) {
+        // All voices busy: the one nearest its end takes the new sound, if it is in its fade-out (the last 30 ms: it
+        // stops at a low level, no click); else the new sound does not play.
+        auto least = std::min_element(gFunMix.voices.begin(), gFunMix.voices.end(),
+                                      [](const FunMix::Voice& a, const FunMix::Voice& b) { return a.s.size() - a.at < b.s.size() - b.at; });
+        if (least->s.size() - least->at > size_t(rate) * 30 / 1000) return;
+        gFunMix.voices.erase(least);
+    }
+    gFunMix.voices.push_back({mono, 0});
 }
 
 // Craft mode: a placed unit's ready sound (core/fun_mode.inc), at half the volume and at most 2 at a time (a third one
