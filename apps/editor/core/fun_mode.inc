@@ -261,7 +261,7 @@ struct State {
     int colorsEra = -1;
     std::mt19937 rng{12345};
 } g;
-constexpr size_t kMaxParticles = 1200, kMaxShards = 200;  // (a shard is up to about 250 rects)
+constexpr size_t kMaxParticles = 1200, kMaxShards = 120;  // (a shard is up to about 100 rects)
 size_t shardCount = 0;
 constexpr uint64_t kPopMs = 420, kShakeMs = 140;
 
@@ -312,11 +312,11 @@ uint32_t shade(uint32_t rgb, float f) {
     return c(16) | c(8) | c(0);
 }
 
-// A shard of the tile at map pixel (tileX, tileY) (megatile `mega` of `ts`): a jagged shape of 3 to 6 corners, 7 to
-// 19 pixels across, cut from a place in the tile at random, with the tile's own pixels. False: no pixels.
+// A shard of the tile at map pixel (tileX, tileY) (megatile `mega` of `ts`): a jagged shape of 3 to 6 corners, 5 to
+// 12 pixels across, cut from a place in the tile at random, with the tile's own pixels. False: no pixels.
 bool cutShard(const Tileset& ts, int mega, float tileX, float tileY, Particle& p) {
     std::uniform_real_distribution<float> u(0.0f, 1.0f);
-    const int n = 7 + int(u(g.rng) * 12.99f);
+    const int n = 5 + int(u(g.rng) * 7.99f);
     const int ox = int(u(g.rng) * float(32 - n)), oy = int(u(g.rng) * float(32 - n));
     const int corners = 3 + int(u(g.rng) * 3.99f);
     float cx[6], cy[6];
@@ -357,7 +357,7 @@ void burst(Kind k, float x0, float y0, float x1, float y1, uint32_t rgb, int n, 
         if (mega >= 0 && size_t(mega) < ts->megatiles.size() && shardCount < kMaxShards && cutShard(*ts, mega, x0, y0, p)) ++shardCount;
         if (ts && p.pix.empty()) break;  // (no shard: too many fly now)
         const float a = 6.2831853f * u(g.rng);
-        float speed = 50 + 110 * u(g.rng), up = 110 + 160 * u(g.rng);
+        float speed = 40 + 80 * u(g.rng), up = 60 + 90 * u(g.rng);  // (low: a hop, not a fountain)
         p.gravity = 600, p.life = 0.45f + 0.35f * u(g.rng), p.size = 3 + 2.5f * u(g.rng);
         p.rgb = shade(rgb, 0.75f + 0.5f * u(g.rng));
         switch (k) {
@@ -379,13 +379,13 @@ void burst(Kind k, float x0, float y0, float x1, float y1, uint32_t rgb, int n, 
             break;
         default: break;
         }
-        if (!p.pix.empty()) {  // (a shard: any way, its own speed and spin; some skid low, some go high)
+        if (!p.pix.empty()) {  // (a shard: any way, its own speed and spin; low, small)
             const float r = u(g.rng);
-            const float s = r < 0.25f ? 0.35f : r > 0.85f ? 1.6f : 1.0f;
-            speed *= 1.4f + 0.8f * u(g.rng), up *= s;
-            p.gravity *= 0.75f + 0.5f * u(g.rng), p.life += 0.2f + 0.3f * u(g.rng);
+            const float s = r < 0.3f ? 0.45f : 0.8f;
+            speed *= 0.6f + 0.5f * u(g.rng), up *= s;
+            p.gravity *= 0.9f + 0.4f * u(g.rng), p.life += 0.05f * u(g.rng);
             p.angle = 6.2831853f * u(g.rng), p.spin = (2 + 14 * u(g.rng)) * (u(g.rng) < 0.5f ? -1.0f : 1.0f);
-            p.size = std::max(shellState().zoom, 1.6f) * (1.0f + 0.6f * u(g.rng));  // (a pixel's screen size: at least 1.6)
+            p.size = std::max(shellState().zoom, 1.0f) * (0.9f + 0.3f * u(g.rng));  // (a pixel's screen size: at least 1)
         }
         p.vx = std::cos(a) * speed, p.vy = std::sin(a) * speed * 0.5f - up;
         g.particles.push_back(p);
@@ -498,24 +498,40 @@ void watch(const Editor& ed) {
             if (now[i] != g.tiles[i]) changed.push_back(i);
         if (!changed.empty() && !doodadsChanged) {
             const auto& groupTerrains = solidGroupTerrains();
+            auto terrainsOf = [&](uint16_t tile) {
+                const size_t group = tile >> 4;
+                return group < groupTerrains.size() ? groupTerrains[group] : std::array<uint16_t, 2>{};
+            };
+            // Each tile's terrain that it did not have before (grass painted on dirt: the grass of its edge tiles; 0:
+            // none, a tile of the same terrain made again). Only those tiles count when there are any: the dirt round a
+            // grass stroke that the brush made again is no dirt sound and throws no dirt.
+            std::vector<uint16_t> added(changed.size(), 0);
+            std::unordered_map<uint16_t, uint16_t> solid;  // a changed tile that is all of that terrain: the shards' source
+            bool anyAdded = false;
+            for (size_t c = 0; c < changed.size(); ++c) {
+                const auto nt = terrainsOf(now[changed[c]]), ot = terrainsOf(g.tiles[changed[c]]);
+                for (uint16_t t : nt)
+                    if (t && t != ot[0] && t != ot[1]) added[c] = t, anyAdded = true;
+                if (nt[0] && !nt[1]) solid.try_emplace(nt[0], now[changed[c]]);
+            }
             int counts[size_t(Kind::Count)]{};
             std::unordered_map<uint16_t, Kind> kinds;
-            const size_t step = std::max<size_t>(1, changed.size() / 100);  // (at most about 100 tiles make particles)
-            for (size_t c = 0; c < changed.size(); ++c) {
+            size_t counted = 0;
+            for (size_t c = 0; c < changed.size(); ++c) counted += !anyAdded || added[c];
+            const size_t step = std::max<size_t>(1, counted / 100);  // (at most about 100 tiles make particles)
+            for (size_t c = 0, n = 0; c < changed.size(); ++c) {
+                if (anyAdded && !added[c]) continue;
                 const size_t i = changed[c];
-                const size_t group = now[i] >> 4, oldGroup = g.tiles[i] >> 4;
-                const std::array<uint16_t, 2> nt = group < groupTerrains.size() ? groupTerrains[group] : std::array<uint16_t, 2>{};
-                const std::array<uint16_t, 2> ot = oldGroup < groupTerrains.size() ? groupTerrains[oldGroup] : std::array<uint16_t, 2>{};
-                uint16_t terrain = nt[0];
-                for (uint16_t t : nt)
-                    if (t && t != ot[0] && t != ot[1]) terrain = t;
+                const uint16_t terrain = anyAdded ? added[c] : terrainsOf(now[i])[0];
                 auto it = kinds.find(terrain);
                 if (it == kinds.end()) it = kinds.emplace(terrain, terrain ? kindOfTerrain(ed.terrainName(terrain)) : Kind::Crunch).first;
                 ++counts[size_t(it->second)];
-                if (c % step) continue;
+                if (n++ % step) continue;
                 const float x = float(i % ed.width()) * 32, y = float(i / ed.width()) * 32;
-                burst(it->second, x, y, x + 32, y + 32, tileColor(ts, now[i]), 3, &ts, now[i]);  // (shards of the new tile)
-                if (it->second == Kind::Splash || it->second == Kind::Clank) burst(it->second, x, y, x + 32, y + 32, tileColor(ts, now[i]), 3);
+                const auto src = solid.find(terrain);  // (shards of that terrain alone, where the edit has a tile of it)
+                const uint16_t from = src != solid.end() ? src->second : now[i];
+                burst(it->second, x, y, x + 32, y + 32, tileColor(ts, from), 1 + (u(g.rng) < 0.4f), &ts, from);
+                if (it->second == Kind::Splash || it->second == Kind::Clank) burst(it->second, x, y, x + 32, y + 32, tileColor(ts, from), 2);
             }
             const Kind top = Kind(std::max_element(std::begin(counts), std::end(counts)) - std::begin(counts));
             play(top, 1, std::clamp(0.45f + 0.12f * std::log2(float(changed.size())), 0.45f, 1.0f));

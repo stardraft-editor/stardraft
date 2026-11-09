@@ -12,10 +12,13 @@ when the map is edited:
   - a placed unit lands softly (a building lower than a small unit), squashes and springs back about its feet, and
     the first one says its ready sound (units.dat's Ready Sound: units 0 to 105; buildings have none);
   - a deleted unit or doodad goes poof.
-- Shards of the placed tiles fly off: each one is a jagged shape of 3 to 6 corners, 7 to 19 pixels across, cut from
-  a place in the new tile at random with the tile's own pixels. Each one flies its own way at its own speed (some
-  skid low, some go high), turns at its own rate and way, falls, gets smaller and fades. Water also throws white
-  drops; metal throws sparks. A placed unit or doodad throws shards of the ground under it and a little dust.
+- Small shards of the placed terrain hop off (low and few: 1 or 2 a tile): each one is a jagged shape of 3 to 6
+  corners, 5 to 12 pixels across, cut with the terrain's own pixels (from a tile of the edit that is all of the new
+  terrain, so grass painted on dirt throws grass only). Each one goes its own way at its own speed, turns at its own
+  rate and way, falls, gets smaller and fades. Water also throws white drops; metal throws sparks. A placed unit or
+  doodad throws shards of the ground under it and a little dust.
+- The sound and the shards are by the tiles that got a terrain they did not have: the dirt round a grass stroke,
+  which the brush makes again, makes no dirt sound.
 
 ## How it works
 
@@ -69,8 +72,8 @@ length, attack, the number of small hits in them and their energy in bands:
 - A unit's ready sound: at half the volume, at most one each 0.6 s (a row or a paste of many units says it once), at
   most 2 at a time.
 - A sound's level goes up with the number of tiles that changed (log2), from 45 % to 100 %.
-- At most 1,200 particles, of them at most 200 shards (up to about 250 rects each). About 100 tiles of an edit make
-  shards (3 each); a fill of the whole map makes a few, spread out.
+- At most 1,200 particles, of them at most 120 shards (up to about 100 rects each). About 100 tiles of an edit make
+  shards (1 or 2 each); a fill of the whole map makes a few, spread out.
 
 ## Open questions
 
