@@ -67,6 +67,7 @@ struct State {
     std::vector<Particle> particles;
     std::unordered_map<uint32_t, Pop> pops;  // by serial
     uint64_t shakeStart = 0, lastFrame = 0;
+    float shakeAmp = 1;  // (the shake's size: 1 a doodad's thunk; a large brush's by its tiles)
     uint64_t lastSound[size_t(Kind::Count)]{};
     std::mt19937 rng{12345};
 } g;
@@ -290,7 +291,7 @@ void watch(const Editor& ed) {
         doodadBox(key, x0, y0, x1, y1);
         if (++deletedDoodads <= 12) boxShards(Kind::Poof, x0, y0, x1, y1, true, 1);  // (its tiles before: it crumbles)
     }
-    if (placedDoodads) play(Kind::Thunk, 1, 1, 60), g.shakeStart = nowMs();
+    if (placedDoodads) play(Kind::Thunk, 1, 1, 60), g.shakeStart = nowMs(), g.shakeAmp = 1;
     else if (deletedDoodads) play(Kind::Poof);
     g.doodads = std::move(doodads);
     // Units: placed ones thud and pop (by serial: a moved unit keeps it), deleted ones puff.
@@ -399,6 +400,11 @@ void watch(const Editor& ed) {
             play(top, 1, level);  // (what is placed: louder than what it replaces)
             if (replaced != Kind::Count && replaced != top) play(replaced, 1, level * 0.35f);
         }
+        // A very large brush (an edit of 80 tiles or more: a brush of about 12 and up, a big fill; also when it takes
+        // doodads away): the view shakes a little, more for more tiles (up to 1.5 times a doodad's thunk), starting at
+        // most each 0.25 s, so a long drag is a light rumble.
+        if (changed.size() >= 80 && nowMs() - g.shakeStart >= 250)
+            g.shakeStart = nowMs(), g.shakeAmp = std::clamp(std::sqrt(float(changed.size())) / 14, 0.6f, 1.5f);
         g.tiles = now, g.terrainRevision = ed.terrainRevision();
     }
     g.revision = ed.revision();
@@ -454,8 +460,8 @@ void funModeScene(render::Scene& s) {
             s.rects.push_back({x - h, y - h, x + h, y + h, q.rgb << 8 | alpha, true});
         }
     }
-    if (const uint64_t gone = now - fun::g.shakeStart; gone < fun::kShakeMs) {  // (a doodad's thunk: the view shakes)
-        const float k = 1 - float(gone) / fun::kShakeMs, amp = 3.0f / zoom * k;
+    if (const uint64_t gone = now - fun::g.shakeStart; gone < fun::kShakeMs) {  // (a doodad's thunk, a large brush: the view shakes)
+        const float k = 1 - float(gone) / fun::kShakeMs, amp = 3.0f * fun::g.shakeAmp / zoom * k;
         s.camera.y += amp * std::sin(float(gone) * 0.21f), s.camera.x += amp * 0.4f * std::cos(float(gone) * 0.17f);
     }
 }

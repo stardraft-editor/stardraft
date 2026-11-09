@@ -16,6 +16,8 @@ click turns it off ("Craft mode off"). It is in no menu and not in Program optio
   mod's (cmbw::unitReadySound: units.datex's Ready Sound, the mod's arr\sfxdata.dat and arr\sounds.txt, the file from
   the mod's data), else, or when the mod has none, the game's. A placed doodad thunks and shakes the
   view a little. A deleted unit or doodad puffs.
+- A very large brush (an edit of 80 tiles or more: a brush of about 12 and up, a big fill) shakes the view a little,
+  more for more tiles (up to 1.5 times a doodad's thunk), at most every 0.25 s: a long drag is a light rumble.
 - Every changed tile throws small shards of its own new tile (a border tile its own mix of terrains), low and few:
   2 a tile, 1 when more than 40 tiles changed, spread over all of them (about 110 tiles at most a time). Each one is a
   jagged shape of 3 to 6 corners, 5 to 12 pixels across, cut from a place in the tile with its own pixels; it goes
