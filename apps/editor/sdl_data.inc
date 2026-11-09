@@ -201,6 +201,39 @@ void funPlayPcm(const std::vector<float>& mono, int rate, const char* name) {
     }
 }
 
+// Options > Fun mode: a placed unit's ready sound (core/fun_mode.inc), at half the volume and at most 2 at a time (a
+// third one does not start); each sound decoded once. A test run plays nothing; STARDRAFT_FUN_WAV writes its number.
+void funPlaySfx(int sfx) {
+    if (const char* dir = std::getenv("STARDRAFT_FUN_WAV"); dir && *dir) {
+        static int n = 0;
+        std::ofstream(fs::path(widen(dir)) / ("ready-" + std::to_string(++n) + ".txt")) << "sfx " << sfx << "\n";
+    }
+    static std::vector<SDL_AudioStream*> playing;
+    for (auto it = playing.begin(); it != playing.end();)
+        if (SDL_GetAudioStreamQueued(*it) <= 0) closeStreamSdl(*it), it = playing.erase(it);
+        else ++it;
+    if (playing.size() >= 2) return;
+    struct Decoded {
+        SDL_AudioSpec spec{};
+        std::vector<Uint8> pcm;
+    };
+    static std::map<int, Decoded> decoded;
+    auto it = decoded.find(sfx);
+    if (it == decoded.end()) {
+        Decoded d;
+        if (!sdlSfxLoad(sfx, d.spec, d.pcm)) return;
+        if (decoded.size() > 64) decoded.clear();
+        it = decoded.emplace(sfx, std::move(d)).first;
+    }
+    if (SDL_AudioStream* s = openPlaybackSdl(&it->second.spec)) {
+        SDL_SetAudioStreamGain(s, float(gDock.volume) / 100.0f * 0.5f);
+        SDL_PutAudioStreamData(s, it->second.pcm.data(), int(it->second.pcm.size()));
+        SDL_FlushAudioStream(s);
+        playStreamSdl(s);
+        playing.push_back(s);
+    }
+}
+
 // An SFX data entry's sound, as the Windows program's sfxLoad: its file under sound\ in the game's data, decoded
 // (Remastered's sounds are Ogg Vorbis under their .wav names; 1.16.1's are WAV).
 bool sdlSfxLoad(int sfx, SDL_AudioSpec& spec, std::vector<Uint8>& pcm) {

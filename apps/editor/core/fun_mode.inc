@@ -10,6 +10,9 @@
 // Defined by the program: plays mono samples (-1..1) at `rate` once (sdl_data.inc; a test run plays nothing). `name`:
 // the sound's kind (STARDRAFT_FUN_WAV=<folder> writes each sound there as <name>-<n>.wav, also in a test run).
 void funPlayPcm(const std::vector<float>& mono, int rate, const char* name);
+// Plays an SFX data entry's sound (a unit's ready sound) at half the volume, at most 2 at a time (sdl_data.inc).
+void funPlaySfx(int sfx);
+const DatTable* rangeTable(const std::string& name);  // (map_scene.inc: units.dat, the project's or the game's)
 
 namespace fun {
 
@@ -88,57 +91,138 @@ Kind kindOfTerrain(const std::string& name) {
     return Kind::Crunch;
 }
 
+// --- Natural layers (as recorded steps, landings and hits are made: docs/dev/fun-mode.md, "The sounds") -------------
+// A two-pole filter (RBJ's biquad): band-pass (q: how narrow) or low-pass.
+struct Biquad {
+    float b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0;
+    void set(bool band, float f, float q) {
+        const float w = 6.2831853f * std::clamp(f, 20.0f, kRate * 0.45f) / kRate, al = std::sin(w) / (2 * q), c = std::cos(w), a0 = 1 + al;
+        if (band) b0 = al / a0, b1 = 0, b2 = -al / a0;
+        else b0 = (1 - c) / 2 / a0, b1 = (1 - c) / a0, b2 = (1 - c) / 2 / a0;
+        a1 = -2 * c / a0, a2 = (1 - al) / a0;
+    }
+    float run(float x) {
+        const float y = b0 * x + z1;
+        z1 = b1 * x - a1 * y + z2, z2 = b2 * x - a2 * y;
+        return y;
+    }
+};
+void addAt(std::vector<float>& out, size_t at, float v) {
+    if (out.size() <= at) out.resize(at + 1, 0.0f);
+    out[at] += v;
+}
+// `count` grains of noise (a rustle, a crunch, grit) in `span` seconds from `start`, more of them early: each 2 to 14 ms
+// (grainMs), band-passed round a frequency between lo and hi (Hz, at random on a log scale), a sharp start and a quick
+// fall. Each one is softer than the one before by `fall` (0..1) of the way.
+void grains(std::vector<float>& out, std::mt19937& rng, int count, float start, float span, float lo, float hi, float grainMsLo, float grainMsHi,
+            float q, float vol, float fall = 0.7f) {
+    std::uniform_real_distribution<float> u(0.0f, 1.0f), n(-1.0f, 1.0f);
+    for (int i = 0; i < count; ++i) {
+        const float r = float(i) / std::max(1, count - 1);
+        const float t = start + span * std::pow(u(rng), 1.6f);
+        const float len = (grainMsLo + (grainMsHi - grainMsLo) * u(rng)) / 1000;
+        Biquad f;
+        f.set(true, lo * std::pow(hi / lo, u(rng)), q);
+        const float amp = vol * (0.35f + 0.65f * u(rng)) * (1 - fall * r);
+        const size_t at = size_t(t * kRate), m = size_t(len * kRate);
+        for (size_t k = 0; k < m + size_t(0.01f * kRate); ++k) {  // (and the filter's ring after it)
+            const float e = k < 22 ? float(k) / 22 : std::exp(-float(k) / (float(m) * 0.35f));
+            addAt(out, at + k, f.run(k < m ? n(rng) : 0.0f) * e * amp * 3);
+        }
+    }
+}
+// A low thump: a sine that falls from f0 to f1 (Hz) and dies in `ms`.
+void thump(std::vector<float>& out, float start, float f0, float f1, float ms, float vol) {
+    const size_t at = size_t(start * kRate), n = size_t(ms / 1000 * kRate * 3);
+    float ph = 0;
+    for (size_t k = 0; k < n; ++k) {
+        const float t = float(k) / kRate, f = f1 + (f0 - f1) * std::exp(-t / (ms / 1000 * 0.5f));
+        ph += f / kRate;
+        const float e = std::min(1.0f, float(k) / 40) * std::exp(-t / (ms / 1000));
+        addAt(out, at + k, std::sin(6.2831853f * ph) * e * vol);
+    }
+}
+// A bubble (as water makes them: a sine whose pitch goes up as it rings out).
+void bubble(std::vector<float>& out, float start, float f, float ms, float vol) {
+    const size_t at = size_t(start * kRate), n = size_t(ms / 1000 * kRate * 4);
+    float ph = 0;
+    for (size_t k = 0; k < n; ++k) {
+        const float t = float(k) / kRate;
+        ph += f * (1 + 2.5f * t / (ms / 1000) * 0.25f) / kRate;
+        addAt(out, at + k, std::sin(6.2831853f * ph) * std::min(1.0f, float(k) / 30) * std::exp(-t / (ms / 1000)) * vol);
+    }
+}
+// A struck piece of metal: its partials (not in tune with each other), each dies at its own speed.
+void modes(std::vector<float>& out, float f, float ms, float vol) {
+    static const float kRatio[] = {1.0f, 2.32f, 4.25f, 6.63f}, kAmp[] = {1.0f, 0.6f, 0.35f, 0.2f};
+    const size_t n = size_t(ms / 1000 * kRate * 4);
+    for (int m = 0; m < 4; ++m)
+        for (size_t k = 0; k < n; ++k) {
+            const float t = float(k) / kRate;
+            addAt(out, k, std::sin(6.2831853f * f * kRatio[m] * t) * std::exp(-t / (ms / 1000 / (1 + m * 0.7f))) * kAmp[m] * vol);
+        }
+}
+
 // The sound of a kind, a little different each time. `pitch`: 1 as made; more is higher (a small unit plops higher).
+// After the bfxr-style start, the sounds were made more natural from recorded steps, landings and hits (energy
+// mostly at 150 Hz to 2.5 kHz, little above 6 kHz; many small hits, not one smooth sound; brighter at the start).
 std::vector<float> makeSound(Kind k, float pitch, float level, std::mt19937& rng) {
-    std::uniform_real_distribution<float> j(0.88f, 1.12f);
+    std::uniform_real_distribution<float> j(0.88f, 1.12f), u(0.0f, 1.0f);
     std::vector<float> out;
     auto add = [&](Voice v) {
-        v.freq *= pitch * j(rng), v.vol *= level;
+        v.freq *= pitch * j(rng);  // (the level: at the end)
         render(v, out, rng);
     };
+    const float p = pitch * j(rng);
     switch (k) {
-    case Kind::Splash:
-        add({Noise, 3500, -1.0f, 0.5f, 0, 0.03f, 0.28f, 0.3f, 0.6f, -1.6f, 0, 0, 0, 0, 0.45f});
-        add({Sine, 320, 2.2f, 0.5f, 0, 0.015f, 0.09f, 0, 1, 0, 0, 0, 0, 0, 0.35f});
+    case Kind::Splash:  // (a wash of water darker as it goes, the drops, and 3 to 5 bubbles)
+        grains(out, rng, 26, 0, 0.22f, 500 * p, 4000 * p, 4, 16, 0.9f, 0.5f);
+        for (int i = 3 + int(u(rng) * 2.99f); i > 0; --i) bubble(out, 0.01f + 0.2f * u(rng), (500 + 700 * u(rng)) * p, 18 + 20 * u(rng), 0.2f);
+        thump(out, 0, 140 * p, 70 * p, 35, 0.12f);
         break;
-    case Kind::Gloop:
-        add({Noise, 900, -0.5f, 0.5f, 0, 0.04f, 0.22f, 0, 0.25f, -0.6f, 0, 0, 0, 0, 0.45f});
-        add({Sine, 150, 1.4f, 0.5f, 0, 0.03f, 0.14f, 0.2f, 1, 0, 0, 0, 0.08f, 18, 0.45f});
+    case Kind::Gloop:  // (thick: low bubbles, slow)
+        grains(out, rng, 10, 0, 0.25f, 200 * p, 1200 * p, 8, 25, 1.2f, 0.4f);
+        for (int i = 2 + int(u(rng) * 2.99f); i > 0; --i) bubble(out, 0.02f + 0.25f * u(rng), (140 + 180 * u(rng)) * p, 45 + 30 * u(rng), 0.4f);
         break;
-    case Kind::Brush:  // (the user's bfxr grass: a swish that rises for 0.13 s and stops short; bfxr's noise at
-                       // 2,643 Hz changes 32 times a period, so here it is white; its high-pass at 0.85: sfxr's 0.072)
-        add({Noise, 2643 * 32, 0.2f, 0.5f, 0.1263f, 0.0025f, 0.0082f, 0.514f, 1, 0, 0.072f, 0, 0.0465f, 16.82f, 0.4f, 1.018f, 0.0122f});
+    case Kind::Brush:  // (the user's bfxr grass swish, darker, under a rustle of grass: many small dry grains)
+        add({Noise, 2643 * 32, 0.2f, 0.5f, 0.1263f, 0.0025f, 0.0082f, 0.514f, 0.2f, 0, 0.072f, 0, 0.0465f, 16.82f, 0.15f, 1.018f, 0.0122f});
+        grains(out, rng, 22, 0.02f, 0.25f, 600 * p, 3200 * p, 2, 9, 1.4f, 0.35f, 0.5f);
+        thump(out, 0, 110 * p, 60 * p, 30, 0.05f);
         break;
-    case Kind::Crunch:
-        add({Noise, 2600, -0.4f, 0.5f, 0, 0.02f, 0.11f, 0.3f, 0.35f, -1.0f, 0, 0.7f, 0, 0, 0.6f});
+    case Kind::Crunch:  // (dirt: low-mid grit, 10 to 14 small hits, and a soft thud)
+        grains(out, rng, 12 + int(u(rng) * 4.99f), 0, 0.4f, 300 * p, 2000 * p, 2, 8, 1.1f, 0.6f, 0.6f);
+        thump(out, 0, 130 * p, 70 * p, 30, 0.08f);
         break;
-    case Kind::Rock:
-        add({Noise, 5200, -0.6f, 0.5f, 0, 0.015f, 0.09f, 0.4f, 0.7f, -2.0f, 0.04f, 0.85f, 0, 0, 0.5f});
-        add({Sine, 95, -1.2f, 0.5f, 0, 0.01f, 0.08f, 0.3f, 1, 0, 0, 0, 0, 0, 0.4f});
+    case Kind::Rock:  // (a stone's click, a few sharp cracks, a thud)
+        grains(out, rng, 1, 0, 0.001f, 2000 * p, 3500 * p, 6, 9, 2.0f, 0.7f, 0);
+        grains(out, rng, 5 + int(u(rng) * 3.99f), 0.005f, 0.16f, 700 * p, 4500 * p, 2, 6, 1.8f, 0.45f);
+        thump(out, 0, 160 * p, 80 * p, 35, 0.12f);
         break;
-    case Kind::Clank:
-        add({Square, 620, -0.4f, 0.3f, 0, 0.01f, 0.11f, 0.3f, 0.5f, -1.5f, 0, 0, 0, 0, 0.25f});
-        add({Sine, 1530, 0, 0.5f, 0, 0.005f, 0.22f, 0, 1, 0, 0, 0, 0.004f, 7, 0.14f});
-        add({Noise, 9000, 0, 0.5f, 0, 0.004f, 0.02f, 0, 1, 0, 0, 0, 0, 0, 0.18f});
+    case Kind::Clank:  // (a struck plate: a short click on its partials)
+        modes(out, (420 + 120 * u(rng)) * p, 90, 0.22f);
+        grains(out, rng, 2, 0, 0.02f, 2500 * p, 6000 * p, 2, 4, 1.5f, 0.35f, 0);
         break;
     case Kind::Void:
         add({Sine, 700, -3.0f, 0.5f, 0.01f, 0.03f, 0.22f, 0, 1, 0, 0, 0, 0.03f, 11, 0.28f});
         break;
-    case Kind::Thunk:
-        add({Sine, 140, -1.6f, 0.5f, 0, 0.03f, 0.18f, 0.6f, 1, 0, 0, 0, 0, 0, 0.8f});
-        add({Noise, 1400, -0.5f, 0.5f, 0, 0.01f, 0.06f, 0.3f, 0.22f, 0, 0, 0.4f, 0, 0, 0.45f});
+    case Kind::Thunk:  // (a heavy landing: a deep thump and the grit round it)
+        thump(out, 0, 110 * p, 50 * p, 70, 0.12f);
+        grains(out, rng, 14, 0, 0.3f, 300 * p, 2200 * p, 3, 12, 1.0f, 1.0f);
         break;
-    case Kind::Plop:
-        add({Square, 210, 2.6f, 0.5f, 0, 0.02f, 0.08f, 0.2f, 0.3f, 0, 0, 0, 0, 0, 0.32f});
-        add({Sine, 210, 2.6f, 0.5f, 0, 0.02f, 0.09f, 0, 1, 0, 0, 0, 0, 0, 0.35f});
+    case Kind::Plop:  // (a soft landing on sand: a low thump and a little grit, darker after the start)
+        thump(out, 0, 160 * p, 80 * p, 40, 0.2f);
+        grains(out, rng, 10, 0, 0.18f, 250 * p, 1800 * p, 3, 10, 1.0f, 0.55f);
         break;
-    case Kind::Poof:
-        add({Noise, 1300, -0.4f, 0.5f, 0.01f, 0.02f, 0.17f, 0, 0.3f, -0.8f, 0, 0, 0, 0, 0.32f});
-        add({Sine, 420, -1.5f, 0.5f, 0, 0.01f, 0.1f, 0, 1, 0, 0, 0, 0, 0, 0.18f});
+    case Kind::Poof:  // (dust: a soft low wash)
+        grains(out, rng, 14, 0.01f, 0.2f, 200 * p, 1200 * p, 10, 30, 0.8f, 0.3f, 0.4f);
         break;
     default: break;
     }
-    for (float& s : out) s = std::tanh(s);  // (soft limit: voices that add up do not clip)
+    // The same level for each kind (`level`: louder for larger edits), then a soft limit.
+    float peak = 0;
+    for (float s : out) peak = std::max(peak, std::abs(s));
+    const float gain = peak > 0 ? 0.6f * level / peak : 0;
+    for (float& s : out) s = std::tanh(s * gain);
     return out;
 }
 
@@ -374,7 +458,7 @@ void watch(const Editor& ed) {
     g.doodads = std::move(doodads);
     // Units: placed ones plop (by serial: a moved unit keeps it), deleted ones go poof.
     std::unordered_set<uint32_t> serials;
-    int placed = 0, deleted = 0;
+    int placed = 0, deleted = 0, readyType = 1000;
     float pitch = 1;
     for (const Unit& un : ed.units()) {
         serials.insert(un.serial);
@@ -389,11 +473,18 @@ void watch(const Editor& ed) {
             burst(Kind::Plop, un.x - hw, un.y + hh - 6, un.x + hw, un.y + hh + 2, tileColor(ts, ground), big ? 22 : 8);
             burst(Kind::Plop, float(tx * 32), float(ty * 32), 0, 0, 0, big ? 8 : 3, &ts, ground);
         }
-        if (placed == 1) pitch = big ? 0.6f : 1.15f;
+        if (placed == 1) pitch = big ? 0.6f : 1.15f, readyType = un.type;
     }
     for (const auto& [serial, x, y] : g.unitPlaces)
         if (!serials.count(serial) && ++deleted <= 64) burst(Kind::Poof, x - 12.0f, y - 12.0f, x + 12.0f, y + 12.0f, 0xB8B8B8u, 6);
     if (placed) play(Kind::Plop, pitch, 1, 50);
+    // The first placed unit's ready sound (units.dat's Ready Sound: units 0 to 105 have one), at most one each 0.6 s:
+    // a row or a paste of many units says it once.
+    static uint64_t lastReady = 0;
+    if (placed && readyType < 106 && nowMs() - lastReady >= 600)
+        if (const DatTable* units = rangeTable("units"))
+            if (const DatField* f = units->field("Ready Sound"); f && readyType >= f->first && readyType <= f->last)
+                if (const uint32_t sfx = units->value(*f, readyType); sfx > 0) funPlaySfx(int(sfx)), lastReady = nowMs();
     else if (deleted) play(Kind::Poof);
     g.serials = std::move(serials);
     g.unitPlaces.clear();
