@@ -163,7 +163,9 @@ std::wstring stripNumberText(int which) {
     else std::swprintf(t, 24, L"%d", app.sprayDensity);
     return t;
 }
+bool gStripStepsBatched = false;  // (several steps of one wheel event: the settings and the strip once, after them)
 void stripNumberChanged() {
+    if (gStripStepsBatched) return;
     shellToolsChanged();
     appState().dirty = true;
 }
@@ -200,7 +202,7 @@ void stripNumberStep(int which, int dir) {
     } else if (which == kNumDetail) {  // (as Density: 0, 1, 5, 10, ... 100)
         const int d = stardraft::detailedTilePercent();
         stardraft::setDetailedTilePercent(std::clamp(dir > 0 ? (d == 0 ? 1 : (d / 5 + 1) * 5) : d <= 1 ? 0 : d <= 5 ? 1 : (d - 1) / 5 * 5, 0, 100));
-        shellSettingsChanged();
+        if (!gStripStepsBatched) shellSettingsChanged();
     } else {
         // (in fives: 1, 5, 10, ... 100; typed: any number)
         const int d = app.sprayDensity;
@@ -974,17 +976,31 @@ public:
             }
             return true;
         }
-        case draw::MouseKind::Wheel: {  // over a number box: a step; a fast scroll more steps for each notch (up to 8)
+        case draw::MouseKind::Wheel: {  // over a number box: a step for each notch; a fast scroll more steps for each (up to 8)
             if (e.wheel == 0) return false;
             for (const auto& n : numbers_)
                 if (n.first.contains(e.pt)) {
                     endEdit(true);
+                    // (a trackpad's fractions add up to whole notches; the streak of fast notches starts again in another
+                    // direction or on another number)
                     static auto last = std::chrono::steady_clock::time_point{};
-                    static int streak = 0;
+                    static int streak = 0, lastWhich = -1, lastDir = 0;
+                    static float acc = 0;
+                    const int dir = e.wheel > 0 ? 1 : -1;
+                    if (n.second != lastWhich || dir != lastDir) acc = 0, streak = 0, last = {};
+                    lastWhich = n.second, lastDir = dir;
+                    acc += e.wheel;
+                    int notches = 0;
+                    for (; std::fabs(acc) >= 1; acc -= float(dir)) ++notches;
+                    if (!notches) return true;
                     const auto now = std::chrono::steady_clock::now();
-                    streak = now - last < std::chrono::milliseconds(90) ? streak + 1 : 0, last = now;
-                    const int steps = n.second == kNumShape ? 1 : std::min(8, 1 + streak / 2);
-                    for (int k = 0; k < steps; ++k) stripNumberStep(n.second, e.wheel > 0 ? 1 : -1);
+                    streak = now - last < std::chrono::milliseconds(90) ? streak + notches : 0, last = now;
+                    const int steps = notches * (n.second == kNumShape ? 1 : std::min(8, 1 + streak / 2));
+                    gStripStepsBatched = true;
+                    for (int k = 0; k < steps; ++k) stripNumberStep(n.second, dir);
+                    gStripStepsBatched = false;
+                    if (n.second == kNumDetail) shellSettingsChanged();
+                    stripNumberChanged();
                     return true;
                 }
             return false;

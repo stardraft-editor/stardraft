@@ -534,7 +534,7 @@ struct StripItem {
     int tool;     // the mode's tool it sets
     bool select;  // the Select button: the tool with nothing picked
     // A group's button (1: Spray and Jumble; 2: Line, Contour and Polygon; 3: Bridge and Ramp; 5: Brush and Erase): it is the tool of the group in use, else the
-    // one used last (AppState::lastInGroup); a click on it while it is the tool goes to the next of them, its corner's
+    // one used last (AppState::lastInGroup); a click on it picks that tool and shows the group's row, its corner's
     // arrow and a right click list them (core/views_toolstrip.inc).
     int group = 0;
     std::vector<StripItem> members;
