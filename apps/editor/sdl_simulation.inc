@@ -1046,7 +1046,7 @@ void simShield(draw::View& v, std::vector<draw::Rect> rects) {
     while (list.size() < rects.size()) list.push_back(std::make_unique<SimShield>());
     rects.resize(list.size(), draw::Rect(0, 0, 0, 0));  // (shields that are not needed now: no size)
     const auto& kids = v.children();
-    const size_t end = kids.size() - size_t(!kids.empty() && kids.back() == simMiningOverlayView());  // (the boost searches: over them)
+    const size_t end = kids.size() - size_t(!kids.empty() && kids.back() == simMiningOverlayView());  // (the mining's panel: over them)
     const bool onTop = end >= list.size() && std::equal(list.begin(), list.end(), kids.begin() + std::ptrdiff_t(end - list.size()),
                                                                  [](const std::unique_ptr<SimShield>& a, draw::View* b) { return a.get() == b; });
     for (size_t k = 0; k < list.size(); ++k) {
@@ -1088,10 +1088,9 @@ void simRelease() {
 
 // Cancel, Close or Esc: the map's own units again.
 void simStopSounds();
-// The mining's settings panel (the bar's gear; below: simPaintPanel): open, its part under the mouse and pressed.
+// The mining's settings panel (the bar's gear; sdl_mining_panel.inc: SimMiningPanelView): open or not.
 struct SimPanel {
     bool open = false;
-    int hot = 0, down = 0;
 } gSimPanel;
 void simClose() {
     simSkipJoin();
@@ -1500,7 +1499,6 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         iconButton(6, l.skip, !gSim.combat && !gSim.rush && e.lastFrame() == 0 ? UiIcon::Data : UiIcon::ToEnd);  // (no end: the report)
     }
     iconButton(0, l.first, UiIcon::Close);
-    if (gSimPanel.open && !gSim.combat && !gSim.rush) simPaintPanel(c, l, r);
 }
 
 // The bar's Report feedback: the text box starts with short facts about the game (under a line, so the user writes
@@ -1749,10 +1747,6 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
             gRushDragGrip = {float(e.pt.x) - (float(gRushDragFrom.first) - gState.camX) * zoom, float(e.pt.y) - (float(gRushDragFrom.second) - gState.camY) * zoom};
             return gRushDrag = n, simRedraw(), true;
         }
-    if (simPanelMouse(e, l, r)) {
-        if (gSim.hot != -1) gSim.hot = -1, simRedraw();
-        return true;
-    }
     const int over = e.kind == draw::MouseKind::Leave ? -1 : hit(l.first) ? 0 : (gSim.done && hit(l.second)) ? 1 : hit(l.third) ? 2 : hit(l.chip) ? 3
                      : hit(l.minus) ? 4 : hit(l.plus) ? 5 : hit(l.skip) ? 6 : hit(l.gear) ? 7 : hit(l.feedback) ? 8 : hit(l.play) ? 10 : -1;
     if (over != gSim.hot) gSim.hot = over, simRedraw();
@@ -1772,7 +1766,7 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
         else if (was == 4 || was == 5) simStepSpeed(was == 4 ? -1 : 1), simRedraw();
         else if (was == 6 && !gSim.combat && !gSim.rush && simEngine().lastFrame() == 0) shellPost([] { simShowReport(); });
         else if (was == 6) simSkipToEnd();
-        else if (was == 7 && !gSim.combat && !gSim.rush) gSimPanel.open = !gSimPanel.open, gSimPanel.hot = gSimPanel.down = 0, simRedraw();
+        else if (was == 7 && !gSim.combat && !gSim.rush) gSimPanel.open = !gSimPanel.open, simRedraw();
         else if (was == 7) shellPost([] { gSim.combat ? simCombatSettingsMenu() : simRushSettingsMenu(); });
         else if (was == 8) shellPost([] { showFeedbackFilledSdl(L"the simulation", simDiagnostics()); });
         return true;
@@ -1797,7 +1791,6 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
     if (!gSim.shown) return {};
     const SimBarLayout l = simLayout(r);
     auto in = [&](draw::Rect b) { return pt.x >= b.left && pt.x < b.right && pt.y >= b.top && pt.y < b.bottom; };
-    if (std::wstring t = simPanelTip(l, r, pt); !t.empty()) return t;
     if (in(l.chip)) return tr(kSimInfoTip);
     if (const int n = in(l.bar) ? 0 : simRushMarkerAt(pt.x, pt.y)) return n == 1 ? tr(L"The start point (drag it)") : tr(L"The end point (drag it)");
     if (in(l.third)) return gSim.done ? tr(L"Play again from the start") : tr(L"Restart");
@@ -1841,7 +1834,7 @@ void simCommand(int id) {
     case ID_SIM_SKIP: simSkipToEnd(); break;
     case ID_SIM_SLOWER: case ID_SIM_FASTER: simStepSpeed(id == ID_SIM_SLOWER ? -1 : 1), simRedraw(); break;
     case ID_SIM_SETTINGS:
-        if (!gSim.combat && !gSim.rush) gSimPanel.open = true, gSimPanel.hot = gSimPanel.down = 0, simRedraw();
+        if (!gSim.combat && !gSim.rush) gSimPanel.open = true, simRedraw();
         else shellPost([] { gSim.combat ? simCombatSettingsMenu() : simRushSettingsMenu(); });
         break;
     case ID_SIM_CLOSE: gSimPanel.open = false, simClose(); break;
@@ -2068,23 +2061,24 @@ void simWorkbenchTrace() {
     std::printf("sim-workbench: panel=%d frame=%d limit=%d done=%d metric=%d budgets=%d,%d,%d guides=%d%d%d ghosts=%d\n", int(gSimPanel.open),
                 simEngine().frame(), simEngine().lastFrame(), int(gSim.done), settings.metric, settings.search[0], settings.search[1], settings.search[2],
                 int(settings.guides[0]), int(settings.guides[1]), int(settings.guides[2]), gSimGhostCount);
-    if (gRoot && !gSim.combat && !gSim.rush) {
-        const draw::Rect view{0, 0, gRoot->map.width(), gRoot->map.height()};
-        const SimPanelLayout p = simPanelLayout(simLayout(view), view);
-        auto point = [](const char* name, int k, draw::Rect at, draw::Rect r) {
+    if (gRoot && !gSim.combat && !gSim.rush && gSimPanelView.visible()) {  // (the panel's controls: their middles)
+        const draw::Rect at = gSimPanelView.frame();
+        auto point = [&](const char* name, int k, const draw::View& v) {
+            const draw::Rect r = v.frame();
             std::printf("sim-target: %s%d=%d,%d\n", name, k, at.left + (r.left + r.right) / 2, at.top + (r.top + r.bottom) / 2);
         };
-        const SimBoostLayout boost = simBoostLayout({0, 0, gSimBoostView.width(), gSimBoostView.height()});
-        const draw::Rect rail = gSimBoostView.frame(), map = gRoot->map.frame();
         for (int k = 0; k < 3; ++k) {
-            point("budget", k, rail, boost.budget[k]);
-            point("guide", k, rail, boost.check[k]);
-            point("search", k, rail, boost.button[k]);
+            point("budget", k, gSimPanelView.budget[k]);
+            point("guide", k, gSimPanelView.guides[k]);
+            point("search", k, gSimPanelView.search[k]);
         }
-        for (size_t k = 0; k < gSimBaseEntries.size(); ++k)
-            point(gSimBaseEntries[k].start ? "spawn" : "depot", gSimBaseEntries[k].start ? gSimBaseEntries[k].player : gSimBaseEntries[k].depot, map,
-                  p.bases[k]);
-        for (int k = 0; k < 2; ++k) point("metric", k, map, p.metric[k]);
+        for (size_t k = 0; k < gSimBaseEntries.size() && k < size_t(kSimBaseEntriesMax); ++k)
+            point(gSimBaseEntries[k].start ? "spawn" : "depot", gSimBaseEntries[k].start ? gSimBaseEntries[k].player : gSimBaseEntries[k].depot,
+                  gSimPanelView.bases[k]);
+        for (int k = 0; k < 2; ++k) point("metric", k, gSimPanelView.metric[k]), point("kind", k, gSimPanelView.kind[k]);
+        point("workers", 0, gSimPanelView.workers);
+        point("races", 0, gSimPanelView.races);
+        std::printf("sim-panel: %d,%d %dx%d\n", at.left, at.top, at.width(), at.height());
     }
     for (int k = 0; k < 3; ++k) {
         const sim::BoostStatus s = simEngine().boostStatus(k);

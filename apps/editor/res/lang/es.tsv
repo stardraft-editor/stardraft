@@ -3289,7 +3289,6 @@ Searching… %d s	Buscando… %d s
 None found	No se encontró ninguno
 1 worker faster	1 obrero más rápido
 %d workers faster	%d obreros más rápidos
-As defined in map	Como en el mapa
 Boost searches	Búsquedas de mejoras
 Simulation options	Opciones de simulación
 Search for better start places of the workers at each base	Buscar mejores lugares de inicio para los obreros en cada base
@@ -3401,7 +3400,8 @@ Craft mode off	Modo artesanía desactivado
 Show or hide the guides of this boost. The boost stays in use.	Mostrar u ocultar las guías de esta mejora. La mejora sigue en uso.
 Search for this boost at the selected bases. Continue searches on from where it stopped.	Buscar esta mejora en las bases seleccionadas. Continuar sigue buscando desde donde se detuvo.
 Workers that this boost made faster at the selected bases. A guide shows after its worker does its first command.	Obreros que esta mejora hizo más rápidos en las bases seleccionadas. Una guía aparece después de que su obrero haga su primera orden.
-Search time in seconds for the next Search or Continue	Tiempo de búsqueda en segundos para el próximo Buscar o Continuar
+The number of workers: 1 to 8 for each mineral field, 1 to 60 for each base. Click to type a number. The arrows and the mouse wheel change it.	El número de trabajadores: de 1 a 8 por cada campo de minerales, de 1 a 60 por cada base. Haz clic para escribir un número. Las flechas y la rueda del ratón lo cambian.
+Search time in seconds for the next Search or Continue, 1 to 600. Click to type a number. The arrows and the mouse wheel change it.	Tiempo de búsqueda en segundos para el próximo Buscar o Continuar, de 1 a 600. Haz clic para escribir un número. Las flechas y la rueda del ratón lo cambian.
 Select a base	Seleccione una base
 Searching…	Buscando…
 Not searched	Sin buscar

@@ -58,23 +58,31 @@ left of it). The editor and the command line use one engine for them, `maplab::c
   checked players' ways show. Before the game plays (at 0:00, waiting for Play) the whole map shows, with no fog.
 - **Boost searches** (mining; not for Cosmonarchy BW maps): the pull request's three searches, at each checked base at
   the same time (each base's search gets its share of the processor's threads; one thread stays for the game). The
-  mining's panel opens with the mining (the bar's gear shows or hides it). The boost searches are cards in the right
-  side bar, each with its color, its search time (SimSearchPosition, SimSearchCargo, SimSearchCycle; 1 to 600 seconds,
-  default value 15), Show guides (SimShowPosition, SimShowCargo, SimShowCycle) and Search. A search starts only from
+  mining's panel opens with the mining (the bar's gear shows or hides it). It is under the bar, over the map, and is
+  made of the kit's controls in Program options' rows (`sdl_mining_panel.inc`, `SimMiningPanelView`): the section
+  Mining (Workers on minerals, Races, Field labels, Bases), then the section Boost searches with a row for each boost:
+  its search time (a number box as the tool strip's; SimSearchPosition, SimSearchCargo, SimSearchCycle; 1 to 600
+  seconds, default value 15; the arrows and the wheel step 1 to 5 one at a time, then 5 at a time to 60, then 30 at a
+  time), Search, Show guides (SimShowPosition, SimShowCargo, SimShowCycle), and under it its progress bar and its
+  state. A Cosmonarchy BW map's panel has no Boost searches. When the map view is too short for the panel, the mouse
+  wheel scrolls it. The right side bar stays as in the other simulations (dimmed under the shield). A search starts only from
   its own Search, never after another search. After a search, Continue searches on from where it stopped, for its
   search time again. A new search time is for the next Search or Continue. Show guides only shows or hides the
   guides; the boost stays in use. Position: better start places for the workers. Cargo: where a worker returns its
   cargo before it gets to the depot's usual place. Cycle: a trip to the next mineral field and back that ends sooner
   (mineral walking). While a search runs, the game plays on; at its end the bases that it made better start again
-  with it. The card gives the workers made faster at all the checked bases, and the guides that do not show yet (the
+  with it. The boost's state gives the workers made faster at all the checked bases, and the guides that do not show yet (the
   cargo and cycle guides show after the worker's first command; the two arrows of a cycle are one worker). A search
-  at more than one base shows a note for 6 seconds: the bases share the processor, so with fewer bases each search
+  at more than one base shows a note for 6 seconds at the panel's bottom: the bases share the processor, so with fewer bases each search
   does more work (each base searches for the full search time). The boosts stay for Restart. A check box in Bases
   keeps the boosts of the other bases (the same engine plays on; `bar_sim.cpp` keeps each base's setup, also of a
   base that is checked again). A change of the workers or the races starts the mining again: its boosts are searched
   again.
 - **Workers** (mining): a number for each mineral field of a base (1 to 8; SimWorkerKind 0, SimWorkersPerField), or a
-  number for each base in all (1 to 60; SimWorkerKind 1, SimWorkers). Default value: 1 for each mineral field.
+  number for each base in all (1 to 60; SimWorkerKind 1, SimWorkers). Default value: 1 for each mineral field. The
+  panel's number box takes a typed number (Enter sets it; leaving the box drops it, since a new number starts the
+  mining again) or steps by its arrows and the mouse wheel.
+  While a search or a skip runs, the workers, the races and the bases wait (their controls are not available).
 - **The bar**: a new game waits at its start until Play (the Play button has a ring: Space plays it, and pauses it);
   a new game of the bar's own settings keeps the play as it was. Tools > Simulation has each simulation and the bar's
   commands (Play or pause, Restart, Skip to the end, Slower, Faster, Simulation settings, Close

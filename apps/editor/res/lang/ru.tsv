@@ -3289,7 +3289,6 @@ Searching… %d s	Поиск… %d с
 None found	Ничего не найдено
 1 worker faster	1 рабочий быстрее
 %d workers faster	Рабочих быстрее: %d
-As defined in map	Как на карте
 Boost searches	Поиск ускорений
 Simulation options	Параметры симуляции
 Search for better start places of the workers at each base	Найти лучшие стартовые места рабочих на каждой базе
@@ -3401,7 +3400,8 @@ Craft mode off	Режим ремесла выключен
 Show or hide the guides of this boost. The boost stays in use.	Показать или скрыть подсказки этого ускорения. Ускорение остаётся в силе.
 Search for this boost at the selected bases. Continue searches on from where it stopped.	Искать это ускорение на выбранных базах. «Продолжить» ищет дальше с того места, где поиск остановился.
 Workers that this boost made faster at the selected bases. A guide shows after its worker does its first command.	Рабочие, которых это ускорение сделало быстрее на выбранных базах. Подсказка появляется после первой команды её рабочего.
-Search time in seconds for the next Search or Continue	Время поиска в секундах для следующего поиска (Поиск или Продолжить)
+The number of workers: 1 to 8 for each mineral field, 1 to 60 for each base. Click to type a number. The arrows and the mouse wheel change it.	Число рабочих: от 1 до 8 на каждое минеральное поле, от 1 до 60 на каждую базу. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его.
+Search time in seconds for the next Search or Continue, 1 to 600. Click to type a number. The arrows and the mouse wheel change it.	Время поиска в секундах для следующего поиска (Поиск или Продолжить), от 1 до 600. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его.
 Select a base	Выберите базу
 Searching…	Поиск…
 Not searched	Поиск не выполнялся

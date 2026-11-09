@@ -114,7 +114,7 @@ const wchar_t* const kUnitNameForms[4] = {L"Terran Marine", L"Terran Marine (Cus
 // SimWorkers, SimWorkersPerField, and each boost search's kSimSearchKeys).
 constexpr int kSimWorkersMax = 60, kSimPerFieldMax = 8, kSimSearchMin = 1, kSimSearchMax = 600, kSimSearchDefault = 15;
 // Each boost search's own search time (position, cargo, cycle; the settings SimSearchPosition, SimSearchCargo and
-// SimSearchCycle; default value kSimSearchDefault), set in the boost searches' cards.
+// SimSearchCycle; default value kSimSearchDefault), set in the mining panel's Boost searches.
 inline const wchar_t* const kSimSearchKeys[3] = {L"SimSearchPosition", L"SimSearchCargo", L"SimSearchCycle"};
 inline int simBoostSeconds(int kind) {
     int s = kSimSearchDefault;

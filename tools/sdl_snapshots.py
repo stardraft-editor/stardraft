@@ -5421,7 +5421,7 @@ SCRIPTS["simwaits"] = """command edit.simulate.mining
 wait 500
 """
 SCRIPTS["simcycle"] = """command edit.simulate.mining
-click 1539,415
+click 878,476
 wait 9000
 simstep 1
 wheel 1198,594,0,12
@@ -5431,25 +5431,25 @@ simstate
 """
 SCRIPTS["simworkbench"] = """history
 command edit.simulate.mining
-click 1547,161
+click 790,376
 key Ctrl+A
 type 1
 key Enter
-click 1547,263
+click 790,426
 key Ctrl+A
 type 2
 key Enter
-click 1547,365
+click 790,476
 key Ctrl+A
 type 3
 key Enter
 simstep 6000
 simstate
-click 997,245
+click 913,274
 simstate
-click 1397,211
-click 1397,313
-click 1397,415
+click 997,376
+click 997,426
+click 997,476
 click 1100,650
 simstate
 history
@@ -5457,23 +5457,23 @@ history
 SCRIPTS["simspawns"] = """history
 command edit.simulate.mining
 simstate
-click 934,280
+click 913,304
 simstate
-click 1547,161
+click 790,376
 key Ctrl+A
 type 1
 key Enter
-click 1539,211
+click 878,376
 simstate
 wait 7000
 simstep 1
 simstate
-click 850,280
+click 811,304
 simstate
-click 934,280
+click 913,304
 key Space
 simstate
-click 934,280
+click 913,304
 key Space
 wait 300
 simstate
