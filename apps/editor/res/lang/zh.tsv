@@ -3372,9 +3372,5 @@ Nothing more to search	没有更多可搜索的内容
 %.0f MB	%.0f MB
 Copy as te&xt	复制为文本(&X)
 Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	已将所选地形复制为文本。在地形模式中按 Ctrl+V 可将其设为画笔
-F&un mode	趣味模式(&U)
-Fun mode	趣味模式
-Sounds and effects when you edit the map	编辑地图时的声音和效果
-Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	每次编辑都会发出短促的声音，地形碎块飞起，放置的单位会弹跳
-Turned on Fun mode	已开启趣味模式
-Turned off Fun mode	已关闭趣味模式
+Craft mode on	工艺模式已开启
+Craft mode off	工艺模式已关闭

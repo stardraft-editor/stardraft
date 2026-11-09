@@ -596,7 +596,7 @@ bool commandMapEdit(AppState& app, int id) {
         break;
     case ID_OPT_FUNMODE:
         app.funMode = !app.funMode;
-        setMessage(app.funMode ? L"Turned on Fun mode" : L"Turned off Fun mode");
+        setMessage(app.funMode ? L"Craft mode on" : L"Craft mode off");
         break;
     case ID_OPT_SNAPBUILDINGS:  // buildings on tile edges, or where they are placed (the unit snap is for the other units)
         app.snapBuildings = !app.snapBuildings;

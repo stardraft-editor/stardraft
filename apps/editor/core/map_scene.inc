@@ -761,7 +761,7 @@ render::Scene buildScene() {
         }
         const size_t first = s.sprites.size();
         addUnitSprites(s, units[i], 0, 0, mapLayersUnitAlpha(ed, i), false, true);  // (a see-through layer's: core/map_layers.inc)
-        if (app.funMode) funScaleUnit(s, units[i], first);  // (Options > Fun mode: a placed unit's pop)
+        if (app.funMode) funScaleUnit(s, units[i], first);  // (Craft mode: a placed unit's pop)
     }
     std::erase_if(gAnims, [](const auto& kv) { return kv.second.seen != gSceneNo; });
     if (gLiveScene) gLiveScene(s);  // (the live game's units and sprites)

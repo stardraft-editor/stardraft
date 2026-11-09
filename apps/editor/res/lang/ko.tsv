@@ -3402,9 +3402,5 @@ Nothing more to search	더 검색할 것이 없음
 %.0f MB	%.0f MB
 Copy as te&xt	텍스트로 복사(&X)
 Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	선택한 지형을 텍스트로 복사했습니다. 지형 모드에서 Ctrl+V를 누르면 브러시가 됩니다
-F&un mode	재미 모드(&U)
-Fun mode	재미 모드
-Sounds and effects when you edit the map	맵을 편집할 때 소리와 효과
-Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	편집할 때마다 짧은 소리가 나고, 지형 조각이 튀어 오르고, 배치한 유닛이 튕깁니다
-Turned on Fun mode	재미 모드를 켰습니다
-Turned off Fun mode	재미 모드를 껐습니다
+Craft mode on	크래프트 모드 켜짐
+Craft mode off	크래프트 모드 꺼짐

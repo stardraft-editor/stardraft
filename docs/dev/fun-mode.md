@@ -1,7 +1,9 @@
-# Fun mode (a spike)
+# Craft mode (a spike; "fun mode" in the code)
 
-Options > Fun mode, and Program options > Appearance > Fun mode (the same setting; off by default), gives feedback
-when the map is edited:
+A hidden extra, off by default: a click on the logo in Help > About StarDraft 2 turns Craft mode on (the logo squashes
+and springs back, green bits fly out of it with a thunk, and "Craft mode on" shows under it for 2 seconds); another
+click turns it off ("Craft mode off"). It is in no menu and not in Program options. The setting is saved as before
+(FunMode). In Craft mode, editing the map gives feedback:
 
 - Painted terrain plays a short recorded sound (see "The sounds"), by the terrain that the edited tiles have now and
   did not have before (painting water on dirt: the shore tiles count as water): water splashes; tar, lava, magma and
@@ -40,7 +42,7 @@ its copy from the frame before.
 - A snapshot's `wait` moves the particles and the pops on by that time (`funAdvanceFor`), so the frames of a script
   are the same each run.
 
-The demo: `--script` with `command options.funmode`, the edits, and `wait 33` / `frame <png>` pairs after each.
+The demo: `--script` with `command craftmode` (the command that the logo runs), the edits, and `wait 33` / `frame <png>` pairs after each.
 
 ## The sounds
 
@@ -108,7 +110,7 @@ anyway); they can ship.
 
 ## Open questions
 
-- Volume: a slider of its own (Fun mode's volume), or the program's volume only? 12 sounds a second may be too much
+- Volume: a slider of its own (Craft mode's volume), or the program's volume only? 12 sounds a second may be too much
   for some people: a "calm" level that plays only at a stroke's start and end?
 - Should a stroke's sound pitch follow the mouse speed, or the brush size?
 - Undo: silent now. A reversed sound could be fun.

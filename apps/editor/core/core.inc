@@ -66,7 +66,7 @@
 #include "map_layers.inc"  // Map layers (a prototype): the active layer, flattening, the map's mouse
 #include "protected_layer.inc"  // Protected terrain: the menu, View > Modes > Protected terrain, kept in the project
 #include "map_scene.inc"
-#include "fun_mode.inc"  // Options > Fun mode (a spike): sounds, particles and pops when the map is edited
+#include "fun_mode.inc"  // Craft mode (a hidden extra: About's logo): sounds, particles and pops when the map is edited
 #include "resource_zones.inc"  // View > Overlays > Invalid resource depot, Invalid resource node (GitHub feedback #181)
 #include "fog_layer.inc"  // View > Overlays > Fog of war of the selected player (roadmap R32)  // the map's scene: the grid, the sprites, the units and their animations, the locations, the selection, the ghosts (buildScene)
 #include "map_image.inc"  // File > Export map image and the New page's larger preview: the options, the dialog, the terrain pictures

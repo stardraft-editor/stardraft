@@ -3401,12 +3401,8 @@ constexpr UiText kRows[] = {
     {L"%.0f MB", L"%.0f MB"},
     {L"Copy as te&xt", L"\uD14D\uC2A4\uD2B8\uB85C \uBCF5\uC0AC(&X)"},
     {L"Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush", L"\uC120\uD0DD\uD55C \uC9C0\uD615\uC744 \uD14D\uC2A4\uD2B8\uB85C \uBCF5\uC0AC\uD588\uC2B5\uB2C8\uB2E4. \uC9C0\uD615 \uBAA8\uB4DC\uC5D0\uC11C Ctrl+V\uB97C \uB204\uB974\uBA74 \uBE0C\uB7EC\uC2DC\uAC00 \uB429\uB2C8\uB2E4"},
-    {L"F&un mode", L"\uC7AC\uBBF8 \uBAA8\uB4DC(&U)"},
-    {L"Fun mode", L"\uC7AC\uBBF8 \uBAA8\uB4DC"},
-    {L"Sounds and effects when you edit the map", L"\uB9F5\uC744 \uD3B8\uC9D1\uD560 \uB54C \uC18C\uB9AC\uC640 \uD6A8\uACFC"},
-    {L"Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce", L"\uD3B8\uC9D1\uD560 \uB54C\uB9C8\uB2E4 \uC9E7\uC740 \uC18C\uB9AC\uAC00 \uB098\uACE0, \uC9C0\uD615 \uC870\uAC01\uC774 \uD280\uC5B4 \uC624\uB974\uACE0, \uBC30\uCE58\uD55C \uC720\uB2DB\uC774 \uD295\uAE41\uB2C8\uB2E4"},
-    {L"Turned on Fun mode", L"\uC7AC\uBBF8 \uBAA8\uB4DC\uB97C \uCF30\uC2B5\uB2C8\uB2E4"},
-    {L"Turned off Fun mode", L"\uC7AC\uBBF8 \uBAA8\uB4DC\uB97C \uAED0\uC2B5\uB2C8\uB2E4"},
+    {L"Craft mode on", L"\uD06C\uB798\uD504\uD2B8 \uBAA8\uB4DC \uCF1C\uC9D0"},
+    {L"Craft mode off", L"\uD06C\uB798\uD504\uD2B8 \uBAA8\uB4DC \uAEBC\uC9D0"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

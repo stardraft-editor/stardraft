@@ -3372,9 +3372,5 @@ Nothing more to search	Plus rien à rechercher
 %.0f MB	%.0f MB
 Copy as te&xt	Copier en te&xte
 Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	Le terrain sélectionné est copié en texte. Ctrl+V en mode Terrain en fait le pinceau
-F&un mode	Mode &amusant
-Fun mode	Mode amusant
-Sounds and effects when you edit the map	Sons et effets quand vous modifiez la carte
-Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	Chaque modification fait un son court, des morceaux du terrain s'envolent et les unités placées rebondissent
-Turned on Fun mode	Mode amusant activé
-Turned off Fun mode	Mode amusant désactivé
+Craft mode on	Mode artisan activé
+Craft mode off	Mode artisan désactivé

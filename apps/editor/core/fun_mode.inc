@@ -1,4 +1,5 @@
-// Options > Fun mode (a spike, off by default): edits on the map give feedback. Painted terrain plays a short recorded
+// Craft mode (a hidden extra, off by default: a click on About's logo turns it on or off; the code says fun mode): edits
+// on the map give feedback. Painted terrain plays a short recorded
 // sound by its terrain (water splashes, mud squelches, grass swishes, dirt and rock crunch, built floors clank;
 // res/fun), and shards of the placed tiles (jagged pieces of their own pixels) fly off, each its own way, turning. A
 // placed unit thuds softly, squashes and springs back and says its ready sound; a placed doodad thunks and shakes the
