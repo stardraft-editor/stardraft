@@ -4,6 +4,10 @@
 // about.inc; the SDL program opens it from sdl_menus.inc.
 //
 // The links open in the browser (shellOpenUrl); the Close button and Esc or Enter close the window.
+//
+// A hidden extra: a click on the logo turns Craft mode on or off (core/fun_mode.inc: edits on the map make sounds,
+// shards and pops). The logo squashes and springs back, bits fly out of it with a sound, and "Craft mode on" (or off)
+// shows under it for 2 seconds.
 
 // The program's Discord server and GitHub repository (crash.inc's kRepo is the same repository).
 inline const wchar_t* const kDiscordInvite = L"https://discord.gg/JBMCwSRJBm";
@@ -18,6 +22,18 @@ public:
     draw::Rect closeRc;
     int hot = -1;  // link index, or -2 for Close
     std::function<void()> closed;  // the view closed its window (Close, Esc, Enter)
+    draw::Rect logoRc;  // from the last paint
+
+    // The logo's click (Craft mode): when it started (animNowMs, 0: none), the bits that fly, the text and until when.
+    struct Bit {
+        float x, y, vx, vy, size;
+        COLORREF color;
+    };
+    uint64_t popStart = 0, toggled = 0, textUntil = 0;
+    std::vector<Bit> bits;
+    uint64_t lastTick = 0;
+    std::wstring craftText;
+    static constexpr uint64_t kPopMs = 450, kTextMs = 2000;
 
     // The window's size at 100 % (the lines about the name and the EUD tools fit).
     static draw::Point size() { return {scale(600), scale(668)}; }  // (the thanks, the lines about Blizzard and the links fit)
@@ -33,7 +49,28 @@ public:
         // The icon, as large as the window allows (the .ico has a 256 px image).
         const int px = scale(160);
         int y = scale(28);
-        c.resourceIcon({(w - px) / 2, y, (w - px) / 2 + px, y + px}, 1, px);
+        logoRc = {(w - px) / 2, y, (w - px) / 2 + px, y + px};
+        {  // (after a click: squashed, then it springs up and settles, about its foot)
+            const uint64_t now = animNowMs();
+            float sx = 1, sy = 1;
+            if (popStart && now - popStart < kPopMs) {
+                const float t = float(now - popStart), a = 0.3f * std::exp(-t / 110.0f) * std::cos(t * 6.2831853f / 240.0f);
+                sx = 1 + a * 0.6f, sy = 1 - a;
+            }
+            const int dw = int(float(px) * sx), dh = int(float(px) * sy);
+            c.resourceIcon({(w - dw) / 2, y + px - dh, (w + dw) / 2, y + px}, 1, std::max(dw, dh));
+            for (const Bit& b : bits) {
+                const int s = std::max(1, int(b.size));
+                c.fill({int(b.x) - s, int(b.y) - s, int(b.x) + s, int(b.y) + s}, b.color);
+            }
+            if (!craftText.empty() && now < textUntil) {
+                FontDesc d;
+                d.weight = 600;
+                const Font of = c.setFont(c.font(d));
+                c.text({0, y + px - scale(4), w, y + px + scale(16)}, tr(craftText), kAccent, draw::kCenter | draw::kMiddle);
+                c.setFont(of);
+            }
+        }
         y += px + scale(16);
 
         auto centered = [&](const std::wstring& t, Font f, Color col, int hgt) {
@@ -159,6 +196,39 @@ public:
         c.setFont(of);
     }
 
+    // A click on the logo: the pop, the bits and a sound now; Craft mode changes when the pop is at its lowest.
+    void logoClick() {
+        const uint64_t now = animNowMs();
+        popStart = lastTick = now, toggled = 0;
+        std::mt19937 rng{uint32_t(now)};
+        std::uniform_real_distribution<float> u(0.0f, 1.0f);
+        const COLORREF colors[] = {RGB(120, 230, 170), RGB(60, 170, 120), RGB(200, 255, 225), RGB(30, 110, 80)};  // (the logo's greens)
+        bits.clear();
+        const float cx = float(logoRc.left + logoRc.right) / 2, cy = float(logoRc.top + logoRc.bottom) / 2, r = float(logoRc.width()) * 0.4f;
+        for (int i = 0; i < 48; ++i) {
+            const float a = 6.2831853f * u(rng), d = r * (0.3f + 0.7f * u(rng)), speed = float(scale(160)) * (0.5f + u(rng));
+            bits.push_back({cx + std::cos(a) * d, cy + std::sin(a) * d, std::cos(a) * speed, std::sin(a) * speed - float(scale(120)),
+                            float(scale(2)) * (0.6f + u(rng)), colors[i % 4]});
+        }
+        fun::play(fun::Kind::Thunk, 1, 1, 0);
+        tick();
+    }
+    void tick() {
+        const uint64_t now = animNowMs();
+        const float dt = std::min(0.05f, float(now - lastTick) / 1000);
+        lastTick = now;
+        for (Bit& b : bits) b.vy += float(scale(700)) * dt, b.x += b.vx * dt, b.y += b.vy * dt, b.size *= 1 - 1.6f * dt;
+        std::erase_if(bits, [&](const Bit& b) { return b.size < 0.4f || b.y > float(height()); });
+        if (popStart && !toggled && now - popStart >= 120) {  // (the mode changes as the logo is down: it says so)
+            toggled = now;
+            command(ID_OPT_FUNMODE);
+            craftText = shellState().funMode ? L"Craft mode on" : L"Craft mode off";
+            textUntil = now + kTextMs;
+        }
+        invalidate();
+        if (host() && (!bits.empty() || now - popStart < kPopMs || now < textUntil)) host()->timer(16, [this] { tick(); });
+    }
+
     int hitAt(draw::Point p) const {
         for (size_t i = 0; i < links.size(); ++i)
             if (links[i].rc.contains(p)) return int(i);
@@ -184,6 +254,7 @@ public:
             const int h = hitAt(e.pt);
             if (h >= 0) shellOpenUrl(links[size_t(h)].url);
             else if (h == -2) close();
+            else if (logoRc.contains(e.pt)) logoClick();
             return true;
         }
         default: return false;

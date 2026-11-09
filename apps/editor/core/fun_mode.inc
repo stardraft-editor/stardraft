@@ -1,4 +1,5 @@
-// Options > Fun mode (a spike, off by default): edits on the map give feedback. Painted terrain plays a short recorded
+// Craft mode (a hidden extra, off by default: a click on About's logo turns it on or off; the code says fun mode): edits
+// on the map give feedback. Painted terrain plays a short recorded
 // sound by its terrain (water splashes, mud squelches, grass swishes, dirt and rock crunch, built floors clank;
 // res/fun), and shards of the placed tiles (jagged pieces of their own pixels) fly off, each its own way, turning. A
 // placed unit thuds softly, squashes and springs back and says its ready sound; a placed doodad thunks and shakes the
@@ -12,6 +13,8 @@
 void funPlayPcm(const std::vector<float>& mono, int rate, const char* name);
 // Plays an SFX data entry's sound (a unit's ready sound) at half the volume, at most 2 at a time (sdl_data.inc).
 void funPlaySfx(int sfx);
+// Plays the sound file `path` of `data` (a mod's ready sound) as funPlaySfx (sdl_data.inc).
+void funPlaySoundFile(const GameData& data, const std::string& path);
 const DatTable* rangeTable(const std::string& name);  // (map_scene.inc: units.dat, the project's or the game's)
 
 namespace fun {
@@ -64,6 +67,7 @@ struct State {
     std::vector<Particle> particles;
     std::unordered_map<uint32_t, Pop> pops;  // by serial
     uint64_t shakeStart = 0, lastFrame = 0;
+    float shakeAmp = 1;  // (the shake's size: 1 a doodad's thunk; a large brush's by its tiles)
     uint64_t lastSound[size_t(Kind::Count)]{};
     std::mt19937 rng{12345};
 } g;
@@ -113,9 +117,18 @@ void crush(std::vector<float>& v) {
 }
 
 // The recorded sound of a kind (none: no sound).
+// Many at once (a long stroke, a big fill) are one soft texture, not a wall: at most kVoices play at a time (a sound
+// that would be one more does not start), and each one that plays makes the next one softer (ducked: 1 / (1 + 0.5 n),
+// so 4 together add up to about 2.1 times one). Each sound fades in for 8 ms and out for 30 ms (no hard start or
+// stop). The replaced terrain's sound starts after the placed one's, so it is ducked too: it stays the quieter one.
+constexpr size_t kVoices = 4;
+std::vector<uint64_t> playingUntil;  // (the end of each sound that plays now, in nowMs)
+
 void play(Kind k, float pitch = 1, float level = 1, uint64_t gapMs = 80) {
     const uint64_t now = nowMs();
     if (now - g.lastSound[size_t(k)] < gapMs) return;
+    std::erase_if(playingUntil, [&](uint64_t end) { return end <= now; });
+    if (playingUntil.size() >= kVoices) return;
     g.lastSound[size_t(k)] = now;
     // Each time a pitch of its own: -4 to +4 semitones, another than the last one. The whole sound plays faster or
     // slower.
@@ -133,6 +146,15 @@ void play(Kind k, float pitch = 1, float level = 1, uint64_t gapMs = 80) {
         out[i] = made[a] + float(at - double(a)) * (made[b2] - made[a]);
     }
     crush(out);
+    const float duck = 1.0f / (1.0f + 0.5f * float(playingUntil.size()));
+    const size_t in = std::min(out.size() / 4, size_t(0.008f * kRate)), fadeOut = std::min(out.size() / 2, size_t(0.03f * kRate));
+    for (size_t i = 0; i < out.size(); ++i) {
+        float e = duck;
+        if (i < in) e *= float(i) / float(in);
+        if (i + fadeOut > out.size()) e *= float(out.size() - i) / float(fadeOut);
+        out[i] *= e;
+    }
+    playingUntil.push_back(now + uint64_t(out.size() * 1000 / kRate));
     funPlayPcm(out, kRate, kKindNames[size_t(k)]);
 }
 
@@ -269,12 +291,12 @@ void watch(const Editor& ed) {
         doodadBox(key, x0, y0, x1, y1);
         if (++deletedDoodads <= 12) boxShards(Kind::Poof, x0, y0, x1, y1, true, 1);  // (its tiles before: it crumbles)
     }
-    if (placedDoodads) play(Kind::Thunk, 1, 1, 60), g.shakeStart = nowMs();
+    if (placedDoodads) play(Kind::Thunk, 1, 1, 60), g.shakeStart = nowMs(), g.shakeAmp = 1;
     else if (deletedDoodads) play(Kind::Poof);
     g.doodads = std::move(doodads);
     // Units: placed ones thud and pop (by serial: a moved unit keeps it), deleted ones puff.
     std::unordered_set<uint32_t> serials;
-    int placed = 0, deleted = 0, readyType = 1000;
+    int placed = 0, deleted = 0, readyType = -1;
     float pitch = 1;
     for (const Unit& un : ed.units()) {
         serials.insert(un.serial);
@@ -292,10 +314,15 @@ void watch(const Editor& ed) {
         if (!serials.count(serial) && ++deleted <= 64) boxShards(Kind::Poof, x - 8.0f, y - 8.0f, x + 8.0f, y + 8.0f, false, 2);
     if (placed) play(Kind::Plop, pitch, 1, 50);
     else if (deleted) play(Kind::Poof);
-    // The first placed unit's ready sound (units.dat's Ready Sound: units 0 to 105 have one), at most one each 0.6 s:
-    // a row or a paste of many units says it once.
+    // The first placed unit's ready sound, at most one each 0.6 s (a row or a paste of many units says it once): on a
+    // Cosmonarchy map the mod's (cmbw::unitReadySound), else, or when the mod has none, the game's (units.dat's Ready
+    // Sound: units 0 to 105 have one).
     static uint64_t lastReady = 0;
-    if (placed && readyType < 106 && nowMs() - lastReady >= 600)
+    std::string modSound;
+    if (placed && readyType >= 0 && nowMs() - lastReady >= 600 && modTab())
+        modSound = stardraft::cmbw::unitReadySound(ed.gameData(), uint16_t(readyType));
+    if (!modSound.empty()) funPlaySoundFile(ed.gameData(), modSound), lastReady = nowMs();
+    else if (placed && readyType >= 0 && readyType < 106 && nowMs() - lastReady >= 600)
         if (const DatTable* units = rangeTable("units"))
             if (const DatField* f = units->field("Ready Sound"); f && readyType >= f->first && readyType <= f->last)
                 if (const uint32_t sfx = units->value(*f, readyType); sfx > 0) funPlaySfx(int(sfx)), lastReady = nowMs();
@@ -373,6 +400,11 @@ void watch(const Editor& ed) {
             play(top, 1, level);  // (what is placed: louder than what it replaces)
             if (replaced != Kind::Count && replaced != top) play(replaced, 1, level * 0.35f);
         }
+        // A very large brush (an edit of 80 tiles or more: a brush of about 12 and up, a big fill; also when it takes
+        // doodads away): the view shakes a little, more for more tiles (up to 1.5 times a doodad's thunk), starting at
+        // most each 0.25 s, so a long drag is a light rumble.
+        if (changed.size() >= 80 && nowMs() - g.shakeStart >= 250)
+            g.shakeStart = nowMs(), g.shakeAmp = std::clamp(std::sqrt(float(changed.size())) / 14, 0.6f, 1.5f);
         g.tiles = now, g.terrainRevision = ed.terrainRevision();
     }
     g.revision = ed.revision();
@@ -428,8 +460,8 @@ void funModeScene(render::Scene& s) {
             s.rects.push_back({x - h, y - h, x + h, y + h, q.rgb << 8 | alpha, true});
         }
     }
-    if (const uint64_t gone = now - fun::g.shakeStart; gone < fun::kShakeMs) {  // (a doodad's thunk: the view shakes)
-        const float k = 1 - float(gone) / fun::kShakeMs, amp = 3.0f / zoom * k;
+    if (const uint64_t gone = now - fun::g.shakeStart; gone < fun::kShakeMs) {  // (a doodad's thunk, a large brush: the view shakes)
+        const float k = 1 - float(gone) / fun::kShakeMs, amp = 3.0f * fun::g.shakeAmp / zoom * k;
         s.camera.y += amp * std::sin(float(gone) * 0.21f), s.camera.x += amp * 0.4f * std::cos(float(gone) * 0.17f);
     }
 }

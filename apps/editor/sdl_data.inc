@@ -201,13 +201,15 @@ void funPlayPcm(const std::vector<float>& mono, int rate, const char* name) {
     }
 }
 
-// Options > Fun mode: a placed unit's ready sound (core/fun_mode.inc), at half the volume and at most 2 at a time (a
-// third one does not start); each sound decoded once. A test run plays nothing; STARDRAFT_FUN_WAV writes its number.
-void funPlaySfx(int sfx) {
-    if (const char* dir = std::getenv("STARDRAFT_FUN_WAV"); dir && *dir) {
-        static int n = 0;
-        std::ofstream(fs::path(widen(dir)) / ("ready-" + std::to_string(++n) + ".txt")) << "sfx " << sfx << "\n";
-    }
+// Craft mode: a placed unit's ready sound (core/fun_mode.inc), at half the volume and at most 2 at a time (a third one
+// does not start); each sound decoded once (by `key`). A test run plays nothing; STARDRAFT_FUN_WAV writes its key.
+void funPlayReady(const std::string& key, const std::function<bool(SDL_AudioSpec&, std::vector<Uint8>&)>& load) {
+    auto note = [&](const char* how) {  // (STARDRAFT_FUN_WAV: the sound's key and whether it was read)
+        if (const char* dir = std::getenv("STARDRAFT_FUN_WAV"); dir && *dir) {
+            static int n = 0;
+            std::ofstream(fs::path(widen(dir)) / ("ready-" + std::to_string(++n) + ".txt")) << key << " " << how << "\n";
+        }
+    };
     static std::vector<SDL_AudioStream*> playing;
     for (auto it = playing.begin(); it != playing.end();)
         if (SDL_GetAudioStreamQueued(*it) <= 0) closeStreamSdl(*it), it = playing.erase(it);
@@ -217,14 +219,15 @@ void funPlaySfx(int sfx) {
         SDL_AudioSpec spec{};
         std::vector<Uint8> pcm;
     };
-    static std::map<int, Decoded> decoded;
-    auto it = decoded.find(sfx);
+    static std::map<std::string, Decoded> decoded;
+    auto it = decoded.find(key);
     if (it == decoded.end()) {
         Decoded d;
-        if (!sdlSfxLoad(sfx, d.spec, d.pcm)) return;
+        if (!load(d.spec, d.pcm)) return note("(not read)");
         if (decoded.size() > 64) decoded.clear();
-        it = decoded.emplace(sfx, std::move(d)).first;
+        it = decoded.emplace(key, std::move(d)).first;
     }
+    note("(read)");
     if (SDL_AudioStream* s = openPlaybackSdl(&it->second.spec)) {
         SDL_SetAudioStreamGain(s, float(gDock.volume) / 100.0f * 0.5f);
         SDL_PutAudioStreamData(s, it->second.pcm.data(), int(it->second.pcm.size()));
@@ -232,6 +235,20 @@ void funPlaySfx(int sfx) {
         playStreamSdl(s);
         playing.push_back(s);
     }
+}
+void funPlaySfx(int sfx) {
+    funPlayReady("sfx " + std::to_string(sfx), [sfx](SDL_AudioSpec& spec, std::vector<Uint8>& pcm) { return sdlSfxLoad(sfx, spec, pcm); });
+}
+// A mod's ready sound: its file `path` in `data` (the mod's files: cmbw::unitReadySound).
+void funPlaySoundFile(const GameData& data, const std::string& path) {
+    funPlayReady(path, [&](SDL_AudioSpec& spec, std::vector<Uint8>& pcm) {
+        Bytes file;
+        std::string err;
+        SdlSound d;
+        if (!data.readFile(path, file, err) || !decodeSdlSound(file, d)) return false;
+        spec = d.spec, pcm = std::move(d.pcm);
+        return true;
+    });
 }
 
 // An SFX data entry's sound, as the Windows program's sfxLoad: its file under sound\ in the game's data, decoded

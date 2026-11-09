@@ -380,7 +380,6 @@ MenuModel buildMenuModel() {
                       menuPopup(L"&Locations", locations),
                       menuSeparator(),
                       menuItem(ID_OPT_DRAGOBJECTS, L"D&rag objects to move them"),
-                      menuItem(ID_OPT_FUNMODE, L"F&un mode"),
                       menuSeparator(),
                       menuItem(ID_EDIT_TERRAINUNITS, L"Terrain copy includes u&nits"),
                       menuItem(ID_EDIT_TERRAINDOODADS, L"Terrain copy includes d&oodads"),

@@ -1,7 +1,9 @@
-# Fun mode (a spike)
+# Craft mode (a spike; "fun mode" in the code)
 
-Options > Fun mode, and Program options > Appearance > Fun mode (the same setting; off by default), gives feedback
-when the map is edited:
+A hidden extra, off by default: a click on the logo in Help > About StarDraft 2 turns Craft mode on (the logo squashes
+and springs back, green bits fly out of it with a thunk, and "Craft mode on" shows under it for 2 seconds); another
+click turns it off ("Craft mode off"). It is in no menu and not in Program options. The setting is saved as before
+(FunMode). In Craft mode, editing the map gives feedback:
 
 - Painted terrain plays a short recorded sound (see "The sounds"), by the terrain that the edited tiles have now and
   did not have before (painting water on dirt: the shore tiles count as water): water splashes; tar, lava, magma and
@@ -10,8 +12,12 @@ when the map is edited:
   tiles that became all of a terrain they did not have (the brush's rings of the terrains between it and the ground,
   Platform and High Platform round painted Space, do not count).
 - A placed unit thuds softly (a building lower), squashes and springs back about its feet, and the first one says its
-  ready sound (units.dat's Ready Sound: units 0 to 105; buildings have none). A placed doodad thunks and shakes the
+  ready sound (units.dat's Ready Sound: units 0 to 105; buildings have none). On a Cosmonarchy BW map it is the
+  mod's (cmbw::unitReadySound: units.datex's Ready Sound, the mod's arr\sfxdata.dat and arr\sounds.txt, the file from
+  the mod's data), else, or when the mod has none, the game's. A placed doodad thunks and shakes the
   view a little. A deleted unit or doodad puffs.
+- A very large brush (an edit of 80 tiles or more: a brush of about 12 and up, a big fill) shakes the view a little,
+  more for more tiles (up to 1.5 times a doodad's thunk), at most every 0.25 s: a long drag is a light rumble.
 - Every changed tile throws small shards of its own new tile (a border tile its own mix of terrains), low and few:
   2 a tile, 1 when more than 40 tiles changed, spread over all of them (about 110 tiles at most a time). Each one is a
   jagged shape of 3 to 6 corners, 5 to 12 pixels across, cut from a place in the tile with its own pixels; it goes
@@ -40,7 +46,7 @@ its copy from the frame before.
 - A snapshot's `wait` moves the particles and the pops on by that time (`funAdvanceFor`), so the frames of a script
   are the same each run.
 
-The demo: `--script` with `command options.funmode`, the edits, and `wait 33` / `frame <png>` pairs after each.
+The demo: `--script` with `command craftmode` (the command that the logo runs), the edits, and `wait 33` / `frame <png>` pairs after each.
 
 ## The sounds
 
@@ -94,8 +100,12 @@ anyway); they can ship.
 
 ## Limits now (rate and volume)
 
-- At most one sound of each kind each 80 ms, at most 6 at a time. A long brush stroke is about 12 sounds a second.
-  Each one is a little different (its take and its pitch step).
+- At most one sound of each kind each 80 ms, and at most 4 terrain, unit and doodad sounds at a time (one more does
+  not start). Each one that plays makes the next one softer (1 / (1 + 0.5 n): 4 together are about 2.1 times one), so
+  a long stroke or a big fill is one soft texture, not a wall. The replaced terrain's sound starts after the placed
+  one's, so it is ducked too and stays the quieter one.
+- Each sound fades in for 8 ms and out for 30 ms (no hard start or stop); the takes stay short and punchy.
+- Each one is a little different (its take and its pitch step).
 - A unit's ready sound: at half the volume, at most one each 0.6 s (a row or a paste of many units says it once), at
   most 2 at a time.
 - A sound's level goes up with the number of tiles that changed (log2), from 45 % to 100 %.
@@ -104,7 +114,7 @@ anyway); they can ship.
 
 ## Open questions
 
-- Volume: a slider of its own (Fun mode's volume), or the program's volume only? 12 sounds a second may be too much
+- Volume: a slider of its own (Craft mode's volume), or the program's volume only? 12 sounds a second may be too much
   for some people: a "calm" level that plays only at a stroke's start and end?
 - Should a stroke's sound pitch follow the mouse speed, or the brush size?
 - Undo: silent now. A reversed sound could be fun.

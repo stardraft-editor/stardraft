@@ -1924,6 +1924,42 @@ bool unitRanges(const GameData& data, uint16_t unit, UnitRanges& out) {
     return true;
 }
 
+std::string unitReadySound(const GameData& data, uint16_t unit) {
+    struct Tables {
+        Datex u;
+        std::vector<uint32_t> file;      // (sfxdata.dat's Sound File of each entry)
+        std::vector<std::string> names;  // (sounds.txt's lines)
+        bool tried = false, ok = false;
+    };
+    thread_local std::map<const GameData*, Tables> cache;  // (each thread its own)
+    Tables& t = cache[&data];
+    if (!t.tried) {
+        t.tried = true;
+        std::string err;
+        Bytes sfx, txt;
+        if (!readDatex(data, "units", kUnitFields, t.u, err) || !data.readFile("arr\\sfxdata.dat", sfx, err) ||
+            !data.readFile("arr\\sounds.txt", txt, err) || sfx.size() % 9)
+            return {};
+        const size_t n = sfx.size() / 9;  // (the fields of each entry: Sound File u32, then 5 bytes)
+        t.file.resize(n);
+        for (size_t i = 0; i < n; ++i)
+            t.file[i] = uint32_t(sfx[i * 4]) | uint32_t(sfx[i * 4 + 1]) << 8 | uint32_t(sfx[i * 4 + 2]) << 16 | uint32_t(sfx[i * 4 + 3]) << 24;
+        std::string line;
+        for (uint8_t c : txt) {
+            if (c == '\n') t.names.push_back(line), line.clear();
+            else if (c != '\r') line += char(c);
+        }
+        t.names.push_back(line);
+        t.ok = true;
+    }
+    if (!t.ok || unit >= t.u.count()) return {};
+    const uint32_t s = t.u.get(UReady, unit);
+    if (!s || s >= t.file.size()) return {};
+    const uint32_t f = t.file[s];
+    if (!f || f >= t.names.size() || t.names[f].empty()) return {};
+    return "sound\\" + t.names[f];
+}
+
 int tileHeight(const Tileset& ts, uint16_t value) {
     const int m = ts.megatileFor(value);
     if (m < 0 || size_t(m) >= ts.minitileFlags.size()) return 0;
