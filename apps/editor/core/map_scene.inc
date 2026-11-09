@@ -430,7 +430,7 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
     const bool dragging = app.mode == Mode::Terrain && app.drag == Drag::TerrainSelect;
     const size_t from = s.rects.size();
     if (app.drag == Drag::TerrainMove) return 0;  // (Move: its own outline, where the selection goes)
-    if (!gVarPreview.empty()) return 0;  // (the mouse over a variation in the side bar: the tiles show with no outline over them)
+    if (!gVarPreview.empty() || gVarStripHover) return 0;  // (the mouse over the side bar's Variations: the tiles show with no outline over them)
     const bool combining = dragging && app.terrainSelOp;  // Shift or Ctrl: the selection and the drag's box
     if (app.mode == Mode::Terrain && app.hasTerrainSel && (combining || (!dragging && !app.terrainSelMask.empty()))) {
         tileOutline(s, terrainSelTiles(), 0xFFD040FFu);  // the outline of the selected tiles (any shape, in parts)

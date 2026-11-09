@@ -215,6 +215,10 @@ bool setSelectionVariation(size_t k) {
 // The map's preview while the mouse is over a variation in the strip (MTXM index, tile value): drawn in place of the
 // tiles (the host's terrain preview), with no change to the map.
 std::vector<std::pair<int, uint16_t>> gVarPreview;
+bool gVarStripHover = false;  // the mouse is over the strip: the map shows the selection's tiles with no outline
+void setVariationStripHover(bool on) {
+    if (on != gVarStripHover) gVarStripHover = on, invalidateMapView();
+}
 void setVariationPreview(const std::vector<Editor::TileAt>& cells) {
     std::vector<std::pair<int, uint16_t>> now;
     if (const AppState& app = appState(); app.ed)

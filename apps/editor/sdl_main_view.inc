@@ -904,7 +904,7 @@ struct MainView final : draw::View {
             relayout();
             invalidate();
         }
-        if (varShownH == 0 && !gVarPreview.empty()) setVariationPreview({});  // (the strip went: its preview too)
+        if (varShownH == 0 && (!gVarPreview.empty() || gVarStripHover)) setVariationPreview({}), setVariationStripHover(false);  // (the strip went: its preview too)
         const uint64_t key = gState.ed ? variationsKey() : 0;
         if (key != varKey) varKey = key, gVariationsView.invalidate(), gVariationsView.refresh();  // (the preview of the tiles as they are now)
     }

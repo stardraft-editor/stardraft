@@ -101,6 +101,7 @@ struct VariationsView : draw::View {
     }
     void hoverAt(draw::Point pt) {
         over = true, overAt = pt;
+        setVariationStripHover(true);
         const SelectionPiece& p = selectionPiece();
         keepScroll(p);
         const int k = at(p, pt);
@@ -115,6 +116,7 @@ struct VariationsView : draw::View {
     bool mouse(const draw::MouseEvent& e) override {
         if (e.kind == draw::MouseKind::Leave) {
             over = false, hover = -1;
+            setVariationStripHover(false);
             setVariationPreview({});
             invalidate();
             return true;
