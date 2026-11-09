@@ -153,13 +153,14 @@ public:
         try {
             if (!loadSeed(error)) return false;
             if (key != setupKey_ || setupKey_.empty()) {
-                // (the setups that mined before wait, with their boosts, until their bases are selected again; those of
-                // another worker count go)
+                // (the bar: the setups that mined before wait, with their boosts, until their bases are selected again;
+                // those of another worker count go. The command line keeps none: each run has other races.)
                 for (auto& s : setups_)
-                    if (!s->key.empty() && s->key.rfind(std::to_string(count) + ":", 0) == 0 &&
+                    if (firstBases && !s->key.empty() && s->key.rfind(std::to_string(count) + ":", 0) == 0 &&
                         std::none_of(s->status.begin(), s->status.end(), [](const sim::BoostStatus& st) { return st.running; }))
                         parked_[s->key] = std::move(s);
                 setups_.clear();
+                if (!firstBases) parked_.clear();
                 for (auto it = parked_.begin(); it != parked_.end();)
                     if (it->first.rfind(std::to_string(count) + ":", 0) != 0) it = parked_.erase(it);
                     else ++it;
@@ -183,7 +184,9 @@ public:
                     }
                     setups_.push_back(std::move(s));
                 }
-                if (!any && !bases.empty()) return stopBoosts(), error = first.empty() ? "The bases have no room for their depots and workers" : first, false;
+                // (no base has room: an error for all the map's bases; a selection of bases shows them with "No room",
+                // and the other bases keep their boosts)
+                if (!any && !bases.empty() && all) return stopBoosts(), error = first, false;
                 setupKey_ = key.empty() ? std::string(",") : key;
             }
             for (const auto& s : setups_) bases_.push_back(play(*s));

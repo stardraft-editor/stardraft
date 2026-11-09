@@ -10,6 +10,7 @@ sim::MiningOptions simMiningOptions(uint32_t seed);
 // near a start location), each a check box in the panel's Bases. The selection has a bit for each entry. At most
 // kSimBasesMax bases mine at a time (bar_sim.cpp: kMaxBases).
 struct SimBaseEntry {
+    int x = 0, y = 0;  // the base's place (map pixels)
     bool start = false;
     int player = 0;  // a start location's player (0 to 7); a placed depot's: the player that colors it (bar_sim.cpp)
     int depot = -1;  // a placed depot: its bit in MiningOptions::placedDepotMask
@@ -34,24 +35,25 @@ void simResetBaseSelection() {
     every.mineralClusters = false;
     std::vector<sim::Race> races;
     const std::vector<sim::MiningBase> bases = simEngine().miningBases(every, races);
+    // (each base's player as bar_sim.cpp gives it: a start location of Player 1 to 8 its own, another base the first
+    // player that no start location has. A start location of Player 9 to 12 is not in the list: it mines only with
+    // all the bases, the command line's)
     std::vector<bool> taken(size_t(kSimBasesMax), false);
     for (const sim::MiningBase& b : bases)
         if (b.startLocation && b.player >= 0 && b.player < kSimBasesMax) taken[size_t(b.player)] = true;
     std::vector<SimBaseEntry> starts, depots;
+    int depot = 0;
     for (size_t m = 0; m < bases.size(); ++m) {
         SimBaseEntry e;
-        e.start = bases[m].startLocation;
-        if (e.start) {
-            if (bases[m].player < 0 || bases[m].player >= kSimBasesMax) continue;
-            e.player = bases[m].player;
-            starts.push_back(e);
-            continue;
-        }
-        e.depot = int(depots.size()), e.player = -1;
+        e.x = bases[m].x, e.y = bases[m].y, e.start = bases[m].startLocation;
+        const bool own = e.start && bases[m].player >= 0 && bases[m].player < kSimBasesMax;
+        e.player = own ? bases[m].player : -1;
         for (int p = 0; e.player < 0 && p < kSimBasesMax; ++p)
             if (!taken[size_t(p)]) e.player = p, taken[size_t(p)] = true;
         if (e.player < 0) e.player = int(m % size_t(kSimBasesMax));  // (more bases than players: as bar_sim.cpp)
-        depots.push_back(e);
+        if (!e.start) e.depot = depot++, depots.push_back(e);
+        else if (own && std::none_of(starts.begin(), starts.end(), [&](const SimBaseEntry& s) { return s.player == e.player; }))
+            starts.push_back(e);  // (a second start location of a player mines with the first: one entry)
     }
     std::stable_sort(starts.begin(), starts.end(), [](const SimBaseEntry& a, const SimBaseEntry& b) { return a.player < b.player; });
     for (const auto* list : {&starts, &depots})
@@ -65,6 +67,11 @@ void simResetBaseSelection() {
 unsigned simSelectedBases() {
     if (gSimBaseMap != gState.ed.get()) return 0;
     return gSimSelectedBases & ((1u << gSimBaseEntries.size()) - 1);
+}
+// The mining has a base to play: a selected one, or (a map with no entries: all the bases mine) any.
+bool simMiningHasBases() {
+    if (gSimBaseMap == gState.ed.get() && gSimBaseEntries.empty()) return gSim_ && !simEngine().miningResult().empty();
+    return simSelectedBases() != 0;
 }
 int simSelectedBaseCount() {
     int n = 0;
@@ -96,6 +103,15 @@ std::wstring simBaseName(const SimBaseEntry& e) {
     std::swprintf(text, 64, e.start ? tr(L"Player %d") : tr(L"Base %d"), e.start ? e.player + 1 : e.depot + 1);
     return text;
 }
+// A base's name in the report: its name in the panel, else "Base k" (`start`: "Base k (start)" for a start location).
+std::wstring simBaseReportName(const sim::MiningBase& b, size_t k, bool start) {
+    if (gSimBaseMap == gState.ed.get())
+        for (const SimBaseEntry& e : gSimBaseEntries)
+            if (e.x == b.x && e.y == b.y && e.start == b.startLocation) return simBaseName(e);
+    wchar_t text[64];
+    std::swprintf(text, 64, start && b.startLocation ? tr(L"Base %d (start)") : tr(L"Base %d"), int(k) + 1);
+    return text;
+}
 
 // Another selection of bases: the game starts again on the same engine, so each base that mined before keeps its boost
 // searches (bar_sim.cpp: beginMining). The play stays as it was (no base: it waits).
@@ -112,7 +128,7 @@ void simMiningReselect() {
     }
     gSim.bases = int(simEngine().miningResult().size());
     gSim.done = false, gSim.due = 0, gSim.last = std::chrono::steady_clock::now();
-    if (!simSelectedBases()) gSim.playing = false;
+    if (!simMiningHasBases()) gSim.playing = false;
     simRedraw();
 }
 
@@ -218,7 +234,7 @@ int simBoostPart(const SimBoostLayout& p, draw::Rect r, draw::Point pt) {
 bool simBoostBusy() { return simSkipRunning() || simEngine().boosting(); }
 // Search (Continue) can start: nothing runs, the search has more to do, a base is selected (not a Cosmonarchy BW map).
 bool simBoostCanSearch(int k) {
-    return !modTab() && !simBoostBusy() && !simEngine().boostStatus(k).exhausted && simSelectedBases() != 0;
+    return !modTab() && !simBoostBusy() && !simEngine().boostStatus(k).exhausted && simMiningHasBases();
 }
 void simPaintBoosts(draw::Canvas&, draw::Rect);
 void simPanelPress(int);
@@ -314,7 +330,7 @@ int simDrawnBoostWorkers(int kind) {
 }
 // A boost card's state: searching, how many workers it made faster, or nothing yet.
 std::wstring simBoostState(int kind) {
-    if (!simSelectedBases()) return tr(L"Select a base");
+    if (!simMiningHasBases()) return tr(L"Select a base");
     const sim::BoostStatus st = simEngine().boostStatus(kind);
     if (st.running) return tr(L"Searching\x2026");
     if (!st.finished) return tr(L"Not searched");

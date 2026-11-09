@@ -27,6 +27,7 @@ void simMiningControlsFrame();
 void simHideMiningControls();
 draw::View* simMiningOverlayView();
 void simInvalidateMiningControls();
+std::wstring simBaseReportName(const sim::MiningBase& b, size_t k, bool start);  // (sdl_mining_panel.inc)
 bool sdlSfxLoad(int sfx, SDL_AudioSpec& spec, std::vector<Uint8>& pcm);
 float mapTextScale();  // (core/map_scene.inc)
 
@@ -979,13 +980,7 @@ void simMakeReport() {
             const sim::MiningBase& b = bases[k];
             if (b.runs.empty()) continue;
             const sim::MiningRun& r = b.runs[0];
-            std::swprintf(txt, 1024, tr(L"Base %d"), int(k) + 1);
-            const std::wstring base = txt;
-            std::wstring label = base;
-            if (b.startLocation) {
-                std::swprintf(txt, 1024, tr(L"Base %d (start)"), int(k) + 1);
-                label = txt;
-            }
+            const std::wstring base = simBaseReportName(b, k, false), label = simBaseReportName(b, k, true);  // (the panel's names)
             const wchar_t* race = r.race == sim::Zerg ? tr(L"Zerg") : r.race == sim::Protoss ? tr(L"Protoss") : tr(L"Terran");
             rows.push_back({label, race, std::to_wstring(b.x / 32) + L", " + std::to_wstring(b.y / 32),
                             r.placed ? std::to_wstring(b.fields.size()) : std::wstring(L"\x2014"),
@@ -1496,7 +1491,7 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         textButton(1, l.second, L"Report", true);
     } else {
         // Play while it waits (with the keyboard's ring: Space plays it), Pause while it runs.
-        const bool canPlay = gSim.combat || gSim.rush || simSelectedBases() != 0;  // (mining: a base is selected)
+        const bool canPlay = gSim.combat || gSim.rush || simMiningHasBases();
         if (!gSim.playing && canPlay) c.roundBox(l.play, draw::kNone, kAccent, float((l.play.bottom - l.play.top) / 2));
         c.icon(l.play, int(gSim.playing ? UiIcon::Pause : UiIcon::Play), canPlay && (face(10, l.play, false) || !gSim.playing) ? kText : kDim, scale(16));
         textButton(4, l.minus, L"\x2212", false);
@@ -1808,8 +1803,8 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
     if (in(l.third)) return gSim.done ? tr(L"Play again from the start") : tr(L"Restart");
     const bool mining = !gSim.combat && !gSim.rush;
     if (in(l.play)) {
-        if (mining && gSimBaseEntries.empty()) return tr(L"The map has no base to mine at");
-        if (mining && !simSelectedBases()) return tr(L"Select a base in the panel to play");
+        if (mining && !simMiningHasBases())
+            return gSimBaseEntries.empty() ? tr(L"The map has no base to mine at") : tr(L"Select a base in the panel to play");
         return gSim.playing ? tr(L"Pause (Space)") : tr(L"Play (Space)");
     }
     if (in(l.minus)) return tr(L"Slower");
@@ -1825,7 +1820,7 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
 // Play (a new game waits at its start) or Pause.
 void simPlayPause() {
     if (!gSim.shown || gSim.done) return;
-    if (!gSim.combat && !gSim.rush && !simSelectedBases()) return;  // (mining: no base selected)
+    if (!gSim.combat && !gSim.rush && !simMiningHasBases()) return;  // (mining: no base selected)
     gSim.playing = !gSim.playing;
     gSim.due = 0, gSim.last = std::chrono::steady_clock::now();
     simRedraw();
@@ -1833,7 +1828,7 @@ void simPlayPause() {
 // Tools > Simulation: the bar's commands (the menu's items, with their keys): enabled only while the bar shows.
 bool simCommandEnabled(int id) {
     if (!gSim.shown) return false;
-    if (id == ID_SIM_PLAY && !gSim.combat && !gSim.rush && !simSelectedBases()) return false;
+    if (id == ID_SIM_PLAY && !gSim.combat && !gSim.rush && !simMiningHasBases()) return false;
     if (id == ID_SIM_SKIP && !gSim.combat && !gSim.rush && simEngine().lastFrame() == 0) return false;  // (the mining has no end)
     if (id == ID_SIM_PLAY || id == ID_SIM_SLOWER || id == ID_SIM_FASTER || id == ID_SIM_SKIP) return !gSim.done && !gRushDrag;
     return true;
@@ -1945,7 +1940,7 @@ void simulateMiningCommand() {
     gSim.speed = 1, gSim.workers = s.workers(), gSim.perField = s.kind == 0, gSim.bases = int(simEngine().miningResult().size()), gSim.seed = seed;
     gSimPanel.open = true;  // (the panel opens with the mining)
     simMiningControlsFrame();
-    if (!simSelectedBases()) gSim.playing = false;
+    if (!simMiningHasBases()) gSim.playing = false;
     simBoostSync();
 }
 
