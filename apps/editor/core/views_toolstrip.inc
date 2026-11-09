@@ -352,19 +352,28 @@ void iconButtonFace(Canvas& c, Rect r, UiIcon g, bool on, bool over, bool disabl
     else if (over) box(c, r, kCtlHot, kNoLine);
     icon(c, r, g, on ? kAccentBright : over ? kText : kDim, 16);  // (a UI icon is always at 16, as the Win32 glyph was)
 }
-// A mirror's picture: a square and its axis. Smooth, in the button's color (the square's line at 110 of 255).
+// A mirror's picture: a square and its axis (`kind`: Mirror flags; several: their axes together, as the symmetry
+// button shows the mirrors in use). Smooth, in the button's color (the square's line at 110 of 255).
 void mirrorIcon(Canvas& c, Rect r, int kind, Color col, Color /*ground*/) {
     using P = Canvas::PointF;
     const float s = float(scale(14)), x0 = (r.left + r.right - s) / 2.0f, y0 = (r.top + r.bottom - s) / 2.0f;
     const float aw = float(std::max(1, scale(2))) * 0.75f;  // the axis's width
     c.smoothFrame(P{x0, y0}, s, s, col, 1.0f, 110);
-    switch (kind) {
-    case 0: break;  // none: the square only
-    case Mirror::LeftRight: c.smoothLine(P{x0 + s / 2, y0 - 1}, P{x0 + s / 2, y0 + s + 1}, col, aw); break;
-    case Mirror::TopBottom: c.smoothLine(P{x0 - 1, y0 + s / 2}, P{x0 + s + 1, y0 + s / 2}, col, aw); break;
-    case Mirror::Diagonal: c.smoothLine(P{x0, y0}, P{x0 + s, y0 + s}, col, aw); break;
-    case Mirror::AntiDiagonal: c.smoothLine(P{x0 + s, y0}, P{x0, y0 + s}, col, aw); break;
-    default: break;
+    if (kind & Mirror::LeftRight) c.smoothLine(P{x0 + s / 2, y0 - 1}, P{x0 + s / 2, y0 + s + 1}, col, aw);
+    if (kind & Mirror::TopBottom) c.smoothLine(P{x0 - 1, y0 + s / 2}, P{x0 + s + 1, y0 + s / 2}, col, aw);
+    if (kind & Mirror::Diagonal) c.smoothLine(P{x0, y0}, P{x0 + s, y0 + s}, col, aw);
+    if (kind & Mirror::AntiDiagonal) c.smoothLine(P{x0 + s, y0}, P{x0, y0 + s}, col, aw);
+}
+// The brushes' number as dots (Brushes: the brushes go round the symmetry center): n dots in a ring round the
+// middle of `r` (1: one dot in the middle), the first at the top.
+void turnDots(Canvas& c, Rect r, int n, Color col) {
+    using P = Canvas::PointF;
+    const float cx = (r.left + r.right) / 2.0f, cy = (r.top + r.bottom) / 2.0f, d = float(std::max(2, scale(4)));
+    const float ring = n <= 1 ? 0 : std::min((r.bottom - r.top) / 2.0f - d, d * (0.9f + 0.32f * float(n)));
+    for (int k = 0; k < std::max(1, n); ++k) {
+        const double a = 6.283185307179586 * k / std::max(1, n);
+        const float x = cx + ring * float(std::sin(a)), y = cy - ring * float(std::cos(a));
+        c.smoothEllipse(P{x - d / 2, y - d / 2}, d, d, col);
     }
 }
 }  // namespace stripLook
@@ -450,6 +459,100 @@ void stripGroupPopout(StripItem it, draw::View& from, draw::Rect button) {
     const draw::Rect at{button.left - ToolPopoutView::pad(), button.bottom + scale(2), button.left - ToolPopoutView::pad() + w, button.bottom + scale(2) + h};
     gToolPopout.open = true;
     host->openWindow(from, gToolPopout, draw::WindowSpec{draw::WindowKind::Popup, at, L""}, [] { gToolPopout.open = false, gToolPopout.hot = -1; });
+}
+
+// The symmetry button's pop-out (stripMirrorPopout): No symmetry, then the four mirrors. A mirror is on or off at a
+// click (they combine) and the row stays open; No symmetry turns them all off (and the brushes to 1) and closes it.
+struct MirrorKind {
+    int flag;
+    const wchar_t* tip;
+};
+constexpr MirrorKind kMirrorKinds[] = {{0, L"No symmetry"},
+                                       {Mirror::LeftRight, L"Mirror left and right"},
+                                       {Mirror::TopBottom, L"Mirror top and bottom"},
+                                       {Mirror::Diagonal, L"Mirror across the line from top left to bottom right"},
+                                       {Mirror::AntiDiagonal, L"Mirror across the line from top right to bottom left"}};
+void setMirrorKind(int flag) {  // (a click on a mirror, or on No symmetry: 0)
+    AppState& a = appState();
+    if (!a.ed) return;
+    a.ed->setMirrors(flag ? a.ed->mirrors() ^ flag : 0);
+    if (!flag) a.ed->setTurns(1);  // (No symmetry turns the brushes off too)
+    shellToolsChanged();
+    a.dirty = true;
+}
+struct MirrorPopoutView final : draw::View {
+    int hot = -1;
+    bool open = false;
+    static int cell() { return scale(30); }
+    static int pad() { return scale(3); }
+    int at(draw::Point p) const {
+        if (p.y < pad() || p.y >= pad() + cell() || p.x < pad()) return -1;
+        const int i = (p.x - pad()) / cell();
+        return i < int(std::size(kMirrorKinds)) ? i : -1;
+    }
+    void paint(draw::Canvas& c) override {
+        using namespace stripLook;
+        c.fill({0, 0, width(), height()}, kPanel);
+        c.frame({0, 0, width(), height()}, kBorderHot, 1);
+        const AppState& a = appState();
+        const int mask = a.ed ? a.ed->mirrors() : 0;
+        for (size_t i = 0; i < std::size(kMirrorKinds); ++i) {
+            const draw::Rect r{pad() + int(i) * cell(), pad(), pad() + int(i + 1) * cell(), pad() + cell()};
+            const int flag = kMirrorKinds[i].flag;
+            const bool on = flag ? (mask & flag) != 0 : mask == 0 && (!a.ed || a.ed->turns() == 1), over = int(i) == hot;
+            const draw::Rect sq = square(r);
+            if (on) box(c, sq, kSel, kAccentLine);
+            else if (over) box(c, sq, kCtlHot, kNoLine);
+            mirrorIcon(c, sq, flag, on ? kAccentBright : over ? kText : kDim, on ? kSel : kPanel);
+            if (i == 0) c.fill({r.right - 1, r.top + scale(4), r.right, r.bottom - scale(4)}, kBorder);  // (a line after No symmetry: the mirrors combine)
+        }
+    }
+    bool hoverTip() const override { return true; }
+    std::wstring tip(draw::Point p) override {
+        const int i = at(p);
+        return i < 0 ? std::wstring() : std::wstring(tr(kMirrorKinds[i].tip)) + L" (Alt+" + std::to_wstring(i) + L")";
+    }
+    bool mouse(const draw::MouseEvent& e) override {
+        switch (e.kind) {
+        case draw::MouseKind::Move:
+            if (const int i = at(e.pt); i != hot) hot = i, invalidate();
+            return true;
+        case draw::MouseKind::Leave:
+            if (hot >= 0) hot = -1, invalidate();
+            return true;
+        case draw::MouseKind::Down: {
+            if (e.button != 0) return true;
+            const int i = at(e.pt);
+            if (i < 0) return true;
+            const int flag = kMirrorKinds[i].flag;
+            setMirrorKind(flag);
+            if (!flag) shellPost([this] { close(); });  // (No symmetry: done; a mirror: the row stays for the next)
+            invalidate();
+            return true;
+        }
+        default: return false;
+        }
+    }
+    bool key(const draw::KeyEvent& e) override {
+        if (e.down && e.key == draw::Key::Escape) return close(), true;
+        return false;
+    }
+    void close() {
+        if (!open) return;
+        open = false, hot = -1;
+        if (draw::Host* h = host()) h->closeWindow(*this);
+    }
+};
+MirrorPopoutView gMirrorPopout;
+void stripMirrorPopout(draw::View& from, draw::Rect button) {
+    draw::Host* host = from.host();
+    if (!host) return;
+    if (gMirrorPopout.open) return gMirrorPopout.close();  // (a second click on the button: it closes)
+    const int w = int(std::size(kMirrorKinds)) * MirrorPopoutView::cell() + 2 * MirrorPopoutView::pad(),
+              h = MirrorPopoutView::cell() + 2 * MirrorPopoutView::pad();
+    const draw::Rect at{button.left - MirrorPopoutView::pad(), button.bottom + scale(2), button.left - MirrorPopoutView::pad() + w, button.bottom + scale(2) + h};
+    gMirrorPopout.open = true;
+    host->openWindow(from, gMirrorPopout, draw::WindowSpec{draw::WindowKind::Popup, at, L""}, [] { gMirrorPopout.open = false, gMirrorPopout.hot = -1; });
 }
 
 // --- The view -----------------------------------------------------------------------------------------------------
@@ -607,8 +710,11 @@ public:
             const draw::Rect typed{std::max(value.left, value.right - scale(52)), value.top, value.right, value.bottom};  // (the field over the value)
             const std::wstring t = stripNumberText(which);
             const int nw = c.measure(t), nx = value.right - scale(6) - unitW - nw;
-            c.text({value.left + scale(8), value.top, (editing ? typed.left : nx) - scale(4), value.bottom}, name, kDim, draw::kMiddle | draw::kEllipsis);
-            if (!editing) {
+            if (which != kNumTurns || editing) c.text({value.left + scale(8), value.top, (editing ? typed.left : nx) - scale(4), value.bottom}, name, kDim, draw::kMiddle | draw::kEllipsis);  // (Brushes: its dots alone)
+            if (!editing && which == kNumTurns) {  // (Brushes: as many dots as brushes, in a ring, in place of the number)
+                const int n = appState().ed ? appState().ed->turns() : 1, dw = std::min(value.right - value.left - scale(8), value.bottom - value.top), mid = (value.left + value.right) / 2;
+                turnDots(c, {mid - dw / 2, value.top, mid - dw / 2 + dw, value.bottom}, n, kText);
+            } else if (!editing) {
                 c.text({nx, value.top, nx + nw, value.bottom}, t, kText, draw::kMiddle | draw::kLeft);
                 if (*unit) {
                     const draw::Font of = c.setFont(c.font({draw::Face::Ui, smallPx()}));
@@ -726,49 +832,17 @@ public:
         if (stripHasMix())
             numberRow(kNumMix, L"Mix",
                       L"Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. The arrows and the mouse wheel change it.");
-        // The mirrors: they combine (left/right and top/bottom together mirror both ways); None turns them all off.
+        // The symmetry: one button that shows the mirrors in use together (their axes in one square); a click opens
+        // the row of No symmetry and the four mirrors (stripMirrorPopout), which combine.
         if (stripHasMirrors() && app.ed) {
-            static const struct {
-                int flag;
-                const wchar_t* tip;
-            } kinds[] = {{0, L"No symmetry"},
-                         {Mirror::LeftRight, L"Mirror left and right"},
-                         {Mirror::TopBottom, L"Mirror top and bottom"},
-                         {Mirror::Diagonal, L"Mirror across the line from top left to bottom right"},
-                         {Mirror::AntiDiagonal, L"Mirror across the line from top right to bottom left"}};
-            // One segmented row, as Isometric | Rectangle | Tile | Custom: No symmetry, then the mirrors (any of them
-            // together); a line only after No symmetry (it turns the others off).
-            const int mb = scale(28), segW = mb + scale(2), over = scale(8);
-            const int count = int(std::size(kinds));
-            int mx = 0;
-            for (const auto& k : kinds) {
-                const int i = int(&k - kinds);
-                const int mask = app.ed->mirrors();
-                const bool on = k.flag ? (mask & k.flag) != 0 : mask == 0 && app.ed->turns() == 1;
-                const draw::Rect br{i * segW, y, i == count - 1 ? count * segW : (i + 1) * segW, y + mb};
-                const int flag = k.flag;
-                const bool over2 = hot(br);
-                c.pushClip(br);
-                draw::Rect seg = br;  // (the box drawn wider on the inner sides: the segment's clip cuts it)
-                if (i > 0) seg.left -= over;
-                if (i < count - 1) seg.right += over;
-                c.roundBox(seg, on ? kSel : over2 ? kCtlHot : kCtl, on ? kAccentLine : kBorder, float(scale(kModeBoxRadius)));
-                if (i == 0) c.fill({br.right - 1, br.top + 1, br.right, br.bottom - 1}, kBorder);  // (a line after No symmetry only: the mirrors combine)
-                c.popClip();
-                mirrorIcon(c, square(br), flag, on ? kAccentBright : over2 ? kText : kDim, on ? kSel : over2 ? kCtlHot : kCtl);
-                mx = br.right;
-                addHit(br, [flag] {
-                    AppState& a = appState();
-                    if (!a.ed) return;
-                    const int m2 = flag ? a.ed->mirrors() ^ flag : 0;
-                    a.ed->setMirrors(m2);
-                    if (!flag) a.ed->setTurns(1);  // None turns the turns off too
-                    shellToolsChanged();
-                    a.dirty = true;
-                    shellFocusView();
-                }, std::wstring(tr(k.tip)) + L" (Alt+" + std::to_wstring(int(&k - kinds)) + L")");  // (the key: Alt+0 none, Alt+1 to Alt+4 the mirrors)
-            }
-            mx = std::max(mx, count * (mb + scale(3)));  // (Turns where it was: the strip's height counts on it)
+            const int mb = scale(28);
+            const int mask = app.ed->mirrors();
+            const draw::Rect br{0, y, mb + scale(2), y + mb};
+            const bool on = mask != 0, over2 = hot(br) || gMirrorPopout.open;
+            c.roundBox(br, on ? kSel : over2 ? kCtlHot : kCtl, on ? kAccentLine : kBorder, float(scale(kModeBoxRadius)));
+            mirrorIcon(c, square(br), mask, on ? kAccentBright : over2 ? kText : kDim, on ? kSel : over2 ? kCtlHot : kCtl);
+            addHit(br, [this, br] { stripMirrorPopout(*this, br); }, tr(L"Symmetry: click to choose the mirrors (Alt+0 to Alt+4)"));
+            const int mx = br.right;
             // Turns: on the same row, after the mirrors (its name too where it fits); the row below when the strip is
             // too narrow.
             const int minStep = scale(84), left = mx + scale(6);

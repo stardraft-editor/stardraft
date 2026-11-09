@@ -3394,6 +3394,7 @@ constexpr UiText kRows[] = {
     {L"Drag to make Variations taller or shorter", L"Faites glisser pour agrandir ou r\u00E9duire Variantes"},
     {L"Hide the variations", L"Masquer les variantes"},
     {L"Show the variations", L"Afficher les variantes"},
+    {L"Symmetry: click to choose the mirrors (Alt+0 to Alt+4)", L"Sym\u00E9trie : cliquez pour choisir les miroirs (Alt+0 \u00E0 Alt+4)"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

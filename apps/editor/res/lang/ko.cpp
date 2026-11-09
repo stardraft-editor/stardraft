@@ -3424,6 +3424,7 @@ constexpr UiText kRows[] = {
     {L"Drag to make Variations taller or shorter", L"\uB04C\uC5B4\uC11C \uBCC0\uD615 \uC601\uC5ED\uC758 \uB192\uC774\uB97C \uBC14\uAFC9\uB2C8\uB2E4"},
     {L"Hide the variations", L"\uBCC0\uD615 \uC228\uAE30\uAE30"},
     {L"Show the variations", L"\uBCC0\uD615 \uD45C\uC2DC"},
+    {L"Symmetry: click to choose the mirrors (Alt+0 to Alt+4)", L"\uB300\uCE6D: \uD074\uB9AD\uD558\uC5EC \uAC70\uC6B8 \uC120\uD0DD (Alt+0 ~ Alt+4)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
