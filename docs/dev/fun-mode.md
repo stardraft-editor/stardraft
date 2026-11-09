@@ -6,10 +6,12 @@ when the map is edited:
 - Painted terrain plays a short recorded sound (see "The sounds"), by the terrain that the edited tiles have now and
   did not have before (painting water on dirt: the shore tiles count as water): water splashes; tar, lava, magma and
   mud squelch; grass, jungle, snow and dunes swish; dirt crunches; rock, crags, shale and ice crunch; platform,
-  plating, structure and the other built floors clank. Space and pits make no sound.
-- A placed unit squashes and springs back about its feet, and the first one says its ready sound (units.dat's Ready
-  Sound: units 0 to 105; buildings have none). A placed doodad shakes the view a little. A deleted unit or doodad
-  puffs. None of these has a sound of its own.
+  plating, structure and the other built floors clank; space and pits whoosh. What was painted is the terrain of the
+  tiles that became all of a terrain they did not have (the brush's rings of the terrains between it and the ground,
+  Platform and High Platform round painted Space, do not count).
+- A placed unit thuds softly (a building lower), squashes and springs back about its feet, and the first one says its
+  ready sound (units.dat's Ready Sound: units 0 to 105; buildings have none). A placed doodad thunks and shakes the
+  view a little. A deleted unit or doodad puffs.
 - Small shards of the placed terrain hop off (low and few: 1 or 2 a tile): each one is a jagged shape of 3 to 6
   corners, 5 to 12 pixels across, cut with the terrain's own pixels (from a tile of the edit that is all of the new
   terrain, so grass painted on dirt throws grass only). Each one goes its own way at its own speed, turns at its own
@@ -18,7 +20,7 @@ when the map is edited:
 - The sound and the shards are by the tiles that got a terrain they did not have: the dirt round a grass stroke,
   which the brush makes again, makes no dirt sound.
 - What is placed is louder than what it replaces: the sound of the terrain that the edited tiles lost (dirt under
-  painted grass) plays with it at 35 % of its level.
+  painted grass, the ground under a doodad) plays with it at 35 % of its level.
 
 ## How it works
 
@@ -46,25 +48,39 @@ step twice in a row (the whole sound faster or slower). Its level is louder for 
 
 ## Recorded sounds
 
-Water, mud, grass, dirt, rock and the built floors play recorded sounds (from Freesound, picked by the user). Each
-recording gave up to 3 takes: its loudest moments (the splash, the squelch, the swish, the crunch), from
-just before the rise to where the hit has died to 12 % of its peak, with no lead-in or long tail (a 2 ms fade-in, a
-12 ms fade-out). Made tiny and bit-like: mono, 11,025 Hz, 64 levels, 8-bit WAV (0.08 to 0.18 s, 0.9 to 2 KB each,
-23 KB for all 17). A play takes one of the takes at random (not the last one again).
+All are CC0 1.0 recordings from Freesound (the first ones picked by the user; thunk, plop, poof and void found with
+the Freesound API, a CC0 filter, from their HQ previews). Each kind has 6 takes: the main moments of its recordings
+(from just before the rise to where the hit has died to 12 % of its peak, with no lead-in or long tail; a 2 ms
+fade-in, a 12 ms fade-out), and, to make 6, variations of them: 2 or 3 semitones up or down, a low-pass, or another
+moment under it at 35 %. Thunk is 2 semitones down and darker; void 5 semitones down and darker (hollow). Made tiny
+and bit-like: mono, 11,025 Hz, 64 levels, 8-bit WAV (0.06 to 0.45 s, 0.7 to 5 KB each, 93 KB for all 60). A play
+takes one of the takes at random (not the last one again).
 
 The WAV files are in `apps/editor/res/fun/`; `tools/fun_sounds_gen.py` makes `fun_sounds.inc` from them (the
 program has them in it: no files beside it).
 
-| Sound | Takes | Freesound | Author | License |
-|---|---|---|---|---|
-| splash (water) | `splash1`, `splash2` | 763619 "Rock splash" | KalanaJ | CC0 1.0 |
-| gloop (tar, lava, mud) | `gloop1` to `gloop3` | 207142 "MudSquelch.wav" | ahill86 | CC0 1.0 |
-| brush (grass, jungle, snow, dunes) | `brush1` to `brush3` | 543508 "grass_rustling_uncut.wav" | Clusman | CC0 1.0 |
-| crunch (dirt) | `crunch1` to `crunch3` | 512243 "Rock Smash" | NeoSpica | CC0 1.0 |
-| rock (rock, crags, shale, ice) | `rock1` to `rock3` | 336023 "Rocks.wav" | adamgryu | CC0 1.0 |
-| clank (platform, plating, structure, temple, basilica, outpost, the other built floors) | `clank1` to `clank3` | 558254 "Heavy Stone Push" | msavioti | CC0 1.0 |
+| Sound | Freesound | Author | License |
+|---|---|---|---|
+| splash (water) | 763619 "Rock splash" | KalanaJ | CC0 1.0 |
+| gloop (tar, lava, mud) | 207142 "MudSquelch.wav" | ahill86 | CC0 1.0 |
+| brush (grass, jungle, snow, dunes) | 543508 "grass_rustling_uncut.wav" | Clusman | CC0 1.0 |
+| crunch (dirt) | 512243 "Rock Smash" | NeoSpica | CC0 1.0 |
+| rock (rock, crags, shale, ice) | 336023 "Rocks.wav" | adamgryu | CC0 1.0 |
+| clank (platform, plating, structure, temple, basilica, outpost, the other built floors) | 558254 "Heavy Stone Push" | msavioti | CC0 1.0 |
+| thunk (a placed doodad) | 215162 "thud.wav" | OtisJames | CC0 1.0 |
+| thunk | 449955 "Wooden Thud (Mono)" | Breviceps | CC0 1.0 |
+| thunk | 342535 "Medium Thud 1" | sgrowe | CC0 1.0 |
+| plop (a placed unit) | 336495 "LowHit_01.wav" | Faulkin | CC0 1.0 |
+| plop | 653910 "soft-hit.wav" | Krokulator | CC0 1.0 |
+| plop | 536766 "Thud.ogg" | egomassive | CC0 1.0 |
+| poof (a delete) | 208111 "Poof of Smoke" | Planman | CC0 1.0 |
+| poof | 714257 "Puff of Smoke" | qubodup | CC0 1.0 |
+| poof | 471204 "poof.wav" | AuDRoger | CC0 1.0 |
+| void (space, pits) | 381853 "wind_gust_short_sqeeeek.wav" | sqeeeek | CC0 1.0 |
+| void | 243400 "woosh.wav" | freakinbehemoth | CC0 1.0 |
 
-CC0 1.0: no rights reserved, no credit needed (given here anyway); they can ship.
+Each sound's page: `https://freesound.org/s/<number>/`. CC0 1.0: no rights reserved, no credit needed (given here
+anyway); they can ship.
 
 ## What works
 
@@ -90,8 +106,7 @@ CC0 1.0: no rights reserved, no credit needed (given here anyway); they can ship
   for some people: a "calm" level that plays only at a stroke's start and end?
 - Should a stroke's sound pitch follow the mouse speed, or the brush size?
 - Undo: silent now. A reversed sound could be fun.
-- Moved units and doodads: no feedback now.
-- Doodads, deletes and space have no sound now (their sounds made in code were taken out): recorded ones for them?
+- Moved units and doodads: no feedback now (a small thud at the drop?).
 - Sprites, locations, triggers: nothing yet.
 - Mod terrains (Cosmonarchy) are sorted by name; names that do not match go to the dirt crunch.
 - The pop changes only the map's draw (not the minimap, the map image export or a layer's ghost).

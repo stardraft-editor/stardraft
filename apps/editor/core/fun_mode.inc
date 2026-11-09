@@ -1,7 +1,8 @@
 // Options > Fun mode (a spike, off by default): edits on the map give feedback. Painted terrain plays a short recorded
 // sound by its terrain (water splashes, mud squelches, grass swishes, dirt and rock crunch, built floors clank;
 // res/fun), and shards of the placed tiles (jagged pieces of their own pixels) fly off, each its own way, turning. A
-// placed unit squashes and springs back and says its ready sound; a placed doodad shakes the view; a delete puffs.
+// placed unit thuds softly, squashes and springs back and says its ready sound; a placed doodad thunks and shakes the
+// view; a delete puffs; space and pits whoosh. Every sound is a recorded take.
 // How it finds the edits: each frame (funModeScene, after buildScene) it compares the map with the copy from the last
 // frame: the tiles when terrainRevision changed, the units (by serial) and the doodads when revision changed. A map read
 // anew (open, undo, redo: loadMark) or another tab only takes a new copy. Notes: docs/dev/fun-mode.md.
@@ -249,8 +250,8 @@ void watch(const Editor& ed) {
     if (g.revision == ed.revision() && g.terrainRevision == ed.terrainRevision()) return;
     std::uniform_real_distribution<float> u(0.0f, 1.0f);
     const Tileset& ts = ed.tileset();
-    // Doodads: placed ones shake the view (their tiles change too: no terrain sound then), deleted ones puff. One gone
-    // and one of the same doodad come is a move: nothing.
+    // Doodads: placed ones thunk and shake the view (their tiles change too: no terrain sound then), deleted ones puff.
+    // One gone and one of the same doodad come is a move: nothing.
     std::unordered_map<uint64_t, int> doodads;
     for (const Doodad& d : ed.doodads()) ++doodads[uint64_t(d.id) << 32 | uint64_t(d.x) << 16 | d.y];
     std::vector<uint64_t> added, removed;
@@ -291,11 +292,13 @@ void watch(const Editor& ed) {
         doodadBox(key, x0, y0, x1, y1);
         if (++deletedDoodads <= 12) burst(Kind::Poof, x0, y0, x1, y1, 0xB0B0B0u, 12);
     }
-    if (placedDoodads) g.shakeStart = nowMs();
+    if (placedDoodads) play(Kind::Thunk, 1, 1, 60), g.shakeStart = nowMs();
+    else if (deletedDoodads) play(Kind::Poof);
     g.doodads = std::move(doodads);
-    // Units: placed ones pop (by serial: a moved unit keeps it), deleted ones puff.
+    // Units: placed ones thud and pop (by serial: a moved unit keeps it), deleted ones puff.
     std::unordered_set<uint32_t> serials;
     int placed = 0, deleted = 0, readyType = 1000;
+    float pitch = 1;
     for (const Unit& un : ed.units()) {
         serials.insert(un.serial);
         if (g.serials.count(un.serial)) continue;
@@ -309,10 +312,12 @@ void watch(const Editor& ed) {
             burst(Kind::Plop, un.x - hw, un.y + hh - 6, un.x + hw, un.y + hh + 2, tileColor(ts, ground), big ? 22 : 8);
             burst(Kind::Plop, float(tx * 32), float(ty * 32), 0, 0, 0, big ? 8 : 3, &ts, ground);
         }
-        if (placed == 1) readyType = un.type;
+        if (placed == 1) pitch = big ? 0.8f : 1.1f, readyType = un.type;  // (a building lower)
     }
     for (const auto& [serial, x, y] : g.unitPlaces)
         if (!serials.count(serial) && ++deleted <= 64) burst(Kind::Poof, x - 12.0f, y - 12.0f, x + 12.0f, y + 12.0f, 0xB8B8B8u, 6);
+    if (placed) play(Kind::Plop, pitch, 1, 50);
+    else if (deleted) play(Kind::Poof);
     // The first placed unit's ready sound (units.dat's Ready Sound: units 0 to 105 have one), at most one each 0.6 s:
     // a row or a paste of many units says it once.
     static uint64_t lastReady = 0;
@@ -350,6 +355,7 @@ void watch(const Editor& ed) {
             if (any) replaced = Kind(std::max_element(std::begin(lost), std::end(lost)) - std::begin(lost));
         }
         const float level = std::clamp(0.45f + 0.12f * std::log2(float(std::max<size_t>(changed.size(), 1))), 0.45f, 1.0f);
+        if (doodadsChanged && placedDoodads && replaced != Kind::Count && replaced != Kind::Thunk) play(replaced, 1, 0.35f);  // (under the thunk)
         if (!changed.empty() && !doodadsChanged) {
             // Each tile's terrain that it did not have before (grass painted on dirt: the grass of its edge tiles; 0:
             // none, a tile of the same terrain made again). Only those tiles count when there are any: the dirt round a
@@ -357,11 +363,17 @@ void watch(const Editor& ed) {
             std::vector<uint16_t> added(changed.size(), 0);
             std::unordered_map<uint16_t, uint16_t> solid;  // a changed tile that is all of that terrain: the shards' source
             bool anyAdded = false;
+            // Tiles that are all of a terrain they did not have: what was painted (the brush's rings of the terrains
+            // between it and the ground, Platform and High Platform round painted Space, are not).
+            std::unordered_map<uint16_t, int> wholeNew;
             for (size_t c = 0; c < changed.size(); ++c) {
                 const auto nt = terrainsOf(now[changed[c]]), ot = terrainsOf(g.tiles[changed[c]]);
                 for (uint16_t t : nt)
                     if (t && t != ot[0] && t != ot[1]) added[c] = t, anyAdded = true;
-                if (nt[0] && !nt[1]) solid.try_emplace(nt[0], now[changed[c]]);
+                if (nt[0] && !nt[1]) {
+                    solid.try_emplace(nt[0], now[changed[c]]);
+                    if (nt[0] != ot[0] && nt[0] != ot[1]) ++wholeNew[nt[0]];
+                }
             }
             int counts[size_t(Kind::Count)]{};
             std::unordered_map<uint16_t, Kind> kinds;
@@ -382,7 +394,9 @@ void watch(const Editor& ed) {
                 burst(it->second, x, y, x + 32, y + 32, tileColor(ts, from), 1 + (u(g.rng) < 0.4f), &ts, from);
                 if (it->second == Kind::Splash || it->second == Kind::Clank) burst(it->second, x, y, x + 32, y + 32, tileColor(ts, from), 2);
             }
-            const Kind top = Kind(std::max_element(std::begin(counts), std::end(counts)) - std::begin(counts));
+            Kind top = Kind(std::max_element(std::begin(counts), std::end(counts)) - std::begin(counts));
+            if (!wholeNew.empty())
+                top = kindOf(std::max_element(wholeNew.begin(), wholeNew.end(), [](const auto& a, const auto& b) { return a.second < b.second; })->first);
             play(top, 1, level);  // (what is placed: louder than what it replaces)
             if (replaced != Kind::Count && replaced != top) play(replaced, 1, level * 0.35f);
         }
