@@ -3372,3 +3372,9 @@ Nothing more to search	Больше нечего искать
 %.0f MB	%.0f MB
 Copy as te&xt	Копировать как &текст
 Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	Выбранный рельеф скопирован как текст. Ctrl+V в режиме рельефа делает его кистью
+F&un mode	&Весёлый режим
+Fun mode	Весёлый режим
+Sounds and effects when you edit the map	Звуки и эффекты при правке карты
+Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	Каждая правка издаёт короткий звук, куски местности взлетают, а поставленные юниты подпрыгивают
+Turned on Fun mode	Весёлый режим включён
+Turned off Fun mode	Весёлый режим выключен

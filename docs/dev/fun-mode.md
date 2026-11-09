@@ -1,12 +1,13 @@
 # Fun mode (a spike)
 
-Options > Fun mode (off by default) gives feedback when the map is edited:
+Options > Fun mode, and Program options > Appearance > Fun mode (the same setting; off by default), gives feedback
+when the map is edited:
 
 - A short sound, made in code as bfxr and sfxr make them (a wave, a pitch slide, an envelope, one-pole filters and a
-  "grain" that makes noise crunch). No sound files. The sound is by what was edited:
+  "grain" that makes noise crunch, vibrato and one arpeggio step). No sound files. The sound is by what was edited:
   - terrain, by the terrain that the edited tiles have now and did not have before (painting water on dirt: the
-    shore tiles count as water): water splashes; tar, lava, magma and mud gloop; grass, jungle, snow and dunes brush;
-    dirt crunches; rock, crags, shale and ice crunch harder; platform, plating, structure and the other built floors
+    shore tiles count as water): water splashes; tar, lava, magma and mud gloop; grass, jungle, snow and dunes brush
+    (the user's own bfxr setting: a noise swish that rises for 0.13 s and stops short); dirt crunches; rock, crags, shale and ice crunch harder; platform, plating, structure and the other built floors
     clank; space and pits drop away;
   - a placed doodad thunks, and the view shakes a little;
   - a placed unit plops (a building lower than a small unit), and squashes and springs back about its feet;

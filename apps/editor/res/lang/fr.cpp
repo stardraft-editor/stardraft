@@ -3371,6 +3371,12 @@ constexpr UiText kRows[] = {
     {L"%.0f MB", L"%.0f MB"},
     {L"Copy as te&xt", L"Copier en te&xte"},
     {L"Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush", L"Le terrain s\u00E9lectionn\u00E9 est copi\u00E9 en texte. Ctrl+V en mode Terrain en fait le pinceau"},
+    {L"F&un mode", L"Mode &amusant"},
+    {L"Fun mode", L"Mode amusant"},
+    {L"Sounds and effects when you edit the map", L"Sons et effets quand vous modifiez la carte"},
+    {L"Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce", L"Chaque modification fait un son court, des morceaux du terrain s'envolent et les unit\u00E9s plac\u00E9es rebondissent"},
+    {L"Turned on Fun mode", L"Mode amusant activ\u00E9"},
+    {L"Turned off Fun mode", L"Mode amusant d\u00E9sactiv\u00E9"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

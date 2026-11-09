@@ -24,6 +24,7 @@ struct Voice {
     float grain = 0;  // 0..1: the level jumps at random every few milliseconds (a crunch)
     float vibDepth = 0, vibRate = 0;
     float vol = 0.5f;
+    float arpMult = 1, arpTime = 0;  // the pitch times arpMult once, arpTime seconds in (0: never)
 };
 constexpr int kRate = 44100;
 
@@ -39,7 +40,8 @@ void render(const Voice& v, std::vector<float>& out, std::mt19937& rng) {
     for (size_t i = 0; i < n; ++i) {
         const float t = float(i) / kRate;
         float f = freq * (1 + v.vibDepth * std::sin(6.2831853f * v.vibRate * t));
-        phase += std::clamp(f, 10.0f, 20000.0f) / kRate;
+        if (v.arpTime > 0 && i == size_t(v.arpTime * kRate)) freq *= v.arpMult;
+        phase += std::clamp(f, 10.0f, v.wave == Noise ? float(kRate) : 20000.0f) / kRate;  // (noise: up to white)
         if (phase >= 1) {
             phase -= std::floor(phase);
             noise = uni(rng);  // (noise: a new value each period, as sfxr: its pitch is how fast the values change)
@@ -103,8 +105,9 @@ std::vector<float> makeSound(Kind k, float pitch, float level, std::mt19937& rng
         add({Noise, 900, -0.5f, 0.5f, 0, 0.04f, 0.22f, 0, 0.25f, -0.6f, 0, 0, 0, 0, 0.45f});
         add({Sine, 150, 1.4f, 0.5f, 0, 0.03f, 0.14f, 0.2f, 1, 0, 0, 0, 0.08f, 18, 0.45f});
         break;
-    case Kind::Brush:
-        add({Noise, 9000, 0, 0.5f, 0.035f, 0.03f, 0.13f, 0, 0.55f, 0, 0.25f, 0.35f, 0, 0, 0.32f});
+    case Kind::Brush:  // (the user's bfxr grass: a swish that rises for 0.13 s and stops short; bfxr's noise at
+                       // 2,643 Hz changes 32 times a period, so here it is white; its high-pass at 0.85: sfxr's 0.072)
+        add({Noise, 2643 * 32, 0.2f, 0.5f, 0.1263f, 0.0025f, 0.0082f, 0.514f, 1, 0, 0.072f, 0, 0.0465f, 16.82f, 0.4f, 1.018f, 0.0122f});
         break;
     case Kind::Crunch:
         add({Noise, 2600, -0.4f, 0.5f, 0, 0.02f, 0.11f, 0.3f, 0.35f, -1.0f, 0, 0.7f, 0, 0, 0.6f});

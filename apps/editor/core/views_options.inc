@@ -31,6 +31,7 @@ struct OptionsValues {
     int unitLimit[2] = {3400, 1700};  // standard maps, EUD projects
     bool openLast = false;
     bool tintIcons = false;   // Appearance: the units' icons in the accent color, not the game's yellow (TintIcons)
+    bool funMode = false;     // Appearance: Fun mode, sounds and effects when the map is edited (FunMode: core/fun_mode.inc)
     bool diagnostics = false; // Graphics and diagnostics: the frames a second and the memory in use in the status bar (ShowDiagnostics)
     bool askStartLocations = true;  // Saving maps: a save asks when the map has no start locations (AskStartLocations)
     bool manyStartLocations = false;  // Placing units: more than one start location for each player (ManyStartLocations)
@@ -233,6 +234,9 @@ public:
         tintIcons_.setLabel(L"In the accent color");
         tintIcons_.setTip(L"The units' icons in the palettes and the Data workspace: in the accent color, not the game's yellow");
         tintIcons_.onChange = [this](bool) { host_.command(ID_OPT_TINTICONS); };
+        funMode_.setLabel(L"Sounds and effects when you edit the map");
+        funMode_.setTip(L"Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce");
+        funMode_.onChange = [this](bool) { host_.command(ID_OPT_FUNMODE); };  // (the same as Options > Fun mode)
         diagnostics_.setLabel(L"Show system diagnostics");
         diagnostics_.setTip(L"The frames a second and the memory that StarDraft uses, at the right of the status bar");
         diagnostics_.onChange = [this](bool) { host_.command(ID_OPT_DIAGNOSTICS); };
@@ -258,7 +262,7 @@ public:
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&tintIcons_), static_cast<draw::View*>(&diagnostics_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&override_), static_cast<draw::View*>(&passages_),
+        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&tintIcons_), static_cast<draw::View*>(&funMode_), static_cast<draw::View*>(&diagnostics_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&override_), static_cast<draw::View*>(&passages_),
                         static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
@@ -537,7 +541,7 @@ private:
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3], gpuSeg_[4];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, overrideBrowse_, passagesBrowse_, check_, restart_, reset_, maps_, close_;
     stardraft::kit::ScrollBar bar_;  // at the content's right when it is taller than its room
-    stardraft::kit::CheckBox lastProject_, tintIcons_, diagnostics_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_;
+    stardraft::kit::CheckBox lastProject_, tintIcons_, funMode_, diagnostics_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     optionsview::StepBox simWorkers_, simPerField_, simMinutes_, simSearch_[3];
@@ -600,7 +604,7 @@ void OptionsView::sync(const OptionsValues& v) {
     passages_.setOn(v.passagesOn);
     if (const std::wstring f = v.passagesFile.empty() ? std::wstring(L"\x2014") : v.passagesFile; passagesFile_.text() != f) passagesFile_.setText(f);
     accents_ = v.accents;
-    lastProject_.setOn(v.openLast), tintIcons_.setOn(v.tintIcons), diagnostics_.setOn(v.diagnostics), askStart_.setOn(v.askStartLocations), manyStarts_.setOn(v.manyStartLocations), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
+    lastProject_.setOn(v.openLast), tintIcons_.setOn(v.tintIcons), funMode_.setOn(v.funMode), diagnostics_.setOn(v.diagnostics), askStart_.setOn(v.askStartLocations), manyStarts_.setOn(v.manyStartLocations), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
     // The languages offered (rebuilt when they change), the chosen one.
     if (langChoices_.size() != v.languages.size() || !std::equal(langChoices_.begin(), langChoices_.end(), v.languages.begin(), [](int a, const auto& b) {
             return a == b.first;
@@ -762,7 +766,7 @@ void OptionsView::paint(draw::Canvas& c) {
         y += pad;
     }
 
-    // Appearance: the theme, the accent color, the units' icons.
+    // Appearance: the theme, the accent color, the units' icons, Fun mode.
     if (shown & optionsview::kAppearance) {
         header(L"Appearance");
         label(L"Theme");
@@ -797,6 +801,13 @@ void OptionsView::paint(draw::Canvas& c) {
             const draw::Rect cr{fx, y, fx + scale(24) + c.measure(tintIcons_.label()), y + rowH};
             place(tintIcons_, cr, true);
             parts_["tinticons"] = cr;
+        }
+        y += rowH;
+        label(L"Fun mode");
+        {
+            const draw::Rect cr{fx, y, fx + scale(24) + c.measure(funMode_.label()), y + rowH};
+            place(funMode_, cr, true);
+            parts_["funmode"] = cr;
         }
         y += rowH;
         y += pad;
