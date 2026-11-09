@@ -3378,16 +3378,17 @@ The tile uses variation %d of %d already	图块已在使用变体 %d/%d
 Variation %d of %d on the tile (Ctrl+Z undoes it)	图块使用变体 %d/%d（Ctrl+Z 可撤销）
 Variation %d of %d on %d tiles (Ctrl+Z undoes it)	变体 %d/%d 用于 %d 个图块（Ctrl+Z 可撤销）
 This tile has no other variations	此图块没有其他变体
-Tile %d, %d has no variations	图块 %d, %d 没有变体
-Variations of tile %d, %d	图块 %d, %d 的变体
-Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile	变体 %d（常见）。单击：图块、其矩形和其堆叠。Shift+单击：仅图块
-Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile	变体 %d（稀有）。单击：图块、其矩形和其堆叠。Shift+单击：仅图块
 F&un mode	趣味模式(&U)
 Fun mode	趣味模式
 Sounds and effects when you edit the map	编辑地图时的声音和效果
 Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	每次编辑都会发出短促的声音，地形碎块飞起，放置的单位会弹跳
 Turned on Fun mode	已开启趣味模式
 Turned off Fun mode	已关闭趣味模式
-Tile %d, %d: no variations	图块 %d, %d：没有变体
-Tile %d, %d	图块 %d, %d
-Variations of %d tiles	%d 个图块的变体
+Select at most %d x %d tiles to see their variations	最多选择 %d x %d 个图块才能查看其变体
+The selected tiles have no variations	所选图块没有变体
+Variations of the selection (%d x %d tiles)	所选区域的变体（%d x %d 个图块）
+Variation %d. Click: put it on the selected tiles	变体 %d。单击：将其用于所选图块
+The selected tiles use this variation already	所选图块已在使用此变体
+Variation %d on %d tiles (Ctrl+Z undoes it)	变体 %d 用于 %d 个图块（Ctrl+Z 可撤销）
+Variation %d on the tile (Ctrl+Z undoes it)	图块使用变体 %d（Ctrl+Z 可撤销）
+No tile changed: the selected tiles are protected	没有图块改变：所选图块受保护

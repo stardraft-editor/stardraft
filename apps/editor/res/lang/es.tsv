@@ -3378,16 +3378,17 @@ The tile uses variation %d of %d already	La casilla ya usa la variación %d de %
 Variation %d of %d on the tile (Ctrl+Z undoes it)	Variación %d de %d en la casilla (Ctrl+Z lo deshace)
 Variation %d of %d on %d tiles (Ctrl+Z undoes it)	Variación %d de %d en %d casillas (Ctrl+Z lo deshace)
 This tile has no other variations	Esta casilla no tiene otras variaciones
-Tile %d, %d has no variations	La casilla %d, %d no tiene variaciones
-Variations of tile %d, %d	Variaciones de la casilla %d, %d
-Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile	Variación %d (común). Clic: la casilla, su rectángulo y su pila. Mayús+clic: solo la casilla
-Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile	Variación %d (rara). Clic: la casilla, su rectángulo y su pila. Mayús+clic: solo la casilla
 F&un mode	Modo &divertido
 Fun mode	Modo divertido
 Sounds and effects when you edit the map	Sonidos y efectos al editar el mapa
 Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	Cada edición hace un sonido corto, saltan trozos del terreno y las unidades colocadas rebotan
 Turned on Fun mode	Se activó el modo divertido
 Turned off Fun mode	Se desactivó el modo divertido
-Tile %d, %d: no variations	Casilla %d, %d: sin variaciones
-Tile %d, %d	Casilla %d, %d
-Variations of %d tiles	Variaciones de %d casillas
+Select at most %d x %d tiles to see their variations	Seleccione como máximo %d x %d casillas para ver sus variaciones
+The selected tiles have no variations	Las casillas seleccionadas no tienen variaciones
+Variations of the selection (%d x %d tiles)	Variaciones de la selección (%d x %d casillas)
+Variation %d. Click: put it on the selected tiles	Variación %d. Clic: ponerla en las casillas seleccionadas
+The selected tiles use this variation already	Las casillas seleccionadas ya usan esta variación
+Variation %d on %d tiles (Ctrl+Z undoes it)	Variación %d en %d casillas (Ctrl+Z lo deshace)
+Variation %d on the tile (Ctrl+Z undoes it)	Variación %d en la casilla (Ctrl+Z lo deshace)
+No tile changed: the selected tiles are protected	Ninguna casilla cambió: las casillas seleccionadas están protegidas

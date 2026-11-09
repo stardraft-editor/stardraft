@@ -1,186 +1,148 @@
-// The side bar's Variations strip (Terrain mode with a terrain selection, under the terrain list): for each selected
-// tile (core/tile_variations.inc: variationsTiles), a picture of each of its variations; the one in use has an accent
-// frame, and the rare ones come after a gap. The mouse over a variation shows it on the map (the terrain preview, no
-// change); a click puts it on the tile, the other half of its rect and its stack, Shift+click only on the tile. The
-// wheel scrolls the strip when its rows need more room than the side bar gives.
+// The side bar's Variations strip (Terrain mode with a terrain selection, under the terrain list): the selection as one
+// piece, drawn once for each of its variations (core/tile_variations.inc: selectionPiece), in its own shape (a 1 x 2
+// selection: pictures of 1 x 2 tiles). The one that the tiles use now has an accent frame. The mouse over a variation
+// shows it on the map (the terrain preview, no change); a click puts it on the selected tiles. The wheel scrolls the
+// strip when its pictures need more room than the side bar gives.
 struct VariationsView : draw::View {
-    int hoverRow = -1, hoverK = -1;
+    int hover = -1;  // the index in the variations under the mouse
     int scroll = 0;
-    bool over = false, overShift = false;  // the mouse is over the strip (at overAt), with Shift held or not
+    bool over = false;  // the mouse is over the strip (at overAt)
     draw::Point overAt{};
-    int shiftTimer = -1;
-    static int cell() { return scale(34); }
+    std::vector<std::pair<int, int>> scrolledFor;  // (the tiles that the scroll is for: another selection starts at the top)
     static int titleH() { return scale(24); }
-    static int labelH() { return scale(18); }
-    static int gap() { return scale(4); }
+    static int gap() { return scale(6); }
     static int pad() { return scale(6); }
-    struct Cell {
-        int row = -1, k = -1;
-        draw::Rect box;  // (in the content: the scroll not taken off)
-    };
-    struct Label {
-        draw::Rect box;
-        std::wstring text;
-    };
-    // The cells and labels for the width, and the content's height.
-    struct Layout {
-        std::vector<Cell> cells;
-        std::vector<Label> labels;
-        int height = 0;
-    };
-    Layout layout(int w) const {
-        Layout l;
-        const std::vector<std::pair<int, int>> tiles = variationsTiles();
-        if (tiles.empty()) return l;
-        const Editor& ed = *appState().ed;
-        const int c = cell();
-        int y = titleH();
-        for (size_t r = 0; r < tiles.size(); ++r) {
-            const auto [tx, ty] = tiles[r];
-            const TileVariations v = tileVariations(ed, mapTileAt(ed, tx, ty));
-            if (tiles.size() > 1) {  // (one tile: the title names it)
-                wchar_t t[96];
-                if (v.subs.size() < 2) std::swprintf(t, 96, shellTr(L"Tile %d, %d: no variations").c_str(), tx, ty);
-                else std::swprintf(t, 96, shellTr(L"Tile %d, %d").c_str(), tx, ty);
-                l.labels.push_back({{pad(), y, w - pad(), y + labelH()}, t});
-                y += labelH();
-            }
-            if (v.subs.size() < 2) continue;
-            int x = pad();
-            for (size_t k = 0; k < v.subs.size(); ++k) {
-                if (int(k) == v.common && k > 0) x += gap() * 2;  // (the rare ones after a gap)
-                if (x + c > w - pad() && x > pad()) x = pad(), y += c + gap();
-                l.cells.push_back({int(r), int(k), {x, y, x + c, y + c}});
-                x += c + gap();
-            }
-            y += c + gap();
+    // A tile's size in the pictures (pixels, with fractions) for the strip's width: two pictures in a row when they fit,
+    // at most a tile's own 32 px (scaled); a wide selection gets smaller tiles, so that one picture fits the width.
+    float tilePx(const SelectionPiece& p, int w) const {
+        const float room = float(std::max(4, w - 2 * pad() - 2)), pw = float(std::max(1, p.w)), ph = float(std::max(1, p.h));
+        float t = std::min(float(scale(32)), (room - gap()) / 2 / pw);
+        if (t < 2) t = std::min(2.0f, room / pw);  // (two do not fit with tiles of 2 px: one in a row)
+        return std::min(t, std::max(1.0f, float(scale(160)) / ph));  // (a tall selection: not taller than 160 px)
+    }
+    // The pictures' boxes (in the content: the scroll not taken off) and the content's height.
+    std::vector<draw::Rect> boxes(const SelectionPiece& p, int w, int* height = nullptr) const {
+        std::vector<draw::Rect> out;
+        const float t = tilePx(p, w);
+        const int bw = int(std::ceil(p.w * t)) + 2, bh = int(std::ceil(p.h * t)) + 2;
+        int x = pad(), y = titleH();
+        for (size_t k = 0; k < p.subs.size(); ++k) {
+            if (x + bw > w - pad() && x > pad()) x = pad(), y += bh + gap();
+            out.push_back({x, y, x + bw, y + bh});
+            x += bw + gap();
         }
-        l.height = y + pad();
-        return l;
+        if (height) *height = (out.empty() ? y : out.back().bottom) + pad();
+        return out;
     }
     // The height the strip needs at width `w` (0: not shown).
-    int heightFor(int w) const { return variationsTiles().empty() ? 0 : layout(w).height; }
-    int maxScroll() const { return std::max(0, layout(width()).height - height()); }
+    int heightFor(int w) const {
+        const SelectionPiece& p = selectionPiece();
+        if (p.tiles.empty() && !p.tooMany) return 0;
+        if (p.subs.size() < 2) return titleH() + pad();
+        int h = 0;
+        boxes(p, w, &h);
+        return h;
+    }
+    int maxScroll(const SelectionPiece& p) const {
+        int h = 0;
+        boxes(p, width(), &h);
+        return std::max(0, h - height());
+    }
+    void keepScroll(const SelectionPiece& p) {
+        if (p.tiles != scrolledFor) scrolledFor = p.tiles, scroll = 0;
+        scroll = std::clamp(scroll, 0, maxScroll(p));
+    }
 
     void paint(draw::Canvas& c) override {
         c.fill({0, 0, width(), height()}, kPanel);
         c.fill({0, 0, width(), 1}, kBorderStrong);
-        const std::vector<std::pair<int, int>> tiles = variationsTiles();
-        if (tiles.empty()) return;
-        const Editor& ed = *appState().ed;
-        scroll = std::clamp(scroll, 0, maxScroll());
-        const Layout l = layout(width());
-        wchar_t title[96];
-        const TileVariations first = tileVariations(ed, mapTileAt(ed, tiles[0].first, tiles[0].second));
-        if (tiles.size() > 1) std::swprintf(title, 96, shellTr(L"Variations of %d tiles").c_str(), int(tiles.size()));
-        else if (first.subs.size() < 2) std::swprintf(title, 96, shellTr(L"Tile %d, %d has no variations").c_str(), tiles[0].first, tiles[0].second);
-        else std::swprintf(title, 96, shellTr(L"Variations of tile %d, %d").c_str(), tiles[0].first, tiles[0].second);
-        c.pushClip({0, titleH(), width(), height()});
-        for (const Label& lb : l.labels) {
-            const draw::Rect r{lb.box.left, lb.box.top - scroll, lb.box.right, lb.box.bottom - scroll};
-            c.text(r, lb.text, kDim, draw::kLeft | draw::kMiddle | draw::kEllipsis);
+        const SelectionPiece& p = selectionPiece();
+        const draw::Rect titleBox{pad(), 0, width() - pad(), titleH()};
+        const int flags = draw::kLeft | draw::kMiddle | draw::kEllipsis;
+        if (p.tooMany) {
+            wchar_t m[96];
+            std::swprintf(m, 96, shellTr(L"Select at most %d x %d tiles to see their variations").c_str(), kVariationW, kVariationH);
+            return c.text(titleBox, m, kDim, flags);
         }
+        if (p.tiles.empty()) return;
+        if (p.subs.size() < 2) return c.text(titleBox, shellTr(L"The selected tiles have no variations"), kDim, flags);
+        keepScroll(p);
+        const float t = tilePx(p, width());
+        const std::vector<draw::Rect> b = boxes(p, width());
+        c.pushClip({0, titleH(), width(), height()});
         tilesPixelsTrim();
-        for (const Cell& e : l.cells) {
-            const auto [tx, ty] = tiles[size_t(e.row)];
-            const uint16_t t = mapTileAt(ed, tx, ty);
-            const TileVariations v = tileVariations(ed, t);
-            if (size_t(e.k) >= v.subs.size()) continue;
-            const draw::Rect b{e.box.left, e.box.top - scroll, e.box.right, e.box.bottom - scroll};
-            if (b.bottom < titleH() || b.top > height()) continue;
-            draw::Rect src;
-            draw::Bitmap& px = tilesPixels(uint16_t((t & 0xFFF0) | v.subs[size_t(e.k)]), src);
-            c.bitmap(px, src, {b.left + 1, b.top + 1, b.right - 1, b.bottom - 1}, true);
-            const bool hot = e.row == hoverRow && e.k == hoverK;
-            if (v.subs[size_t(e.k)] == (t & 15)) c.frame(b, kAccent, std::max(2, scale(2)));
-            else c.frame(b, hot ? kText : kBorderStrong, hot ? std::max(2, scale(2)) : 1);
+        for (size_t k = 0; k < b.size(); ++k) {
+            const draw::Rect box{b[k].left, b[k].top - scroll, b[k].right, b[k].bottom - scroll};
+            if (box.bottom < titleH() || box.top > height()) continue;
+            c.fill(box, kBg);
+            for (size_t i = 0; i < p.tiles.size(); ++i) {
+                draw::Rect src;
+                draw::Bitmap& px = tilesPixels(p.values[k][i], src);
+                const float fx = box.left + 1 + (p.tiles[i].first - p.x0) * t, fy = box.top + 1 + (p.tiles[i].second - p.y0) * t;
+                const int l = int(std::lround(fx)), tp = int(std::lround(fy));
+                c.bitmap(px, src, {l, tp, std::max(l + 1, int(std::lround(fx + t))), std::max(tp + 1, int(std::lround(fy + t)))}, true);
+            }
+            const bool hot = int(k) == hover;
+            if (p.now[k]) c.frame(box, kAccent, std::max(2, scale(2)));
+            else c.frame(box, hot ? kText : kBorderStrong, hot ? std::max(2, scale(2)) : 1);
         }
         c.popClip();
-        c.text({pad(), 0, width() - pad(), titleH()}, title, kDim, draw::kLeft | draw::kMiddle | draw::kEllipsis);
+        wchar_t title[96];
+        std::swprintf(title, 96, shellTr(L"Variations of the selection (%d x %d tiles)").c_str(), p.w, p.h);
+        c.text(titleBox, title, kDim, flags);
     }
-    // The cell under `p` (the view's coordinates), or none (row -1).
-    Cell at(draw::Point p) const {
-        if (p.y < titleH()) return {};
-        for (const Cell& e : layout(width()).cells)
-            if (e.box.contains({p.x, p.y + scroll})) return e;
-        return {};
+    // The variation under `pt` (the view's coordinates), or -1.
+    int at(const SelectionPiece& p, draw::Point pt) const {
+        if (pt.y < titleH() || p.subs.size() < 2) return -1;
+        const std::vector<draw::Rect> b = boxes(p, width());
+        for (size_t k = 0; k < b.size(); ++k)
+            if (b[k].contains({pt.x, pt.y + scroll})) return int(k);
+        return -1;
     }
-    // The tile and the variation of a cell: false when it is not one now.
-    static bool cellTile(const Cell& e, int& tx, int& ty, int& sub) {
-        const std::vector<std::pair<int, int>> tiles = variationsTiles();
-        if (e.row < 0 || size_t(e.row) >= tiles.size()) return false;
-        const Editor& ed = *appState().ed;
-        tx = tiles[size_t(e.row)].first, ty = tiles[size_t(e.row)].second;
-        const TileVariations v = tileVariations(ed, mapTileAt(ed, tx, ty));
-        if (e.k < 0 || size_t(e.k) >= v.subs.size()) return false;
-        sub = v.subs[size_t(e.k)];
-        return true;
-    }
-    void hoverAt(draw::Point p, unsigned mods) {
-        over = true, overAt = p, overShift = (mods & draw::kShift) != 0;
-        watchShift();
-        const Cell e = at(p);
-        if (e.row != hoverRow || e.k != hoverK) hoverRow = e.row, hoverK = e.k, invalidate();
-        int tx, ty, sub;
-        setVariationPreview(cellTile(e, tx, ty, sub) ? tileVariationCells(*appState().ed, tx, ty, sub, (mods & draw::kShift) == 0)
-                                                     : std::vector<Editor::TileAt>{});
+    void hoverAt(draw::Point pt) {
+        over = true, overAt = pt;
+        const SelectionPiece& p = selectionPiece();
+        keepScroll(p);
+        const int k = at(p, pt);
+        if (k != hover) hover = k, invalidate();
+        setVariationPreview(k >= 0 ? pieceVariationCells(p, size_t(k)) : std::vector<Editor::TileAt>{});
     }
     // The preview again for the strip as it is now (its tiles changed: an undo, another selection, another map).
     void refresh() {
-        if (over) hoverAt(overAt, overShift ? unsigned(draw::kShift) : 0u);
+        if (over) hoverAt(overAt);
         else setVariationPreview({});
-    }
-    // While the mouse is over the strip: Shift held or let go changes the preview (only the tile, or its rect and stack)
-    // with no mouse move (a modifier key alone is no key event here).
-    void watchShift() {
-        draw::Host* h = host();
-        if (!h || shiftTimer >= 0) return;
-        shiftTimer = h->timer(100, [this] {
-            shiftTimer = -1;
-            if (!over || !host()) return;
-            const bool shift = (host()->modifiers() & draw::kShift) != 0;
-            if (shift != overShift) hoverAt(overAt, shift ? unsigned(draw::kShift) : 0u);
-            else watchShift();
-        });
     }
     bool mouse(const draw::MouseEvent& e) override {
         if (e.kind == draw::MouseKind::Leave) {
-            over = false;
-            if (shiftTimer >= 0 && host()) host()->cancelTimer(shiftTimer);
-            shiftTimer = -1;
-            hoverRow = hoverK = -1;
+            over = false, hover = -1;
             setVariationPreview({});
             invalidate();
             return true;
         }
         if (e.kind == draw::MouseKind::Wheel) {
+            const SelectionPiece& p = selectionPiece();
+            keepScroll(p);
             const int before = scroll;
-            scroll = std::clamp(scroll - int(e.wheel * cell()), 0, maxScroll());
-            if (scroll != before) invalidate(), hoverAt(e.pt, e.mods);
+            scroll = std::clamp(scroll - int(e.wheel * scale(40)), 0, maxScroll(p));
+            if (scroll != before) invalidate(), hoverAt(e.pt);
             return true;
         }
-        if (e.kind == draw::MouseKind::Move) return hoverAt(e.pt, e.mods), true;
+        if (e.kind == draw::MouseKind::Move) return hoverAt(e.pt), true;
         if (e.kind != draw::MouseKind::Down) return false;
-        int tx, ty, sub;
-        if (e.button != 0 || !cellTile(at(e.pt), tx, ty, sub)) return true;
+        const int k = at(selectionPiece(), e.pt);
+        if (e.button != 0 || k < 0) return true;
         setVariationPreview({});
-        setTileVariation(tx, ty, sub, (e.mods & draw::kShift) == 0);
+        setSelectionVariation(size_t(k));
         invalidate();
         invalidateMapView();
         return true;
     }
     bool hoverTip() const override { return true; }
-    std::wstring tip(draw::Point p) override {
-        const Cell e = at(p);
-        int tx, ty, sub;
-        if (!cellTile(e, tx, ty, sub)) return {};
-        const TileVariations v = tileVariations(*appState().ed, mapTileAt(*appState().ed, tx, ty));
-        wchar_t m[200];
-        std::swprintf(m, 200,
-                      shellTr(e.k < v.common ? L"Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile"
-                                             : L"Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile")
-                          .c_str(),
-                      e.k + 1);
+    std::wstring tip(draw::Point pt) override {
+        const int k = at(selectionPiece(), pt);
+        if (k < 0) return {};
+        wchar_t m[160];
+        std::swprintf(m, 160, shellTr(L"Variation %d. Click: put it on the selected tiles").c_str(), k + 1);
         return m;
     }
 };

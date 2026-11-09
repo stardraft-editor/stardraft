@@ -3378,16 +3378,17 @@ The tile uses variation %d of %d already	La tuile utilise déjà la variante %d 
 Variation %d of %d on the tile (Ctrl+Z undoes it)	Variante %d sur %d sur la tuile (Ctrl+Z l'annule)
 Variation %d of %d on %d tiles (Ctrl+Z undoes it)	Variante %d sur %d sur %d tuiles (Ctrl+Z l'annule)
 This tile has no other variations	Cette tuile n'a pas d'autres variantes
-Tile %d, %d has no variations	La tuile %d, %d n'a pas de variantes
-Variations of tile %d, %d	Variantes de la tuile %d, %d
-Variation %d (common). Click: the tile, its rect and its stack. Shift+click: only the tile	Variante %d (courante). Clic : la tuile, son rectangle et sa pile. Maj+clic : seulement la tuile
-Variation %d (rare). Click: the tile, its rect and its stack. Shift+click: only the tile	Variante %d (rare). Clic : la tuile, son rectangle et sa pile. Maj+clic : seulement la tuile
 F&un mode	Mode &amusant
 Fun mode	Mode amusant
 Sounds and effects when you edit the map	Sons et effets quand vous modifiez la carte
 Each edit makes a short sound, pieces of the terrain fly up, and placed units bounce	Chaque modification fait un son court, des morceaux du terrain s'envolent et les unités placées rebondissent
 Turned on Fun mode	Mode amusant activé
 Turned off Fun mode	Mode amusant désactivé
-Tile %d, %d: no variations	Tuile %d, %d : pas de variantes
-Tile %d, %d	Tuile %d, %d
-Variations of %d tiles	Variantes de %d tuiles
+Select at most %d x %d tiles to see their variations	Sélectionnez au plus %d x %d tuiles pour voir leurs variantes
+The selected tiles have no variations	Les tuiles sélectionnées n'ont pas de variantes
+Variations of the selection (%d x %d tiles)	Variantes de la sélection (%d x %d tuiles)
+Variation %d. Click: put it on the selected tiles	Variante %d. Clic : la mettre sur les tuiles sélectionnées
+The selected tiles use this variation already	Les tuiles sélectionnées utilisent déjà cette variante
+Variation %d on %d tiles (Ctrl+Z undoes it)	Variante %d sur %d tuiles (Ctrl+Z l'annule)
+Variation %d on the tile (Ctrl+Z undoes it)	Variante %d sur la tuile (Ctrl+Z l'annule)
+No tile changed: the selected tiles are protected	Aucune tuile n'a changé : les tuiles sélectionnées sont protégées

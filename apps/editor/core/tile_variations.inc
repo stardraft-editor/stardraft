@@ -110,16 +110,17 @@ bool stepTileVariation(int x, int y, bool back) {
     return setTileVariation(x, y, v.subs[size_t((k + (back ? n - 1 : 1)) % n)], true);
 }
 
-// The tiles that the side bar's strip shows the variations of: the selected tiles, in rows (at most kVariationRows;
-// the user selects fewer to see the others).
-constexpr size_t kVariationRows = 64;
+// The tiles that the side bar's strip shows the variations of: the selected tiles, all together (at most
+// kVariationTiles; one more in the list says that the selection has more).
+constexpr size_t kVariationTiles = 6;  // (a piece of at most kVariationW x kVariationH tiles: a rect's two tiles, up a stack)
+constexpr int kVariationW = 2, kVariationH = 3;
 std::vector<std::pair<int, int>> variationsTiles() {
     const AppState& app = appState();
     if (app.mode != Mode::Terrain || !app.hasTerrainSel || !app.ed || !app.ed->isOpen()) return {};
-    std::vector<std::pair<int, int>> tiles;  // (as terrainSelTiles, up to the rows: a big selection is not gone through each frame)
+    std::vector<std::pair<int, int>> tiles;  // (as terrainSelTiles, up to the most: a big selection is not gone through each frame)
     const Rect& r = app.terrainSel;
-    for (int y = std::max(0, r.top / 32); y <= std::min(int(app.ed->height()) - 1, (r.bottom - 1) / 32) && tiles.size() < kVariationRows; ++y)
-        for (int x = std::max(0, r.left / 32); x <= std::min(int(app.ed->width()) - 1, (r.right - 1) / 32) && tiles.size() < kVariationRows; ++x)
+    for (int y = std::max(0, r.top / 32); y <= std::min(int(app.ed->height()) - 1, (r.bottom - 1) / 32) && tiles.size() <= kVariationTiles; ++y)
+        for (int x = std::max(0, r.left / 32); x <= std::min(int(app.ed->width()) - 1, (r.right - 1) / 32) && tiles.size() <= kVariationTiles; ++x)
             if (terrainSelHas(x, y)) tiles.push_back({x, y});
     return tiles;
 }
@@ -132,6 +133,85 @@ uint64_t variationsKey() {
     for (const auto& [x, y] : variationsTiles()) mix(uint64_t(x) << 40 | uint64_t(y) << 20 | mapTileAt(*app.ed, x, y));
     return h;
 }
+// The selection's variations as one piece: variation `s` (a subtile, 0 to 15) puts subtile s on each selected tile
+// whose group has a megatile there (the others stay as they are, also the tiles under a doodad), as StarEdit gives a
+// stack one subtile. The variations: the subtiles that the selected tiles not under a doodad have, in order. Made once
+// for each change of the selection or its tiles (variationsKey), not for each paint.
+struct SelectionPiece {
+    uint64_t key = 0;
+    std::vector<std::pair<int, int>> tiles;  // (empty: no selection, or more than kVariationTiles)
+    bool tooMany = false;
+    int x0 = 0, y0 = 0, w = 0, h = 0;
+    std::vector<int> subs;                       // the variations
+    std::vector<std::vector<uint16_t>> values;   // for each variation, each tile's value with it
+    std::vector<uint8_t> now;                    // for each variation: the tiles have it now
+};
+const SelectionPiece& selectionPiece() {
+    static SelectionPiece p;
+    const uint64_t key = appState().ed ? variationsKey() : 0;
+    if (key == p.key && key) return p;
+    p = SelectionPiece{};
+    p.key = key;
+    const AppState& app = appState();
+    if (!app.ed) return p;
+    const Editor& ed = *app.ed;
+    std::vector<std::pair<int, int>> tiles = variationsTiles();
+    if (tiles.size() > kVariationTiles) return p.tooMany = true, p;
+    if (tiles.empty()) return p;
+    int x1 = INT_MIN, y1 = INT_MIN;
+    p.x0 = p.y0 = INT_MAX;
+    for (const auto& [x, y] : tiles) p.x0 = std::min(p.x0, x), p.y0 = std::min(p.y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
+    p.w = x1 - p.x0 + 1, p.h = y1 - p.y0 + 1;
+    if (p.w > kVariationW || p.h > kVariationH) return p.tooMany = true, p;
+    std::vector<uint16_t> cur;
+    std::vector<uint8_t> free;
+    std::array<bool, 16> has{};
+    for (const auto& [x, y] : tiles) {
+        cur.push_back(mapTileAt(ed, x, y));
+        free.push_back(ed.doodadAt(x * 32 + 16, y * 32 + 16) < 0);
+        if (free.back())
+            for (const uint8_t s : tileVariations(ed, cur.back()).subs) has[s] = true;
+    }
+    const auto& groups = ed.tileset().groups;
+    for (int s = 0; s < 16; ++s) {
+        if (!has[size_t(s)]) continue;
+        std::vector<uint16_t> v = cur;
+        bool same = true;
+        for (size_t i = 0; i < v.size(); ++i)
+            if (free[i] && v[i] != 0xFFFF && size_t(v[i] >> 4) < groups.size() && groups[v[i] >> 4].megatiles[size_t(s)]) {
+                v[i] = uint16_t((v[i] & 0xFFF0) | s);
+                if (v[i] != cur[i]) same = false;
+            }
+        p.subs.push_back(s), p.values.push_back(std::move(v)), p.now.push_back(same);
+    }
+    p.tiles = std::move(tiles);
+    return p;
+}
+// The tiles that variation k of the piece changes, with their new values.
+std::vector<Editor::TileAt> pieceVariationCells(const SelectionPiece& p, size_t k) {
+    std::vector<Editor::TileAt> out;
+    if (k >= p.values.size() || !appState().ed) return out;
+    for (size_t i = 0; i < p.tiles.size(); ++i)
+        if (p.values[k][i] != mapTileAt(*appState().ed, p.tiles[i].first, p.tiles[i].second)) out.push_back({p.tiles[i].first, p.tiles[i].second, p.values[k][i]});
+    return out;
+}
+// A click on variation k of the selection: its tiles take it, one undo step.
+bool setSelectionVariation(size_t k) {
+    AppState& app = appState();
+    if (!app.ed || !app.ed->isOpen() || simBarShown()) return false;
+    const std::vector<Editor::TileAt> cells = pieceVariationCells(selectionPiece(), k);
+    if (cells.empty()) return setMessage(app, tr(L"The selected tiles use this variation already")), false;
+    const int changed = app.ed->placeTileValues(cells);
+    app.ed->takeDoodadsRemovedByTerrain(), app.ed->takeUnitsRemovedByTerrain();  // (the doodads' tiles are not changed: none go)
+    app.dirty = true;
+    wchar_t m[160];
+    if (changed == 0) std::swprintf(m, 160, L"%ls", tr(L"No tile changed: the selected tiles are protected"));
+    else if (changed == 1) std::swprintf(m, 160, tr(L"Variation %d on the tile (Ctrl+Z undoes it)"), int(k) + 1);
+    else std::swprintf(m, 160, tr(L"Variation %d on %d tiles (Ctrl+Z undoes it)"), int(k) + 1, changed);
+    setMessage(app, m);
+    return changed > 0;
+}
+
 // The map's preview while the mouse is over a variation in the strip (MTXM index, tile value): drawn in place of the
 // tiles (the host's terrain preview), with no change to the map.
 std::vector<std::pair<int, uint16_t>> gVarPreview;
