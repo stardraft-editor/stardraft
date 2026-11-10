@@ -183,6 +183,7 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     // The scene (core/map_scene.inc), with the units' idle animations at the game's speed (View > Animate units).
     if (gState.animate) advanceAnims();
     render::Scene scene = buildScene();
+    gameViewScene(scene, w, h);  // (View > In-game view: core/map_scene.inc)
     funModeScene(scene);  // (Options > Fun mode: core/fun_mode.inc)
     static const std::vector<std::pair<int, uint16_t>> kNoTiles;
     // (both lists by reference: no copy each frame; the mouse over a variation in the side bar: that preview)

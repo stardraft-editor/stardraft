@@ -304,7 +304,7 @@ MenuModel buildMenuModel() {
     view.push_back(menuItem(ID_OPT_ANIMATE, L"A&nimate units"));  // (the units' idle animations on the map)
     menuCommand(view, "view.keyHints");  // (the tool's modifier keys in the status bar)
     view.push_back(menuSeparator());
-    for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit", "view.smoothZoom", "view.smoothPan"}) menuCommand(view, id);
+    for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit", "view.gameView", "view.smoothZoom", "view.smoothPan"}) menuCommand(view, id);
     view.push_back(menuSeparator());
     view.push_back(menuItem(ID_QUICKPICK, L"&Quick picker\x2026", L"Q"));
     // (Space is held on the map: the text says it, no key of the menu's)

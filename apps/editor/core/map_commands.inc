@@ -507,5 +507,14 @@ void registerMapCommands() {
     // (off: the zoom, or a jump to a place, is there at once; a glide that is on stops)
     addCommand(ID_VIEW_SMOOTHZOOM, "view.smoothZoom", L"S&mooth zoom", "View", L"", [] { shellState().smoothZoom = !shellState().smoothZoom, mapZoomGlideStop(), shellState().dirty = true; }, [] { return shellState().smoothZoom; });
     addCommand(ID_VIEW_SMOOTHPAN, "view.smoothPan", L"Smooth &pan", "View", L"", [] { shellState().smoothPan = !shellState().smoothPan, mapZoomGlideStop(), shellState().dirty = true; }, [] { return shellState().smoothPan; });
+    // (on: the zoom at which the game's 21 x 12 tiles fill the view, the view's middle stays)
+    addCommand(ID_VIEW_GAMEVIEW, "view.gameView", L"In-&game view (experimental)", "View", L"", [] {
+        AppState& app = shellState();
+        app.gameView = !app.gameView, app.dirty = true;
+        int w, h;
+        viewSize(w, h);
+        if (app.gameView && app.zoom > 0 && w > 0 && h > 0)
+            mapViewGlideTo(app, std::min(w / float(kGameViewW), h / float(kGameViewH)), app.camX + w / 2.0f / app.zoom, app.camY + h / 2.0f / app.zoom);
+    }, [] { return shellState().gameView; });
     addCommand(ID_VIEW_KEYHINTS, "view.keyHints", L"Show &key hints", "View", L"", [] { shellState().keyHints = !shellState().keyHints, shellState().dirty = true, shellStatusChanged(); }, [] { return shellState().keyHints; });
 }

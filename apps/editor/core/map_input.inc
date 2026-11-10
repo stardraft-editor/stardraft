@@ -109,6 +109,8 @@ int gCenterUnitPending = -1;
 
 void mapZoomGlideStop();
 void mapViewGlideTo(AppState& app, float zoom, float cx, float cy);
+// View > In-game view: the map pixels that the game shows at one time (21 x 12 tiles).
+constexpr int kGameViewW = 21 * 32, kGameViewH = 12 * 32;
 // The zoom at which the whole map is in a view of w x h pixels (at most 4 times).
 float fitZoom(const AppState& app, int w, int h) {
     return std::clamp(std::min(w / (app.ed->width() * 32.0f), h / (app.ed->height() * 32.0f)), 1.0f / 16, 4.0f);

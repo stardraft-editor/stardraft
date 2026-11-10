@@ -1179,6 +1179,29 @@ render::Scene buildScene() {
     return s;
 }
 
+// View > In-game view: the game's screen at the middle of the view (vw x vh pixels), black bars on the rest (a
+// letterbox). The map's labels do not show on the bars.
+void gameViewScene(render::Scene& s, int vw, int vh) {
+    const AppState& app = shellState();
+    if (!app.gameView || vw <= 0 || vh <= 0 || app.zoom <= 0) return;
+    {
+        const float fw = kGameViewW * app.zoom, fh = kGameViewH * app.zoom;
+        const float fx0 = std::floor((vw - fw) / 2), fy0 = std::floor((vh - fh) / 2), fx1 = fx0 + fw, fy1 = fy0 + fh;
+        const float W = float(vw), H = float(vh);
+        if (fy0 > 0) s.rects.push_back({0, 0, W, fy0, 0x000000FFu, true, 1, false});
+        if (fy1 < H) s.rects.push_back({0, fy1, W, H, 0x000000FFu, true, 1, false});
+        if (fx0 > 0) s.rects.push_back({0, std::max(fy0, 0.0f), fx0, std::min(fy1, H), 0x000000FFu, true, 1, false});
+        if (fx1 < W) s.rects.push_back({fx1, std::max(fy0, 0.0f), W, std::min(fy1, H), 0x000000FFu, true, 1, false});
+        s.rects.push_back({fx0, fy0, fx1, fy1, 0xFFFFFF60u, false, 1, false});
+        s.texts.erase(std::remove_if(s.texts.begin(), s.texts.end(),
+                                     [&](const render::TextDraw& t) {
+                                         const float tx = t.world ? (t.x - app.camX) * app.zoom : t.x, ty = t.world ? (t.y - app.camY) * app.zoom : t.y;
+                                         return tx < fx0 || tx > fx1 || ty < fy0 || ty > fy1;
+                                     }),
+                      s.texts.end());
+    }
+}
+
 // View > Show ranges of the selected units (GitHub feedback #109): around each selected unit (Units mode), its sight
 // (the tiles it sees, yellow), and its target acquisition (orange) and weapons' ranges: ground (red) and air (blue), its
 // turret's too; a detector's detection range (green dashes) and a Pylon's psi field (purple tiles). From units.dat and weapons.dat: the project's (with its edits) or the game's. A range counts from the

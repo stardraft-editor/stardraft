@@ -71,6 +71,9 @@ struct AppState {
     bool correction = false, doodadCheck = true, showLocations = false;  // units: Place only where it fits (the default)
     bool doodadNearest = false;  // Options > Doodads > Move to the nearest place where it fits (with doodadCheck)
     bool showGrid = false;
+    // View > In-game view (experimental): the part of the map that the game shows at one time (21 x 12 tiles) at the
+    // view's middle; the rest of the view is black (GitHub feedback #264). Not saved.
+    bool gameView = false;
     bool keyHints = false;  // View > Show key hints: the tool's keys in the status bar (core/tool_hints.inc)
     bool smoothZoom = true;  // View > Smooth zoom: the wheel and the zoom keys glide to the new zoom (core/map_input.inc)
     bool smoothPan = true;   // View > Smooth pan: a jump to a place glides there (core/map_input.inc)
