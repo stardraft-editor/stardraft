@@ -232,7 +232,7 @@ Carbot (cartooned) graphics	Carbot (卡通风格) 图形
 Grid: width, height, x offset, y offset (map pixels)	网格: 宽度, 高度, x 偏移, y 偏移 (地图像素)
 Type the width and the height (and the offsets), for example 48, 48, 16, 0	输入宽度和高度 (以及偏移), 例如 48, 48, 16, 0
  pixels, offset 	 像素, 偏移 
- selected: drag to move, Delete removes, Ctrl+C copies	 个已选中: 拖动可移动, Delete 删除, Ctrl+C 复制
+ selected: drag to move, Del removes, Ctrl+C copies	 个已选中: 拖动可移动, Delete 删除, Ctrl+C 复制
 Placed 	已放置 
  (moved to the nearest valid spot)	 (已移动到最近的有效位置)
 Cannot place here:	此处无法放置:
@@ -1252,8 +1252,10 @@ Each terrain becomes the 	每种地形将变为
 The map keeps its size and tileset: 	地图保持尺寸和图块集不变: 
 Set the map properties: 	设置地图属性: 
 Set the map properties	设置地图属性
-&Yes	是(&Y)
-&No	否(&N)
+&Restart now	立即重启(&R)
+&Open maps with StarDraft 2	用 StarDraft 2 打开地图(&O)
+Do &not restart	不重启(&N)
+Do &not change	不更改(&N)
 &Retry	重试(&R)
 Make standard StarCraft maps.	制作标准的 StarCraft 地图。
 Make maps with your own units, weapons and game rules. Change the game's data, and make new triggers with blocks or with your own code.	用您自己的单位、武器和游戏规则制作地图。修改游戏数据，并用积木或您自己的代码制作新的触发器。
@@ -2194,7 +2196,7 @@ Pathing shows the connected &areas	寻路显示连通区域(&A)
 Check &pathing (nooks and crannies)	检查寻路(&P)（缝隙和角落）
 Search the pathing problems	搜索寻路问题
 %d more problems are not in the list	另有 %d 个问题不在列表中
-A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile	此图块上有装饰物：修复会将其删除。请在 地形 > 图块 中更改图块
+A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile.	此图块上有装饰物：修复会将其删除。请在 地形 > 图块 中更改图块。
 Apply the fix: tile %d, %d gets no walkable minitile there	应用修复：图块 %d, %d 的该处不再可行走
 Closed passages	封闭的通道
 Fix: change the tiles here so that the ground connects, or make it unwalkable	修复：更改此处的图块使地面相连，或使其不可行走
@@ -2212,9 +2214,9 @@ No pathing problems: %d regions, %d connected areas	没有寻路问题：%d 个�
 Passage that only small units fit through, at tile %d, %d	只有小型单位能通过的通道，位于图块 %d, %d
 Pathing is hidden (View > Overlays)	寻路已隐藏（视图 > 叠加层）
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	寻路区域 %d：%d 个图块，%ls；连通区域 %d（%d 个区域）
-Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map	寻路：%d 个问题（%d 个区域，%d 个连通区域）。选择一个以在地图上显示
-Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	寻路：每个连通区域（单位可以走遍的地面）各有其颜色。暗处：单位不能在此行走
-Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	寻路：游戏的每个寻路区域各有其颜色。暗处：单位不能在此行走
+Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map.	寻路：%d 个问题（%d 个区域，%d 个连通区域）。选择一个以在地图上显示。
+Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.	寻路：每个连通区域（单位可以走遍的地面）各有其颜色。暗处：单位不能在此行走。
+Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.	寻路：游戏的每个寻路区域各有其颜色。暗处：单位不能在此行走。
 Pathing: units cannot walk here	寻路：单位不能在此行走
 Pockets	孤立地块
 Small pathing region of %d minitiles, at tile %d, %d	%d 个小图块的小寻路区域，位于图块 %d, %d
@@ -2432,7 +2434,7 @@ No start location fits the map	地图上没有能放置起始位置的地方
 Did not build the map	未能构建地图
 Brush: the 	笔刷：
  tiles you copied (	 个图块（已复制：
- tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	 个图块）。点击放置；拖动以重复放置。按住 Shift 可随机放置。
+ tiles). Click to place them; drag to repeat them. Hold Shift to place them at random.	 个图块）。点击放置；拖动以重复放置。按住 Shift 可随机放置。
 %ls of Player %d	%ls（玩家 %d）
 Creep shows	显示菌毯
 Creep is hidden (View > Layers shows it again)	菌毯已隐藏（“视图 > 图层”可再次显示）
@@ -2457,7 +2459,7 @@ Select the Cosmonarchy BW folder	选择 Cosmonarchy BW 文件夹
 That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	该文件夹没有 Cosmonarchy BW 数据（mpq\arr\units.datex）。
 Set the Cosmonarchy folder	已设置 Cosmonarchy 文件夹
 The Prerelease or Release folder	Prerelease 或 Release 文件夹
-The Prerelease or Release folder. A new folder is used after a restart	Prerelease 或 Release 文件夹。新文件夹在重新启动后使用
+The Prerelease or Release folder. A new folder is used after a restart.	Prerelease 或 Release 文件夹。新文件夹在重新启动后使用。
 The CRIG commands have no problems	CRIG 命令没有问题
 These CRIG commands in the trigger Comments have problems:	触发器注释中的这些 CRIG 命令有问题：
 Experimental: results can differ from the game.	实验性：结果可能与游戏不同。
@@ -2658,7 +2660,7 @@ The terrain is the same already	地形已经相同
 Painted the line	已绘制直线
 Filled the contour	已填充轮廓
 Filled the polygon	已填充多边形
-Line: release the button at the end of the line. Hold Shift to lock the angle	直线：在线的终点松开按钮。按住 Shift 可锁定角度
+Line: release the button at the end of the line. Hold Shift to lock the angle.	直线：在线的终点松开按钮。按住 Shift 可锁定角度。
 Contour: draw the shape, then release the button	轮廓：绘制形状，然后松开按钮
 Stopped the line	已停止直线
 Stopped the contour	已停止轮廓
@@ -2714,7 +2716,7 @@ Diamond: drag across the box it fits in. The release paints its edges, with the 
 Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.	填充菱形：拖过它所在的方框。松开时填充它。按住 Shift 为地图形状的菱形。
 Painted the diamond	已绘制菱形
 Filled the diamond	已填充菱形
-Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	在另一个角松开按钮。按住 Shift 为正方形、圆形或地图形状的菱形
+Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape.	在另一个角松开按钮。按住 Shift 为正方形、圆形或地图形状的菱形。
 Describe the issue and what you expect instead.	描述问题以及您期望的结果。
 Bridge	桥
 Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.	桥：从地面拖过水面到对岸的地面。桥的长度等于水面的宽度；大小设置桥的宽度。
@@ -2771,7 +2773,7 @@ Graphics	图形
 Software	软件
 Direct3D 12	Direct3D 12
 Vulkan. If the video card cannot use it: Direct3D 12, then software drawing (default)	Vulkan。显卡无法使用时：Direct3D 12，然后是软件绘制（默认）
-Direct3D 12. If the video card cannot use it: Vulkan, then software drawing	Direct3D 12。显卡无法使用时：Vulkan，然后是软件绘制
+Direct3D 12. If the video card cannot use it: Vulkan, then software drawing.	Direct3D 12。显卡无法使用时：Vulkan，然后是软件绘制。
 Software drawing (WARP): slow, but it does not use the video card	软件绘制（WARP）：较慢，但不使用显卡
 In use	正在使用
 The change applies after a restart	更改在重新启动后生效
@@ -2788,9 +2790,9 @@ Nothing to turn: copy terrain (Ctrl+C), or select custom terrain or copied tiles
 Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	粘贴图块：单击放置，再次单击放置更多。R 旋转，M 镜像。右键或 Esc 停止。
 Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	粘贴地形：单击放置，再次单击放置更多。R 旋转，M 镜像。右键或 Esc 停止。
 Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	已旋转图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
-Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit	已上下镜像图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
-Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	已左右镜像图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
-Moved the symmetry center. Double-click it to put it in the middle of the map	已移动对称中心。双击它可回到地图中央
+Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs possibly do not fit	已上下镜像图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
+Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs possibly do not fit	已左右镜像图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
+Moved the symmetry center. Double-click it to put it in the middle of the map.	已移动对称中心。双击它可回到地图中央。
 The symmetry center is in the middle of the map	对称中心位于地图中央
 Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.	魔棒：单击地形可选择从该处可到达的区域（等距：该地形及其边缘和悬崖；其他工具：该地形相连的图块）。Shift+单击添加，Ctrl+单击移除。
 Magic wand	魔棒
@@ -2841,7 +2843,7 @@ Import	导入
 Next	下一步
 Could not import the project. %s	无法导入项目。%s
 Imported the project %s	已导入项目 %s
-Imported the project %s. What did not come over is in notes\\Import report.txt	已导入项目 %s。未导入的内容见 notes\\Import report.txt
+Imported the project %s. What did not come over is in notes\\Import report.txt.	已导入项目 %s。未导入的内容见 notes\\Import report.txt。
 1 text	1 个文本
 %s texts	%s 个文本
 1 set	1 个按钮组
@@ -2983,7 +2985,7 @@ Add m&usic…	添加音乐(&U)…
 Add do&t images…	添加点阵图像(&T)…
 Experimental	实验性
 This import is experimental	此导入为实验性功能
-The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, tell us.	导入不会更改旧项目，只会读取它。使用新项目前请检查：摘要中列出的部分、一次构建，以及在游戏中测试地图。如果某个部分没有正确导入，请告诉我们。
+The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, report it.	导入不会更改旧项目，只会读取它。使用新项目前请检查：摘要中列出的部分、一次构建，以及在游戏中测试地图。如果某个部分没有正确导入，请告诉我们。
 The import is experimental. Some parts can be imported incorrectly.	导入为实验性功能。某些部分可能导入不正确。
 Report feedback…	发送反馈…
  file	 个文件
@@ -3004,7 +3006,7 @@ Report feedback…	发送反馈…
 &New layer	新建图层(&N)
 &Select all layers	选择所有图层(&S)
 , and more	 等
-. It has no changed values: it does not show while Changed is on	。它没有已更改的值: 开启“已更改”时不显示
+. It has no changed values: it does not show while Changed is on.	。它没有已更改的值: 开启“已更改”时不显示。
 . Shift adds. Ctrl removes.	。Shift 添加。Ctrl 移除。
 . The map uses 	。地图使用
 1 file of the archive has no name that can be read, or could not be read. A save leaves it out.	1 个文件的名称无法读取，或文件无法读取。保存时会略过它。
@@ -3018,7 +3020,7 @@ A locked layer cannot be deleted	已锁定的图层无法删除
 A locked layer cannot be merged	已锁定的图层无法合并
 Add files…	添加文件…
 Add symmetry &anchor here	在此添加对称锚点(&A)
-Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it	已添加对称锚点。选择工具: 拖动可移动，双击可移除
+Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it.	已添加对称锚点。选择工具: 拖动可移动，双击可移除。
 All files	所有文件
 All layers that show become one map, and the layer data stays out of it.	所有显示的图层合并为一张地图，图层数据不会包含在内。
 All the files of the map: add, extract, replace, rename, remove, and what File > Export keeps	地图的所有文件: 添加、提取、替换、重命名、移除，以及文件 > 导出保留的内容
@@ -3091,10 +3093,10 @@ Select a layer first	请先选择图层
 Select another file: an export over the open map would remove its layers	请选择其他文件: 覆盖已打开地图的导出会移除其图层
 Select terrain first, with Select, the Lasso or the Magic wand	请先选择地形，使用选择、套索或魔棒
 Selected all 	已全选
-Show or hide (Ctrl+Alt+H). With nothing showing, the map is black	显示或隐藏 (Ctrl+Alt+H)。没有任何显示时，地图为黑色
+Show or hide (Ctrl+Alt+H). With nothing showing, the map is black.	显示或隐藏 (Ctrl+Alt+H)。没有任何显示时，地图为黑色。
 Sort by name	按名称排序
 That belongs to a locked layer, or the active layer is locked: nothing changed	该内容属于已锁定的图层，或活动图层已锁定: 未做更改
-The Background does not move. Select a layer in the list	背景不能移动。请在列表中选择图层
+The Background does not move. Select a layer in the list.	背景不能移动。请在列表中选择图层。
 The Background is hidden: nothing changed	背景已隐藏: 未做更改
 The game or StarDraft uses that name: select another name	游戏或 StarDraft 使用该名称: 请选择其他名称
 The layer &above	上方的图层(&A)
@@ -3111,7 +3113,7 @@ The map has no isometric terrain data: use Rectangle or Tile	地图没有等距�
 The map has no layers: nothing to select	地图没有图层: 没有可选择的内容
 The map uses this file: without it, the exported map cannot play it	地图使用此文件: 没有它，导出的地图无法播放它
 The map's files are still being read	地图的文件仍在读取中
-The map's size or tileset changed: the layers are flattened. Undo brings them back	地图的大小或图块集已更改: 图层已被拼合。撤销可恢复它们
+The map's size or tileset changed: the layers are flattened. Undo brings them back.	地图的大小或图块集已更改: 图层已被拼合。撤销可恢复它们。
 The map's text names this file	地图的文本引用了此文件
 The map's tileset changed: the layers are flattened. Undo brings them back	地图的图块集已更改: 图层已被拼合。撤销可恢复它们
 Unlock	解锁
@@ -3124,16 +3126,16 @@ Re&center this anchor	将此锚点重新居中(&C)
 Recentered the symmetry anchor	对称锚点已重新居中
 Add symmetry &anchor	添加对称锚点(&A)
 Merged the symmetry anchors	已合并对称锚点
-Moved the symmetry anchor. Double-click it to remove it	已移动对称锚点。双击可将其移除
+Moved the symmetry anchor. Double-click it to remove it.	已移动对称锚点。双击可将其移除。
 Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	对称中心：拖动以移动，双击放到中间，右键单击查看更多
 Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	对称锚点：拖动以移动，双击将其移除，右键单击查看更多
 Clear the terrain mas&k	清除地形遮罩(&K)
 Do not &ask again	不再询问(&A)
-A save does not ask about missing start locations. To ask again: Program options > Saving maps	保存时不再询问缺少的起始位置。要再次询问：程序选项 > 保存地图
+A save does not ask about missing start locations. To ask again: Program options > Saving maps.	保存时不再询问缺少的起始位置。要再次询问：程序选项 > 保存地图。
 D&rag objects to move them	拖动对象以移动(&R)
 A drag moves units, doodads, sprites and locations	拖动会移动单位、装饰物、精灵和位置
 A drag does not move units, doodads, sprites or locations	拖动不会移动单位、装饰物、精灵或位置
-A drag does not move objects. To move them: Options > Drag objects to move them	拖动不会移动对象。要移动：选项 > 拖动对象以移动
+A drag does not move objects. To move them: Options > Drag objects to move them.	拖动不会移动对象。要移动：选项 > 拖动对象以移动。
 Painting terrain	绘制地形
 Detailed tiles	细节图块
 How often Isometric and Rectangle painting places a detailed tile. StarCraft: 5%.	等距和矩形绘制放置细节图块的频率。星际争霸：5%。
@@ -3206,15 +3208,15 @@ Size: medium (Ctrl+wheel changes it)	大小：中（Ctrl+滚轮更改）
 Size: large (Ctrl+wheel changes it)	大小：大（Ctrl+滚轮更改）
 Serial 	序列号 
 Exclude	排除
-Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)	较新的显卡使用 Direct3D 12，较旧的显卡使用 Vulkan。如果显卡无法使用：另一个，然后是软件绘制（默认）
-Vulkan. If the video card cannot use it: Direct3D 12, then software drawing	Vulkan。如果显卡无法使用：Direct3D 12，然后是软件绘制
+Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default).	较新的显卡使用 Direct3D 12，较旧的显卡使用 Vulkan。如果显卡无法使用：另一个，然后是软件绘制（默认）。
+Vulkan. If the video card cannot use it: Direct3D 12, then software drawing.	Vulkan。如果显卡无法使用：Direct3D 12，然后是软件绘制。
 Graphics: Vulkan after a restart	图形：重启后使用 Vulkan
 Search upgrades	搜索升级
 Search technologies	搜索科技
 &Show terrain outside of map boundaries	显示地图边界外的地形(&S)
 Map layers: terrain outside of map boundaries shows	地图图层：显示地图边界外的地形
 Map layers: terrain outside of map boundaries is hidden	地图图层：已隐藏地图边界外的地形
-Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	只能在地图上编辑地形。要在地图外放置地形，请先在图层上绘制，然后把图层移出去（地图图层 > 移动图层）
+Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer).	只能在地图上编辑地形。要在地图外放置地形，请先在图层上绘制，然后把图层移出去（地图图层 > 移动图层）。
 Simulate r&ush distance (experimental)	模拟 Rush 距离(&U)（实验性）
 Rush distance	Rush 距离
 Worker race	工人种族
@@ -3264,18 +3266,18 @@ draw the dot image {image} at {where} for {player} with {unit}, {px} pixels apar
 Draws a dot image of the project (Assets > Dot images) with units: one unit for each dot. The dots go row by row from the location, the given pixels apart. Each unit gets the color of its dot, as in EUD Editor 3's dot painter. White dots are the background: they get no unit. After the drawing, the location is where it was before.	用单位绘制项目中的点阵图（资源 > 点阵图）：每个点一个单位。点从该位置开始逐行排列，间隔为给定的像素。每个单位取其点的颜色，与 EUD Editor 3 的点阵绘图器相同。白色的点是背景，不放单位。绘制后，该位置回到原处。
 It first removes all the units of this type that the player owns: use a unit type that is only for the drawing. Each dot is one unit: a picture of 30 x 30 dots makes 900 units, and a map has room for 1700 units.	它会先移除该玩家拥有的这种类型的所有单位：请使用只用于绘制的单位类型。每个点是一个单位：30 x 30 点的图片需要 900 个单位，而一张地图最多容纳 1700 个单位。
 draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	为 Player 8 用 Terran Marine 在 Title 绘制点阵图 "Logo"，间隔 8 像素：在开始时显示地图的标志。
-Opacity of the selected layer in this view: what is under it shows through. The map does not change	所选图层在此视图中的不透明度：下面的内容会透出来。地图不会改变
+Opacity of the selected layer in this view: what is under it shows through. The map does not change.	所选图层在此视图中的不透明度：下面的内容会透出来。地图不会改变。
 Map layers (experimental)	地图图层（实验性）
 Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n	地图图层是实验性功能。请保留地图的副本，并报告无法正常工作的地方（提交反馈）。\n\n
 Duplicate linked	链接复制
 Unlink	取消链接
-Linked duplicate: it follows the changes of the original. Move it with Move layer	链接副本：它会跟随原图层的更改。用“移动图层”移动它
+Linked duplicate: it follows the changes of the original. Move it with Move layer.	链接副本：它会跟随原图层的更改。用“移动图层”移动它。
 Unlinked: the layer is one of its own now	已取消链接：该图层现在是独立的
 A linked duplicate follows its original: edit 	链接副本跟随其原图层：请编辑 
 the original	原图层
 , or Unlink this layer (right-click it in Map layers)	，或取消此图层的链接（在地图图层中右键单击）
 Linked duplicate of 	链接副本，原图层 
-: it follows the original's changes. Edit the original, or Unlink this layer	：它会跟随原图层的更改。请编辑原图层，或取消此图层的链接
+: it follows the original's changes. Edit the original, or Unlink this layer.	：它会跟随原图层的更改。请编辑原图层，或取消此图层的链接。
 No room	没有空间
 No room: the base has no room for its depot and workers.	没有空间：该基地没有放置主基地和农民的空间。
 
@@ -3371,8 +3373,8 @@ Nothing more to search	没有更多可搜索的内容
 %.0f FPS  ·  %.0f MB	%.0f FPS  ·  %.0f MB
 %.0f MB	%.0f MB
 Copy as te&xt	复制为文本(&X)
-Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	已将所选地形复制为文本。在地形模式中按 Ctrl+V 可将其设为画笔
-A doodad is on this tile. Doodad tiles have no variations	此图块上有装饰物。装饰物图块没有变体
+Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush.	已将所选地形复制为文本。在地形模式中按 Ctrl+V 可将其设为画笔。
+A doodad is on this tile. Doodad tiles have no variations.	此图块上有装饰物。装饰物图块没有变体。
 This tile has no such variation	此图块没有该变体
 The tile uses variation %d of %d already	图块已在使用变体 %d/%d
 Variation %d of %d on the tile (Ctrl+Z undoes it)	图块使用变体 %d/%d（Ctrl+Z 可撤销）
@@ -3386,7 +3388,7 @@ Turned on Fun mode	已开启趣味模式
 Turned off Fun mode	已关闭趣味模式
 Select at most %d x %d tiles to see their variations	最多选择 %d x %d 个图块才能查看其变体
 The selected tiles have no variations	所选图块没有变体
-Variation %d. Click: put it on the selected tiles	变体 %d。单击：将其用于所选图块
+Variation %d. Click: put it on the selected tiles.	变体 %d。单击：将其用于所选图块。
 The selected tiles use this variation already	所选图块已在使用此变体
 Variation %d on %d tiles (Ctrl+Z undoes it)	变体 %d 用于 %d 个图块（Ctrl+Z 可撤销）
 Variation %d on the tile (Ctrl+Z undoes it)	图块使用变体 %d（Ctrl+Z 可撤销）

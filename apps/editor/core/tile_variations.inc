@@ -80,7 +80,7 @@ bool setTileVariation(int x, int y, int sub, bool whole) {
     AppState& app = appState();
     if (!app.ed || !app.ed->isOpen() || sub < 0 || sub > 15 || simBarShown()) return false;
     Editor& ed = *app.ed;
-    if (ed.doodadAt(x * 32 + 16, y * 32 + 16) >= 0) return setMessage(app, tr(L"A doodad is on this tile. Doodad tiles have no variations")), false;
+    if (ed.doodadAt(x * 32 + 16, y * 32 + 16) >= 0) return setMessage(app, tr(L"A doodad is on this tile. Doodad tiles have no variations.")), false;
     const std::vector<Editor::TileAt> cells = tileVariationCells(ed, x, y, sub, whole);
     if (cells.empty()) return setMessage(app, tr(L"This tile has no such variation")), false;
     const int changed = ed.placeTileValues(cells);

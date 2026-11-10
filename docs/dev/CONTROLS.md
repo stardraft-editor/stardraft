@@ -332,16 +332,23 @@ doodads applies to placing, paste, drag, spray and Replace with. The options are
 padding, rows 32 apart, fields 24 high, dim labels, the system scroll bar in the theme when it scrolls, and Close
 (Primary) at the bottom right.
 
-| Section | Options | Component |
+The window has seven tabs (`optionsview::kTabs`, core/views_options.inc), each with its sections:
+
+| Tab | Sections | Components |
 |---|---|---|
-| Appearance | Theme (dark, light); accent color | Segmented choice; color swatches (a ring on the selected one, the name as a tooltip); `ui::check` |
-| Start | Open the last project; look for updates (and "Check now") | `ui::check`; `ui::link` |
-| StarCraft folder | The folder in use, Browse… | A read-only `ui::fieldBox`; `ui::button` |
+| General | Start; Language and sound; Reset | Check boxes; a drop-down; a button |
+| Appearance | Appearance (theme, accent color); Graphics and diagnostics | Segmented choice; color swatches (a ring on the selected one, the name as a tooltip); radio rows |
+| Mouse and keyboard | Mouse; Keyboard | Drop-downs and check boxes |
+| Map | Unit names; Map unit limit; Saving maps | Radio rows; a number field (right-aligned, the heading names the unit); check boxes |
+| Plugins | Plugins (not in release builds) | A list with check boxes |
+| Folders | Working folder; StarCraft folder | A read-only field and Browse… (a button) for each folder |
+| Updates | Updates and crash reports | Check boxes, radio rows and "Check now" (a button) |
 
 A change applies at once, through the same command as the menu (`command(ID_OPT_...)`, `ID_SNAP_...`,
 `ID_DOODAD_...`, `ID_THEME_...`), so a shortcut and the tests get the same result. `updateMenus()` sets the marks in
 the Options menu and paints the window again after each command, and a theme change paints it in the new theme. The
-snapshot cases dialog-options and dialog-options-light capture the window in both themes.
+snapshot cases dialog-options and dialog-options-light capture the window in both themes, and dialog-options-tab-<name>
+captures each tab.
 
 ## The gallery
 

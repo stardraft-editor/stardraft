@@ -245,7 +245,7 @@ Carbot (cartooned) graphics	Graphismes Carbot (style dessin animé)
 Grid: width, height, x offset, y offset (map pixels)	Grille: largeur, hauteur, décalage x, décalage y (pixels de la carte)
 Type the width and the height (and the offsets), for example 48, 48, 16, 0	Saisissez la largeur et la hauteur (et les décalages), par exemple 48, 48, 16, 0
  pixels, offset 	 pixels, décalage 
- selected: drag to move, Delete removes, Ctrl+C copies	 sélectionné(s): faites glisser pour déplacer, Suppr supprime, Ctrl+C copie
+ selected: drag to move, Del removes, Ctrl+C copies	 sélectionné(s): faites glisser pour déplacer, Suppr supprime, Ctrl+C copie
 Placed 	Placé: 
  (moved to the nearest valid spot)	 (déplacé vers l'endroit valide le plus proche)
 Cannot place here:	Impossible de placer ici:
@@ -1330,8 +1330,10 @@ Each terrain becomes the 	Chaque terrain devient le terrain du jeu de tuiles
 The map keeps its size and tileset: 	La carte garde sa taille et son jeu de tuiles: 
 Set the map properties: 	Définir les propriétés de la carte: 
 Set the map properties	Définir les propriétés de la carte
-&Yes	&Oui
-&No	&Non
+&Restart now	&Redémarrer maintenant
+&Open maps with StarDraft 2	&Ouvrir les cartes avec StarDraft 2
+Do &not restart	&Ne pas redémarrer
+Do &not change	&Ne pas changer
 &Retry	&Réessayer
 Make standard StarCraft maps.	Créez des cartes StarCraft standard.
 Make maps with your own units, weapons and game rules. Change the game's data, and make new triggers with blocks or with your own code.	Créez des cartes avec vos propres unités, armes et règles de jeu. Modifiez les données du jeu et créez de nouveaux déclencheurs avec des blocs ou avec votre propre code.
@@ -2194,7 +2196,7 @@ Pathing shows the connected &areas	Le cheminement affiche les &zones connectées
 Check &pathing (nooks and crannies)	Vérifier le &cheminement (recoins)
 Search the pathing problems	Rechercher parmi les problèmes de cheminement
 %d more problems are not in the list	%d autres problèmes ne figurent pas dans la liste
-A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile	Un décor se trouve sur cette tuile: la correction le supprimerait. Changez la tuile dans Terrain > Tuile
+A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile.	Un décor se trouve sur cette tuile: la correction le supprimerait. Changez la tuile dans Terrain > Tuile.
 Apply the fix: tile %d, %d gets no walkable minitile there	Appliquer la correction: la tuile %d, %d n'aura plus de mini-tuile praticable à cet endroit
 Closed passages	Passages fermés
 Fix: change the tiles here so that the ground connects, or make it unwalkable	Correction: changez les tuiles ici pour que le sol soit relié, ou rendez-le impraticable
@@ -2212,9 +2214,9 @@ No pathing problems: %d regions, %d connected areas	Aucun problème de chemineme
 Passage that only small units fit through, at tile %d, %d	Passage où seules les petites unités passent, à la tuile %d, %d
 Pathing is hidden (View > Overlays)	Le cheminement est masqué (Affichage > Superpositions)
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	Région de cheminement %d: %d tuiles, %ls; zone connectée %d (%d régions)
-Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map	Cheminement: %d problèmes (%d régions, %d zones connectées). Sélectionnez-en un pour l'afficher sur la carte
-Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	Cheminement: chaque zone connectée (le sol que les unités peuvent parcourir) a sa propre couleur. Sombre: les unités ne peuvent pas marcher ici
-Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	Cheminement: chaque région de cheminement du jeu a sa propre couleur. Sombre: les unités ne peuvent pas marcher ici
+Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map.	Cheminement: %d problèmes (%d régions, %d zones connectées). Sélectionnez-en un pour l'afficher sur la carte.
+Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.	Cheminement: chaque zone connectée (le sol que les unités peuvent parcourir) a sa propre couleur. Sombre: les unités ne peuvent pas marcher ici.
+Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.	Cheminement: chaque région de cheminement du jeu a sa propre couleur. Sombre: les unités ne peuvent pas marcher ici.
 Pathing: units cannot walk here	Cheminement: les unités ne peuvent pas marcher ici
 Pockets	Poches
 Small pathing region of %d minitiles, at tile %d, %d	Petite région de cheminement de %d mini-tuiles, à la tuile %d, %d
@@ -2432,7 +2434,7 @@ No start location fits the map	Aucune position de départ ne tient sur la carte
 Did not build the map	La carte n'a pas été compilée
 Brush: the 	Pinceau: les 
  tiles you copied (	 tuiles copiées (
- tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	 tuiles). Cliquez pour les placer; faites glisser pour les répéter. Maintenez Maj pour les placer au hasard
+ tiles). Click to place them; drag to repeat them. Hold Shift to place them at random.	 tuiles). Cliquez pour les placer; faites glisser pour les répéter. Maintenez Maj pour les placer au hasard.
 %ls of Player %d	%ls du joueur %d
 Creep shows	Le creep est affiché
 Creep is hidden (View > Layers shows it again)	Le creep est masqué (Affichage > Calques le réaffiche)
@@ -2457,7 +2459,7 @@ Select the Cosmonarchy BW folder	Sélectionnez le dossier Cosmonarchy BW
 That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	Ce dossier ne contient pas de données Cosmonarchy BW (mpq\arr\units.datex).
 Set the Cosmonarchy folder	Dossier Cosmonarchy défini
 The Prerelease or Release folder	Le dossier Prerelease ou Release
-The Prerelease or Release folder. A new folder is used after a restart	Le dossier Prerelease ou Release. Un nouveau dossier est utilisé après un redémarrage
+The Prerelease or Release folder. A new folder is used after a restart.	Le dossier Prerelease ou Release. Un nouveau dossier est utilisé après un redémarrage.
 The CRIG commands have no problems	Les commandes CRIG ne présentent aucun problème
 These CRIG commands in the trigger Comments have problems:	Ces commandes CRIG dans les commentaires des déclencheurs présentent des problèmes:
 Experimental: results can differ from the game.	Expérimental : les résultats peuvent différer du jeu.
@@ -2658,7 +2660,7 @@ The terrain is the same already	Le terrain est déjà identique
 Painted the line	Ligne peinte
 Filled the contour	Contour rempli
 Filled the polygon	Polygone rempli
-Line: release the button at the end of the line. Hold Shift to lock the angle	Ligne: relâchez le bouton à la fin de la ligne. Maintenez Maj pour verrouiller l'angle
+Line: release the button at the end of the line. Hold Shift to lock the angle.	Ligne: relâchez le bouton à la fin de la ligne. Maintenez Maj pour verrouiller l'angle.
 Contour: draw the shape, then release the button	Contour: dessinez la forme, puis relâchez le bouton
 Stopped the line	Ligne arrêtée
 Stopped the contour	Contour arrêté
@@ -2714,7 +2716,7 @@ Diamond: drag across the box it fits in. The release paints its edges, with the 
 Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.	Losange plein: faites glisser en travers du cadre qui le contient. Au relâchement, il est rempli. Maintenez Maj pour un losange de la forme de la carte.
 Painted the diamond	Losange peint
 Filled the diamond	Losange rempli
-Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	Relâchez le bouton à l'autre coin. Maintenez Maj pour un carré, un cercle ou un losange de la forme de la carte
+Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape.	Relâchez le bouton à l'autre coin. Maintenez Maj pour un carré, un cercle ou un losange de la forme de la carte.
 Describe the issue and what you expect instead.	Décrivez le problème et ce que vous attendez à la place.
 Bridge	Pont
 Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.	Pont : faites glisser du sol à travers l'eau jusqu'au sol de l'autre côté. Le pont est aussi long que l'eau est large ; Taille définit sa largeur.
@@ -2771,7 +2773,7 @@ Graphics	Graphismes
 Software	Logiciel
 Direct3D 12	Direct3D 12
 Vulkan. If the video card cannot use it: Direct3D 12, then software drawing (default)	Vulkan. Si la carte graphique ne peut pas l'utiliser : Direct3D 12, puis le dessin logiciel (par défaut)
-Direct3D 12. If the video card cannot use it: Vulkan, then software drawing	Direct3D 12. Si la carte graphique ne peut pas l'utiliser : Vulkan, puis le dessin logiciel
+Direct3D 12. If the video card cannot use it: Vulkan, then software drawing.	Direct3D 12. Si la carte graphique ne peut pas l'utiliser : Vulkan, puis le dessin logiciel.
 Software drawing (WARP): slow, but it does not use the video card	Dessin logiciel (WARP) : lent, mais n'utilise pas la carte graphique
 In use	Utilisé
 The change applies after a restart	Le changement s'applique après un redémarrage
@@ -2788,9 +2790,9 @@ Nothing to turn: copy terrain (Ctrl+C), or select custom terrain or copied tiles
 Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	Coller des tuiles : cliquez pour les placer, et encore pour en placer d'autres. R les tourne, M les retourne. Clic droit ou Échap arrête.
 Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Coller du terrain : cliquez pour le placer, et encore pour en placer d'autres. R le tourne, M le retourne. Clic droit ou Échap arrête.
 Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	Tuiles tournées : l'image de chaque tuile reste la même, les bords et falaises peuvent ne pas s'accorder
-Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit	Tuiles retournées haut-bas : l'image de chaque tuile reste la même, les bords et falaises peuvent ne pas s'accorder
-Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	Tuiles retournées gauche-droite : l'image de chaque tuile reste la même, les bords et falaises peuvent ne pas s'accorder
-Moved the symmetry center. Double-click it to put it in the middle of the map	Centre de symétrie déplacé. Double-cliquez dessus pour le remettre au milieu de la carte
+Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs possibly do not fit	Tuiles retournées haut-bas : l'image de chaque tuile reste la même, les bords et falaises peuvent ne pas s'accorder
+Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs possibly do not fit	Tuiles retournées gauche-droite : l'image de chaque tuile reste la même, les bords et falaises peuvent ne pas s'accorder
+Moved the symmetry center. Double-click it to put it in the middle of the map.	Centre de symétrie déplacé. Double-cliquez dessus pour le remettre au milieu de la carte.
 The symmetry center is in the middle of the map	Le centre de symétrie est au milieu de la carte
 Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.	Baguette magique : cliquez sur un terrain pour sélectionner ce qui est accessible depuis là (isométrique : ce terrain avec ses bords et falaises ; les autres outils : les tuiles connectées de ce terrain). Maj+clic ajoute, Ctrl+clic retire.
 Magic wand	Baguette magique
@@ -2841,7 +2843,7 @@ Import	Importer
 Next	Suivant
 Could not import the project. %s	Impossible d'importer le projet. %s
 Imported the project %s	Projet %s importé
-Imported the project %s. What did not come over is in notes\\Import report.txt	Projet %s importé. Ce qui n'a pas été importé est dans notes\\Import report.txt
+Imported the project %s. What did not come over is in notes\\Import report.txt.	Projet %s importé. Ce qui n'a pas été importé est dans notes\\Import report.txt.
 1 text	1 texte
 %s texts	%s textes
 1 set	1 jeu
@@ -2983,7 +2985,7 @@ Add m&usic…	Ajouter de la m&usique…
 Add do&t images…	Ajouter des images en poin&ts…
 Experimental	Expérimental
 This import is experimental	Cette importation est expérimentale
-The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, tell us.	L'importation ne modifie pas l'ancien projet. Elle le lit seulement. Avant d'utiliser le nouveau projet, examinez-le : les parties que le résumé liste, une compilation et un test de la carte dans le jeu. Si une partie n'est pas importée correctement, dites-le-nous.
+The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, report it.	L'importation ne modifie pas l'ancien projet. Elle le lit seulement. Avant d'utiliser le nouveau projet, examinez-le : les parties que le résumé liste, une compilation et un test de la carte dans le jeu. Si une partie n'est pas importée correctement, dites-le-nous.
 The import is experimental. Some parts can be imported incorrectly.	L'importation est expérimentale. Certaines parties peuvent être importées de façon incorrecte.
 Report feedback…	Envoyer un commentaire…
  file	 fichier
@@ -3004,7 +3006,7 @@ Report feedback…	Envoyer un commentaire…
 &New layer	&Nouveau calque
 &Select all layers	&Sélectionner tous les calques
 , and more	 et d'autres
-. It has no changed values: it does not show while Changed is on	. Il n'a aucune valeur modifiée: il ne s'affiche pas quand Modifié est activé
+. It has no changed values: it does not show while Changed is on.	. Il n'a aucune valeur modifiée: il ne s'affiche pas quand Modifié est activé.
 . Shift adds. Ctrl removes.	. Shift ajoute. Ctrl retire.
 . The map uses 	. La carte utilise
 1 file of the archive has no name that can be read, or could not be read. A save leaves it out.	1 fichier de l'archive n'a pas de nom lisible, ou n'a pas pu être lu. Un enregistrement l'omet.
@@ -3018,7 +3020,7 @@ A locked layer cannot be deleted	Un calque verrouillé ne peut pas être supprim
 A locked layer cannot be merged	Un calque verrouillé ne peut pas être fusionné
 Add files…	Ajouter des fichiers…
 Add symmetry &anchor here	Ajouter un &ancrage de symétrie ici
-Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it	Ancrage de symétrie ajouté. Outil Sélectionner: faites-le glisser pour le déplacer, double-cliquez dessus pour le retirer
+Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it.	Ancrage de symétrie ajouté. Outil Sélectionner: faites-le glisser pour le déplacer, double-cliquez dessus pour le retirer.
 All files	Tous les fichiers
 All layers that show become one map, and the layer data stays out of it.	Tous les calques affichés forment une seule carte, et les données des calques n'y figurent pas.
 All the files of the map: add, extract, replace, rename, remove, and what File > Export keeps	Tous les fichiers de la carte: ajouter, extraire, remplacer, renommer, retirer, et ce que conserve Fichier > Exporter
@@ -3091,10 +3093,10 @@ Select a layer first	Sélectionnez d'abord un calque
 Select another file: an export over the open map would remove its layers	Sélectionnez un autre fichier: un export sur la carte ouverte supprimerait ses calques
 Select terrain first, with Select, the Lasso or the Magic wand	Sélectionnez d'abord du terrain, avec Sélectionner, le Lasso ou la Baguette magique
 Selected all 	Tout sélectionné:
-Show or hide (Ctrl+Alt+H). With nothing showing, the map is black	Afficher ou masquer (Ctrl+Alt+H). Sans rien d'affiché, la carte est noire
+Show or hide (Ctrl+Alt+H). With nothing showing, the map is black.	Afficher ou masquer (Ctrl+Alt+H). Sans rien d'affiché, la carte est noire.
 Sort by name	Trier par nom
 That belongs to a locked layer, or the active layer is locked: nothing changed	Cela appartient à un calque verrouillé, ou le calque actif est verrouillé: rien n'a changé
-The Background does not move. Select a layer in the list	L'Arrière-plan ne bouge pas. Sélectionnez un calque dans la liste
+The Background does not move. Select a layer in the list.	L'Arrière-plan ne bouge pas. Sélectionnez un calque dans la liste.
 The Background is hidden: nothing changed	L'Arrière-plan est masqué: rien n'a changé
 The game or StarDraft uses that name: select another name	Le jeu ou StarDraft utilise ce nom: sélectionnez un autre nom
 The layer &above	Le calque du &dessus
@@ -3111,7 +3113,7 @@ The map has no isometric terrain data: use Rectangle or Tile	La carte n'a pas de
 The map has no layers: nothing to select	La carte n'a pas de calques: rien à sélectionner
 The map uses this file: without it, the exported map cannot play it	La carte utilise ce fichier: sans lui, la carte exportée ne peut pas le lire
 The map's files are still being read	Les fichiers de la carte sont encore en cours de lecture
-The map's size or tileset changed: the layers are flattened. Undo brings them back	La taille ou le jeu de tuiles de la carte a changé: les calques sont aplatis. Annuler les rétablit
+The map's size or tileset changed: the layers are flattened. Undo brings them back.	La taille ou le jeu de tuiles de la carte a changé: les calques sont aplatis. Annuler les rétablit.
 The map's text names this file	Le texte de la carte nomme ce fichier
 The map's tileset changed: the layers are flattened. Undo brings them back	Le jeu de tuiles de la carte a changé: les calques sont aplatis. Annuler les rétablit
 Unlock	Déverrouiller
@@ -3124,16 +3126,16 @@ Re&center this anchor	Re&centrer cet ancrage
 Recentered the symmetry anchor	Ancrage de symétrie recentré
 Add symmetry &anchor	Ajouter un &ancrage de symétrie
 Merged the symmetry anchors	Ancrages de symétrie fusionnés
-Moved the symmetry anchor. Double-click it to remove it	Ancrage de symétrie déplacé. Double-cliquez dessus pour le retirer
+Moved the symmetry anchor. Double-click it to remove it.	Ancrage de symétrie déplacé. Double-cliquez dessus pour le retirer.
 Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	Centre de symétrie : faites-le glisser pour le déplacer, double-cliquez pour le mettre au milieu, clic droit pour plus
 Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	Ancrage de symétrie : faites-le glisser pour le déplacer, double-cliquez pour le retirer, clic droit pour plus
 Clear the terrain mas&k	Effacer le mas&que de terrain
 Do not &ask again	Ne plus dem&ander
-A save does not ask about missing start locations. To ask again: Program options > Saving maps	L'enregistrement ne demande plus pour les positions de départ manquantes. Pour le réactiver : Options du programme > Enregistrement des cartes
+A save does not ask about missing start locations. To ask again: Program options > Saving maps.	L'enregistrement ne demande plus pour les positions de départ manquantes. Pour le réactiver : Options du programme > Enregistrement des cartes.
 D&rag objects to move them	Faire &glisser les objets pour les déplacer
 A drag moves units, doodads, sprites and locations	Un glisser déplace les unités, doodads, sprites et emplacements
 A drag does not move units, doodads, sprites or locations	Un glisser ne déplace pas les unités, doodads, sprites ni emplacements
-A drag does not move objects. To move them: Options > Drag objects to move them	Un glisser ne déplace pas les objets. Pour les déplacer : Options > Faire glisser les objets pour les déplacer
+A drag does not move objects. To move them: Options > Drag objects to move them.	Un glisser ne déplace pas les objets. Pour les déplacer : Options > Faire glisser les objets pour les déplacer.
 Painting terrain	Peindre le terrain
 Detailed tiles	Tuiles détaillées
 How often Isometric and Rectangle painting places a detailed tile. StarCraft: 5%.	La fréquence à laquelle la peinture isométrique et rectangulaire place une tuile détaillée. StarCraft : 5 %.
@@ -3206,15 +3208,15 @@ Size: medium (Ctrl+wheel changes it)	Taille : moyenne (Ctrl+molette la change)
 Size: large (Ctrl+wheel changes it)	Taille : grande (Ctrl+molette la change)
 Serial 	N° de série 
 Exclude	Exclure
-Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)	Direct3D 12 sur les cartes graphiques récentes, Vulkan sur les anciennes. Si la carte ne peut pas l'utiliser : l'autre, puis le dessin logiciel (par défaut)
-Vulkan. If the video card cannot use it: Direct3D 12, then software drawing	Vulkan. Si la carte graphique ne peut pas l'utiliser : Direct3D 12, puis le dessin logiciel
+Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default).	Direct3D 12 sur les cartes graphiques récentes, Vulkan sur les anciennes. Si la carte ne peut pas l'utiliser : l'autre, puis le dessin logiciel (par défaut).
+Vulkan. If the video card cannot use it: Direct3D 12, then software drawing.	Vulkan. Si la carte graphique ne peut pas l'utiliser : Direct3D 12, puis le dessin logiciel.
 Graphics: Vulkan after a restart	Graphismes : Vulkan après un redémarrage
 Search upgrades	Rechercher des améliorations
 Search technologies	Rechercher des technologies
 &Show terrain outside of map boundaries	&Afficher le terrain hors des limites de la carte
 Map layers: terrain outside of map boundaries shows	Calques de la carte : le terrain hors des limites de la carte s'affiche
 Map layers: terrain outside of map boundaries is hidden	Calques de la carte : le terrain hors des limites de la carte est masqué
-Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	Le terrain ne se modifie que sur la carte. Pour avoir du terrain hors de la carte, peignez-le sur un calque, puis sortez le calque (Calques de la carte > Déplacer le calque)
+Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer).	Le terrain ne se modifie que sur la carte. Pour avoir du terrain hors de la carte, peignez-le sur un calque, puis sortez le calque (Calques de la carte > Déplacer le calque).
 Simulate r&ush distance (experimental)	Simuler la distance de r&ush (expérimental)
 Rush distance	Distance de rush
 Worker race	Race de l'ouvrier
@@ -3264,18 +3266,18 @@ draw the dot image {image} at {where} for {player} with {unit}, {px} pixels apar
 Draws a dot image of the project (Assets > Dot images) with units: one unit for each dot. The dots go row by row from the location, the given pixels apart. Each unit gets the color of its dot, as in EUD Editor 3's dot painter. White dots are the background: they get no unit. After the drawing, the location is where it was before.	Dessine une image de points du projet (Ressources > Images de points) avec des unités : une unité pour chaque point. Les points vont rangée par rangée depuis la zone, à l'écart donné en pixels. Chaque unité prend la couleur de son point, comme dans le peintre de points d'EUD Editor 3. Les points blancs sont le fond : ils n'ont pas d'unité. Après le dessin, la zone revient où elle était.
 It first removes all the units of this type that the player owns: use a unit type that is only for the drawing. Each dot is one unit: a picture of 30 x 30 dots makes 900 units, and a map has room for 1700 units.	Il retire d'abord toutes les unités de ce type que possède le joueur : utilisez un type d'unité réservé au dessin. Chaque point est une unité : une image de 30 x 30 points fait 900 unités, et une carte a de la place pour 1700 unités.
 draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	dessiner l'image de points "Logo" à Title pour Player 8 avec Terran Marine, à 8 pixels d'écart : montrer le logo de la carte au début.
-Opacity of the selected layer in this view: what is under it shows through. The map does not change	Opacité du calque sélectionné dans cette vue : ce qui est dessous se voit à travers. La carte ne change pas
+Opacity of the selected layer in this view: what is under it shows through. The map does not change.	Opacité du calque sélectionné dans cette vue : ce qui est dessous se voit à travers. La carte ne change pas.
 Map layers (experimental)	Calques de la carte (expérimental)
 Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n	Les calques de la carte sont expérimentaux. Gardez une copie de votre carte et signalez ce qui ne fonctionne pas (Envoyer un commentaire).\n\n
 Duplicate linked	Dupliquer lié
 Unlink	Délier
-Linked duplicate: it follows the changes of the original. Move it with Move layer	Duplicata liée : elle suit les modifications de l'original. Déplacez-la avec Déplacer le calque
+Linked duplicate: it follows the changes of the original. Move it with Move layer.	Duplicata liée : elle suit les modifications de l'original. Déplacez-la avec Déplacer le calque.
 Unlinked: the layer is one of its own now	Déliée : le calque est maintenant indépendant
 A linked duplicate follows its original: edit 	Une duplicata liée suit son original : modifiez 
 the original	l'original
 , or Unlink this layer (right-click it in Map layers)	, ou déliez ce calque (clic droit dans Calques de la carte)
 Linked duplicate of 	Duplicata liée de 
-: it follows the original's changes. Edit the original, or Unlink this layer	 : elle suit les modifications de l'original. Modifiez l'original, ou déliez ce calque
+: it follows the original's changes. Edit the original, or Unlink this layer.	 : elle suit les modifications de l'original. Modifiez l'original, ou déliez ce calque.
 No room	Pas de place
 No room: the base has no room for its depot and workers.	Pas de place : la base n'a pas de place pour son dépôt et ses ouvriers.
 
@@ -3371,8 +3373,8 @@ Nothing more to search	Plus rien à rechercher
 %.0f FPS  ·  %.0f MB	%.0f FPS  ·  %.0f MB
 %.0f MB	%.0f MB
 Copy as te&xt	Copier en te&xte
-Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	Le terrain sélectionné est copié en texte. Ctrl+V en mode Terrain en fait le pinceau
-A doodad is on this tile. Doodad tiles have no variations	Un doodad est sur cette tuile. Les tuiles de doodads n'ont pas de variantes
+Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush.	Le terrain sélectionné est copié en texte. Ctrl+V en mode Terrain en fait le pinceau.
+A doodad is on this tile. Doodad tiles have no variations.	Un doodad est sur cette tuile. Les tuiles de doodads n'ont pas de variantes.
 This tile has no such variation	Cette tuile n'a pas cette variante
 The tile uses variation %d of %d already	La tuile utilise déjà la variante %d sur %d
 Variation %d of %d on the tile (Ctrl+Z undoes it)	Variante %d sur %d sur la tuile (Ctrl+Z l'annule)
@@ -3386,7 +3388,7 @@ Turned on Fun mode	Mode amusant activé
 Turned off Fun mode	Mode amusant désactivé
 Select at most %d x %d tiles to see their variations	Sélectionnez au plus %d x %d tuiles pour voir leurs variantes
 The selected tiles have no variations	Les tuiles sélectionnées n'ont pas de variantes
-Variation %d. Click: put it on the selected tiles	Variante %d. Clic : la mettre sur les tuiles sélectionnées
+Variation %d. Click: put it on the selected tiles.	Variante %d. Clic : la mettre sur les tuiles sélectionnées.
 The selected tiles use this variation already	Les tuiles sélectionnées utilisent déjà cette variante
 Variation %d on %d tiles (Ctrl+Z undoes it)	Variante %d sur %d tuiles (Ctrl+Z l'annule)
 Variation %d on the tile (Ctrl+Z undoes it)	Variante %d sur la tuile (Ctrl+Z l'annule)

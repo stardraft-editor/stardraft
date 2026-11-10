@@ -1168,7 +1168,7 @@ inline std::wstring ctCrigHelp(const ClassicCrig& row) {
     for (const auto& a : c.args) {
         const auto it = kinds.find(a.kind);
         s += L"\n    " + widen(a.name) + L": " + (it != kinds.end() ? std::wstring(tr(it->second)) : widen(a.kind)) +
-             (a.optional ? L" " + std::wstring(tr(L"(may be left out)")) : std::wstring());
+             (a.optional ? L" " + std::wstring(tr(L"(not necessary)")) : std::wstring());
         const auto& words = stardraft::cmbw::crigWordChoices(c.names.front(), a.name);
         if (!words.empty()) {
             s += L": ";

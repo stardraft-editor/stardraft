@@ -516,7 +516,7 @@ void tilesSetChosen(std::vector<uint16_t> chosen) {
 // A selection made in the grid: the Brush places it (a stamp, or the one tile).
 void tilesChosenDone() {
     if (tilesStampOn()) return tilesStampChosen();
-    if (gTiles->picked < 0) return setMessage(L"No tiles are selected. Select tiles in the Tiles list");
+    if (gTiles->picked < 0) return setMessage(L"No tiles are selected. Select tiles in the Tiles list.");
     tilesToBrush();
     setMessage(L"Placing " + tilesValueLabel(gTiles->picked) + L": click or drag to place it (the brush's size and shape)");
     appState().dirty = true;

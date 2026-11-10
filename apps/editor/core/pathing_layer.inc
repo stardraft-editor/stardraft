@@ -332,8 +332,8 @@ void pathingLayerMouseMove(float wx, float wy) {
 }
 
 std::wstring pathingLegendText() {
-    return gPathing.areas ? tr(L"Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here")
-                          : tr(L"Pathing: each pathing region of the game has its own color. Dark: units cannot walk here");
+    return gPathing.areas ? tr(L"Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.")
+                          : tr(L"Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.");
 }
 
 void pathingLayerToggle() {
@@ -376,7 +376,7 @@ void pathingApplyFix(int i) {
     if (p.fixTileX < 0) return;
     Editor& ed = *app.ed;
     if (ed.doodadAt(p.fixTileX * 32 + 16, p.fixTileY * 32 + 16) >= 0) {
-        setMessage(tr(L"A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile"));
+        setMessage(tr(L"A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile."));
         return;
     }
     if (!ed.placeTileValues({Editor::TileAt{p.fixTileX, p.fixTileY, p.fixValue}})) {
@@ -414,7 +414,7 @@ void pathingCheckCommand() {
                                          "f:" + std::to_string(i), "", -1});
     }
     if (c->more) items.push_back(ListPickItem{pathingFormat(L"%d more problems are not in the list", int(c->more)), L"", "", "", -1});
-    setMessage(pathingFormat(L"Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map",
+    setMessage(pathingFormat(L"Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map.",
                              int(c->problems.size() + c->more), int(r->regions.size()), r->groups));
     std::string picked;
     if (!shellPickPathingProblem(std::move(items), picked) || picked.size() < 3) return;

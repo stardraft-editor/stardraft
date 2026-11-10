@@ -1134,8 +1134,8 @@ private:
                 c.text({textX, (r.top + r.bottom) / 2 + scale(1), r.right, r.bottom}, std::to_wstring(under) + (under == 1 ? L" trigger" : L" triggers"), kDim, draw::kEllipsis);
                 rowActions(c, r,
                            {{UiIcon::Power, t.disabled() ? L"Turn on" : L"Turn off", [this, i] { host_.toggleTrigger(i); }, stardraft::kit::Tone::Quiet, t.disabled()},
-                            {UiIcon::Duplicate, L"Duplicate", [this, i] { host_.duplicateTrigger(i); }},
-                            {UiIcon::Delete, L"Delete", [this, i] { host_.deleteTrigger(i); }, stardraft::kit::Tone::Danger}},
+                            {UiIcon::Duplicate, L"Duplicate (Ctrl+D)", [this, i] { host_.duplicateTrigger(i); }},
+                            {UiIcon::Delete, L"Delete (Del)", [this, i] { host_.deleteTrigger(i); }, stardraft::kit::Tone::Danger}},
                            lit);
                 continue;
             }
@@ -1169,8 +1169,8 @@ private:
             c.text(bottom, tail, kDim, draw::kEllipsis);
             rowActions(c, r,
                        {{UiIcon::Power, t.disabled() ? L"Turn on" : L"Turn off", [this, i] { host_.toggleTrigger(i); }, stardraft::kit::Tone::Quiet, t.disabled()},
-                        {UiIcon::Duplicate, L"Duplicate", [this, i] { host_.duplicateTrigger(i); }},
-                        {UiIcon::Delete, L"Delete", [this, i] { host_.deleteTrigger(i); }, stardraft::kit::Tone::Danger}},
+                        {UiIcon::Duplicate, L"Duplicate (Ctrl+D)", [this, i] { host_.duplicateTrigger(i); }},
+                        {UiIcon::Delete, L"Delete (Del)", [this, i] { host_.deleteTrigger(i); }, stardraft::kit::Tone::Danger}},
                        lit);
         }
         dropLine(c, 0);
@@ -1233,7 +1233,7 @@ private:
                     acts.push_back({UiIcon::Forward, L"Move in (Ctrl+Right)", [this, i] { host_.moveRow(i, true); }, stardraft::kit::Tone::Normal, false, canIn});
                 }
                 acts.push_back({UiIcon::Duplicate, L"Duplicate", [this, kind, i] { host_.duplicateEntry(kind, i); }});
-                acts.push_back({UiIcon::Delete, L"Delete", [this, kind, i] { host_.deleteEntry(kind, i); }, stardraft::kit::Tone::Danger});
+                acts.push_back({UiIcon::Delete, L"Delete (Del)", [this, kind, i] { host_.deleteEntry(kind, i); }, stardraft::kit::Tone::Danger});
                 const int actsW = scale(stardraft::kit::kIconBox) * int(acts.size());
                 const int textLeft = indent + scale(18);
                 const int areaRight = r.right - scale(8) - actsW - (isBlock ? scale(96) : 0);

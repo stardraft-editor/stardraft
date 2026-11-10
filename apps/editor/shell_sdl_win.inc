@@ -163,7 +163,7 @@ void askMapsDefault() {
     if (msgbox::ask(*gRoot, L"StarDraft 2",
                         shellTr(L"Open .scm and .scx maps with StarDraft 2 when you double-click them? You can change this later in "
                                 L"Options > Program options > Maps."),
-                        {shellTr(L"&Yes"), shellTr(L"&No")}, msgbox::Icon::Question) == 0)
+                        {shellTr(L"&Open maps with StarDraft 2"), shellTr(L"Do &not change")}, msgbox::Icon::Question) == 0)
         makeMapsDefault();
 }
 

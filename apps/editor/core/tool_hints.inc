@@ -36,7 +36,7 @@ std::vector<KeyHint> mapKeyHints(const AppState& app) {
             add(L"Shift+drag", L"Jumble", draw::kShift);
         }
         if (tool != TSelect && tool != TWand && tool != TLasso && !(tiles && gTiles->stamps))
-            add(L"Ctrl+click", tiles && !gTiles->solid ? L"Pick tile" : L"Pick terrain", draw::kCtrl);  // (Solid: its terrain)
+            add(L"Ctrl+click", tiles && !gTiles->solid ? L"Use this tile" : L"Use this terrain", draw::kCtrl);  // (Solid: its terrain)
         if (tool == TBrush || tool == TSpray || tool == TJumble) add(L"Alt+wheel", L"Brush size", draw::kAlt);
         if (!tiles) add(L"Space", L"Terrain palette");
         break;
@@ -46,18 +46,18 @@ std::vector<KeyHint> mapKeyHints(const AppState& app) {
             add(L"Shift", L"Add to selection", draw::kShift);
             add(L"Ctrl", L"Add or remove", draw::kCtrl);
         }
-        add(L"Alt+click", L"Pick unit", draw::kAlt);
+        add(L"Alt+click", L"Use this unit", draw::kAlt);
         if (tool == USpray) add(L"Alt+wheel", L"Brush size", draw::kAlt);
         break;
     case Mode::Doodads:
         if (app.palette < 0 && tool == DPlace) add(L"Shift+click", L"Add or remove", draw::kShift);  // (selectItemAt: Ctrl too)
-        add(L"Alt+click", L"Pick doodad", draw::kAlt);
+        add(L"Alt+click", L"Use this doodad", draw::kAlt);
         if (objectSprayOn()) add(L"Alt+wheel", L"Brush size", draw::kAlt);
         else if (app.palette >= 0) add(L"Alt+wheel", L"Next doodad", draw::kAlt);
         break;
     case Mode::Sprites:
         if (app.palette < 0) add(L"Shift+click", L"Add or remove", draw::kShift);
-        add(L"Alt+click", L"Pick sprite", draw::kAlt);
+        add(L"Alt+click", L"Use this sprite", draw::kAlt);
         break;
     case Mode::Locations:
         if (tool == LErase) break;

@@ -106,7 +106,7 @@ public:
         noteHead_.setIcon(int(UiIcon::Warning)), noteHead_.setTone(LabelTone::Warn);
         noteText_.setText(tr(L"The import does not change the old project. It only reads it. Before you use the new project, examine it: the "
                              L"parts that the summary lists, a build, and a test of the map in the game. If a part is not imported "
-                             L"correctly, tell us."));
+                             L"correctly, report it."));
         noteText_.setWrap(true), noteText_.setTone(LabelTone::Dim);
         add(noteHead_, {0, 0, 0, 0}), add(noteText_, {0, 0, 0, 0});
         feedback_.setText(tr(L"Report feedback\x2026"));
@@ -739,7 +739,7 @@ inline bool importFromWizard(const ImportWizardView& view) {
     std::ofstream(pr.folder() / "notes" / "Import report.txt", std::ios::binary) << text;
     openProject(pr.folder());
     setMessage(rep.notImported.empty() ? importFmt(tr(L"Imported the project %s"), {view.name()})
-                                       : importFmt(tr(L"Imported the project %s. What did not come over is in notes\\Import report.txt"), {view.name()}));
+                                       : importFmt(tr(L"Imported the project %s. What did not come over is in notes\\Import report.txt."), {view.name()}));
     return true;
 }
 

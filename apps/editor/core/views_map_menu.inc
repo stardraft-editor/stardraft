@@ -400,7 +400,7 @@ void mapMenuPick(int pick) {
     else if (pick == ID_MAPMENU_ADDANCHOR && app.ed) {
         if (gMapMenuAnchor < 0 ? app.ed->addSymmetryAnchor(int(gMapMenuWX), int(gMapMenuWY)) >= 0 : addAnchorNextTo(*app.ed, gMapMenuAnchor, app.zoom)) {
             if (gMapMenuAnchor >= 0 && !inSelection()) enterSelection();  // (the Select tool: a drag moves the new one)
-            setMessage(L"Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it");
+            setMessage(L"Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it.");
         }
         app.dirty = true;
     } else if (pick == ID_MAPMENU_REMOVEANCHOR && app.ed && app.ed->symmetryAnchors().size() > 1) {

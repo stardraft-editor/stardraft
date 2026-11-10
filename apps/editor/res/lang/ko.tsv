@@ -245,7 +245,7 @@ Carbot (cartooned) graphics	Carbot (만화풍) 그래픽
 Grid: width, height, x offset, y offset (map pixels)	격자: 너비, 높이, x 오프셋, y 오프셋 (맵 픽셀)
 Type the width and the height (and the offsets), for example 48, 48, 16, 0	너비와 높이(및 오프셋)를 입력하세요. 예: 48, 48, 16, 0
  pixels, offset 	 픽셀, 오프셋 
- selected: drag to move, Delete removes, Ctrl+C copies	 선택됨: 끌어서 이동, Delete로 삭제, Ctrl+C로 복사
+ selected: drag to move, Del removes, Ctrl+C copies	 선택됨: 끌어서 이동, Delete로 삭제, Ctrl+C로 복사
 Placed 	배치함: 
  (moved to the nearest valid spot)	 (가장 가까운 유효한 위치로 이동함)
 Cannot place here:	여기에는 배치할 수 없습니다:
@@ -1330,8 +1330,10 @@ Each terrain becomes the 	각 지형은 다음 타일셋의
 The map keeps its size and tileset: 	맵의 크기와 타일셋이 유지됩니다: 
 Set the map properties: 	맵 속성 설정: 
 Set the map properties	맵 속성 설정
-&Yes	예(&Y)
-&No	아니요(&N)
+&Restart now	지금 다시 시작(&R)
+&Open maps with StarDraft 2	StarDraft 2로 맵 열기(&O)
+Do &not restart	다시 시작 안 함(&N)
+Do &not change	변경 안 함(&N)
 &Retry	다시 시도(&R)
 Make standard StarCraft maps.	표준 스타크래프트 맵을 만듭니다.
 Make maps with your own units, weapons and game rules. Change the game's data, and make new triggers with blocks or with your own code.	직접 만든 유닛, 무기, 게임 규칙으로 맵을 만듭니다. 게임 데이터를 변경하고, 블록이나 직접 작성한 코드로 새 트리거를 만들 수 있습니다.
@@ -2194,7 +2196,7 @@ Pathing shows the connected &areas	경로에 연결된 영역 표시(&A)
 Check &pathing (nooks and crannies)	경로 검사(&P) (좁은 틈과 구석)
 Search the pathing problems	경로 문제 검색
 %d more problems are not in the list	목록에 없는 문제 %d개가 더 있습니다
-A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile	이 타일에 장식물이 있습니다: 수정하면 장식물이 지워집니다. 지형 > 타일에서 타일을 바꾸십시오
+A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile.	이 타일에 장식물이 있습니다: 수정하면 장식물이 지워집니다. 지형 > 타일에서 타일을 바꾸십시오.
 Apply the fix: tile %d, %d gets no walkable minitile there	수정 적용: 타일 %d, %d의 그 자리를 걸을 수 없게 합니다
 Closed passages	닫힌 통로
 Fix: change the tiles here so that the ground connects, or make it unwalkable	수정: 땅이 이어지도록 이곳의 타일을 바꾸거나, 걸을 수 없게 하십시오
@@ -2212,9 +2214,9 @@ No pathing problems: %d regions, %d connected areas	경로 문제 없음: 지역
 Passage that only small units fit through, at tile %d, %d	소형 유닛만 지나갈 수 있는 통로, 타일 %d, %d
 Pathing is hidden (View > Overlays)	경로가 숨겨졌습니다 (보기 > 오버레이)
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	경로 지역 %d: 타일 %d개, %ls; 연결된 영역 %d (지역 %d개)
-Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map	경로: 문제 %d개 (지역 %d개, 연결된 영역 %d개). 하나를 선택하면 맵에 표시합니다
-Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	경로: 연결된 영역(유닛이 걸어서 지나갈 수 있는 땅)마다 색이 다릅니다. 어두운 곳: 유닛이 걸을 수 없습니다
-Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	경로: 게임의 경로 지역마다 색이 다릅니다. 어두운 곳: 유닛이 걸을 수 없습니다
+Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map.	경로: 문제 %d개 (지역 %d개, 연결된 영역 %d개). 하나를 선택하면 맵에 표시합니다.
+Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.	경로: 연결된 영역(유닛이 걸어서 지나갈 수 있는 땅)마다 색이 다릅니다. 어두운 곳: 유닛이 걸을 수 없습니다.
+Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.	경로: 게임의 경로 지역마다 색이 다릅니다. 어두운 곳: 유닛이 걸을 수 없습니다.
 Pathing: units cannot walk here	경로: 유닛이 이곳을 걸을 수 없습니다
 Pockets	고립된 땅
 Small pathing region of %d minitiles, at tile %d, %d	미니타일 %d개의 작은 경로 지역, 타일 %d, %d
@@ -2432,7 +2434,7 @@ No start location fits the map	맵에 맞는 시작 위치를 놓을 곳이 없�
 Did not build the map	맵을 빌드하지 못했습니다
 Brush: the 	브러시: 
  tiles you copied (	 타일 (복사한 타일 
- tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	개). 클릭하여 배치합니다. 끌어서 반복합니다. Shift를 누르면 무작위로 배치합니다.
+ tiles). Click to place them; drag to repeat them. Hold Shift to place them at random.	개). 클릭하여 배치합니다. 끌어서 반복합니다. Shift를 누르면 무작위로 배치합니다.
 %ls of Player %d	%ls (플레이어 %d)
 Creep shows	점막이 표시됩니다
 Creep is hidden (View > Layers shows it again)	점막이 숨겨졌습니다 (보기 > 레이어에서 다시 표시)
@@ -2457,7 +2459,7 @@ Select the Cosmonarchy BW folder	Cosmonarchy BW 폴더를 선택하십시오
 That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	이 폴더에는 Cosmonarchy BW 데이터(mpq\arr\units.datex)가 없습니다.
 Set the Cosmonarchy folder	Cosmonarchy 폴더를 설정했습니다
 The Prerelease or Release folder	Prerelease 또는 Release 폴더입니다
-The Prerelease or Release folder. A new folder is used after a restart	Prerelease 또는 Release 폴더입니다. 새 폴더는 다시 시작한 후 사용됩니다
+The Prerelease or Release folder. A new folder is used after a restart.	Prerelease 또는 Release 폴더입니다. 새 폴더는 다시 시작한 후 사용됩니다.
 The CRIG commands have no problems	CRIG 명령에 문제가 없습니다
 These CRIG commands in the trigger Comments have problems:	트리거 주석의 다음 CRIG 명령에 문제가 있습니다:
 Experimental: results can differ from the game.	실험적: 결과가 게임과 다를 수 있습니다.
@@ -2626,8 +2628,8 @@ Only:	다음만:
 Player 12 (neutral)	플레이어 12 (중립)
 Invalid resource &depot	잘못된 자원 본진 위치(&D)
 Invalid resource &node	잘못된 자원 위치(&N)
-Invalid resource depot: the box of a town hall or a start location may not reach into the red areas	잘못된 자원 본진 위치: 본진 건물이나 시작 위치의 상자는 빨간 영역에 들어갈 수 없습니다
-Invalid resource node: the box of a resource may not reach into the orange areas	잘못된 자원 위치: 자원의 상자는 주황 영역에 들어갈 수 없습니다
+Invalid resource depot: the box of a town hall or a start location must not reach into the red areas	잘못된 자원 본진 위치: 본진 건물이나 시작 위치의 상자는 빨간 영역에 들어갈 수 없습니다
+Invalid resource node: the box of a resource must not reach into the orange areas	잘못된 자원 위치: 자원의 상자는 주황 영역에 들어갈 수 없습니다
 Invalid resource depot is hidden	잘못된 자원 본진 위치가 숨겨졌습니다
 Invalid resource node is hidden	잘못된 자원 위치가 숨겨졌습니다
 Exclude specific units	특정 유닛 제외
@@ -2688,7 +2690,7 @@ The terrain is the same already	지형이 이미 같습니다
 Painted the line	선을 칠했습니다
 Filled the contour	윤곽을 채웠습니다
 Filled the polygon	다각형을 채웠습니다
-Line: release the button at the end of the line. Hold Shift to lock the angle	선: 선의 끝에서 버튼을 놓으십시오. Shift를 누르고 있으면 각도가 고정됩니다
+Line: release the button at the end of the line. Hold Shift to lock the angle.	선: 선의 끝에서 버튼을 놓으십시오. Shift를 누르고 있으면 각도가 고정됩니다.
 Contour: draw the shape, then release the button	윤곽: 모양을 그린 다음 버튼을 놓으십시오
 Stopped the line	선을 멈췄습니다
 Stopped the contour	윤곽을 멈췄습니다
@@ -2744,7 +2746,7 @@ Diamond: drag across the box it fits in. The release paints its edges, with the 
 Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.	채운 마름모: 마름모가 들어갈 상자를 가로질러 드래그합니다. 놓으면 안을 채웁니다. Shift를 누르고 있으면 맵의 모양을 한 마름모가 됩니다.
 Painted the diamond	마름모를 칠했습니다
 Filled the diamond	마름모를 채웠습니다
-Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	반대 모서리에서 버튼을 놓으십시오. Shift를 누르고 있으면 정사각형, 원 또는 맵의 모양을 한 마름모가 됩니다
+Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape.	반대 모서리에서 버튼을 놓으십시오. Shift를 누르고 있으면 정사각형, 원 또는 맵의 모양을 한 마름모가 됩니다.
 Describe the issue and what you expect instead.	문제와 대신 기대하는 결과를 적으십시오.
 Bridge	다리
 Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.	다리: 땅에서 물을 건너 맞은편 땅까지 드래그합니다. 다리의 길이는 물의 폭과 같고, 크기로 다리의 폭을 정합니다.
@@ -2801,7 +2803,7 @@ Graphics	그래픽
 Software	소프트웨어
 Direct3D 12	Direct3D 12
 Vulkan. If the video card cannot use it: Direct3D 12, then software drawing (default)	Vulkan. 그래픽 카드가 사용할 수 없으면 Direct3D 12, 그다음 소프트웨어 그리기 (기본값)
-Direct3D 12. If the video card cannot use it: Vulkan, then software drawing	Direct3D 12. 그래픽 카드가 사용할 수 없으면 Vulkan, 그다음 소프트웨어 그리기
+Direct3D 12. If the video card cannot use it: Vulkan, then software drawing.	Direct3D 12. 그래픽 카드가 사용할 수 없으면 Vulkan, 그다음 소프트웨어 그리기.
 Software drawing (WARP): slow, but it does not use the video card	소프트웨어 그리기 (WARP): 느리지만 그래픽 카드를 사용하지 않습니다
 In use	사용 중
 The change applies after a restart	변경 사항은 다시 시작한 후에 적용됩니다
@@ -2818,9 +2820,9 @@ Nothing to turn: copy terrain (Ctrl+C), or select custom terrain or copied tiles
 Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	타일 붙여넣기: 클릭하면 놓이고, 다시 클릭하면 더 놓입니다. R로 돌리고 M으로 뒤집습니다. 오른쪽 클릭이나 Esc로 멈춥니다.
 Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	지형 붙여넣기: 클릭하면 놓이고, 다시 클릭하면 더 놓입니다. R로 돌리고 M으로 뒤집습니다. 오른쪽 클릭이나 Esc로 멈춥니다.
 Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	타일을 돌렸습니다: 각 타일의 그림은 그대로이므로 가장자리와 절벽이 맞지 않을 수 있습니다
-Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit	타일을 상하로 뒤집었습니다: 각 타일의 그림은 그대로이므로 가장자리와 절벽이 맞지 않을 수 있습니다
-Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	타일을 좌우로 뒤집었습니다: 각 타일의 그림은 그대로이므로 가장자리와 절벽이 맞지 않을 수 있습니다
-Moved the symmetry center. Double-click it to put it in the middle of the map	대칭 중심을 옮겼습니다. 더블 클릭하면 맵 가운데로 돌아갑니다
+Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs possibly do not fit	타일을 상하로 뒤집었습니다: 각 타일의 그림은 그대로이므로 가장자리와 절벽이 맞지 않을 수 있습니다
+Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs possibly do not fit	타일을 좌우로 뒤집었습니다: 각 타일의 그림은 그대로이므로 가장자리와 절벽이 맞지 않을 수 있습니다
+Moved the symmetry center. Double-click it to put it in the middle of the map.	대칭 중심을 옮겼습니다. 더블 클릭하면 맵 가운데로 돌아갑니다.
 The symmetry center is in the middle of the map	대칭 중심이 맵 가운데에 있습니다
 Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.	마술봉: 지형을 클릭하면 거기서 닿는 곳을 선택합니다(등각: 그 지형과 가장자리, 절벽. 다른 도구: 그 지형의 이어진 타일). Shift+클릭은 추가, Ctrl+클릭은 제거합니다.
 Magic wand	마술봉
@@ -2871,7 +2873,7 @@ Import	가져오기
 Next	다음
 Could not import the project. %s	프로젝트를 가져올 수 없습니다. %s
 Imported the project %s	프로젝트 %s을(를) 가져옴
-Imported the project %s. What did not come over is in notes\\Import report.txt	프로젝트 %s을(를) 가져왔습니다. 가져오지 않은 것은 notes\\Import report.txt에 있습니다
+Imported the project %s. What did not come over is in notes\\Import report.txt.	프로젝트 %s을(를) 가져왔습니다. 가져오지 않은 것은 notes\\Import report.txt에 있습니다.
 1 text	텍스트 1개
 %s texts	텍스트 %s개
 1 set	세트 1개
@@ -3013,7 +3015,7 @@ Add m&usic…	음악 추가(&U)…
 Add do&t images…	도트 이미지 추가(&T)…
 Experimental	실험 단계
 This import is experimental	이 가져오기는 실험 단계입니다
-The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, tell us.	가져오기는 이전 프로젝트를 변경하지 않습니다. 읽기만 합니다. 새 프로젝트를 사용하기 전에 확인하세요: 요약에 나온 항목, 빌드, 게임에서 맵 테스트. 어떤 부분이 올바르게 가져와지지 않으면 알려 주세요.
+The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, report it.	가져오기는 이전 프로젝트를 변경하지 않습니다. 읽기만 합니다. 새 프로젝트를 사용하기 전에 확인하세요: 요약에 나온 항목, 빌드, 게임에서 맵 테스트. 어떤 부분이 올바르게 가져와지지 않으면 알려 주세요.
 The import is experimental. Some parts can be imported incorrectly.	가져오기는 실험 단계입니다. 일부 항목이 올바르게 가져와지지 않을 수 있습니다.
 Report feedback…	피드백 보내기…
  file	 개 파일
@@ -3034,7 +3036,7 @@ Report feedback…	피드백 보내기…
 &New layer	새 레이어(&N)
 &Select all layers	모든 레이어 선택(&S)
 , and more	 외 더 있음
-. It has no changed values: it does not show while Changed is on	. 변경된 값이 없습니다: 변경됨이 켜져 있으면 표시되지 않습니다
+. It has no changed values: it does not show while Changed is on.	. 변경된 값이 없습니다: 변경됨이 켜져 있으면 표시되지 않습니다.
 . Shift adds. Ctrl removes.	. Shift는 추가, Ctrl은 제거입니다.
 . The map uses 	. 맵이 사용함:
 1 file of the archive has no name that can be read, or could not be read. A save leaves it out.	1개 파일은 아카이브에서 읽을 수 있는 이름이 없거나 읽을 수 없습니다. 저장하면 제외됩니다.
@@ -3048,7 +3050,7 @@ A locked layer cannot be deleted	잠긴 레이어는 삭제할 수 없습니다
 A locked layer cannot be merged	잠긴 레이어는 병합할 수 없습니다
 Add files…	파일 추가…
 Add symmetry &anchor here	여기에 대칭 앵커 추가(&A)
-Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it	대칭 앵커를 추가했습니다. 선택 도구: 끌어서 이동, 더블클릭하여 제거
+Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it.	대칭 앵커를 추가했습니다. 선택 도구: 끌어서 이동, 더블클릭하여 제거.
 All files	모든 파일
 All layers that show become one map, and the layer data stays out of it.	표시 중인 모든 레이어가 하나의 맵이 되며, 레이어 데이터는 포함되지 않습니다.
 All the files of the map: add, extract, replace, rename, remove, and what File > Export keeps	맵의 모든 파일: 추가, 추출, 교체, 이름 바꾸기, 제거, 그리고 파일 > 내보내기에서 유지할 항목
@@ -3121,10 +3123,10 @@ Select a layer first	먼저 레이어를 선택하십시오
 Select another file: an export over the open map would remove its layers	다른 파일을 선택하십시오: 열린 맵 위에 내보내면 그 맵의 레이어가 제거됩니다
 Select terrain first, with Select, the Lasso or the Magic wand	먼저 선택, 올가미 또는 마술봉으로 지형을 선택하십시오
 Selected all 	모두 선택함:
-Show or hide (Ctrl+Alt+H). With nothing showing, the map is black	표시 또는 숨기기 (Ctrl+Alt+H). 표시 중인 것이 없으면 맵이 검게 나옵니다
+Show or hide (Ctrl+Alt+H). With nothing showing, the map is black.	표시 또는 숨기기 (Ctrl+Alt+H). 표시 중인 것이 없으면 맵이 검게 나옵니다.
 Sort by name	이름순 정렬
 That belongs to a locked layer, or the active layer is locked: nothing changed	잠긴 레이어에 속하거나 활성 레이어가 잠겨 있습니다: 변경되지 않았습니다
-The Background does not move. Select a layer in the list	배경은 이동하지 않습니다. 목록에서 레이어를 선택하십시오
+The Background does not move. Select a layer in the list.	배경은 이동하지 않습니다. 목록에서 레이어를 선택하십시오.
 The Background is hidden: nothing changed	배경이 숨겨져 있습니다: 변경되지 않았습니다
 The game or StarDraft uses that name: select another name	게임 또는 StarDraft가 그 이름을 사용합니다: 다른 이름을 선택하십시오
 The layer &above	위 레이어(&A)
@@ -3141,7 +3143,7 @@ The map has no isometric terrain data: use Rectangle or Tile	맵에 아이소메
 The map has no layers: nothing to select	맵에 레이어가 없습니다: 선택할 것이 없습니다
 The map uses this file: without it, the exported map cannot play it	맵이 이 파일을 사용합니다: 이 파일이 없으면 내보낸 맵에서 재생할 수 없습니다
 The map's files are still being read	맵의 파일을 아직 읽는 중입니다
-The map's size or tileset changed: the layers are flattened. Undo brings them back	맵의 크기 또는 타일셋이 변경되었습니다: 레이어가 평탄화됩니다. 실행 취소로 되돌릴 수 있습니다
+The map's size or tileset changed: the layers are flattened. Undo brings them back.	맵의 크기 또는 타일셋이 변경되었습니다: 레이어가 평탄화됩니다. 실행 취소로 되돌릴 수 있습니다.
 The map's text names this file	맵의 텍스트가 이 파일의 이름을 사용합니다
 The map's tileset changed: the layers are flattened. Undo brings them back	맵의 타일셋이 변경되었습니다: 레이어가 평탄화됩니다. 실행 취소로 되돌릴 수 있습니다
 Unlock	잠금 해제
@@ -3154,16 +3156,16 @@ Re&center this anchor	이 앵커 다시 가운데로(&C)
 Recentered the symmetry anchor	대칭 앵커를 다시 가운데로 옮겼습니다
 Add symmetry &anchor	대칭 앵커 추가(&A)
 Merged the symmetry anchors	대칭 앵커를 합쳤습니다
-Moved the symmetry anchor. Double-click it to remove it	대칭 앵커를 옮겼습니다. 두 번 클릭하면 제거됩니다
+Moved the symmetry anchor. Double-click it to remove it.	대칭 앵커를 옮겼습니다. 두 번 클릭하면 제거됩니다.
 Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	대칭 중심: 끌어서 옮기고, 두 번 클릭하면 가운데로, 오른쪽 클릭하면 더 보기
 Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	대칭 앵커: 끌어서 옮기고, 두 번 클릭하면 제거, 오른쪽 클릭하면 더 보기
 Clear the terrain mas&k	지형 마스크 지우기(&K)
 Do not &ask again	다시 묻지 않기(&A)
-A save does not ask about missing start locations. To ask again: Program options > Saving maps	저장할 때 없는 시작 위치를 묻지 않습니다. 다시 묻게 하려면: 프로그램 옵션 > 맵 저장
+A save does not ask about missing start locations. To ask again: Program options > Saving maps.	저장할 때 없는 시작 위치를 묻지 않습니다. 다시 묻게 하려면: 프로그램 옵션 > 맵 저장.
 D&rag objects to move them	끌어서 개체 이동(&R)
 A drag moves units, doodads, sprites and locations	끌면 유닛, 두대드, 스프라이트, 로케이션이 이동합니다
 A drag does not move units, doodads, sprites or locations	끌어도 유닛, 두대드, 스프라이트, 로케이션이 이동하지 않습니다
-A drag does not move objects. To move them: Options > Drag objects to move them	끌어도 개체가 이동하지 않습니다. 이동하려면: 옵션 > 끌어서 개체 이동
+A drag does not move objects. To move them: Options > Drag objects to move them.	끌어도 개체가 이동하지 않습니다. 이동하려면: 옵션 > 끌어서 개체 이동.
 Painting terrain	지형 칠하기
 Detailed tiles	세부 타일
 How often Isometric and Rectangle painting places a detailed tile. StarCraft: 5%.	아이소메트릭과 사각형 칠하기가 세부 타일을 놓는 빈도. 스타크래프트: 5%.
@@ -3236,15 +3238,15 @@ Size: medium (Ctrl+wheel changes it)	크기: 보통 (Ctrl+휠로 변경)
 Size: large (Ctrl+wheel changes it)	크기: 크게 (Ctrl+휠로 변경)
 Serial 	일련번호 
 Exclude	제외
-Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)	새 그래픽 카드에서는 Direct3D 12, 오래된 카드에서는 Vulkan. 그래픽 카드가 사용할 수 없으면 다른 하나, 그다음 소프트웨어 그리기 (기본값)
-Vulkan. If the video card cannot use it: Direct3D 12, then software drawing	Vulkan. 그래픽 카드가 사용할 수 없으면 Direct3D 12, 그다음 소프트웨어 그리기
+Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default).	새 그래픽 카드에서는 Direct3D 12, 오래된 카드에서는 Vulkan. 그래픽 카드가 사용할 수 없으면 다른 하나, 그다음 소프트웨어 그리기 (기본값).
+Vulkan. If the video card cannot use it: Direct3D 12, then software drawing.	Vulkan. 그래픽 카드가 사용할 수 없으면 Direct3D 12, 그다음 소프트웨어 그리기.
 Graphics: Vulkan after a restart	그래픽: 다시 시작한 후 Vulkan
 Search upgrades	업그레이드 검색
 Search technologies	기술 검색
 &Show terrain outside of map boundaries	지도 경계 밖의 지형 표시(&S)
 Map layers: terrain outside of map boundaries shows	지도 레이어: 지도 경계 밖의 지형이 표시됩니다
 Map layers: terrain outside of map boundaries is hidden	지도 레이어: 지도 경계 밖의 지형이 숨겨집니다
-Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	지형은 지도 위에서만 편집할 수 있습니다. 지도 밖에 지형을 두려면 레이어에 칠한 다음 레이어를 밖으로 옮기세요 (지도 레이어 > 레이어 이동)
+Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer).	지형은 지도 위에서만 편집할 수 있습니다. 지도 밖에 지형을 두려면 레이어에 칠한 다음 레이어를 밖으로 옮기세요 (지도 레이어 > 레이어 이동).
 Simulate r&ush distance (experimental)	러시 거리 시뮬레이션(&U) (실험적)
 Rush distance	러시 거리
 Worker race	일꾼 종족
@@ -3294,18 +3296,18 @@ draw the dot image {image} at {where} for {player} with {unit}, {px} pixels apar
 Draws a dot image of the project (Assets > Dot images) with units: one unit for each dot. The dots go row by row from the location, the given pixels apart. Each unit gets the color of its dot, as in EUD Editor 3's dot painter. White dots are the background: they get no unit. After the drawing, the location is where it was before.	프로젝트의 점 이미지(에셋 > 점 이미지)를 유닛으로 그립니다. 점 하나에 유닛 하나입니다. 점은 로케이션에서부터 지정한 픽셀 간격으로 한 줄씩 놓입니다. 각 유닛은 EUD Editor 3의 점 그리기처럼 자기 점의 색을 받습니다. 흰 점은 배경이므로 유닛을 받지 않습니다. 그린 뒤 로케이션은 원래 자리로 돌아갑니다.
 It first removes all the units of this type that the player owns: use a unit type that is only for the drawing. Each dot is one unit: a picture of 30 x 30 dots makes 900 units, and a map has room for 1700 units.	먼저 플레이어가 가진 이 종류의 유닛을 모두 제거합니다. 그리기에만 쓰는 유닛 종류를 사용하세요. 점 하나가 유닛 하나이므로 30 x 30 점의 그림은 900 유닛이고, 맵에는 1700 유닛까지 들어갑니다.
 draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	Player 8에게 Terran Marine으로 Title에 점 이미지 "Logo" 그리기, 간격 8픽셀: 시작할 때 맵 로고를 보여 줍니다.
-Opacity of the selected layer in this view: what is under it shows through. The map does not change	이 보기에서 선택한 레이어의 불투명도: 아래에 있는 것이 비쳐 보입니다. 맵은 바뀌지 않습니다
+Opacity of the selected layer in this view: what is under it shows through. The map does not change.	이 보기에서 선택한 레이어의 불투명도: 아래에 있는 것이 비쳐 보입니다. 맵은 바뀌지 않습니다.
 Map layers (experimental)	지도 레이어 (실험적)
 Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n	지도 레이어는 실험적인 기능입니다. 맵의 사본을 보관하고, 작동하지 않는 것을 알려 주세요 (피드백 보내기).\n\n
 Duplicate linked	연결된 복제
 Unlink	연결 해제
-Linked duplicate: it follows the changes of the original. Move it with Move layer	연결된 복제: 원본의 변경을 따릅니다. 레이어 이동으로 옮기세요
+Linked duplicate: it follows the changes of the original. Move it with Move layer.	연결된 복제: 원본의 변경을 따릅니다. 레이어 이동으로 옮기세요.
 Unlinked: the layer is one of its own now	연결 해제됨: 이제 독립된 레이어입니다
 A linked duplicate follows its original: edit 	연결된 복제는 원본을 따릅니다. 편집할 곳: 
 the original	원본
 , or Unlink this layer (right-click it in Map layers)	, 또는 이 레이어의 연결을 해제하세요 (지도 레이어에서 오른쪽 클릭)
 Linked duplicate of 	연결된 복제 원본: 
-: it follows the original's changes. Edit the original, or Unlink this layer	: 원본의 변경을 따릅니다. 원본을 편집하거나 이 레이어의 연결을 해제하세요
+: it follows the original's changes. Edit the original, or Unlink this layer.	: 원본의 변경을 따릅니다. 원본을 편집하거나 이 레이어의 연결을 해제하세요.
 No room	자리 없음
 No room: the base has no room for its depot and workers.	자리 없음: 이 기지에는 본진 건물과 일꾼을 둘 자리가 없습니다.
 
@@ -3401,8 +3403,8 @@ Nothing more to search	더 검색할 것이 없음
 %.0f FPS  ·  %.0f MB	%.0f FPS  ·  %.0f MB
 %.0f MB	%.0f MB
 Copy as te&xt	텍스트로 복사(&X)
-Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	선택한 지형을 텍스트로 복사했습니다. 지형 모드에서 Ctrl+V를 누르면 브러시가 됩니다
-A doodad is on this tile. Doodad tiles have no variations	이 타일에 두대드가 있습니다. 두대드 타일에는 변형이 없습니다
+Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush.	선택한 지형을 텍스트로 복사했습니다. 지형 모드에서 Ctrl+V를 누르면 브러시가 됩니다.
+A doodad is on this tile. Doodad tiles have no variations.	이 타일에 두대드가 있습니다. 두대드 타일에는 변형이 없습니다.
 This tile has no such variation	이 타일에는 그런 변형이 없습니다
 The tile uses variation %d of %d already	타일이 이미 변형 %d/%d을(를) 사용합니다
 Variation %d of %d on the tile (Ctrl+Z undoes it)	타일에 변형 %d/%d 적용 (Ctrl+Z로 취소)
@@ -3416,7 +3418,7 @@ Turned on Fun mode	재미 모드를 켰습니다
 Turned off Fun mode	재미 모드를 껐습니다
 Select at most %d x %d tiles to see their variations	변형을 보려면 타일을 최대 %d x %d개까지 선택하세요
 The selected tiles have no variations	선택한 타일에는 변형이 없습니다
-Variation %d. Click: put it on the selected tiles	변형 %d. 클릭: 선택한 타일에 적용
+Variation %d. Click: put it on the selected tiles.	변형 %d. 클릭: 선택한 타일에 적용.
 The selected tiles use this variation already	선택한 타일이 이미 이 변형을 사용합니다
 Variation %d on %d tiles (Ctrl+Z undoes it)	변형 %d을(를) 타일 %d개에 적용 (Ctrl+Z로 취소)
 Variation %d on the tile (Ctrl+Z undoes it)	타일에 변형 %d 적용 (Ctrl+Z로 취소)

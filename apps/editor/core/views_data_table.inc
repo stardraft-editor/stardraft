@@ -823,7 +823,7 @@ inline draw::Cursor DataTableView::cursor(draw::Point pt) {
 inline std::wstring DataTableView::tip(draw::Point pt) {
     if (importBtn_.contains(pt)) return L"Import the values of a CSV file into this .dat file. The \"id\" column gives the entries. The first row gives the columns.";
     if (exportBtn_.contains(pt)) return L"Export the rows and the columns that show as a CSV file";
-    if (columnsBtn_.contains(pt)) return L"Select the columns that show. A right click on a column's header can hide it.";
+    if (columnsBtn_.contains(pt)) return L"Select the columns that show. A right-click on a column's header can hide it.";
     if (changedBtn_.contains(pt)) return L"Show only the columns that have a value that is not the game's";
     const Hit hit = hitAt(pt);
     const DatTable* t = host_.table();
@@ -1398,7 +1398,7 @@ inline void DataTableView::pickColumns(draw::Point pt) {
             if (const DatTable* table = host_.table())
                 for (const DataTableColumn& col : all)
                     if (narrow(dataColumnKey(sch, col)) == value && !dataColumnChanged(*table, col))
-                        what += L". It has no changed values: it does not show while Changed is on";
+                        what += L". It has no changed values: it does not show while Changed is on.";
         host_.status(what);
         refresh();
         if (on && value != "\x01all" && value.rfind(kListPickGroup, 0) != 0)  // a column that shows: at the right end, scrolled to (it may be past the edge)

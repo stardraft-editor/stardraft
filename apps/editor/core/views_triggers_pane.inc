@@ -1147,7 +1147,7 @@ private:
             // On the row under the mouse, or selected: on/off, duplicate, delete.
             if ((on || trigSameBlock(gTP.hoverRow, me)) && !gTP.dragging) {
                 const kitpaint::Ico glyphs[3] = {UiIcon::Power, UiIcon::Duplicate, UiIcon::Delete};
-                const wchar_t* tips[3] = {call.enabled ? L"Turn off" : L"Turn on", L"Duplicate", L"Delete"};
+                const wchar_t* tips[3] = {call.enabled ? L"Turn off" : L"Turn on", L"Duplicate", L"Delete (Del)"};
                 const kitpaint::Tone tones[3] = {kitpaint::Tone::Quiet, kitpaint::Tone::Normal, kitpaint::Tone::Danger};
                 const RECT line{head.left, head.top + padY - scale(2), head.right - scale(4), head.top + padY + scale(24)};
                 if (cond) {  // NOT: in a Not block, or out of it (a Not: lit)

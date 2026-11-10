@@ -345,7 +345,7 @@ void stampsCopySelectionText() {
     if (!stampOfSelection(s)) return;
     s.name = "Copied terrain";
     shellSetClipboardText(terrainStampText(s));
-    setMessage(L"Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush");
+    setMessage(L"Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush.");
 }
 
 // The list's menu: Import from clipboard (custom terrain copied as text). It goes to the folder of its tileset, under

@@ -148,8 +148,8 @@ void resourceZonesToggle(int k) {
     gResourceZones[k] = !gResourceZones[k];
     shellMenusChanged();
     appState().dirty = true;
-    static const wchar_t* const kOn[2] = {L"Invalid resource depot: the box of a town hall or a start location may not reach into the red areas",
-                                          L"Invalid resource node: the box of a resource may not reach into the orange areas"};
+    static const wchar_t* const kOn[2] = {L"Invalid resource depot: the box of a town hall or a start location must not reach into the red areas",
+                                          L"Invalid resource node: the box of a resource must not reach into the orange areas"};
     static const wchar_t* const kOff[2] = {L"Invalid resource depot is hidden", L"Invalid resource node is hidden"};
     setMessage(std::wstring(tr(gResourceZones[k] ? kOn[k] : kOff[k])));
 }

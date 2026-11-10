@@ -185,7 +185,7 @@ void tilesStampChosen() {
     for (uint16_t v : gTiles->stamp) n += v != 0xFFFF;
     tilesToBrush();
     setMessage(L"Brush: the " + std::to_wstring(gTiles->stampW) + L" x " + std::to_wstring(gTiles->stampH) + L" tiles you selected (" + std::to_wstring(n) +
-               L" tiles). Click to place them; drag to repeat them. Hold Shift to place them at random");
+               L" tiles). Click to place them; drag to repeat them. Hold Shift to place them at random.");
     appState().dirty = true;
 }
 
@@ -220,7 +220,7 @@ void tilesStampFromCopy() {
     gTiles->picked = gTiles->anchor = gTiles->chosen.back();
     tilesToBrush();
     setMessage(tr(L"Brush: the ") + std::to_wstring(w) + L" x " + std::to_wstring(h) + tr(L" tiles you copied (") + std::to_wstring(n) +
-               tr(L" tiles). Click to place them; drag to repeat them. Hold Shift to place them at random"));
+               tr(L" tiles). Click to place them; drag to repeat them. Hold Shift to place them at random."));
     appState().dirty = true;
     tilesPanelRepaint();
 }

@@ -10,7 +10,7 @@ int shellContextMenuAt(draw::View& from, draw::Point at, const std::vector<std::
 class LayersPanelView final : public draw::View {
 public:
     LayersPanelView() {
-        opacity_.setTip(L"Opacity of the selected layer in this view: what is under it shows through. The map does not change");
+        opacity_.setTip(L"Opacity of the selected layer in this view: what is under it shows through. The map does not change.");
         opacity_.onChange = [this](int v) {
             setMapLayersOpacity(gMapLayers.active, v);
             invalidate();
@@ -155,7 +155,7 @@ public:
         if (settingsRect().contains(p)) return L"Settings of the layers";
         for (const Row& rw : rows_)
             if (rw.r.contains(p)) {
-                if (eyeRect(rw.r.top).contains(p)) return L"Show or hide (Ctrl+Alt+H). With nothing showing, the map is black";
+                if (eyeRect(rw.r.top).contains(p)) return L"Show or hide (Ctrl+Alt+H). With nothing showing, the map is black.";
                 if (lockRect(rw.r.top).contains(p) &&
                     !(rw.index >= 0 && rw.index < int(gMapLayers.stack.layers.size()) && gMapLayers.stack.layers[size_t(rw.index)].linkedTo))
                     return L"Lock or unlock: a locked layer does not change (Ctrl+Alt+L)";
@@ -165,7 +165,7 @@ public:
                         for (const MapLayer& o : gMapLayers.stack.layers)
                             if (o.id == l.linkedTo)
                                 return std::wstring(tr(L"Linked duplicate of ")) + L"\"" + widen(o.name) + L"\"" +
-                                       tr(L": it follows the original's changes. Edit the original, or Unlink this layer");
+                                       tr(L": it follows the original's changes. Edit the original, or Unlink this layer.");
             }
         return {};
     }

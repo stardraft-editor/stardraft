@@ -195,7 +195,7 @@ bool confirmStartLocations() {
         if (r == 2) return false;
         if (noMore) prefs::setNumber(L"AskStartLocations", 0);  // (Program options > Saving maps turns it on again)
         if (r != 0) {  // Save anyway
-            if (noMore) setMessage(L"A save does not ask about missing start locations. To ask again: Program options > Saving maps");
+            if (noMore) setMessage(L"A save does not ask about missing start locations. To ask again: Program options > Saving maps.");
             return true;
         }
         int n = 0;
@@ -456,7 +456,7 @@ void registerMapCommands() {
         }
         setMessage(n ? L"Snapped " + std::to_wstring(n) + (n == 1 ? one : many) + L" to the grid"
                      : !why.empty() ? L"The doodads stay: " + widen(why)
-                                    : std::wstring(L"The selection is on the grid, or does not fit on it."));
+                                    : std::wstring(L"The selection is on the grid, or does not fit on it"));
         app.dirty = true;
     });
     {  // Edit > Arrange: the selected units (Editor::arrangeSelection), in stardraft::Arrange's order
@@ -473,8 +473,8 @@ void registerMapCommands() {
                 const bool spread = k == int(Arrange::SpreadH) || k == int(Arrange::SpreadV);
                 const int n = app.ed->arrangeSelection(Arrange(k));
                 setMessage(n ? L"Moved " + std::to_wstring(n) + (n == 1 ? L" unit" : L" units")
-                             : spread && app.ed->selection().size() < 3 ? std::wstring(L"Equal spaces: select 3 units or more.")
-                                                                        : std::wstring(L"The units are in their places, or do not fit there."));
+                             : spread && app.ed->selection().size() < 3 ? std::wstring(L"Equal spaces: select 3 units or more")
+                                                                        : std::wstring(L"The units are in their places, or do not fit there"));
                 app.dirty = true;
             });
     }

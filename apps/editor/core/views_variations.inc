@@ -239,7 +239,7 @@ struct VariationsView : draw::View {
         const int k = at(selectionPiece(), pt);
         if (k < 0) return {};
         wchar_t m[160];
-        std::swprintf(m, 160, shellTr(L"Variation %d. Click: put it on the selected tiles").c_str(), k + 1);
+        std::swprintf(m, 160, shellTr(L"Variation %d. Click: put it on the selected tiles.").c_str(), k + 1);
         return m;
     }
 };

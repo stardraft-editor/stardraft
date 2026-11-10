@@ -587,8 +587,8 @@ void shapeMouseDown(float wx, float wy, bool snap) {
     if (tool != TPolygon) app.drag = Drag::Shape;
     setMessage(tool == TBridge    ? L"Bridge: drag from the ground across the water to the ground on the other side"
                : tool == TRamp    ? (snap ? L"Ramp with Shift: paint over a ramp to make it the cliff again" : L"Ramp: paint along a cliff edge")
-               : tool == TLine    ? L"Line: release the button at the end of the line. Hold Shift to lock the angle"
-               : isBoxTool(tool)  ? L"Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape"
+               : tool == TLine    ? L"Line: release the button at the end of the line. Hold Shift to lock the angle."
+               : isBoxTool(tool)  ? L"Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape."
                : tool == TContour ? L"Contour: draw the shape, then release the button"
                                   : L"Polygon: click to add points. Double-click to close the polygon and fill it. Hold Shift to lock the angle. Esc stops the polygon.");
     shapeUpdate();

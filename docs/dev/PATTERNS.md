@@ -189,6 +189,20 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
   the New page (kept: they are dense rows that the kit's widgets cannot make yet; each has the kit's faces, hover,
   focus and tooltips through kitpaint).
 
+**Texts**
+
+- "Add a ..." and "New ...": an add row (the row with a plus at the end of a list) says "Add a trigger", "Add an
+  action"; a button that makes a thing with its own name or file says "New trigger", "New folder", "New script" (kept:
+  each is the pattern of its control).
+- "Open folder" and "Show in folder" are two commands (kept: the first opens the project's folder, the second shows
+  one file in its folder).
+- A file button says "Browse…"; in Import a project it says "Change…" when the field has a value (kept: the button's
+  name is its action).
+- The number field of the value pop-out is left-aligned (kept: it also takes an expression with variables, which is
+  text).
+- The Triggers and Briefing workspaces have no page title (kept: the heading of the left panel names the workspace;
+  the pages with a form or a table have the title: Map properties, Data, Assets).
+
 **Messages**
 
 - Direct msgbox::ask in two core views: the Custom isom terrain editor and the Ramp and bridge mapper (kept: mod

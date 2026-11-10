@@ -200,7 +200,7 @@ public:
 
         // Close.
         const int bw = scale(96), bh = scale(stardraft::kit::kButtonH), pad = scale(stardraft::kit::kDialogPad);
-        closeRc = {(w - bw) / 2, h - bh - pad, (w + bw) / 2, h - pad};
+        closeRc = {w - pad - bw, h - bh - pad, w - pad, h - pad};
         const Font of = c.setFont(smallText);
         kitpaint::drawButtonFace(c, closeRc, L"Close", kitpaint::Tone::Primary, hot == -2 ? kitpaint::ButtonState::Hot : kitpaint::ButtonState::Normal);
         c.setFont(of);

@@ -21,7 +21,10 @@ if hasattr(sys.stdout, "reconfigure"):
 
 # --- Extraction ----------------------------------------------------------------------------------
 
-SKIP_FILES = {"apps/editor/theme.inc"}
+# Not read: the theme's names; the mod tools (Terrain Builder, the ramp and bridge mapper), which use short technical
+# labels and not these rules; the kit's gallery (a page for developers).
+SKIP_FILES = {"apps/editor/theme.inc", "apps/editor/core/views_isom_rules.inc", "apps/editor/core/views_passages.inc",
+              "apps/editor/core/views_kit_gallery.inc"}
 # Parts of a file that users do not see (test drivers), between two lines: {file: (first line, line after)}.
 SKIP_MARKERS = {}
 LOG_CALLS = {"logLine", "log", "buildLogAppend", "OutputDebugStringW", "OutputDebugStringA", "printf", "fprintf",
@@ -58,6 +61,19 @@ def classify(stack, text, line_src):
             return "msgbox.title" if a == 2 else "button" if a >= 4 else "msgbox.text"
         if n == "setMessage":
             return "status"
+        # The portable core's calls (apps/editor/core, apps/kit).
+        if n == "menuItem" and a == 2:
+            return "nonui"  # the shortcut's name ("Alt+Up")
+        if n in ("menuItem", "addCommand", "item", "subMenu"):
+            return "menu"
+        if n == "shellAskYesNo":
+            return "msgbox.text" if a == 0 else "msgbox.title" if a == 1 else "button"
+        if n == "shellErrorBox":
+            return "msgbox.text"
+        if n == "ask":
+            return "msgbox.title" if a == 1 else "msgbox.text" if a == 2 else "button" if a == 3 else "other"
+        if n == "setPlaceholder":
+            return "cue"
         if n == "issue":
             return "checker"
         if n == "SendMessageW" and "EM_SETCUEBANNER" in snip:
@@ -223,8 +239,12 @@ def looks_ui(t):
 
 def extract(repo):
     out = []
+    # All the code that shows text: the shell (apps/editor), the portable core, the kit and the shared code.
     sources = ["apps/editor/main_sdl.cpp"] + sorted(
-        str(p.relative_to(repo)).replace("\\", "/") for p in (repo / "apps/editor").glob("*.inc"))
+        str(p.relative_to(repo)).replace("\\", "/")
+        for d, pats in (("apps/editor", ("*.inc",)), ("apps/editor/core", ("*.inc",)), ("apps/kit", ("*.h", "*.cpp")),
+                        ("apps/common", ("*.h", "*.cpp", "*.inc")))
+        for pat in pats for p in (repo / d).glob(pat))
     sources.append("src/triggers.cpp")
     for rel in sources:
         p = repo / rel
@@ -294,13 +314,14 @@ UK = r"\b(colour\w*|behaviour\w*|centre\w*|grey\w*|cancelled|cancelling|licence|
 FILLER = ["just", "successfully", "currently", "note that", "be able to", "basically", "very"]
 CONTRACTION = (r"(?i)\b\w+(n['’]t|['’](re|ll|ve|m|d))\b|\b(it|that|there|here|what|let|who|where)['’]s\b")
 SELF = r"\b([Ww]e|[Oo]urs?|us)\b|(^|[\s(])I\s+[a-z]"
-# Words from the Terms table. "picker" (the noun) and the Scenario menu ("Scenario >", "&Scenario") are not in it.
+# Words from the Terms table. "picker" (the noun), the Scenario menu ("Scenario >", "&Scenario"), the file name
+# scenario.chk and the Erase tool's name are not in it.
 TERMS = {
-    "scenario": r"\bscenarios?\b",
+    "scenario": r"\bscenarios?\b(?!\.chk)",
     "pick": r"(?i)\bpick(s|ed|ing)?\b",
     "choose": r"(?i)\b(choose|chooses|chose|chosen|choosing)\b",
     "compile": r"(?i)\bcompil(e|es|ed|ing|er|ation)\b",
-    "erase": r"(?i)\beras(e|es|ed|ing)\b",
+    "erase": r"(?i:\beras(es|ed|ing)\b)|\berase\b",
     "tech": r"\btech\b|^Tech$",
     "failed": r"(?i)\b(failed|fails to|fail to)\b",
     "player-n": r"(?<!the )(?<!this )(?<!that )(?<!each )\bplayer \d",

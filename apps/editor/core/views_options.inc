@@ -211,9 +211,9 @@ public:
         }
         for (int i = 0; i < 3; ++i) crashSeg_[i].onClick = [this, i] { host_.command(ID_CRASH_MODE + i); };
         gpuSeg_[0].setText(L"Automatic"),
-            gpuSeg_[0].setTip(L"Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)");
-        gpuSeg_[1].setText(L"Direct3D 12"), gpuSeg_[1].setTip(L"Direct3D 12. If the video card cannot use it: Vulkan, then software drawing");
-        gpuSeg_[2].setText(L"Vulkan"), gpuSeg_[2].setTip(L"Vulkan. If the video card cannot use it: Direct3D 12, then software drawing");
+            gpuSeg_[0].setTip(L"Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default).");
+        gpuSeg_[1].setText(L"Direct3D 12"), gpuSeg_[1].setTip(L"Direct3D 12. If the video card cannot use it: Vulkan, then software drawing.");
+        gpuSeg_[2].setText(L"Vulkan"), gpuSeg_[2].setTip(L"Vulkan. If the video card cannot use it: Direct3D 12, then software drawing.");
         gpuSeg_[3].setText(L"Software"), gpuSeg_[3].setTip(L"Software drawing (WARP): slow, but it does not use the video card");
         for (int i = 0; i < 4; ++i) gpuSeg_[i].onClick = [this, i] { host_.command(ID_GPU_DRIVER + kGpuValue[i]); };
         for (auto* b : allButtons()) add(*b, {0, 0, 0, 0}), b->setVisible(false);
@@ -279,6 +279,7 @@ public:
         for (int k = 0; k < 2; ++k) {
             limit_[k].setFilter([](wchar_t c) { return c >= L'0' && c <= L'9'; });
             limit_[k].setMaxLength(5);
+            limit_[k].setAlignRight(true);
             limit_[k].onEnter = [this, k] { commitLimit(k); };
             limit_[k].onFocusLost = [this, k] { commitLimit(k); };
             // Escape gives back the saved value (the window stays open): the typed number is not kept.
@@ -822,7 +823,6 @@ void OptionsView::paint(draw::Canvas& c) {
             label(k == 0 ? L"Standard maps" : L"EUD projects");
             const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(120)), fieldTop(y) + fieldH};
             place(limit_[k], box, true);
-            c.text({box.right + scale(6), y, box.right + scale(60), y + rowH}, L"units", kDim, draw::kMiddle);
             parts_[k == 0 ? "unitlimit.classic" : "unitlimit.eud"] = box;
             y += rowH;
         }
@@ -907,7 +907,7 @@ void OptionsView::paint(draw::Canvas& c) {
         y += rowH;
         note(fx, y - scale(4),
              !v.cmbwNext.empty() ? L"After a restart: " + v.cmbwNext
-             : v.cmbwOpen        ? std::wstring(L"The Prerelease or Release folder. A new folder is used after a restart")
+             : v.cmbwOpen        ? std::wstring(L"The Prerelease or Release folder. A new folder is used after a restart.")
                                  : std::wstring(L"The Prerelease or Release folder"));
         y += scale(20);
         // ISOM terrain rules override: a terrain rules file over the built-in rules (the maps opened from then on).

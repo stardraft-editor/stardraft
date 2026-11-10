@@ -224,7 +224,7 @@ int dataNameString(const std::string& dat, int e) {
 std::wstring dataCellLocked(const DatTable& t, const DataTableColumn& col, int e) {
     const std::string& dat = t.schema().name;
     if (col.kind == DataCellKind::Name)
-        return dataNameString(dat, e) ? L"" : dataIsMapTable(dat) ? L"Rename a unit in its form (a double click on its name opens it)."
+        return dataNameString(dat, e) ? L"" : dataIsMapTable(dat) ? L"Rename a unit in its form (a double-click on its name opens it)."
                                                                   : L"The name comes from the game's list. Change the Label value to change the text that the game shows.";
     const DatField* f = dataSchemaField(t.schema(), col.field);
     if (!f || !f->covers(e)) return L"This entry does not use this value.";

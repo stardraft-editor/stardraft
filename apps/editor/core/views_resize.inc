@@ -212,6 +212,7 @@ public:
         for (stardraft::kit::TextField* f : {&xField_, &yField_}) {
             f->setFilter([](wchar_t ch) { return (ch >= L'0' && ch <= L'9') || ch == L'-'; });
             f->setMaxLength(5);
+            f->setAlignRight(true);
             f->onFocusLost = [this] { syncFields(true); };
         }
         xField_.onChange = [this] { typed(true); };

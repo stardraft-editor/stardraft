@@ -2,6 +2,21 @@
 # The text is the first 120 characters of the string, as the tool prints it (Python repr). Line numbers are not part
 # of an entry, so an entry stays valid when the code moves.
 term:pick | src/data/trigger_blocks.inc | 'Picks a whole number in the range. The number is the same on the machine of each player.' | generated block docs; fix in research/data/trigger_blocks.json (the source of src/data/trigger_blocks.inc)
-word:enabled | apps/editor/sdl_briefing.inc | 'Skip tutorial enabled' | the briefing action name as StarEdit and the game show it (the SDL page's copy)
 dash | apps/editor/main_sdl.cpp | 'Amount   0–100' | the sample title of a snapshot (--dialog valuepop:number), not a UI text
 range | apps/editor/main_sdl.cpp | 'Amount   0–100' | the sample title of a snapshot (--dialog valuepop:number), not a UI text
+word:enable | apps/editor/core/data_pictures.inc | 'Enable' | the name of an iscript animation
+error-words | apps/editor/core/map_commands.inc | 'Invalid resource &depot' | the name of the view (Invalid resource depot, Invalid resource node), not an error text
+error-words | apps/editor/core/map_commands.inc | 'Invalid resource &node' | the name of the view (Invalid resource depot, Invalid resource node), not an error text
+term:erase | apps/editor/core/map_input.inc | 'Could not erase: the map has no isometric terrain data' | the verb of the Erase tool (the tool's name)
+term:erase | apps/editor/core/map_input.inc | 'Erased' | the verb of the Erase tool (the tool's name)
+term:erase | apps/editor/core/palette_tools.inc | "Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's si" | the verb of the Erase tool (the tool's name)
+last-stop | apps/editor/core/releases.inc | ').\n\nThe release before the update is in its place again' | a part of a text: the next part continues the sentence
+error-words | apps/editor/core/resource_zones.inc | 'Invalid resource depot: the box of a town hall or a start location must not reach into the red areas' | the name of the view (Invalid resource depot, Invalid resource node), not an error text
+error-words | apps/editor/core/resource_zones.inc | 'Invalid resource node: the box of a resource must not reach into the orange areas' | the name of the view (Invalid resource depot, Invalid resource node), not an error text
+error-words | apps/editor/core/resource_zones.inc | 'Invalid resource depot is hidden' | the name of the view (Invalid resource depot, Invalid resource node), not an error text
+error-words | apps/editor/core/resource_zones.inc | 'Invalid resource node is hidden' | the name of the view (Invalid resource depot, Invalid resource node), not an error text
+word:enabled | apps/editor/core/views_briefing.inc | 'Skip tutorial enabled' | the briefing action as StarEdit and the game show it
+last-stop | apps/editor/core/views_briefing.inc | '. Play' | a part of a text: the next part continues the sentence
+word:enable | apps/editor/core/views_briefing.inc | 'Enable Skip Tutorial button.' | the briefing action as StarEdit and the game show it
+word:enabled | apps/editor/core/views_map_strings.inc | 'Skip tutorial enabled' | the briefing action as StarEdit and the game show it
+full-stop | apps/editor/core/views_toolstrip.inc | 'Not available: no terrain is selected.' | the second sentence of a tooltip (the first is the tool's tip)

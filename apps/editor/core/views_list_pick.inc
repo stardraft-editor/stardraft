@@ -123,8 +123,8 @@ public:
         ok_.onClick = [this] { finish(true); };
         cancel_.setText(tr(L"Cancel"));
         cancel_.onClick = [this] { finish(false); };
-        add(cancel_, {0, 0, 0, 0});
         add(ok_, {0, 0, 0, 0});
+        add(cancel_, {0, 0, 0, 0});
     }
     // The multi-pick that acts at each click: `toggle` gets the row's value and its new check, and can change the checks
     // (rows that act on others). Its one button closes it (`doneText`); Esc and Enter close it too, as each click has
@@ -311,8 +311,10 @@ private:
         list_ = {scale(kListInset), listTop, w - scale(kListInset), h - scale(kListInset) - footerH()};
         if (multi_) {
             const int bw = scale(kButtonW), bh = scale(kButtonH), by = h - footerH() + (footerH() - bh) / 2 - scale(4);
-            cancel_.setFrame({w - pad - 2 * bw - scale(8), by, w - pad - bw - scale(8), by + bh});
-            ok_.setFrame({w - pad - bw, by, w - pad, by + bh});
+            // A live pick has one button: it is at the right edge.
+            const int okRight = toggle_ ? w - pad : w - pad - bw - scale(8);
+            ok_.setFrame({okRight - bw, by, okRight, by + bh});
+            cancel_.setFrame({w - pad - bw, by, w - pad, by + bh});
         }
         setSel(sel_);
         syncBar();

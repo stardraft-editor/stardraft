@@ -145,7 +145,7 @@ public:
                 kitpaint::Tone tone;
                 bool ok;
             };
-            const Spec specs[2] = {{L"Apply", kitpaint::Tone::Primary, true}, {L"Cancel", kitpaint::Tone::Normal, false}};
+            const Spec specs[2] = {{L"OK", kitpaint::Tone::Primary, true}, {L"Cancel", kitpaint::Tone::Normal, false}};
             int x = colRight;
             for (int k = 1; k >= 0; --k) {
                 const int w = kitpaint::buttonWidth(c, specs[k].text);

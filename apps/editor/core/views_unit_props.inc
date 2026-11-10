@@ -577,7 +577,7 @@ inline draw::Point unitPropsDialogSetup(stardraft::kit::Dialog& dlg, UnitPropsVi
     dlg.setContent(view);
     view.setDialog(&dlg);
     std::vector<stardraft::kit::DialogButton> buttons;
-    buttons.push_back({tr(L"Apply"), kUnitPropsOk, true, false, false, 0});
+    buttons.push_back({tr(L"OK"), kUnitPropsOk, true, false, false, 0});
     buttons.push_back({tr(L"Cancel"), kUnitPropsCancel, false, true, false, 0});
     dlg.setButtons(std::move(buttons));
     dlg.setInsets({kPad, 0, kPad, kPad, kButtonsGap, 8});  // the content from the top edge (it places the picture at kPad)

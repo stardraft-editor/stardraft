@@ -377,22 +377,32 @@ void FilesPage::paint(draw::Canvas& c) {
     const draw::Point hover = pointer_;
     rows_.clear();
     side_.clear();
-    int y = scale(12) - scroll_;
+    int y = -scroll_;
     auto over = [&](draw::Rect r) { return hovering && r.contains(hover); };
 
-    // The tabs: the sounds, and all the files of the map.
+    // The header, as the map pages' (views_map_pages.inc): the page's title; under it the tabs (the sounds, and all the
+    // files of the map), each with its icon.
     {
-        int tx = x0;
+        const int titleH = scale(56), tabH = scale(40), icon = scale(16);
+        const draw::Font of = c.setFont(c.font(kitpaint::titleFontDesc()));
+        c.text({x0, y, colRight, y + titleH}, L"Assets", kText, draw::kMiddle | draw::kEllipsis);
+        c.setFont(of);
+        y += titleH;
+        int tx = x0 - scale(12);
         const wchar_t* names[] = {L"Sounds", L"All files"};
+        const UiIcon icons[] = {UiIcon::Sound, UiIcon::Folder};
         for (int i = 0; i < 2; ++i) {
-            const int tw = c.measure(names[i]) + scale(24);
-            tabs_[i] = {tx, y, tx + tw, y + rowH};
-            c.text(tabs_[i], names[i], tab_ == i ? kAccent : over(tabs_[i]) ? kText : kDim, draw::kMiddle | draw::kCenter);
-            if (tab_ == i) c.fill({tabs_[i].left, tabs_[i].bottom - scale(2), tabs_[i].right, tabs_[i].bottom}, kAccent);
-            tx += tw;
+            tabs_[i] = {tx, y, tx + scale(14) + icon + scale(8) + c.measure(names[i]) + scale(14), y + tabH};
+            const bool on = tab_ == i, hot = over(tabs_[i]);
+            if (hot && !on) c.fill(tabs_[i], kRowHot);
+            if (on) c.fill({tabs_[i].left, tabs_[i].bottom - scale(2), tabs_[i].right, tabs_[i].bottom}, kAccent);
+            const draw::Color col = on ? kAccent : hot ? kText : kDim;
+            c.icon({tabs_[i].left + scale(14), tabs_[i].top, tabs_[i].left + scale(14) + icon, tabs_[i].bottom}, int(icons[i]), col, icon);
+            c.text({tabs_[i].left + scale(14) + icon + scale(8), tabs_[i].top, tabs_[i].right, tabs_[i].bottom}, names[i], col, draw::kMiddle);
+            tx = tabs_[i].right + scale(4);
         }
-        c.fill({x0, y + rowH, colRight, y + rowH + 1}, kBorder);
-        y += rowH + scale(10);
+        c.fill({0, y + tabH - 1, w - refsW, y + tabH}, kBorder);
+        y += tabH + scale(12);
     }
     if (tab_ == 1) {
         for (draw::View* v : std::initializer_list<draw::View*>{&search_, &mapSearch_, &importBtn_, &addMusicBtn_, &renameMusicBtn_, &addDotBtn_, &renameDotBtn_}) hide(*v);

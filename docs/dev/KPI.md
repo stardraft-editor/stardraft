@@ -63,6 +63,9 @@ settings of the computer that measures.
 - A count that must stay at zero (failed tests and snapshots, UI text violations, bare Search cues, broken links)
   has the target 0.
 - A KPI with `"target": null` is recorded only, until its target is set.
+- When a KPI's measurement changes, its target is the first number of the new measurement. UI strings missing in a
+  language: 147 became 1046 on 2026-11-10, because the lint now also reads `apps/editor/core`, `apps/kit` and
+  `apps/common`. The count is not only texts to translate: it has names of keys and paths too.
 
 ## A missed target at a release
 
@@ -94,7 +97,7 @@ go out with it, `targets.json`'s `"accepted"` names the KPI and the reason, for 
 | Video memory growth, 25 opens and closes (Vulkan) | ≤ 8 MB | 6.0 |
 | Snapshot cases that fail | ≤ 0 | 12 |
 | UI text rule violations | ≤ 0 | 0 |
-| UI strings missing in a language (most) | ≤ 147 | 147 |
+| UI strings missing in a language (most) | ≤ 1046 | 1046 |
 | Trigger block texts missing in a language (most) | ≤ 1103 | 1103 |
 | Symbols from a font in the code | ≤ 30 | 30 |
 | Search cues that do not name what they search | ≤ 0 | 0 |

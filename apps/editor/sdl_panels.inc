@@ -256,7 +256,7 @@ void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s, co
     const bool modFolder = folder == "Cosmonarchy" && modTab();  // (the mod's brushes: not a folder of the user's)
     if (own) {
         m.push_back(menuItem(kRename, L"Rename\x2026"));
-        m.push_back(menuItem(kDelete, L"Delete\x2026"));
+        m.push_back(menuItem(kDelete, L"Delete"));
         m.push_back(menuItem(kReveal, L"Show in folder"));
         m.push_back(menuSeparator());
     }

@@ -232,7 +232,7 @@ Carbot (cartooned) graphics	Графика Carbot (мультяшная)
 Grid: width, height, x offset, y offset (map pixels)	Сетка: ширина, высота, смещение по x, смещение по y (пиксели карты)
 Type the width and the height (and the offsets), for example 48, 48, 16, 0	Введите ширину и высоту (и смещения), например 48, 48, 16, 0
  pixels, offset 	 пикс., смещение 
- selected: drag to move, Delete removes, Ctrl+C copies	 выбрано: перетащите, чтобы переместить, Delete удаляет, Ctrl+C копирует
+ selected: drag to move, Del removes, Ctrl+C copies	 выбрано: перетащите, чтобы переместить, Delete удаляет, Ctrl+C копирует
 Placed 	Размещено 
  (moved to the nearest valid spot)	 (перемещено на ближайшее подходящее место)
 Cannot place here:	Здесь нельзя разместить:
@@ -1250,8 +1250,10 @@ Each terrain becomes the 	Каждый ландшафт станет ландш�
 The map keeps its size and tileset: 	Карта сохранит размер и тайлсет: 
 Set the map properties: 	Задайте свойства карты: 
 Set the map properties	Свойства карты
-&Yes	&Да
-&No	&Нет
+&Restart now	&Перезапустить сейчас
+&Open maps with StarDraft 2	&Открывать карты в StarDraft 2
+Do &not restart	&Не перезапускать
+Do &not change	&Не менять
 &Retry	&Повторить
 Make standard StarCraft maps.	Создавайте стандартные карты StarCraft.
 Make maps with your own units, weapons and game rules. Change the game's data, and make new triggers with blocks or with your own code.	Создавайте карты с собственными юнитами, оружием и правилами игры. Меняйте данные игры и создавайте новые триггеры из блоков или собственного кода.
@@ -2194,7 +2196,7 @@ Pathing shows the connected &areas	Проходимость: связанные 
 Check &pathing (nooks and crannies)	Проверить &проходимость (щели и закоулки)
 Search the pathing problems	Поиск проблем проходимости
 %d more problems are not in the list	Ещё %d проблем нет в списке
-A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile	На этом тайле есть декорация: исправление удалит её. Измените тайл в Местность > Тайл
+A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile.	На этом тайле есть декорация: исправление удалит её. Измените тайл в Местность > Тайл.
 Apply the fix: tile %d, %d gets no walkable minitile there	Исправить: в тайле %d, %d там не будет проходимых мини-тайлов
 Closed passages	Закрытые проходы
 Fix: change the tiles here so that the ground connects, or make it unwalkable	Исправление: измените здесь тайлы, чтобы земля соединилась, или сделайте её непроходимой
@@ -2212,9 +2214,9 @@ No pathing problems: %d regions, %d connected areas	Проблем проход�
 Passage that only small units fit through, at tile %d, %d	Проход, в который проходят только малые юниты, тайл %d, %d
 Pathing is hidden (View > Overlays)	Проходимость скрыта (Вид > Наложения)
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	Регион проходимости %d: тайлов %d, %ls; связанная область %d (регионов %d)
-Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map	Проходимость: проблем %d (регионов %d, связанных областей %d). Выберите одну, чтобы показать её на карте
-Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	Проходимость: у каждой связанной области (земли, по которой юниты могут пройти) свой цвет. Тёмное: здесь юниты не ходят
-Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	Проходимость: у каждого региона проходимости игры свой цвет. Тёмное: здесь юниты не ходят
+Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map.	Проходимость: проблем %d (регионов %d, связанных областей %d). Выберите одну, чтобы показать её на карте.
+Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.	Проходимость: у каждой связанной области (земли, по которой юниты могут пройти) свой цвет. Тёмное: здесь юниты не ходят.
+Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.	Проходимость: у каждого региона проходимости игры свой цвет. Тёмное: здесь юниты не ходят.
 Pathing: units cannot walk here	Проходимость: здесь юниты не ходят
 Pockets	Карманы
 Small pathing region of %d minitiles, at tile %d, %d	Малый регион проходимости из %d мини-тайлов, тайл %d, %d
@@ -2432,7 +2434,7 @@ No start location fits the map	Ни одна начальная позиция �
 Did not build the map	Карта не собрана
 Brush: the 	Кисть: 
  tiles you copied (	 тайлов (скопировано: 
- tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	 тайлов). Щёлкните, чтобы разместить; перетащите, чтобы повторить. Удерживайте Shift, чтобы разместить случайно.
+ tiles). Click to place them; drag to repeat them. Hold Shift to place them at random.	 тайлов). Щёлкните, чтобы разместить; перетащите, чтобы повторить. Удерживайте Shift, чтобы разместить случайно.
 %ls of Player %d	%ls игрока %d
 Creep shows	Слизь показана
 Creep is hidden (View > Layers shows it again)	Слизь скрыта (Вид > Слои снова её показывают)
@@ -2457,7 +2459,7 @@ Select the Cosmonarchy BW folder	Выберите папку Cosmonarchy BW
 That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	В этой папке нет данных Cosmonarchy BW (mpq\arr\units.datex).
 Set the Cosmonarchy folder	Папка Cosmonarchy задана
 The Prerelease or Release folder	Папка Prerelease или Release
-The Prerelease or Release folder. A new folder is used after a restart	Папка Prerelease или Release. Новая папка используется после перезапуска
+The Prerelease or Release folder. A new folder is used after a restart.	Папка Prerelease или Release. Новая папка используется после перезапуска.
 The CRIG commands have no problems	В командах CRIG нет проблем
 These CRIG commands in the trigger Comments have problems:	Эти команды CRIG в комментариях триггеров содержат проблемы:
 Experimental: results can differ from the game.	Экспериментально: результаты могут отличаться от игры.
@@ -2658,7 +2660,7 @@ The terrain is the same already	Местность уже такая же
 Painted the line	Нарисована линия
 Filled the contour	Залит контур
 Filled the polygon	Залит многоугольник
-Line: release the button at the end of the line. Hold Shift to lock the angle	Линия: отпустите кнопку в конце линии. Удерживайте Shift, чтобы зафиксировать угол
+Line: release the button at the end of the line. Hold Shift to lock the angle.	Линия: отпустите кнопку в конце линии. Удерживайте Shift, чтобы зафиксировать угол.
 Contour: draw the shape, then release the button	Контур: нарисуйте фигуру, затем отпустите кнопку
 Stopped the line	Линия остановлена
 Stopped the contour	Контур остановлен
@@ -2714,7 +2716,7 @@ Diamond: drag across the box it fits in. The release paints its edges, with the 
 Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.	Залитый ромб: перетащите через прямоугольник, в который он вписан. При отпускании он заливается. Удерживайте Shift для ромба в форме карты.
 Painted the diamond	Ромб нарисован
 Filled the diamond	Ромб залит
-Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	Отпустите кнопку в другом углу. Удерживайте Shift для квадрата, круга или ромба в форме карты
+Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape.	Отпустите кнопку в другом углу. Удерживайте Shift для квадрата, круга или ромба в форме карты.
 Describe the issue and what you expect instead.	Опишите проблему и что вы ожидаете вместо этого.
 Bridge	Мост
 Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.	Мост: протяните от земли через воду до земли на другой стороне. Длина моста равна ширине воды; Размер задаёт его ширину.
@@ -2771,7 +2773,7 @@ Graphics	Графика
 Software	Программно
 Direct3D 12	Direct3D 12
 Vulkan. If the video card cannot use it: Direct3D 12, then software drawing (default)	Vulkan. Если видеокарта не может его использовать: Direct3D 12, затем программная отрисовка (по умолчанию)
-Direct3D 12. If the video card cannot use it: Vulkan, then software drawing	Direct3D 12. Если видеокарта не может его использовать: Vulkan, затем программная отрисовка
+Direct3D 12. If the video card cannot use it: Vulkan, then software drawing.	Direct3D 12. Если видеокарта не может его использовать: Vulkan, затем программная отрисовка.
 Software drawing (WARP): slow, but it does not use the video card	Программная отрисовка (WARP): медленно, но без видеокарты
 In use	Используется
 The change applies after a restart	Изменение применяется после перезапуска
@@ -2788,9 +2790,9 @@ Nothing to turn: copy terrain (Ctrl+C), or select custom terrain or copied tiles
 Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	Вставка тайлов: щелкните, чтобы разместить их, и еще раз, чтобы разместить больше. R поворачивает, M отражает. Правый щелчок или Esc — стоп.
 Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Вставка рельефа: щелкните, чтобы разместить его, и еще раз, чтобы разместить больше. R поворачивает, M отражает. Правый щелчок или Esc — стоп.
 Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	Тайлы повернуты: рисунок каждого тайла не меняется, поэтому края и обрывы могут не совпасть
-Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit	Тайлы отражены сверху вниз: рисунок каждого тайла не меняется, поэтому края и обрывы могут не совпасть
-Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	Тайлы отражены слева направо: рисунок каждого тайла не меняется, поэтому края и обрывы могут не совпасть
-Moved the symmetry center. Double-click it to put it in the middle of the map	Центр симметрии перемещен. Дважды щелкните его, чтобы вернуть в середину карты
+Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs possibly do not fit	Тайлы отражены сверху вниз: рисунок каждого тайла не меняется, поэтому края и обрывы могут не совпасть
+Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs possibly do not fit	Тайлы отражены слева направо: рисунок каждого тайла не меняется, поэтому края и обрывы могут не совпасть
+Moved the symmetry center. Double-click it to put it in the middle of the map.	Центр симметрии перемещен. Дважды щелкните его, чтобы вернуть в середину карты.
 The symmetry center is in the middle of the map	Центр симметрии находится в середине карты
 Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.	Волшебная палочка: щелкните рельеф, чтобы выбрать все, что достижимо оттуда (изометрия: этот рельеф с его краями и обрывами; другие инструменты: соединенные тайлы этого рельефа). Shift+щелчок добавляет, Ctrl+щелчок убирает.
 Magic wand	Волшебная палочка
@@ -2841,7 +2843,7 @@ Import	Импортировать
 Next	Далее
 Could not import the project. %s	Не удалось импортировать проект. %s
 Imported the project %s	Проект %s импортирован
-Imported the project %s. What did not come over is in notes\\Import report.txt	Проект %s импортирован. То, что не перенесено, указано в notes\\Import report.txt
+Imported the project %s. What did not come over is in notes\\Import report.txt.	Проект %s импортирован. То, что не перенесено, указано в notes\\Import report.txt.
 1 text	1 текст
 %s texts	Текстов: %s
 1 set	1 набор
@@ -2983,7 +2985,7 @@ Add m&usic…	Добавить &музыку…
 Add do&t images…	Добавить &точечные изображения…
 Experimental	Экспериментально
 This import is experimental	Этот импорт экспериментальный
-The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, tell us.	Импорт не изменяет старый проект. Он только читает его. Перед использованием нового проекта проверьте его: части из сводки, сборку и проверку карты в игре. Если какая-то часть импортирована неправильно, сообщите нам.
+The import does not change the old project. It only reads it. Before you use the new project, examine it: the parts that the summary lists, a build, and a test of the map in the game. If a part is not imported correctly, report it.	Импорт не изменяет старый проект. Он только читает его. Перед использованием нового проекта проверьте его: части из сводки, сборку и проверку карты в игре. Если какая-то часть импортирована неправильно, сообщите нам.
 The import is experimental. Some parts can be imported incorrectly.	Импорт экспериментальный. Некоторые части могут быть импортированы неправильно.
 Report feedback…	Отправить отзыв…
  file	 файл
@@ -3004,7 +3006,7 @@ Report feedback…	Отправить отзыв…
 &New layer	&Новый слой
 &Select all layers	Выбрать &все слои
 , and more	 и другие
-. It has no changed values: it does not show while Changed is on	. Изменённых значений нет: пока включено «Изменено», он не показывается
+. It has no changed values: it does not show while Changed is on.	. Изменённых значений нет: пока включено «Изменено», он не показывается.
 . Shift adds. Ctrl removes.	. Shift добавляет. Ctrl убирает.
 . The map uses 	. Карта использует
 1 file of the archive has no name that can be read, or could not be read. A save leaves it out.	1 файл архива не имеет читаемого имени или его не удалось прочитать. При сохранении он пропускается.
@@ -3018,7 +3020,7 @@ A locked layer cannot be deleted	Заблокированный слой нел�
 A locked layer cannot be merged	Заблокированный слой нельзя слить
 Add files…	Добавить файлы…
 Add symmetry &anchor here	Добавить &якорь симметрии здесь
-Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it	Якорь симметрии добавлен. Инструмент «Выбор»: перетащите его, чтобы переместить, дважды щёлкните, чтобы удалить
+Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it.	Якорь симметрии добавлен. Инструмент «Выбор»: перетащите его, чтобы переместить, дважды щёлкните, чтобы удалить.
 All files	Все файлы
 All layers that show become one map, and the layer data stays out of it.	Все видимые слои становятся одной картой, а данные слоёв в неё не входят.
 All the files of the map: add, extract, replace, rename, remove, and what File > Export keeps	Все файлы карты: добавить, извлечь, заменить, переименовать, удалить, и что сохраняет Файл > Экспорт
@@ -3091,10 +3093,10 @@ Select a layer first	Сначала выберите слой
 Select another file: an export over the open map would remove its layers	Выберите другой файл: экспорт поверх открытой карты удалил бы её слои
 Select terrain first, with Select, the Lasso or the Magic wand	Сначала выберите рельеф с помощью «Выбора», «Лассо» или «Волшебной палочки»
 Selected all 	Выбраны все
-Show or hide (Ctrl+Alt+H). With nothing showing, the map is black	Показать или скрыть (Ctrl+Alt+H). Если ничего не показано, карта чёрная
+Show or hide (Ctrl+Alt+H). With nothing showing, the map is black.	Показать или скрыть (Ctrl+Alt+H). Если ничего не показано, карта чёрная.
 Sort by name	Сортировать по имени
 That belongs to a locked layer, or the active layer is locked: nothing changed	Это относится к заблокированному слою, или активный слой заблокирован: ничего не изменилось
-The Background does not move. Select a layer in the list	«Фон» не перемещается. Выберите слой в списке
+The Background does not move. Select a layer in the list.	«Фон» не перемещается. Выберите слой в списке.
 The Background is hidden: nothing changed	«Фон» скрыт: ничего не изменилось
 The game or StarDraft uses that name: select another name	Игра или StarDraft использует это имя: выберите другое имя
 The layer &above	Слой &выше
@@ -3111,7 +3113,7 @@ The map has no isometric terrain data: use Rectangle or Tile	В карте не�
 The map has no layers: nothing to select	В карте нет слоёв: выбирать нечего
 The map uses this file: without it, the exported map cannot play it	Карта использует этот файл: без него экспортированная карта не сможет его воспроизвести
 The map's files are still being read	Файлы карты ещё читаются
-The map's size or tileset changed: the layers are flattened. Undo brings them back	Размер или тайлсет карты изменился: слои сводятся в один. «Отменить» возвращает их
+The map's size or tileset changed: the layers are flattened. Undo brings them back.	Размер или тайлсет карты изменился: слои сводятся в один. «Отменить» возвращает их.
 The map's text names this file	Текст карты называет этот файл
 The map's tileset changed: the layers are flattened. Undo brings them back	Тайлсет карты изменился: слои сводятся в один. «Отменить» возвращает их
 Unlock	Разблокировать
@@ -3124,16 +3126,16 @@ Re&center this anchor	&Отцентровать этот якорь
 Recentered the symmetry anchor	Якорь симметрии отцентрован
 Add symmetry &anchor	Добавить &якорь симметрии
 Merged the symmetry anchors	Якоря симметрии объединены
-Moved the symmetry anchor. Double-click it to remove it	Якорь симметрии перемещен. Дважды щелкните его, чтобы удалить
+Moved the symmetry anchor. Double-click it to remove it.	Якорь симметрии перемещен. Дважды щелкните его, чтобы удалить.
 Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	Центр симметрии: перетащите, чтобы переместить; двойной щелчок — в середину; правый щелчок — еще
 Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	Якорь симметрии: перетащите, чтобы переместить; двойной щелчок — удалить; правый щелчок — еще
 Clear the terrain mas&k	Сбросить мас&ку ландшафта
 Do not &ask again	Больше не спр&ашивать
-A save does not ask about missing start locations. To ask again: Program options > Saving maps	При сохранении больше нет вопроса о недостающих стартовых точках. Чтобы вернуть: Параметры программы > Сохранение карт
+A save does not ask about missing start locations. To ask again: Program options > Saving maps.	При сохранении больше нет вопроса о недостающих стартовых точках. Чтобы вернуть: Параметры программы > Сохранение карт.
 D&rag objects to move them	Пе&ретаскивать объекты для перемещения
 A drag moves units, doodads, sprites and locations	Перетаскивание перемещает юниты, дудады, спрайты и локации
 A drag does not move units, doodads, sprites or locations	Перетаскивание не перемещает юниты, дудады, спрайты и локации
-A drag does not move objects. To move them: Options > Drag objects to move them	Перетаскивание не перемещает объекты. Чтобы перемещать: Параметры > Перетаскивать объекты для перемещения
+A drag does not move objects. To move them: Options > Drag objects to move them.	Перетаскивание не перемещает объекты. Чтобы перемещать: Параметры > Перетаскивать объекты для перемещения.
 Painting terrain	Рисование местности
 Detailed tiles	Детальные тайлы
 How often Isometric and Rectangle painting places a detailed tile. StarCraft: 5%.	Как часто изометрическое и прямоугольное рисование ставит детальный тайл. StarCraft: 5%.
@@ -3206,15 +3208,15 @@ Size: medium (Ctrl+wheel changes it)	Размер: средний (Ctrl+коле
 Size: large (Ctrl+wheel changes it)	Размер: большой (Ctrl+колесо меняет его)
 Serial 	Серийный номер 
 Exclude	Исключить
-Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default)	Direct3D 12 на новых видеокартах, Vulkan на старых. Если видеокарта не может его использовать: другой, затем программная отрисовка (по умолчанию)
-Vulkan. If the video card cannot use it: Direct3D 12, then software drawing	Vulkan. Если видеокарта не может его использовать: Direct3D 12, затем программная отрисовка
+Direct3D 12 on newer video cards, Vulkan on older ones. If the video card cannot use it: the other, then software drawing (default).	Direct3D 12 на новых видеокартах, Vulkan на старых. Если видеокарта не может его использовать: другой, затем программная отрисовка (по умолчанию).
+Vulkan. If the video card cannot use it: Direct3D 12, then software drawing.	Vulkan. Если видеокарта не может его использовать: Direct3D 12, затем программная отрисовка.
 Graphics: Vulkan after a restart	Графика: Vulkan после перезапуска
 Search upgrades	Поиск улучшений
 Search technologies	Поиск технологий
 &Show terrain outside of map boundaries	&Показывать местность за границами карты
 Map layers: terrain outside of map boundaries shows	Слои карты: местность за границами карты показана
 Map layers: terrain outside of map boundaries is hidden	Слои карты: местность за границами карты скрыта
-Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	Местность можно редактировать только на карте. Чтобы местность была за её пределами, нарисуйте её на слое, затем вынесите слой (Слои карты > Переместить слой)
+Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer).	Местность можно редактировать только на карте. Чтобы местность была за её пределами, нарисуйте её на слое, затем вынесите слой (Слои карты > Переместить слой).
 Simulate r&ush distance (experimental)	Моделировать расстояние &раша (экспериментально)
 Rush distance	Расстояние раша
 Worker race	Раса рабочего
@@ -3264,18 +3266,18 @@ draw the dot image {image} at {where} for {player} with {unit}, {px} pixels apar
 Draws a dot image of the project (Assets > Dot images) with units: one unit for each dot. The dots go row by row from the location, the given pixels apart. Each unit gets the color of its dot, as in EUD Editor 3's dot painter. White dots are the background: they get no unit. After the drawing, the location is where it was before.	Рисует точечное изображение проекта («Ресурсы» > «Точечные изображения») юнитами: один юнит на каждую точку. Точки идут ряд за рядом от локации, через заданное число пикселей. Каждый юнит получает цвет своей точки, как в рисовальщике точек EUD Editor 3. Белые точки — это фон: для них нет юнита. После рисования локация возвращается на прежнее место.
 It first removes all the units of this type that the player owns: use a unit type that is only for the drawing. Each dot is one unit: a picture of 30 x 30 dots makes 900 units, and a map has room for 1700 units.	Сначала удаляет все юниты этого типа, которыми владеет игрок: используйте тип юнита только для рисования. Каждая точка — один юнит: картинка из 30 x 30 точек — это 900 юнитов, а на карте место для 1700 юнитов.
 draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apart: show the map's logo at the start.	нарисовать точечное изображение "Logo" в Title для Player 8 с помощью Terran Marine, с промежутком 8 пикселей: показать логотип карты в начале.
-Opacity of the selected layer in this view: what is under it shows through. The map does not change	Непрозрачность выбранного слоя в этом виде: то, что под ним, видно сквозь него. Карта не меняется
+Opacity of the selected layer in this view: what is under it shows through. The map does not change.	Непрозрачность выбранного слоя в этом виде: то, что под ним, видно сквозь него. Карта не меняется.
 Map layers (experimental)	Слои карты (экспериментально)
 Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n	Слои карты — экспериментальная функция. Сохраните копию карты и сообщите о том, что не работает (Отправить отзыв).\n\n
 Duplicate linked	Дублировать со связью
 Unlink	Отвязать
-Linked duplicate: it follows the changes of the original. Move it with Move layer	Связанный дубликат: он повторяет изменения оригинала. Перемещайте его инструментом «Переместить слой»
+Linked duplicate: it follows the changes of the original. Move it with Move layer.	Связанный дубликат: он повторяет изменения оригинала. Перемещайте его инструментом «Переместить слой».
 Unlinked: the layer is one of its own now	Отвязан: теперь это отдельный слой
 A linked duplicate follows its original: edit 	Связанный дубликат повторяет оригинал: измените 
 the original	оригинал
 , or Unlink this layer (right-click it in Map layers)	 или отвяжите этот слой (щелчок правой кнопкой в «Слоях карты»)
 Linked duplicate of 	Связанный дубликат слоя 
-: it follows the original's changes. Edit the original, or Unlink this layer	: он повторяет изменения оригинала. Измените оригинал или отвяжите этот слой
+: it follows the original's changes. Edit the original, or Unlink this layer.	: он повторяет изменения оригинала. Измените оригинал или отвяжите этот слой.
 No room	Нет места
 No room: the base has no room for its depot and workers.	Нет места: у базы нет места для главного здания и рабочих.
 
@@ -3371,8 +3373,8 @@ Nothing more to search	Больше нечего искать
 %.0f FPS  ·  %.0f MB	%.0f FPS  ·  %.0f MB
 %.0f MB	%.0f MB
 Copy as te&xt	Копировать как &текст
-Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush	Выбранный рельеф скопирован как текст. Ctrl+V в режиме рельефа делает его кистью
-A doodad is on this tile. Doodad tiles have no variations	На этом тайле есть дудад. У тайлов дудадов нет вариантов
+Copied the selected terrain as text. Ctrl+V in Terrain mode makes it the Brush.	Выбранный рельеф скопирован как текст. Ctrl+V в режиме рельефа делает его кистью.
+A doodad is on this tile. Doodad tiles have no variations.	На этом тайле есть дудад. У тайлов дудадов нет вариантов.
 This tile has no such variation	У этого тайла нет такого варианта
 The tile uses variation %d of %d already	Тайл уже использует вариант %d из %d
 Variation %d of %d on the tile (Ctrl+Z undoes it)	Вариант %d из %d на тайле (Ctrl+Z отменяет)
@@ -3386,7 +3388,7 @@ Turned on Fun mode	Весёлый режим включён
 Turned off Fun mode	Весёлый режим выключен
 Select at most %d x %d tiles to see their variations	Выберите не больше %d x %d тайлов, чтобы увидеть их варианты
 The selected tiles have no variations	У выбранных тайлов нет вариантов
-Variation %d. Click: put it on the selected tiles	Вариант %d. Щелчок: поставить его на выбранные тайлы
+Variation %d. Click: put it on the selected tiles.	Вариант %d. Щелчок: поставить его на выбранные тайлы.
 The selected tiles use this variation already	Выбранные тайлы уже используют этот вариант
 Variation %d on %d tiles (Ctrl+Z undoes it)	Вариант %d на %d тайлах (Ctrl+Z отменяет)
 Variation %d on the tile (Ctrl+Z undoes it)	Вариант %d на тайле (Ctrl+Z отменяет)

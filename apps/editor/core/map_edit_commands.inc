@@ -201,7 +201,7 @@ void pasteMapCopy(AppState& app) {
         if (app.terrainRect ? !app.ed->hasTileClipboard() : !app.ed->hasTerrainClipboard()) {
             if (otherTileset)
                 return setMessage(L"The copied terrain is " + std::wstring(kTilesetNames[gTerrainCopy.era & 7]) +
-                                  L" terrain. You can paste it only in a map of that tileset");
+                                  L" terrain. You can paste it only in a map of that tileset.");
             if (!(app.terrainRect ? app.ed->hasTerrainClipboard() : app.ed->hasTileClipboard()))
                 return setMessage(L"Nothing copied: select terrain with the Select tool and press Ctrl+C");
             setTerrainRect(!app.terrainRect);
@@ -272,7 +272,7 @@ void copyMapSelection(AppState& app) {
             setTerrainKind(3);
             setTerrainSelTiles(tiles);  // (the selection stays: those tiles, in Rectangle)
             setMessage(L"Copied " + std::to_wstring(app.ed->tileClipboardWidth()) + L" x " + std::to_wstring(app.ed->tileClipboardHeight()) +
-                       L" tiles, in Rectangle: the selection has no whole isometric diamond. Ctrl+V pastes them");
+                       L" tiles, in Rectangle: the selection has no whole isometric diamond. Ctrl+V pastes them.");
         } else
             setMessage(L"Select an area with the Select tool first");
     } else if (app.mode == Mode::Doodads || app.mode == Mode::Sprites) {

@@ -274,7 +274,7 @@ inline draw::Point locPropsDialogSetup(stardraft::kit::Dialog& dlg, LocationProp
     using namespace locPropsLayout;
     dlg.setContent(view);
     std::vector<stardraft::kit::DialogButton> buttons;
-    buttons.push_back({tr(L"Apply"), kLocPropsOk, true, false, false, 0});
+    buttons.push_back({tr(L"OK"), kLocPropsOk, true, false, false, 0});
     buttons.push_back({tr(L"Cancel"), kLocPropsCancel, false, true, false, 0});
     dlg.setButtons(std::move(buttons));
     dlg.setAllow([&view](int r) { return r != kLocPropsOk || view.valid(); });

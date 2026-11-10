@@ -276,7 +276,7 @@ bool sdlOptionsCommand(int id) {
         // (the core message box, as the Windows program's MB_YESNO | MB_ICONQUESTION: Yes has the focus)
         if (gRoot && !gNoBoxes &&
             msgbox::ask(*gRoot, shellTr(L"Language"), shellTr(L"The new language shows after a restart. Restart now? Your open maps and projects open again."),
-                        {shellTr(L"&Yes"), shellTr(L"&No")}, msgbox::Icon::Question) == 0)
+                        {shellTr(L"&Restart now"), shellTr(L"Do &not restart")}, msgbox::Icon::Question) == 0)
             restartProgramSdl();
         else setMessage(L"The new language shows after a restart");
         break;

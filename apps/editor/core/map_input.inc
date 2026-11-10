@@ -156,7 +156,7 @@ void selectItemAt(AppState& app, std::vector<int>& sel, int hit, unsigned mods, 
         sel = {hit};
     }
     app.drag = move;
-    setMessage(app, std::to_wstring(sel.size()) + L" selected: drag to move, Delete removes, Ctrl+C copies");
+    setMessage(app, std::to_wstring(sel.size()) + L" selected: drag to move, Del removes, Ctrl+C copies");
 }
 
 // A held spray, as MS Paint's spray can: a click sprays once; while the button stays down it sprays again and again,
@@ -726,7 +726,7 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         // (Options > Drag objects to move them off: a press on an object selects it and a drag does not move it)
         const bool objectMove = app.drag == Drag::MoveUnits || app.drag == Drag::MoveDoodad || app.drag == Drag::MoveSprite || app.drag == Drag::LocMove;
         if (!objectMove || app.dragObjects) app.dragMoved = true;
-        else if (!std::exchange(gDragOffTold, true)) setMessage(app, L"A drag does not move objects. To move them: Options > Drag objects to move them");
+        else if (!std::exchange(gDragOffTold, true)) setMessage(app, L"A drag does not move objects. To move them: Options > Drag objects to move them.");
     }
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
@@ -930,8 +930,8 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
         app.drag = Drag::None;
         if (app.dragMoved && app.ed && app.ed->mergeSymmetryAnchors()) gSymmetryPressAt = {}, setMessage(app, L"Merged the symmetry anchors");
         else if (app.dragMoved)
-            gSymmetryPressAt = {}, setMessage(app, gSymmetryDragged > 0 ? L"Moved the symmetry anchor. Double-click it to remove it"
-                                                                         : L"Moved the symmetry center. Double-click it to put it in the middle of the map");
+            gSymmetryPressAt = {}, setMessage(app, gSymmetryDragged > 0 ? L"Moved the symmetry anchor. Double-click it to remove it."
+                                                                         : L"Moved the symmetry center. Double-click it to put it in the middle of the map.");
         gSymmetryHover = symmetryHandleIndex(app, sx, sy);  // (after a merge too: the next move keeps this message)
         app.dirty = true;
         return;
@@ -982,7 +982,7 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
             if (!add) ed.selectLocation(-1);
             for (int i = 0; i < ed.locationCount(); ++i)
                 if (i != kAnywhereLocation && ed.locationUsed(i) && !ed.locationSelected(i) && ed.locationRect(i).intersects(b)) ed.addLocationSelection(i);
-            setMessage(app, std::to_wstring(ed.selectedLocations().size()) + L" selected: drag to move, Delete removes, Ctrl+C copies");
+            setMessage(app, std::to_wstring(ed.selectedLocations().size()) + L" selected: drag to move, Del removes, Ctrl+C copies");
         } else {
             ed.selectRect({int(app.dragWX), int(app.dragWY), int(wx), int(wy)}, shift || (mods & draw::kCtrl));
         }
@@ -1158,7 +1158,7 @@ bool terrainEditBlockedAt(const AppState& app, float wx, float wy) {
     return wx < 0 || wy < 0 || wx >= app.ed->width() * 32.0f || wy >= app.ed->height() * 32.0f;
 }
 void terrainEditBlockedMessage() {
-    setMessage(L"Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)");
+    setMessage(L"Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer).");
 }
 
 stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
@@ -1325,9 +1325,9 @@ void mapTurnOrMirror(AppState& app, int turn, bool upDown) {
         tilesStampTurned(turn, upDown);
     }
     if (what != 1)
-        setMessage(app, turn     ? L"Turned the tiles, experimental: each tile's picture stays as it is, so edges and cliffs may not fit"
-                        : upDown ? L"Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit"
-                                 : L"Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit");
+        setMessage(app, turn     ? L"Turned the tiles, experimental: each tile's picture stays as it is, so edges and cliffs possibly do not fit"
+                        : upDown ? L"Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs possibly do not fit"
+                                 : L"Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs possibly do not fit");
     app.dirty = true;
 }
 void mapTurnPaste(AppState& app, bool back) { mapTurnOrMirror(app, back ? -1 : 1, false); }

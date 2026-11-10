@@ -210,7 +210,7 @@ static void layersFlattenForResize(Editor& ed) {
     ed.amendLastStep({}, {kLayersFile, kLayersBaseFile});
     s.active = -1;
     layersRead(ed);
-    setMessage(L"The map's size or tileset changed: the layers are flattened. Undo brings them back");
+    setMessage(L"The map's size or tileset changed: the layers are flattened. Undo brings them back.");
 }
 
 // What an edit on a linked duplicate says: edit its original, or unlink it.
@@ -817,7 +817,7 @@ void mapLayersDuplicateLinked(int row) {
         s.stack.layers.insert(s.stack.layers.begin() + row + 1, std::move(copy));
         s.active = row + 1, s.picked = {row + 1};
         s.opacity.erase(s.stack.layers[size_t(row + 1)].id);
-        setMessage(L"Linked duplicate: it follows the changes of the original. Move it with Move layer");
+        setMessage(L"Linked duplicate: it follows the changes of the original. Move it with Move layer.");
         return true;  // (layersEdit makes the map again: its contents come from the original then)
     });
 }
@@ -1122,7 +1122,7 @@ void mapLayersMoveDown(AppState& app, float wx, float wy) {
         if (r >= 0 && r < int(s.stack.layers.size()) && !s.stack.layers[size_t(r)].locked) s.moveFrom[r] = s.stack.layers[size_t(r)];
     if (s.moveFrom.empty() && s.on && s.active >= 0 && s.active < int(s.stack.layers.size()) && !s.stack.layers[size_t(s.active)].locked)
         s.moveFrom[s.active] = s.stack.layers[size_t(s.active)];
-    if (s.moveFrom.empty()) return setMessage(s.active >= 0 ? L"The layer is locked" : L"The Background does not move. Select a layer in the list");
+    if (s.moveFrom.empty()) return setMessage(s.active >= 0 ? L"The layer is locked" : L"The Background does not move. Select a layer in the list.");
     app.drag = Drag::LayerTool;
     app.selDoodads.clear(), app.selSprites.clear(), app.ed->clearSelection();  // (the lists change in the drag)
     app.ed->beginLayerEdit();

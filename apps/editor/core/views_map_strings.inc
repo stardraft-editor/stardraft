@@ -469,7 +469,7 @@ private:
         const Editor* ed = editor();
         // (more than STR holds: the table is STRx now, which StarCraft 1.16 and StarEdit do not open; Undo takes it back)
         if (ed && !wasExtended_ && ed->strings().extended())
-            setMessage(message + L". The strings are more than 65535 bytes: the map keeps them in STRx (StarCraft: Remastered only)");
+            setMessage(message + L". The strings are more than 65535 bytes: the map keeps them in STRx (StarCraft: Remastered only).");
         else
             setMessage(message);
         wasExtended_ = ed && ed->strings().extended();

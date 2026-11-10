@@ -164,10 +164,9 @@ CASES += [
     ("dialog-options-tab-appearance", ["--dialog", "options:1", "--size", "720x480"], ""),
     ("dialog-options-tab-keyboard", ["--dialog", "options:2", "--size", "720x480"], ""),
     ("dialog-options-tab-map", ["--dialog", "options:3", "--size", "720x480"], ""),
-    ("dialog-options-tab-simulation", ["--dialog", "options:4", "--size", "720x480"], ""),
-    ("dialog-options-tab-plugins", ["--dialog", "options:5", "--size", "720x480"], ""),
-    ("dialog-options-tab-folders", ["--dialog", "options:6", "--size", "720x480", "--theme", "light"], ""),
-    ("dialog-options-tab-updates", ["--dialog", "options:7", "--size", "720x480"], ""),
+    ("dialog-options-tab-plugins", ["--dialog", "options:4", "--size", "720x480"], ""),
+    ("dialog-options-tab-folders", ["--dialog", "options:5", "--size", "720x480", "--theme", "light"], ""),
+    ("dialog-options-tab-updates", ["--dialog", "options:6", "--size", "720x480"], ""),
     # What the program sets up for the system (--check, sdl_dist.inc). bundle: on macOS the app's document types,
     # exported types, Quick Look extensions and signatures (elsewhere "not macOS"). preview: the map's Quick Look
     # picture (every system), its terrain the same as the minimap's. spotlight: on macOS the map's Spotlight entry,
