@@ -210,20 +210,14 @@ inline render::Scene mapImageScene(const MapImageOptions& o, float x, float y, f
         for (float gy = std::ceil((y0 - oy) / gh) * gh + oy; gy <= y1; gy += gh) s.rects.push_back({x0, gy, x1, gy + t, 0xFFFFFF30u, true});
     }
     // The doodads' overlays go with the doodads, the other map sprites with the sprites (as View > Modes).
-    std::set<std::tuple<uint16_t, uint16_t, uint16_t>> overlays;
+    std::set<std::tuple<uint16_t, uint16_t, uint32_t>> overlays;
     for (const Doodad& dd : ed.doodads())
-        if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlaySprite});
+        if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlayKey()});
     for (const MapSprite& m : ed.sprites()) {
-        const bool overlay = (m.flags & SpriteFlag::DrawAsSprite) && overlays.count({m.x, m.y, m.id});
+        const bool overlay = overlays.count({m.x, m.y, mapSpriteKey(m)}) != 0;
         if (overlay ? !o.doodads : !o.sprites) continue;
         render::SpriteDraw d;
-        if (m.flags & SpriteFlag::DrawAsSprite) {
-            d.image = sp.imageForSprite(m.id);
-            d.frame = sp.script(d.image).startFrameOn(ed.era());
-        } else {
-            d.image = sp.imageFor(m.id);
-            d.frame = sp.defaultFrame(m.id, d.image, d.flip);
-        }
+        d.image = sp.mapSpriteImage(m.id, !(m.flags & SpriteFlag::DrawAsSprite), ed.era(), d.frame, d.flip);
         d.x = m.x, d.y = m.y;
         d.owner = uint8_t(std::min<int>(m.owner, 11));
         addImage(s, d);

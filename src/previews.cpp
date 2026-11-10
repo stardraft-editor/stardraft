@@ -115,14 +115,19 @@ Sprite doodadPicture(const DoodadType& d, const Tileset& ts, UnitSprites& sprite
     Sprite s = tilesPicture(ts, w, h, tiles, hd);
     // The overlay sprite sits at the doodad's center (SD art; scaled up for HD tiles).
     if (d.overlaySprite) {
-        const int image = sprites.imageForSprite(d.overlaySprite);
+        // (a unit for the doors and the traps; mirrored when its Init does that)
+        const int image = d.overlayUnit ? sprites.imageFor(d.overlaySprite) : sprites.imageForSprite(d.overlaySprite);
+        bool flip = false;
+        int frame = 0;
+        if (image >= 0 && d.overlayUnit) frame = sprites.defaultFrame(d.overlaySprite, image, flip);
+        else if (image >= 0) frame = sprites.script(image).initFrame, flip = sprites.script(image).startFlipped;
         if (image >= 0 && !hd) {
-            sprites.drawImage(s, image, sprites.script(image).initFrame, false, 0, ts);
+            sprites.drawImage(s, image, frame, flip, 0, ts);
         } else if (image >= 0) {
             Sprite sd;
             sd.width = w * 32, sd.height = h * 32, sd.originX = sd.width / 2, sd.originY = sd.height / 2;
             sd.rgba.assign(size_t(sd.width) * sd.height * 4, 0);
-            sprites.drawImage(sd, image, sprites.script(image).initFrame, false, 0, ts);
+            sprites.drawImage(sd, image, frame, flip, 0, ts);
             const int k = s.width / std::max(1, sd.width);
             for (int y = 0; y < s.height; ++y)
                 for (int x = 0; x < s.width; ++x) {

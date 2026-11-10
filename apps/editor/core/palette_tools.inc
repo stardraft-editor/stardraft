@@ -177,12 +177,12 @@ std::wstring modeCountStatus(const AppState& app) {
     case Mode::Doodads: std::swprintf(buf, 128, tr(L"Doodads: %d"), int(ed.doodads().size())), text = buf; break;
     case Mode::Sprites: {
         // (a doodad's overlay: its overlay sprite at the doodad's place, as Editor::spriteIsDoodadOverlay finds it)
-        auto key = [](uint16_t id, uint16_t x, uint16_t y) { return uint64_t(id) << 32 | uint64_t(x) << 16 | y; };
+        auto key = [](uint32_t id, uint16_t x, uint16_t y) { return uint64_t(id) << 32 | uint64_t(x) << 16 | y; };
         std::set<uint64_t> overlays;
         for (const Doodad& d : ed.doodads())
-            if (const DoodadType* t = ed.doodadTypes().find(d.id)) overlays.insert(key(t->overlaySprite, d.x, d.y));
+            if (const DoodadType* t = ed.doodadTypes().find(d.id); t && t->overlaySprite) overlays.insert(key(t->overlayKey(), d.x, d.y));
         int n = 0;
-        for (const MapSprite& s : ed.sprites()) n += !overlays.count(key(s.id, s.x, s.y));
+        for (const MapSprite& s : ed.sprites()) n += !overlays.count(key(mapSpriteKey(s), s.x, s.y));
         std::swprintf(buf, 128, tr(L"Sprites: %d"), n), text = buf;
         break;
     }
@@ -437,7 +437,7 @@ bool spriteIsOverlay(const AppState& app, int i) {
     if (i < 0 || i >= int(ed.sprites().size())) return false;
     const MapSprite& s = ed.sprites()[size_t(i)];
     for (const Doodad& d : ed.doodads())
-        if (const DoodadType* t = ed.doodadTypes().find(d.id); t && t->overlaySprite == s.id && d.x == s.x && d.y == s.y) return true;
+        if (const DoodadType* t = ed.doodadTypes().find(d.id); t && t->overlayIs(s) && d.x == s.x && d.y == s.y) return true;
     return false;
 }
 

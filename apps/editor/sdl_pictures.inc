@@ -183,12 +183,14 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
             }
         }
         else if (what == Mode::Sprites) {
-            const int image = ed.unitSprites().imageForSprite(uint16_t(value));
+            int frame = 0;
+            bool flip = false;
+            const int image = ed.unitSprites().mapSpriteImage(uint16_t(value), false, ed.era(), frame, flip);
             const Grp* g = image >= 0 ? ed.unitSprites().grp(image) : nullptr;
-            if (g && g->width) {  // the sprite's first frame, in the tileset's palette (as the Win32 palette's)
+            if (g && g->width) {  // the sprite as on the map, in the tileset's palette (as the Win32 palette's)
                 art.width = g->width, art.height = g->height, art.originX = g->width / 2, art.originY = g->height / 2;
                 art.rgba.assign(size_t(art.width) * size_t(art.height) * 4, 0);
-                ed.unitSprites().drawImage(art, image, 0, false, 0, ed.tileset());
+                ed.unitSprites().drawImage(art, image, frame, flip, 0, ed.tileset());
             }
         } else if (const DoodadType* d = ed.doodadTypes().find(uint16_t(value))) art = doodadPicture(*d, ed.tileset(), ed.unitSprites(), hd);
         if (art.width) s = &art;

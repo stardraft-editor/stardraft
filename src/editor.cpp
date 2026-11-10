@@ -234,7 +234,7 @@ bool Editor::newMapFromTerrain(const std::filesystem::path& path, std::string& e
     for (const MapSprite& s : src.sprites_)
         for (const Doodad& d : src.doodads_)
             if (const DoodadType* t = src.doodadTypes_.find(d.id);
-                t && (s.flags & SpriteFlag::DrawAsSprite) && t->overlaySprite == s.id && d.x == s.x && d.y == s.y) {
+                t && t->overlayIs(s) && d.x == s.x && d.y == s.y) {
                 overlays.push_back(s);
                 break;
             }
@@ -1155,8 +1155,7 @@ void Editor::removeDoodads(const std::vector<int>& indices) {
             // Its overlay sprite: same sprite at the same spot.
             if (t->overlaySprite)
                 for (size_t s = 0; s < sprites_.size(); ++s)
-                    if ((sprites_[s].flags & SpriteFlag::DrawAsSprite) && sprites_[s].id == t->overlaySprite && sprites_[s].x == d.x &&
-                        sprites_[s].y == d.y) {
+                    if (t->overlayIs(sprites_[s]) && sprites_[s].x == d.x && sprites_[s].y == d.y) {
                         sprites_.erase(sprites_.begin() + long(s));
                         break;
                     }
@@ -1287,7 +1286,7 @@ bool Editor::spriteIsDoodadOverlay(int index) const {
     if (index < 0 || index >= int(sprites_.size())) return false;
     const MapSprite& s = sprites_[size_t(index)];
     for (const Doodad& d : doodads_)
-        if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlaySprite == s.id && d.x == s.x && d.y == s.y) return true;
+        if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlayIs(s) && d.x == s.x && d.y == s.y) return true;
     return false;
 }
 
@@ -1310,7 +1309,7 @@ int Editor::spriteAt(int x, int y, int radius) const {
         // A doodad's overlay goes with its doodad: not a sprite of its own here.
         bool overlay = false;
         for (const Doodad& d : doodads_)
-            if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlaySprite == s.id && d.x == s.x && d.y == s.y) overlay = true;
+            if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlayIs(s) && d.x == s.x && d.y == s.y) overlay = true;
         if (overlay) continue;
         const int dx = int(s.x) - x, dy = int(s.y) - y, d2 = dx * dx + dy * dy;
         if (d2 < bestD) bestD = d2, best = int(i);
@@ -2920,7 +2919,7 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
     for (const MapSprite& s : sprites_) {
         bool overlay = false;
         for (const Doodad& d : oldDoodads)
-            if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlaySprite == s.id && d.x == s.x && d.y == s.y) overlay = true;
+            if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlayIs(s) && d.x == s.x && d.y == s.y) overlay = true;
         if (!overlay) sprites.push_back(s);
     }
     const int maxX = width * 32, maxY = height * 32;
@@ -3680,10 +3679,13 @@ bool Editor::copyTerrain(const Chk& from, std::string& error) {
     Chk before = chk_;
     // The doodads' overlay sprites (THG2, drawn as sprites at their doodad's place) go with the doodads: this map's
     // out, the other map's in; the other sprites stay.
-    auto overlay = [](const MapSprite& s, const std::vector<Doodad>& dds) {
-        if (!(s.flags & SpriteFlag::DrawAsSprite)) return false;
+    // (anyTypes: the doodads are of a tileset that is not this map's, so a unit at a doodad's place is its overlay)
+    auto overlay = [&](const MapSprite& s, const std::vector<Doodad>& dds, bool anyTypes = false) {
         for (const Doodad& d : dds)
-            if (d.x == s.x && d.y == s.y) return true;
+            if (d.x == s.x && d.y == s.y) {
+                if ((s.flags & SpriteFlag::DrawAsSprite) || anyTypes) return true;
+                if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlayIs(s)) return true;  // a unit (a door, a trap)
+            }
         return false;
     };
     std::vector<MapSprite> sprites;
@@ -3720,7 +3722,7 @@ bool Editor::copyTerrain(const Chk& from, std::string& error) {
     for (const MapSprite& s : readSprites(chk_))
         if (!overlay(s, ours) || overlay(s, stay)) sprites.push_back(s);
     for (const MapSprite& s : readSprites(from))
-        if (overlay(s, theirs)) sprites.push_back(s);
+        if (overlay(s, theirs, !sameTileset)) sprites.push_back(s);
     writeSprites(chk_, sprites);
     const std::optional<ProtectedBefore> kept = sameTileset ? protectedBefore() : std::nullopt;
     copySections(chk_, from, {"ERA ", "MTXM", "TILE", "ISOM"});
@@ -4609,11 +4611,11 @@ bool Editor::composeLayers(const Bytes& base, LayerStack& stack, std::vector<std
     writeDoodads(chk_, doodadList);
     // The doodads' overlay sprites: at the doodad's place to the pixel, also for one that does not fit, so layerSprites finds them.
     std::vector<MapSprite> sprites;
-    std::map<std::tuple<uint16_t, uint16_t, uint16_t>, int> withoutOverlay;
+    std::map<std::tuple<uint32_t, uint16_t, uint16_t>, int> withoutOverlay;
     for (const Doodad& d : doodadList)
         if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlaySprite) {
-            if (d.noOverlay) ++withoutOverlay[{t->overlaySprite, d.x, d.y}];
-            else sprites.push_back(MapSprite{t->overlaySprite, d.x, d.y, d.owner, 0, SpriteFlag::DrawAsSprite});
+            if (d.noOverlay) ++withoutOverlay[{t->overlayKey(), d.x, d.y}];
+            else sprites.push_back(MapSprite{t->overlaySprite, d.x, d.y, d.owner, 0, t->overlayFlags()});
         }
     const auto addSprites = [&](MapLayer& l, bool show, bool background) {
         for (auto& o : l.sprites) {
@@ -4623,8 +4625,8 @@ bool Editor::composeLayers(const Bytes& base, LayerStack& stack, std::vector<std
             s.x = uint16_t(o.x), s.y = uint16_t(o.y);
             sprites.push_back(s);
             // (exactly the overlay of a doodad with none: the map reads it as that overlay, so it is not one of the layer's own there)
-            if (s.flags & SpriteFlag::DrawAsSprite)
-                if (const auto it = withoutOverlay.find({s.id, s.x, s.y}); it != withoutOverlay.end() && it->second > 0) --it->second, o.shown = false;
+            if (!withoutOverlay.empty())
+                if (const auto it = withoutOverlay.find({mapSpriteKey(s), s.x, s.y}); it != withoutOverlay.end() && it->second > 0) --it->second, o.shown = false;
         }
     };
     addSprites(stack.background, stack.background.visible, true);
@@ -4683,7 +4685,7 @@ std::vector<MapSprite> Editor::layerSprites() const {
     for (const Doodad& d : doodads_)
         if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlaySprite)
             for (size_t s = 0; s < out.size(); ++s)
-                if ((out[s].flags & SpriteFlag::DrawAsSprite) && out[s].id == t->overlaySprite && out[s].x == d.x && out[s].y == d.y) {
+                if (t->overlayIs(out[s]) && out[s].x == d.x && out[s].y == d.y) {
                     out.erase(out.begin() + long(s));
                     break;
                 }
@@ -4696,7 +4698,7 @@ std::vector<Doodad> Editor::layerDoodads() const {
     for (Doodad& d : out)
         if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlaySprite) {
             const auto it = std::find_if(left.begin(), left.end(), [&](const MapSprite& s) {
-                return (s.flags & SpriteFlag::DrawAsSprite) && s.id == t->overlaySprite && s.x == d.x && s.y == d.y;
+                return t->overlayIs(s) && s.x == d.x && s.y == d.y;
             });
             d.noOverlay = it == left.end();
             if (it != left.end()) left.erase(it);

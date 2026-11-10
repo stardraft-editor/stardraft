@@ -301,6 +301,7 @@ void UnitSprites::loadScripts(const GameData& data, const std::vector<int>& scri
                 case 0x01:  // playframtile
                     if (!waited) sc.startFrame = arg, sc.startFrameTile = true;
                     break;
+                case 0x17: if (anim == 0 && !waited) sc.startFlipped = d[q] != 0; break;  // setflipstate
                 case 0x05: waited = waited || d[q]; break;                      // wait (0 ticks: goes on)
                 case 0x06: waited = waited || d[q] || d[q + 1]; break;          // waitrand
                 case 0x08: case 0x0D: sc.over.push_back({arg, s8(2), s8(3)}); break;   // imgol, imgoluselo
@@ -702,11 +703,24 @@ int UnitSprites::subunitImage(uint16_t unitType) const {
     return imageFor(unitSubunit_[unitType]);
 }
 
+int UnitSprites::mapSpriteImage(uint16_t id, bool asUnit, int era, int& frame, bool& flip) const {
+    const int image = asUnit ? imageFor(id) : imageForSprite(id);
+    frame = 0, flip = false;
+    if (image < 0) return image;
+    if (asUnit) frame = defaultFrame(id, image, flip);
+    else if (size_t(image) < scripts_.size()) frame = scripts_[image].startFrameOn(era), flip = scripts_[image].startFlipped;
+    return image;
+}
+
 int UnitSprites::defaultFrame(uint16_t unitType, int image, bool& flip, int direction) const {
     flip = false;
     if (image < 0 || size_t(image) >= imageTurns_.size()) return 0;
-    // An image that does not turn: the frame its Init rests on (a sieged tank's base: deployed).
-    if (!imageTurns_[image]) return size_t(image) < scripts_.size() ? scripts_[image].initFrame : 0;
+    // An image that does not turn: the frame its Init rests on (a sieged tank's base: deployed), mirrored if Init does.
+    if (!imageTurns_[image]) {
+        if (size_t(image) >= scripts_.size()) return 0;
+        flip = scripts_[image].startFlipped;
+        return scripts_[image].initFrame;
+    }
     // Face down-right (direction 12 of 32), or `direction` when units.dat gives a random one, unless units.dat fixes a
     // direction; start from the facing set the image's
     // Init animation shows (facingSet: 17 frames, the left side mirrored, or 32).
@@ -1327,7 +1341,7 @@ const Sprite* UnitSprites::unitSprite(uint16_t unitType, uint8_t owner, const Ti
         const int dir = unitDirection_[unitType] < 32 ? unitDirection_[unitType] : 12;
         auto frameFor = [&](int img, bool& flip) {
             flip = false;
-            if (!imageTurns_[img]) return scripts_[img].initFrame;
+            if (!imageTurns_[img]) return flip = scripts_[img].startFlipped, scripts_[img].initFrame;
             const int set = facingSet(img);
             return scripts_[img].initFrame / set * set + facingIndex(img, dir, flip);
         };

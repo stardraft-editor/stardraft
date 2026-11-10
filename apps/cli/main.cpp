@@ -1125,7 +1125,7 @@ Image renderBase(Editor& ed, const RenderOptions& o, int scale) {
         s.width = g->width, s.height = g->height, s.originX = g->width / 2, s.originY = g->height / 2;
         s.rgba.assign(size_t(s.width) * s.height * 4, 0);
         const int fn = sp.drawFunction(image);
-        sp.drawImage(s, image, sp.script(image).startFrameOn(ed.era()), false, uint8_t(std::min<int>(m.owner, 11)), ts, 0, 0,
+        sp.drawImage(s, image, sp.script(image).startFrameOn(ed.era()), sp.script(image).startFlipped, uint8_t(std::min<int>(m.owner, 11)), ts, 0, 0,
                      fn == 10 ? UnitSprites::Blend::Shadow : fn == 9 ? UnitSprites::Blend::Glow : UnitSprites::Blend::Normal);
         blit(s, m.x, m.y);
     }

@@ -698,7 +698,7 @@ render::Scene buildScene() {
     // Doodad overlays and other map sprites (THG2). View > Modes: a doodad's overlay goes with the doodads, the rest with
     // the sprites.
     // (x, y, sprite) of the doodads' overlays: made again when the map changes
-    static std::set<std::tuple<uint16_t, uint16_t, uint16_t>> overlays;
+    static std::set<std::tuple<uint16_t, uint16_t, uint32_t>> overlays;
     static std::tuple<const Editor*, uint64_t, const DoodadTypes*, size_t> overlaysFor{};
     if (gLayers.doodads != gLayers.sprites) {
         const std::tuple<const Editor*, uint64_t, const DoodadTypes*, size_t> key{&ed, ed.revision(), &ed.doodadTypes(), ed.doodadTypes().all().size()};
@@ -706,24 +706,18 @@ render::Scene buildScene() {
             overlaysFor = key;
             overlays.clear();
             for (const Doodad& dd : ed.doodads())
-                if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlaySprite});
+                if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlayKey()});
         }
     }
     for (const MapSprite& m : ed.sprites()) {
         if (gLiveScene) break;
         if (!inView(m.x, m.y)) continue;
         if (!gLayers.doodads || !gLayers.sprites) {
-            const bool overlay = (m.flags & SpriteFlag::DrawAsSprite) && overlays.count({m.x, m.y, m.id});
+            const bool overlay = overlays.count({m.x, m.y, mapSpriteKey(m)}) != 0;
             if (overlay ? !gLayers.doodads : !gLayers.sprites) continue;
         }
         render::SpriteDraw d;
-        if (m.flags & SpriteFlag::DrawAsSprite) {
-            d.image = sp.imageForSprite(m.id);
-            d.frame = sp.script(d.image).startFrameOn(ed.era());  // as the game starts it (playframtile: per tileset)
-        } else {
-            d.image = sp.imageFor(m.id);
-            d.frame = sp.defaultFrame(m.id, d.image, d.flip);
-        }
+        d.image = sp.mapSpriteImage(m.id, !(m.flags & SpriteFlag::DrawAsSprite), ed.era(), d.frame, d.flip);  // as the game starts it
         d.x = m.x, d.y = m.y;
         d.owner = uint8_t(std::min<int>(m.owner, 11));
         addImage(s, d);
@@ -981,9 +975,8 @@ render::Scene buildScene() {
         // A sprite's picture where it would go: the picked one at the mouse, the copy being pasted, a dragged selection.
         auto ghost = [&](uint16_t id, float x, float y, uint8_t owner) {
             render::SpriteDraw d;
-            d.image = ed.unitSprites().imageForSprite(id);
+            d.image = ed.unitSprites().mapSpriteImage(id, false, ed.era(), d.frame, d.flip);
             if (d.image < 0) return;
-            d.frame = ed.unitSprites().script(d.image).startFrameOn(ed.era());
             d.x = x, d.y = y, d.owner = uint8_t(std::min<int>(owner, 11)), d.alpha = 0.6f, d.air = true;
             addImage(s, d);
         };
@@ -1072,7 +1065,7 @@ render::Scene buildScene() {
             }
             if (d->overlaySprite) {
                 render::SpriteDraw g;
-                g.image = sp.imageForSprite(d->overlaySprite);
+                g.image = sp.mapSpriteImage(d->overlaySprite, d->overlayUnit, ed.era(), g.frame, g.flip);
                 g.x = r.left + d->width * 16.0f, g.y = r.top + d->height * 16.0f;
                 g.alpha = 0.6f;
                 s.sprites.push_back(g);

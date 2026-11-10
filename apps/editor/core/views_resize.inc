@@ -41,12 +41,12 @@ inline size_t resizePlainSprites(const Editor& ed) {
         auto it = overlayOf.find(d.id);
         if (it == overlayOf.end()) {
             const DoodadType* t = ed.doodadTypes().find(d.id);
-            it = overlayOf.emplace(d.id, t ? int(t->overlaySprite) : -1).first;
+            it = overlayOf.emplace(d.id, t && t->overlaySprite ? int(t->overlayKey()) : -1).first;
         }
         if (it->second >= 0) overlays.emplace(int(d.x), int(d.y), it->second);
     }
     size_t n = 0;
-    for (const MapSprite& s : ed.sprites()) n += !overlays.count({int(s.x), int(s.y), int(s.id)});
+    for (const MapSprite& s : ed.sprites()) n += !overlays.count({int(s.x), int(s.y), int(mapSpriteKey(s))});
     return n;
 }
 

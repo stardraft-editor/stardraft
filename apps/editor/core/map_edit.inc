@@ -266,7 +266,7 @@ int mapSpriteAt(Editor& ed, int x, int y) {
         if (!r.contains(x, y)) continue;  // (first: the overlay test below goes through every doodad)
         bool overlay = false;
         for (const Doodad& d : ed.doodads())
-            if (const DoodadType* t = ed.doodadTypes().find(d.id); t && t->overlaySprite == m.id && d.x == m.x && d.y == m.y) overlay = true;
+            if (const DoodadType* t = ed.doodadTypes().find(d.id); t && t->overlayIs(m) && d.x == m.x && d.y == m.y) overlay = true;
         if (overlay) continue;
         const long long area = 1LL * (r.right - r.left) * (r.bottom - r.top);
         if (area < bestArea) best = int(i), bestArea = area;

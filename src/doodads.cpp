@@ -45,7 +45,8 @@ bool DoodadTypes::load(const GameData& data, const Tileset& ts, uint16_t era, st
         for (int e = 0; e < 4; ++e) k ^= uint64_t(tg.edges[size_t(e)]) * (0x9E3779B97F4A7C15ull >> (e * 7)) + uint64_t(e);
         ground->piece.push_back(k);
     }
-    // Doodad CV5 groups: index >= 1024, type 1. edges[0] = overlay sprite, edges[2] = group string,
+    // Doodad CV5 groups: index >= 1024, type 1. edges[0] = overlay sprite (a unit when the flags have 0x2000 and not
+    // 0x1000; the flags' high byte is groundHeight), edges[2] = group string,
     // extra[0] = doodad id, extra[1] = width, extra[2] = height. The first group of an id is row 0.
     std::map<uint16_t, size_t> index;
     for (size_t g = 1024; g < ts.groups.size(); ++g) {
@@ -57,6 +58,7 @@ bool DoodadTypes::load(const GameData& data, const Tileset& ts, uint16_t era, st
         t.id = id;
         t.firstGroup = uint16_t(g);
         t.overlaySprite = tg.edges[0];
+        t.overlayUnit = t.overlaySprite && (tg.groundHeight & 0x30) == 0x20;
         t.groupString = tg.edges[2];
         t.width = std::min<uint16_t>(tg.extra[1], 16);
         t.height = std::min<uint16_t>(tg.extra[2], 16);
@@ -206,7 +208,7 @@ bool placeDoodad(Chk& chk, const DoodadType& type, const Tileset& ts, int tileX,
         writeDoodads(chk, dds);
     }
     if (type.overlaySprite) {
-        const MapSprite sp{type.overlaySprite, d.x, d.y, owner, 0, SpriteFlag::DrawAsSprite};
+        const MapSprite sp{type.overlaySprite, d.x, d.y, owner, 0, type.overlayFlags()};
         if (Section* thg2 = onlySection(chk, "THG2"); thg2 && thg2->data.size() % 10 == 0) {
             appendU16(thg2->data, sp.id);
             appendU16(thg2->data, sp.x);

@@ -37,6 +37,8 @@ struct ImageScript {
     int startFrame = 0;
     bool startFrameTile = false;
     int startFrameOn(int era) const { return startFrame + (startFrameTile ? (era & 7) : 0); }
+    // Init mirrors the image before it shows (setflipstate: Installation's right doors and traps use the left ones' art).
+    bool startFlipped = false;
     std::vector<Overlay> under, over;
     // The direction (0 to 31) Init turns its sprite to (setfldirect: the Archon's energy faces 15), or -1.
     int direction = -1;
@@ -259,6 +261,9 @@ public:
     int imageFor(uint16_t unitType) const;
     // Image id of a sprites.dat sprite (THG2 doodad overlays), or -1.
     int imageForSprite(uint16_t sprite) const;
+    // A map sprite's (THG2) image as the game starts it, or -1: of a sprites.dat sprite, or of a unit (`asUnit`).
+    // Sets its frame (`era`: the tileset, for playframtile) and whether it is mirrored.
+    int mapSpriteImage(uint16_t id, bool asUnit, int era, int& frame, bool& flip) const;
     // The game's selection circle for a unit (sprites.dat): its image id and how far below the unit's
     // origin its center sits. False if the unit has none.
     bool selectionCircle(uint16_t unitType, int& image, int& offsetY) const;
