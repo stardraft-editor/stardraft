@@ -1698,7 +1698,6 @@ Select a text variable	Seleccione una variable de texto
 Select a text of the game	Seleccione un texto del juego
 The text has more than two {}. Use at most two: one for each value	El texto tiene más de dos {}. Use como máximo dos: uno para cada valor
 For each player accepts all players, Player 1 to Player 8, or a force	Para cada jugador acepta todos los jugadores, del Jugador 1 al Jugador 8, o una fuerza
-For each unit accepts one unit type or Any unit	Para cada unidad acepta un tipo de unidad o Cualquier unidad
 For each unit accepts the units of one player or of all players	Para cada unidad acepta las unidades de un jugador o de todos los jugadores
 Slow: the actions in it run for each unit (up to 1,700) each time. Keep them short	Lento: las acciones que contiene se ejecutan para cada unidad (hasta 1.700) cada vez. Manténgalas cortas
 For each new unit accepts the units of one player or of all players	Para cada unidad nueva acepta las unidades de un jugador o de todos los jugadores

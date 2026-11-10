@@ -1591,7 +1591,6 @@ Select a text variable	请选择文本变量
 Select a text of the game	请选择游戏中的文本
 The text has more than two {}. Use at most two: one for each value	文本中的 {} 超过两个。最多使用两个：每个值一个
 For each player accepts all players, Player 1 to Player 8, or a force	“对每个玩家”接受所有玩家、玩家 1 到玩家 8，或一个势力
-For each unit accepts one unit type or Any unit	“对每个单位”接受一种单位类型或“任意单位”
 For each unit accepts the units of one player or of all players	“对每个单位”接受一个玩家或所有玩家的单位
 Slow: the actions in it run for each unit (up to 1,700) each time. Keep them short	慢：其中的动作每次都会对每个单位（最多 1,700 个）执行。请保持简短
 For each new unit accepts the units of one player or of all players	“对每个新单位”接受一个玩家或所有玩家的单位

@@ -1591,7 +1591,6 @@ Select a text variable	Выберите текстовую переменную
 Select a text of the game	Выберите игровой текст
 The text has more than two {}. Use at most two: one for each value	В тексте больше двух {}. Используйте не более двух: по одному для каждого значения
 For each player accepts all players, Player 1 to Player 8, or a force	«Для каждого игрока» принимает всех игроков, игроков с 1 по 8 или команду
-For each unit accepts one unit type or Any unit	«Для каждого юнита» принимает один тип юнита или «Любой юнит»
 For each unit accepts the units of one player or of all players	«Для каждого юнита» принимает юниты одного игрока или всех игроков
 Slow: the actions in it run for each unit (up to 1,700) each time. Keep them short	Медленно: действия внутри выполняются для каждого юнита (до 1700) каждый раз. Держите их короткими
 For each new unit accepts the units of one player or of all players	«Для каждого нового юнита» принимает юниты одного игрока или всех игроков

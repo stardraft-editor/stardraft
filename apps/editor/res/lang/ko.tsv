@@ -1699,7 +1699,6 @@ Select a text variable	텍스트 변수를 선택하십시오
 Select a text of the game	게임의 텍스트를 선택하십시오
 The text has more than two {}. Use at most two: one for each value	텍스트에 {}가 두 개를 넘습니다. 값마다 하나씩, 최대 두 개를 사용하십시오
 For each player accepts all players, Player 1 to Player 8, or a force	각 플레이어는 모든 플레이어, 플레이어 1에서 플레이어 8, 또는 포스를 받습니다
-For each unit accepts one unit type or Any unit	각 유닛은 유닛 종류 하나 또는 모든 유닛을 받습니다
 For each unit accepts the units of one player or of all players	각 유닛은 한 플레이어 또는 모든 플레이어의 유닛을 받습니다
 Slow: the actions in it run for each unit (up to 1,700) each time. Keep them short	느림: 그 안의 동작이 매번 각 유닛(최대 1,700)에 대해 실행됩니다. 짧게 유지하십시오
 For each new unit accepts the units of one player or of all players	각 새 유닛은 한 플레이어 또는 모든 플레이어의 유닛을 받습니다
