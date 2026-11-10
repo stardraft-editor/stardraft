@@ -1369,7 +1369,12 @@ Json cmdImport(Session& s) {
     EudProject pr;
     ImportReport rep;
     std::string err;
-    if (!importProject(upath(s.args.positional[0]), upath(s.args.positional[1]), s.args.positional[2], s.data, pr, rep, err)) fail(err);
+    // (--map <file>: the map, when the one that the project names is not there)
+    ImportScan scan;
+    if (!scanImport(upath(s.args.positional[0]), s.data, scan, err)) fail(err);
+    ImportChoices choices = defaultChoices(scan);
+    if (!s.args.get("map").empty()) choices.map = upath(s.args.get("map"));
+    if (!importProject(scan, choices, upath(s.args.positional[1]), s.args.positional[2], s.data, pr, rep, err)) fail(err);
     Json in = jarr(), out = jarr();
     for (const std::string& l : rep.imported) in.items.push_back(jstr(l));
     for (const std::string& l : rep.notImported) out.items.push_back(jstr(l));
@@ -1732,6 +1737,7 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
                     [--area l,t,r,b | --center x,y [--size w,h]] [--zoom z] [--size w,h]
                     [--grid px] [--locations] [--no-units] [--no-sprites]
   stardraft-cli import <file> <folder> <name> an EUD Editor 2 (.e2s) or euddraft (.eds) project into a new project
+                    [--map <file>]             the map, when the one that the project names is not there
   stardraft-cli add-file <map> <name> <file> put a file (a sound: sound\\x.wav) into the map; --remove takes one out
   stardraft-cli check <map | project>       the checks of a save and a build (start locations, scripts, triggers)
   stardraft-cli save <map> [--to <path>] [--anyway]    write the map (.scm, .scx or .chk)
