@@ -610,6 +610,34 @@ struct MainView final : draw::View {
     bool pieShown() const { return pie.shown() || pickPie.shown(); }
     Mode pickPieMode = Mode::Units;  // the mode and the map of pickPie's items (another mode or map at the pick: no change)
     const void* pickPieMap = nullptr;
+    std::map<int, int> pickPieGround;  // a doodad's terrain (pickPieGroundOf), for the pie that is open
+    // The terrain a doodad is on: the one most of the tile groups it needs are of (a group between two terrains: half
+    // for each); a doodad that needs none: the terrain with the name of its group. 0: none.
+    int pickPieGroundOf(int value) {
+        if (gState.mode != Mode::Doodads || gState.mode != pickPieMode || gState.ed.get() != pickPieMap) return 0;
+        if (const auto it = pickPieGround.find(value); it != pickPieGround.end()) return it->second;
+        int& out = pickPieGround[value];
+        const Editor& ed = *gState.ed;
+        const DoodadType* d = ed.doodadTypes().find(uint16_t(value));
+        if (!d) return 0;
+        const auto& groups = solidGroupTerrains();
+        std::map<uint16_t, int> votes;
+        for (const uint16_t g : d->required)
+            if (g && g < groups.size()) {
+                const auto [a, b] = groups[g];
+                if (a) votes[a] += b && b != a ? 1 : 2;
+                if (b && b != a) votes[b] += 1;
+            }
+        int best = 0;
+        for (const auto& [t, n] : votes)
+            if (n > best) best = n, out = t;
+        if (out || !d->groupString) return out;
+        const std::string name = ed.unitTypes().statText(d->groupString - 1u);
+        if (const IsomTerrainTable* table = IsomTerrainTable::forEra(ed.era()))
+            for (uint16_t t = 1; t <= table->terrainCount() && !out; ++t)
+                if (table->isTerrain(t) && !name.empty() && ed.terrainName(t) == name) out = t;
+        return out;
+    }
 
     MainView() {
         initPanels();
@@ -667,6 +695,11 @@ struct MainView final : draw::View {
         pickPie.art = [this](draw::Canvas& c, int value, draw::Rect box) {
             if (gState.mode != pickPieMode || gState.ed.get() != pickPieMap) return;
             if (draw::Bitmap* b = paletteBitmap(gState.mode, value, gState.playerOwner)) drawPaletteArt(c, *b, box);
+        };
+        pickPie.groundOf = [this](int value) { return pickPieGroundOf(value); };
+        pickPie.groundPicture = [this](int terrain, int tiles) -> draw::Bitmap* {
+            if (gState.mode != pickPieMode || gState.ed.get() != pickPieMap) return nullptr;
+            return pieBitmap(uint16_t(terrain), tiles);
         };
         relayout();
     }
@@ -997,7 +1030,7 @@ struct MainView final : draw::View {
         pickPie.onCancel = [this] { pieClose(); };
         if (!map.shown() || pieShown() || !gState.ed || !gState.ed->isOpen()) return;
         pickPie.reset(pickPieTree(gState));
-        pickPieMode = gState.mode, pickPieMap = gState.ed.get();
+        pickPieMode = gState.mode, pickPieMap = gState.ed.get(), pickPieGround.clear();
         if (pickPie.root.kids.empty()) return;
         pickPie.setFrame(map.frame());
         pickPie.setVisible(true);

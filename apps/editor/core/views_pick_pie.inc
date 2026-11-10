@@ -55,6 +55,10 @@ struct PickPieView : draw::View {
     PickPieNode root;
     std::vector<int> path;
     std::function<void(draw::Canvas&, int value, draw::Rect box)> art;  // an item's picture in `box`
+    // The terrain an item is on (a doodad's; 0: none) and that terrain's picture, tiles x tiles tiles: the item's
+    // slice is filled with it, and a group's slice when most of its items are on one terrain.
+    std::function<int(int value)> groundOf;
+    std::function<draw::Bitmap*(int terrain, int tiles)> groundPicture;
     std::function<void()> onClick;   // a left click: the slice under it is picked
     std::function<void()> onCancel;  // another button, or the capture went away: the rings close with no change
 
@@ -211,17 +215,51 @@ struct PickPieView : draw::View {
         c.fill({0, 0, width(), height()}, draw::rgb(0, 0, 0), 150);  // (the map goes dark behind the rings)
         // A slice: the part of the ring ra..rb between the directions a0 and a1, with half a gap off each side (thin
         // four-corner pieces along the arc).
-        auto tile = [&](double a0, double a1, float ra, float rb, draw::Color col) {
-            ra += gap / 2, rb -= gap / 2;
-            const double i0 = a0 + gap / 2 / ra, i1 = a1 - gap / 2 / ra, o0 = a0 + gap / 2 / rb, o1 = a1 - gap / 2 / rb;
+        // `pic`: the slice is that picture's part there (one picture of 16 x 16 tiles over the rings, 32 px a tile or
+        // as large as the rings, so that the slices of one terrain go on from one to the next); `inset`: the slice is
+        // that much smaller on each side.
+        constexpr int groundTiles = 16;
+        float groundSpan = float(scale(32) * groundTiles);
+        auto tile = [&](double a0, double a1, float ra, float rb, draw::Color col, draw::Bitmap* pic = nullptr, float inset = 0) {
+            const float off = gap / 2 + inset, span = groundSpan;
+            ra += off, rb -= off;
+            if (ra <= 0) return;
+            const double i0 = a0 + off / ra, i1 = a1 - off / ra, o0 = a0 + off / rb, o1 = a1 - off / rb;
+            auto uv = [&](PointF p) { return PointF{0.5f + (p.x - cx) / span, 0.5f + (p.y - cy) / span}; };
             if (i1 <= i0 || o1 <= o0 || rb <= ra) return;
             const int parts = std::max(1, int(std::ceil((a1 - a0) / 0.06)));
             const double over = 0.004 / (a1 - a0);
             for (int j = 0; j < parts; ++j) {
                 const double t = double(j) / parts, u = double(j + 1) / parts + (j + 1 < parts ? over : 0);
                 const PointF q[4] = {at(i0 + (i1 - i0) * t, ra), at(o0 + (o1 - o0) * t, rb), at(o0 + (o1 - o0) * u, rb), at(i0 + (i1 - i0) * u, ra)};
-                c.smoothPolygon(q, 4, col);
+                if (!pic) {
+                    c.smoothPolygon(q, 4, col);
+                    continue;
+                }
+                const PointF uvs[4] = {uv(q[0]), uv(q[1]), uv(q[2]), uv(q[3])};
+                c.bitmapQuad(*pic, q, uvs);
             }
+        };
+        // A slice with its terrain's picture; the hot one has an accent rim round it.
+        auto groundTile = [&](double a0, double a1, float ra, float rb, bool on, draw::Bitmap* pic) {
+            tile(a0, a1, ra, rb, on ? kAccent : kCtlHot);
+            if (pic) tile(a0, a1, ra, rb, kCtlHot, pic, on ? float(scale(3)) : 0);
+        };
+        // A group's terrain: the one that 6 of 10 of its items, or more, are on (0: none, as Recent with mixed picks).
+        std::function<void(const PickPieNode&, std::map<int, int>&, int&)> countGround = [&](const PickPieNode& n, std::map<int, int>& by, int& all) {
+            for (const PickPieNode& k : n.kids) {
+                if (k.value < 0) countGround(k, by, all);
+                else if (++all; const int t = groundOf(k.value)) ++by[t];
+            }
+        };
+        auto groundOfGroup = [&](const PickPieNode& n) {
+            if (!groundOf) return 0;
+            std::map<int, int> by;
+            int all = 0;
+            countGround(n, by, all);
+            for (const auto& [t, count] : by)
+                if (count * 10 >= all * 6) return t;
+            return 0;
         };
         // The names' width for the outer rings of names: the widest name, 120 px at most.
         int widest = scale(40);
@@ -231,6 +269,7 @@ struct PickPieView : draw::View {
         };
         if (nameWidth_ <= 0) measureAll(root), nameWidth_ = std::min(widest, scale(120));
         const std::vector<Ring> rs = rings();
+        for (const Ring& r : rs) groundSpan = std::max(groundSpan, 2 * r.outer);
         const draw::Color kOnAccent = draw::rgb(255, 255, 255);
         float outermost = float(hole());
         double hotAngle = 0;
@@ -245,7 +284,10 @@ struct PickPieView : draw::View {
                 const int most = std::max(scale(36), int(2 * rm * std::sin(std::min(r.step, kTurn / 2) / 2)) - scale(8));
                 for (int k = 0; k < n; ++k) {
                     const PickPieNode& node = r.of->kids[size_t(k)];
-                    tile(a0 + k * r.step, a0 + (k + 1) * r.step, r.inner, r.outer, k == hot ? kAccentFill : kCtlHot);
+                    const int ground = groundOfGroup(node);
+                    draw::Bitmap* pic = ground && groundPicture ? groundPicture(ground, groundTiles) : nullptr;
+                    if (pic) groundTile(a0 + k * r.step, a0 + (k + 1) * r.step, r.inner, r.outer, k == hot, pic);
+                    else tile(a0 + k * r.step, a0 + (k + 1) * r.step, r.inner, r.outer, k == hot ? kAccentFill : kCtlHot);
                     const PointF q = at(sliceMid(r, k), rm);
                     // (a slice at the side has room for a longer name than its chord)
                     const double side = std::fabs(std::sin(sliceMid(r, k)));
@@ -261,6 +303,9 @@ struct PickPieView : draw::View {
                     const int w = std::min(std::max(c.measure(one), c.measure(two)) + 2 * pad, room), x = int(q.x) - w / 2;
                     const int y = int(q.y) - (two.empty() ? lineH : 2 * lineH) / 2;
                     const draw::Color ink = k == hot ? kOnAccent : node.kids.empty() ? kFaint : kText;  // (faint: Recent with no picks)
+                    if (pic)  // (on a terrain's picture: the name is on a plate)
+                        c.roundBox({x, y - scale(2), x + w, y + (two.empty() ? lineH : 2 * lineH) + scale(2)}, k == hot ? kAccentFill : kPanel, k == hot ? kAccentLine : kBorder,
+                                   float(scale(stardraft::kit::kRadius)));
                     c.text({x, y, x + w, y + lineH}, one, ink, draw::kCenter | draw::kMiddle | draw::kEllipsis);
                     if (!two.empty()) c.text({x, y + lineH, x + w, y + 2 * lineH}, two, ink, draw::kCenter | draw::kMiddle | draw::kEllipsis);
                 }
@@ -274,7 +319,10 @@ struct PickPieView : draw::View {
                     const double step = r.rowStep(j), a0 = r.mid - n * step / 2;
                     for (int k = 0; k < n; ++k) {
                         const bool on = first + k == hot;
-                        tile(a0 + k * step, a0 + (k + 1) * step, ra, rb, on ? kAccentFill : kCtlHot);
+                        const int ground = groundOf ? groundOf(r.of->kids[size_t(first + k)].value) : 0;
+                        draw::Bitmap* pic = ground && groundPicture ? groundPicture(ground, groundTiles) : nullptr;
+                        if (pic) groundTile(a0 + k * step, a0 + (k + 1) * step, ra, rb, on, pic);
+                        else tile(a0 + k * step, a0 + (k + 1) * step, ra, rb, on ? kAccentFill : kCtlHot);
                         const PointF q = at(a0 + (k + 0.5) * step, (ra + rb) / 2);
                         const int half = (cell() - scale(10)) / 2;
                         if (art) art(c, r.of->kids[size_t(first + k)].value, {int(q.x) - half, int(q.y) - half, int(q.x) + half, int(q.y) + half});
