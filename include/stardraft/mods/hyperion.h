@@ -31,6 +31,15 @@ struct HxmMap {
     std::string stardraft;
 };
 
+// The colours a player at index 8 and up can have (HXPL's colour byte): StarCraft's and Remastered's 0 to 22, then
+// Hyperion's own from 23 (65 in all). colorName: its name for a person ("Electric blue"); colorRgb: 0xRRGGBB (Hyperion's
+// own: near, as Hyperion does not publish them). defaultColor: the colour of player index p that names none (its own up
+// to 11; from 12, the next of Hyperion's).
+int colorCount();
+std::string colorName(int id);
+uint32_t colorRgb(int id);
+int defaultColor(int p);
+
 // The .hxm file's bytes (a zip) as a map. False with `error` when it does not read or does not compile.
 bool readHxm(std::span<const uint8_t> zip, HxmMap& out, std::string& error);
 // A .hxm file, or the unpacked form: a folder with map.json, layers\ and files\.

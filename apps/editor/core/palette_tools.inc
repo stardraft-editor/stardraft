@@ -418,10 +418,15 @@ void fillToolCombo(AppState& app) {
     tilesSync();
 }
 
-// The players that units can be placed for: 12, and on a Cosmonarchy BW map 249 (the mod reads start locations of players
-// 9 and up as the places of its resource areas, and its table has 249 of them: players 9 to 249).
+// The players that units can be placed for: 12, on a Cosmonarchy BW map 249 (the mod reads start locations of players
+// 9 and up as the places of its resource areas, and its table has 249 of them: players 9 to 249), and on a Hyperion map
+// its players (up to 65 slots: Editor::playerSlots).
 bool modTab();  // (core/cmbw.inc)
-int ownerChoices() { return modTab() ? 249 : 12; }
+int ownerChoices() {
+    if (modTab()) return 249;
+    const AppState& app = shellState();
+    return app.ed && app.ed->isOpen() ? app.ed->playerSlots() : 12;
+}
 
 void setPlayer(AppState& app, int i) {
     app.playerOwner = i;

@@ -95,20 +95,31 @@ const LocationLabel& locationLabel(int i, const std::string& raw, bool wrap, flo
 
 uint32_t playerRgba(int owner, uint8_t alpha) {
     AppState& app = shellState();
-    // Players 1-8 in the map's own colors (Map properties > Players and forces).
-    if (app.ed && app.ed->isOpen() && owner >= 0 && owner < 8) {
+    // Players 1-8 in the map's own colors (Map properties > Players and forces), and on a Hyperion map all its players
+    // (but the neutral player).
+    if (app.ed && app.ed->isOpen() && owner >= 0 && owner < Editor::kMaxPlayerSlots && owner != 11) {
         static const void* cachedFor = nullptr;
         static uint64_t cachedRev = ~0ull;
-        static uint32_t cached[8] = {};
+        static uint32_t cached[Editor::kMaxPlayerSlots] = {};
+        static int cachedCount = 0;
         if (cachedFor != app.ed.get() || cachedRev != uint64_t(app.ed->revision())) {
-            for (int p = 0; p < 8; ++p) cached[p] = app.ed->playerRgb(p);
+            cachedCount = app.ed->hyperionPlayers() ? app.ed->playerSlots() : 8;
+            for (int p = 0; p < cachedCount; ++p) cached[p] = app.ed->playerRgb(p);
             cachedFor = app.ed.get(), cachedRev = uint64_t(app.ed->revision());
         }
-        return cached[owner] << 8 | alpha;
+        if (owner < cachedCount) return cached[owner] << 8 | alpha;
     }
     static const uint32_t rgb[12] = {0xF40404, 0x0C48CC, 0x2CB494, 0x88409C, 0xF88C14, 0x703014,
                                      0xCCE0D0, 0xFCFC38, 0x088008, 0xFCFC7C, 0xECC4B0, 0x4068D4};
     return (rgb[std::clamp(owner, 0, 11)] << 8) | alpha;
+}
+
+// The owner a picture is drawn for (its team color, playerRgba): a Hyperion map's player as it is; past the 12 players
+// of other maps (a Cosmonarchy map's owners to 249), the neutral player's.
+uint8_t drawOwner(int owner) {
+    const AppState& app = shellState();
+    if (owner > 11 && app.ed && app.ed->isOpen() && app.ed->hyperionPlayers() && owner < app.ed->playerSlots()) return uint8_t(owner);
+    return uint8_t(std::min(owner, 11));
 }
 
 // One image plus the overlays its iscript puts underneath it (shadows).
@@ -293,7 +304,7 @@ void addUnitSprites(render::Scene& s, const Unit& u, float dx, float dy, float a
         d.frame = std::min(f, n - 1), d.flip = false;
     }
     d.x = u.x + dx, d.y = u.y + dy;
-    d.owner = uint8_t(std::min<int>(u.owner, 11));
+    d.owner = drawOwner(u.owner);
     d.alpha = alpha;
     d.air = t.is(UnitFlag::Flyer) && !t.is(UnitFlag::Building);
     d.tintRed = red;
@@ -719,7 +730,7 @@ render::Scene buildScene() {
         render::SpriteDraw d;
         d.image = sp.mapSpriteImage(m.id, !(m.flags & SpriteFlag::DrawAsSprite), ed.era(), d.frame, d.flip);  // as the game starts it
         d.x = m.x, d.y = m.y;
-        d.owner = uint8_t(std::min<int>(m.owner, 11));
+        d.owner = drawOwner(m.owner);
         addImage(s, d);
     }
     // Units (selected ones follow the cursor while being dragged).
@@ -977,7 +988,7 @@ render::Scene buildScene() {
             render::SpriteDraw d;
             d.image = ed.unitSprites().mapSpriteImage(id, false, ed.era(), d.frame, d.flip);
             if (d.image < 0) return;
-            d.x = x, d.y = y, d.owner = uint8_t(std::min<int>(owner, 11)), d.alpha = 0.6f, d.air = true;
+            d.x = x, d.y = y, d.owner = drawOwner(owner), d.alpha = 0.6f, d.air = true;
             addImage(s, d);
         };
         if (app.palette >= 0 && !app.pastingItems && !objectSprayOn() && !objectFillOn() && !objectEraseOn()) {

@@ -2134,6 +2134,39 @@ struct ZipCtx {
 
 }  // namespace
 
+namespace {
+// The colours' RGB: StarCraft's and Remastered's (0 to 22), then Hyperion's own (23 up), whose values Hyperion does not
+// publish: these are near the colours their names give.
+constexpr uint32_t kColorRgb[] = {
+    0xF40404, 0x0C48CC, 0x2CB494, 0x88409C, 0xF88C14, 0x703014, 0xCCE0D0, 0xFCFC38, 0x088008, 0xFCFC7C, 0xECC4B0,
+    0x4068D4, 0x74A47C, 0x7290B8, 0xF4F4A0, 0x00E4FC, 0xFFC4E4, 0x808000, 0xD2F53C, 0x000080, 0xF032E6, 0x808080,
+    0x3C3C3C,
+    0x3C78FF, 0x228B22, 0xFFF0C8, 0x87CEEB, 0xF0DC28, 0x1E9690, 0x800000, 0x6B8E23, 0x6495ED, 0xFFE640, 0xFAFAA0,
+    0x32C832, 0xFF8C28, 0xDC2828, 0xFFBF00, 0x3CB43C, 0xC83232, 0x98C8B0, 0xA8C8C8, 0xE6D232, 0x2850DC, 0xB784A7,
+    0x0A5A1E, 0x4B0082, 0xF09628, 0x3C64C8, 0xE67828, 0x8B0A0A, 0xDC8232, 0xDCC83C, 0x5078DC, 0xC86E28, 0x6E8C6E,
+    0xF0A050, 0xF0F0F0, 0xC88C00, 0x50508C, 0xC88C64, 0xB47850, 0x961414, 0xF0E650, 0xD2C846};
+static_assert(std::size(kColorRgb) == std::size(kHxmColors));
+}  // namespace
+
+int colorCount() { return int(std::size(kHxmColors)); }
+
+std::string colorName(int id) {
+    if (id < 0 || id >= colorCount()) return "Colour " + std::to_string(id);
+    std::string n = kHxmColors[id].psz;  // (the table is in id order)
+    for (char& ch : n)
+        if (ch == '_') ch = ' ';
+    if (n.size() > 3 && n.compare(n.size() - 3, 3, " hx") == 0) n.resize(n.size() - 3);  // (Hyperion's own of a name)
+    if (!n.empty()) n[0] = char(std::toupper(static_cast<unsigned char>(n[0])));
+    return n;
+}
+
+uint32_t colorRgb(int id) { return id >= 0 && id < colorCount() ? kColorRgb[id] : 0x808080; }
+
+int defaultColor(int p) {
+    if (p < 12) return p;
+    return 23 + (p - 12) % (colorCount() - 23);
+}
+
 bool isHxm(const fs::path& path) {
     std::string ext = utf8(path.extension());
     for (char& ch : ext) ch = char(std::tolower(static_cast<unsigned char>(ch)));

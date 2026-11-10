@@ -13,7 +13,8 @@ uint64_t dataTickMs() {
 // A player's color (0x00RRGGBB): the map's own for players 1 to 8, the game's for the rest.
 uint32_t dataTeamRgb(int owner) {
     const AppState& app = shellState();
-    if (app.ed && app.ed->isOpen() && owner >= 0 && owner < 8) return app.ed->playerRgb(owner);
+    if (app.ed && app.ed->isOpen() && owner >= 0 && owner != 11 && (owner < 8 || (app.ed->hyperionPlayers() && owner < app.ed->playerSlots())))
+        return app.ed->playerRgb(owner);  // (a Hyperion map: each of its players' own)
     static const uint32_t rgb[12] = {0xF40404, 0x0C48CC, 0x2CB494, 0x88409C, 0xF88C14, 0x703014,
                                      0xCCE0D0, 0xFCFC38, 0x088008, 0xFCFC7C, 0xECC4B0, 0x4068D4};
     return rgb[std::clamp(owner, 0, 11)];

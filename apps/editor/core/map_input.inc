@@ -245,7 +245,7 @@ bool pipette(AppState& app, float wx, float wy) {
     case Mode::Sprites:
         if (const int i = mapSpriteAt(ed, int(wx), int(wy)); i >= 0 && (ed.sprites()[size_t(i)].flags & SpriteFlag::DrawAsSprite)) {
             const MapSprite& m = ed.sprites()[size_t(i)];
-            if (m.owner < 12) setPlayer(app, m.owner);
+            if (m.owner < ownerChoices()) setPlayer(app, m.owner);
             pickUnit(app, m.id, false);
             return true;
         }

@@ -125,7 +125,7 @@ Editor::StepName nameOf(const Parts& before, const Parts& after, bool files, boo
     }
     if (changed("TRIG")) return {"Change the triggers", -1};
     if (changed("MBRF")) return {"Change the briefings", -1};
-    if (anyChanged({"OWNR", "IOWN", "SIDE", "FORC", "COLR", "CRGB"})) return {"Change the players and forces", -1};
+    if (anyChanged({"OWNR", "IOWN", "SIDE", "FORC", "COLR", "CRGB", "HXPL", "HXRG"})) return {"Change the players and forces", -1};
     if (anyChanged({"UNIS", "UNIx", "PUNI"})) return {"Change the unit settings", -1};
     if (anyChanged({"UPGS", "UPGx", "UPGR", "PUPx"})) return {"Change the upgrade settings", -1};
     if (anyChanged({"TECS", "TECx", "PTEC", "PTEx"})) return {"Change the technology settings", -1};

@@ -1,5 +1,6 @@
 // The Players and forces page's view (portable, core.inc): the twelve players (type and race; players 1-8 also force and
-// color: kit dropdowns, in which a typed number sets a byte that has no name) and the four forces (the name: a kit text field; four flags: kit check boxes), and under them what StarCraft
+// color: kit dropdowns, in which a typed number sets a byte that has no name; with the Hyperion plugin, every player but
+// the neutral one, and up to 64 players: Add a player, Remove the last player) and the four forces (the name: a kit text field; four flags: kit check boxes), and under them what StarCraft
 // needs to start the map (the problems, or that it can start). The values are the page's working copy (PlayersValues);
 // the program puts a change into the map (PlayersHost), and the page shows what the copy holds. It is the second part of
 // Map properties' page, under its fields (map_pages.inc), or the whole page of Players and forces.
@@ -60,9 +61,13 @@ int playerColorRow(const Editor::PlayerColor& c) {
 // The name of a byte that has no name in its list (its number shows at the right).
 const wchar_t* const kUnknownValue = L"Unknown";
 
+// Hyperion's colors (a player at index 8 and up with the Hyperion plugin: HXPL's numbers, hyperion::colorRgb).
+bool hyperionMode();  // (core/cmbw.inc)
+bool hyperionColors(int p) { return p >= 8 && p != 11 && hyperionMode(); }
+
 // The page's values: the working copy (the program's copy is a PlayersDialog, which holds these).
 struct PlayersValues {
-    std::vector<Editor::Player> players;  // 12 (9-12: the type and the race)
+    std::vector<Editor::Player> players;  // 12, or a Hyperion map's slots (9-12 of a classic map: the type and the race)
     std::vector<Editor::Force> forces;    // 4
     std::wstring problemsText;            // the problems (or that StarCraft can start the map), one per line
     // The values as the page first showed the map's (a change is a difference from these).
@@ -93,7 +98,7 @@ public:
         races_ = playerRaces();
         // (a typed number with no name in the list: its own row, Unknown, with the number at the right)
         auto unknownItem = [](int n) { return stardraft::kit::DropdownItem{kUnknownValue, -1, n}; };
-        for (int p = 0; p < 12; ++p) {
+        for (int p = 0; p < kRows; ++p) {
             for (stardraft::kit::Dropdown* d : {&controller_[p], &race_[p]}) {
                 d->searchable = true, d->numberItem = unknownItem, d->numberMax = 255;  // (a typed number: unprompted, for experts)
             }
@@ -107,7 +112,7 @@ public:
             };
             race_[p].onNumber = [this, p](int n) { v_.players[size_t(p)].race = Editor::Race(n), edited(); };
             add(controller_[p], {0, 0, 0, 0}), add(race_[p], {0, 0, 0, 0});
-            if (p >= 8) continue;  // (players 9-12: no force, no color)
+            if (p == 11) continue;  // (the neutral player: no force, no color; 9-11 have them on a Hyperion map)
             force_[p].onChange = [this, p](int i) { v_.players[size_t(p)].force = i, edited(); };
             color_[p].searchable = true;  // (a long list, more with a mod's colors: type to search it)
             color_[p].numberItem = unknownItem, color_[p].numberMax = 255;  // (a typed number past the colors: a byte of COLR)
@@ -118,6 +123,22 @@ public:
             color_[p].onChange = [this, p](int row) { colorPicked(p, row); };
             for (stardraft::kit::Dropdown* d : {&force_[p], &color_[p]}) add(*d, {0, 0, 0, 0});
         }
+        // (the Hyperion plugin: more players, to 64; a new one is Human, its race the player's pick, its own color)
+        addPlayer_.setText(L"Add a player");
+        addPlayer_.onClick = [this] {
+            const int s = int(v_.players.size());
+            if (s >= kRows) return;
+            v_.players.push_back({Editor::Controller::Human, Editor::Race::UserSelect, 0,
+                                  {Editor::PlayerColor::Id, uint8_t(stardraft::hyperion::defaultColor(s)), 0}});
+            edited();
+        };
+        removePlayer_.setText(L"Remove the last player");
+        removePlayer_.onClick = [this] {
+            if (!canRemovePlayer()) return;
+            v_.players.pop_back();
+            edited();
+        };
+        add(addPlayer_, {0, 0, 0, 0}), add(removePlayer_, {0, 0, 0, 0});
         for (int f = 0; f < 4; ++f) {
             name_[f].onChange = [this, f] {
                 v_.forces[size_t(f)].name = narrow(name_[f].text());
@@ -163,15 +184,30 @@ public:
         text(L"Player", l.c0, y, l.c1 - l.c0, kDim), text(L"Type", l.c1, y, l.c2 - l.c1, kDim), text(L"Race", l.c2, y, l.c3 - l.c2, kDim);
         text(L"Force", l.c3, y, l.c4 - l.c3, kDim), text(L"Color", l.c4, y, l.c5 - l.c4, kDim);
         y += l.pitch;
-        for (int p = 0; p < 12; ++p) {
+        const int shown = rowCount();
+        for (int p = 0; p < kRows; ++p) {
+            const bool row = p < shown, more = row && (p < 8 || hyperionColors(p));  // (classic players 9-12: no force, no color)
+            controller_[p].setVisible(row), race_[p].setVisible(row);
+            if (p != 11) force_[p].setVisible(more), color_[p].setVisible(more);
+            if (!row) continue;
             text(L"Player " + std::to_wstring(p + 1), l.c0, y, l.c1 - l.c0, kText);
             controller_[p].setFrame({l.c1, y, l.c2 - gap, y + l.rowH});
             race_[p].setFrame({l.c2, y, l.c3 - gap, y + l.rowH});
-            if (p < 8) {  // (players 9-12 have no force and no color)
+            if (more) {
                 force_[p].setFrame({l.c3, y, l.c4 - gap, y + l.rowH});
                 color_[p].setFrame({l.c4, y, l.c5 - gap, y + l.rowH});
             }
             y += l.pitch;
+        }
+        addPlayer_.setVisible(hyperionMode()), removePlayer_.setVisible(hyperionMode());
+        if (hyperionMode()) {
+            addPlayer_.setEnabled(shown < kRows), removePlayer_.setEnabled(canRemovePlayer());
+            removePlayer_.setTip(shown <= 12 ? L"A map has at least 12 players (the 12th is the neutral player)"
+                                 : canRemovePlayer() ? L""
+                                                     : L"The last player owns units or sprites: give them to another player first");
+            const int w = scale(170);
+            addPlayer_.setFrame({l.c1, y, l.c1 + w, y + l.rowH});
+            removePlayer_.setFrame({l.c1 + w + gap, y, l.c1 + 2 * w + gap, y + l.rowH});
         }
         // Forces: the name (a field), then the four flags.
         y = l.forcesTop;
@@ -219,7 +255,7 @@ private:
         for (int b = 0; b < 4; ++b) l.flagW[b] = host_.textWidth(kForceFlagNames[b]) + scale(40), flags += l.flagW[b];
         const int forcesW = scale(200) + flags;  // (the name, then the four flags)
         l.tableTop = l.pad + l.pitch;            // under the "Players" heading
-        const int tableEnd = l.tableTop + l.pitch * 13;  // the column names and 12 players
+        const int tableEnd = l.tableTop + l.pitch * (1 + rowCount() + (hyperionMode() ? 1 : 0));  // the column names, the players (and Add, Remove)
         // Forces and what the map needs: beside the players where they fit, else under them.
         const bool beside = host_.availableWidth() >= l.c5 + 2 * l.pad + forcesW + l.pad;
         l.f0 = beside ? l.c5 + 2 * l.pad : l.c0, l.flagX = l.f0 + scale(200);
@@ -238,9 +274,27 @@ private:
         host_.changed();
         invalidate();
     }
+    // The players the page shows (12, or a Hyperion map's).
+    int rowCount() const { return std::min(int(v_.players.size()), kRows); }
+    // The last player can go: a Hyperion map's past 12 that owns no unit and no sprite.
+    bool canRemovePlayer() const {
+        const int last = int(v_.players.size()) - 1;
+        if (last < 12) return false;
+        const AppState& s = shellState();
+        if (!s.ed) return true;
+        for (const Unit& u : s.ed->units())
+            if (u.owner == last) return false;
+        for (const MapSprite& m : s.ed->sprites())
+            if (m.owner == last) return false;
+        return true;
+    }
     // A color chosen in a player's list: the copy's color.
     void colorPicked(int p, int row) {
         Editor::PlayerColor& c = v_.players[size_t(p)].color;
+        if (hyperionColors(p)) {  // (Hyperion's colors, then Custom: the color that it is already)
+            if (row < stardraft::hyperion::colorCount()) c = {Editor::PlayerColor::Id, uint8_t(row), 0}, edited();
+            return;
+        }
         if (row >= colorIds() + 2) return;  // (Custom, Unknown: the color that it is already)
         if (row < colorIds()) c.kind = Editor::PlayerColor::Id, c.id = uint8_t(row);
         else if (row == colorIds()) c.kind = Editor::PlayerColor::Random;
@@ -254,7 +308,7 @@ private:
             const std::string& n = v_.forces[size_t(f)].name;
             forces.push_back({n.empty() ? L"Force " + std::to_wstring(f + 1) : widen(n), -1, -1});
         }
-        for (int p = 0; p < 12 && p < int(v_.players.size()); ++p) {
+        for (int p = 0; p < rowCount(); ++p) {
             const Editor::Player& pl = v_.players[size_t(p)];
             // Type and race: the named values with their numbers, and the value when it has no name (Unknown, last).
             std::vector<stardraft::kit::DropdownItem> items;
@@ -271,9 +325,15 @@ private:
             if (row < 0) row = int(items.size()), items.push_back({kUnknownValue, -1, int(pl.race)});
             refill(race_[p], raceItems_[p], items);
             race_[p].setValue(row);
-            if (p >= 8) continue;
+            if (p == 11 || (p >= 8 && !hyperionColors(p))) continue;
             refill(force_[p], forceItems_[p], forces);
             force_[p].setValue(std::clamp(int(pl.force), 0, 3));
+            if (hyperionColors(p)) {
+                const int n = stardraft::hyperion::colorCount();
+                refill(color_[p], colorItems_[p], hyperionColorItems(pl.color));
+                color_[p].setValue(pl.color.kind == Editor::PlayerColor::Id && pl.color.id < n ? int(pl.color.id) : n);
+                continue;
+            }
             refill(color_[p], colorItems_[p], colorItems(pl.color));
             color_[p].setValue(playerColorRow(pl.color));
         }
@@ -316,11 +376,31 @@ private:
         return items;
     }
 
+    // A Hyperion player's color list: Hyperion's colors by number (HXPL), and Custom when the player has an RGB color
+    // (HXRG).
+    static std::vector<stardraft::kit::DropdownItem> hyperionColorItems(const Editor::PlayerColor& c) {
+        auto bgr = [](uint32_t rgb) { return draw::rgb(int(rgb >> 16 & 255), int(rgb >> 8 & 255), int(rgb & 255)); };
+        std::vector<stardraft::kit::DropdownItem> items;
+        for (int i = 0, n = stardraft::hyperion::colorCount(); i < n; ++i)
+            items.push_back({widen(stardraft::hyperion::colorName(i)), -1, i, bgr(stardraft::hyperion::colorRgb(i))});
+        if (c.kind == Editor::PlayerColor::Custom) {
+            wchar_t hex[16];
+            std::swprintf(hex, 16, L"#%06X", unsigned(c.rgb));
+            items.push_back({L"Custom " + std::wstring(hex), -1, -1, bgr(c.rgb)});
+        } else if (c.kind != Editor::PlayerColor::Id || c.id >= stardraft::hyperion::colorCount()) {
+            items.push_back({kUnknownValue, -1, int(c.id)});
+        }
+        return items;
+    }
+
+    // The rows: 12 players, or up to 65 with the Hyperion plugin (index 11, the neutral player, has no force or color).
+    static constexpr int kRows = Editor::kMaxPlayerSlots;
     PlayersHost& host_;
     PlayersValues& v_;
-    stardraft::kit::Dropdown controller_[12], race_[12], force_[8], color_[8];  // (players 9-12: type and race only)
+    stardraft::kit::Dropdown controller_[kRows], race_[kRows], force_[kRows], color_[kRows];
     std::vector<std::pair<Editor::Race, const wchar_t*>> races_;  // the race list's items (playerRaces: a Cosmonarchy map's has Askosi)
     stardraft::kit::TextField name_[4];
     stardraft::kit::CheckBox flag_[4][4];
-    std::vector<stardraft::kit::DropdownItem> ctrlItems_[12], raceItems_[12], forceItems_[8], colorItems_[8];  // what each dropdown shows
+    stardraft::kit::Button addPlayer_, removePlayer_;
+    std::vector<stardraft::kit::DropdownItem> ctrlItems_[kRows], raceItems_[kRows], forceItems_[kRows], colorItems_[kRows];  // what each dropdown shows
 };

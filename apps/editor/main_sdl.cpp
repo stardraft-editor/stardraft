@@ -133,6 +133,7 @@
 #include "stardraft/game_data.h"
 #include "stardraft/mods/cmbw.h"
 #include "stardraft/process.h"  // runProcess (core/hyperion.inc: Hyperion's map check)
+#include "stardraft/mods/hyperion.h"  // Hyperion's player colors (core/views_players.inc)
 #include "stardraft/mods/terrain_rules.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/msqc.h"  // the triggers' keys and buttons (core/project_build.inc)

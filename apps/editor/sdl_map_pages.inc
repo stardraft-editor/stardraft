@@ -203,17 +203,22 @@ bool sdlPropsApplyAll(MapPropsValues& d) {
 bool SdlPropsCopy::applyToMap() { return d && sdlPropsApplyAll(*d); }
 
 // Players and forces: the problems (the rules of Editor::playabilityProblems, on the values in the copy).
+// With the Hyperion plugin, every player of the copy but the neutral one (Hyperion seats a Human or Computer player at
+// index 8 and up as it does Players 1 to 8, in melee where it has a start location).
 std::vector<std::wstring> sdlPlayersProblems(const PlayersValues& d) {
     std::vector<std::wstring> out;
-    int units[8] = {}, starts[8] = {};
+    const int count = hyperionMode() ? std::min<int>(int(d.players.size()), Editor::kMaxPlayerSlots) : 8;
+    int units[Editor::kMaxPlayerSlots] = {}, starts[Editor::kMaxPlayerSlots] = {};
     for (const Unit& u : gState.ed->units())
-        if (u.owner < 8) ++(u.type == 214 ? starts : units)[u.owner];
+        if (u.owner < count) ++(u.type == 214 ? starts : units)[u.owner];
     int playing = 0, humans = 0;
-    for (int p = 0; p < 8; ++p) {
+    for (int p = 0; p < count; ++p) {
+        if (p == 11) continue;  // (the neutral player)
         const auto c = d.players[size_t(p)].controller;
         playing += c == Editor::Controller::Human || (c == Editor::Controller::Computer && (units[p] || starts[p]));  // (a Computer with neither: Inactive for the game)
         humans += c == Editor::Controller::Human;
-        if (units[p] && !starts[p]) out.push_back(L"Player " + std::to_wstring(p + 1) + L" owns units but has no start location");
+        if (units[p] && !starts[p] && (p < 8 || c == Editor::Controller::Human || c == Editor::Controller::Computer))  // (9 and up: a player)
+            out.push_back(L"Player " + std::to_wstring(p + 1) + L" owns units but has no start location");
     }
     if (playing < 2) out.push_back(L"Set at least two players to Human or Computer (" + std::to_wstring(playing) + L" now)");
     if (!humans) out.push_back(L"Set at least one player to Human");
@@ -222,13 +227,14 @@ std::vector<std::wstring> sdlPlayersProblems(const PlayersValues& d) {
 void sdlPlayersRefresh(PlayersValues& d) {
     const auto problems = sdlPlayersProblems(d);
     d.problemsText.clear();
-    if (problems.empty()) d.problemsText = L"\x2713  StarCraft can start this map";
+    if (problems.empty()) d.problemsText = hyperionMode() ? L"\x2713  Hyperion can start this map" : L"\x2713  StarCraft can start this map";
     else
         for (const auto& pr : problems) d.problemsText += L"\x2717  " + pr + L"\r\n";
 }
 void sdlPlayersLoad(PlayersValues& d) {
     d = PlayersValues{};
-    for (int p = 0; p < 12; ++p) d.players.push_back(gState.ed->player(p));  // (9-12: the type and the race)
+    // (9-12 of a classic map: the type and the race; a Hyperion map's slots past 12 too)
+    for (int p = 0; p < gState.ed->playerSlots(); ++p) d.players.push_back(gState.ed->player(p));
     for (int f = 0; f < 4; ++f) d.forces.push_back(gState.ed->force(f));
     sdlPlayersRefresh(d);
     d.baseSet = true, d.basePlayers = d.players, d.baseForces = d.forces;  // (the values the page first shows are the map's)
@@ -247,7 +253,7 @@ bool SdlPlayersCopy::differs() const {
 }
 bool SdlPlayersCopy::applyToMap() {
     if (!d) return false;
-    gState.ed->setPlayersAndForces(d->players, d->forces);
+    gState.ed->setPlayersAndForces(d->players, d->forces, hyperionMode() ? int(d->players.size()) : -1);  // (Hyperion: added and removed players)
     updateTitle();
     setMessage(L"Set the players and forces");
     return true;
