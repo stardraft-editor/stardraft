@@ -102,6 +102,7 @@
 #include "views_classic_value.inc"
 #include "views_list_pick.inc"
 #include "views_variations.inc"  // the side bar's Variations strip (a selected tile's variations: core/tile_variations.inc)
+#include "views_pick_pie.inc"  // the pie palette of the Units, Doodads and Sprites modes (PickPieView)
 #include "views_palette.inc"  // the palette's list and grid (PaletteGridView) and the pie palette (PieView): the SDL program's
 #include "views_palette_float.inc"  // the floating palettes' window and its note in the side bar
 #include "views_classic_page.inc"

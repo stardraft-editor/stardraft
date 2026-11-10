@@ -606,6 +606,10 @@ struct MainView final : draw::View {
     ModeBarView modes;  // the modes' segmented control, at the top bar's right
     NotHereView notHere;  // the workspace area of a workspace with no view on this system
     PieView pie;  // the pie palette (core/views_palette.inc): over the map while Space is held in Terrain mode
+    PickPieView pickPie;  // the pie palette of the Units, Doodads and Sprites modes (core/views_pick_pie.inc)
+    bool pieShown() const { return pie.shown() || pickPie.shown(); }
+    Mode pickPieMode = Mode::Units;  // the mode and the map of pickPie's items (another mode or map at the pick: no change)
+    const void* pickPieMap = nullptr;
 
     MainView() {
         initPanels();
@@ -658,6 +662,12 @@ struct MainView final : draw::View {
         pie.setVisible(false);
         pie.picture = [](uint16_t t, int tiles) { return pieBitmap(t, tiles); };
         pie.ground = [](uint16_t t) { return gState.ed ? terrainGround(*gState.ed, t) : uint16_t(0); };
+        add(pickPie, draw::Rect(0, 0, 0, 0));
+        pickPie.setVisible(false);
+        pickPie.art = [this](draw::Canvas& c, int value, draw::Rect box) {
+            if (gState.mode != pickPieMode || gState.ed.get() != pickPieMap) return;
+            if (draw::Bitmap* b = paletteBitmap(gState.mode, value, gState.playerOwner)) drawPaletteArt(c, *b, box);
+        };
         relayout();
     }
     ~MainView() override {  // (the children go before the members do: their views unlink here)
@@ -675,7 +685,7 @@ struct MainView final : draw::View {
                                  const_cast<RailView*>(&rail)};
         std::vector<View*> rest;
         for (View* c : children())
-            if (std::find(first.begin(), first.end(), c) == first.end() && c != &modes && c != &gLogPane && c != &status && c != &pie) rest.push_back(c);
+            if (std::find(first.begin(), first.end(), c) == first.end() && c != &modes && c != &gLogPane && c != &status && c != &pie && c != &pickPie) rest.push_back(c);
         // The middle: the views left of the map (the left side bar), the map's column, the views right of it.
         const draw::Rect m = map.shown() ? map.frame() : draw::Rect(0, 0, width(), height());
         auto column = [&](const View* v) {
@@ -724,7 +734,7 @@ struct MainView final : draw::View {
         // Enter on the map: the selected location's or unit's properties (the Windows map's key).
         if (e.down && !e.repeat && e.key == draw::Key::Enter && !e.mods && !typing && map.shown() && mapEnterSdl()) return true;
         // Esc with the pie palette open (from the menu): it closes with no change.
-        if (e.down && e.key == draw::Key::Escape && pie.shown()) return pieClose(), true;
+        if (e.down && e.key == draw::Key::Escape && pieShown()) return pieClose(), true;
         // Esc while a trigger waits for a unit picked on the map: back to the triggers (the Windows cancelStep).
         if (e.down && e.key == draw::Key::Escape && trigUnitPickActive()) return trigCancelUnitPick(), true;
         // Esc with the New page (Cancel) or the start page over the open map (File > New): the page closes. (A field of the
@@ -736,27 +746,28 @@ struct MainView final : draw::View {
             map.focus();
             return true;
         }
-        // The overview (core/map_input.inc: mapPeekStart) while Space is held on the map: Ctrl+Space in each mode, Space
-        // alone in the modes where it is not the pie palette's. Letting go goes to the place at the mouse; when the
-        // program lost the keyboard, the view from before comes back.
+        // The overview (core/map_input.inc: mapPeekStart) while Ctrl+Space is held on the map (Space alone is the pie
+        // palette's). Letting go goes to the place at the mouse; when the program lost the keyboard, the view from
+        // before comes back.
         if (e.key == draw::Key::Space && !e.down && gMapPeek.on) return mapPeekEnd(gState, SDL_GetKeyboardFocus() != nullptr), map.invalidate(), true;
-        if (e.key == draw::Key::Space && e.down && !pie.shown() && (e.mods == draw::kCtrl || (!e.mods && gState.mode != Mode::Terrain)) && !typing && map.shown() &&
+        if (e.key == draw::Key::Space && e.down && !pieShown() && e.mods == draw::kCtrl && !typing && map.shown() &&
             gState.ed && gState.ed->isOpen() && (map.hasFocus() || !hasFocusIn(*this))) {
             if (!e.repeat) mapPeekStart(gState), map.invalidate();
             return true;
         }
-        // Space on the map in Terrain mode: the pie palette while it is held (the Windows map's VK_SPACE, also with Shift);
-        // its repeats do nothing more, and letting go paints with the slice's terrain, with any keys held. When the program
+        // Space on the map: the pie palette while it is held (the Windows map's VK_SPACE, also with Shift): the terrains
+        // in Terrain mode, the palette's groups and items in Units, Doodads and Sprites mode. Its repeats do nothing
+        // more, and letting go paints with the slice's terrain (or picks its item), with any keys held. When the program
         // lost the keyboard (Alt+Tab: SDL lets go of the held keys), the ring closes with no change (the Windows
         // WM_KILLFOCUS).
-        if (e.key == draw::Key::Space && !e.down && pie.shown()) {
+        if (e.key == draw::Key::Space && !e.down && pieShown()) {
             if (SDL_GetKeyboardFocus()) return pieRelease((e.mods & (draw::kShift | draw::kCtrl)) != 0), true;
             return pieClose(), true;
         }
         if (e.key == draw::Key::Space && e.down && !(e.mods & ~unsigned(draw::kShift)) && !typing && map.shown() &&
             (map.hasFocus() || !hasFocusIn(*this))) {
             if (!e.repeat) pieOpen();
-            return pie.shown();
+            return pieShown();
         }
         // The number row in the Map workspace, by the key's place for any keyboard layout: 1 to 0 and the two keys
         // after 0 (- and = on a US keyboard) are the players 1 to 12 (also with Shift: AZERTY's digits), before the
@@ -940,6 +951,7 @@ struct MainView final : draw::View {
     // The pie palette (core/palette_view.inc: pieTerrains): the ring in the middle of the map, its slice the one the
     // mouse points at. Nothing when the map has no terrain to paint (or the mode is not Terrain).
     void pieOpen() {
+        if (gState.mode != Mode::Terrain) return pickPieOpen();
         pie.onClick = [this] {  // (from the menu: a click picks; with Space held, a click picks too)
             pieRelease(shellCtrlOrShiftDown());
         };
@@ -975,17 +987,46 @@ struct MainView final : draw::View {
         const uint64_t key = gState.ed ? variationsKey() : 0;
         if (key != varKey) varKey = key, gVariationsView.invalidate(), gVariationsView.refresh();  // (the preview of the tiles as they are now)
     }
+    // The rings of the palette's groups and items (core/views_pick_pie.inc), as large as the map, round its middle.
+    // Nothing in a mode with no palette of items (Locations, Map layers).
+    void pickPieOpen() {
+        pickPie.onClick = [this] {  // (a click on an item picks it; on a group, the rings stay)
+            if (const PickPieNode* n = pickPie.hotNode(); n && n->value < 0) return;
+            pieRelease(shellCtrlOrShiftDown());
+        };
+        pickPie.onCancel = [this] { pieClose(); };
+        if (!map.shown() || pieShown() || !gState.ed || !gState.ed->isOpen()) return;
+        pickPie.reset(pickPieTree(gState));
+        pickPieMode = gState.mode, pickPieMap = gState.ed.get();
+        if (pickPie.root.kids.empty()) return;
+        pickPie.setFrame(map.frame());
+        pickPie.setVisible(true);
+        if (host()) host()->capture(pickPie, true);  // (the mouse picks the slice also outside the map)
+        pickPie.track(host() ? host()->mouse(pickPie) : pickPie.middle());
+        pickPie.invalidate();
+    }
     // The ring goes away with no change, and gives back the mouse.
     void pieClose() {
         if (pie.shown()) {
             pie.setVisible(false);
             if (host()) host()->capture(pie, false);
         }
+        if (pickPie.shown()) {
+            pickPie.setVisible(false);
+            if (host()) host()->capture(pickPie, false);
+        }
         invalidate();
     }
     // Space is let go: the brush paints with the slice's terrain (none in the middle). `add` (Shift or Ctrl held, as a
     // click in the palette): it goes into the picks that Spray and Fill use; the terrain in use stays a pick.
     void pieRelease(bool add = false) {
+        if (pickPie.shown()) {  // (the rings of items: the hot item is the pick, as a click in the palette; a group: no change)
+            const PickPieNode* n = pickPie.hotNode();
+            const int v = n && n->kids.empty() ? n->value : -1;
+            pieClose();
+            if (v >= 0 && gState.mode == pickPieMode && gState.ed.get() == pickPieMap) pickUnit(gState, v, add), invalidateMapView();
+            return;
+        }
         const int h = pie.hot;
         pieClose();
         if (h < 0 || h >= int(pie.items.size())) return;
@@ -1272,16 +1313,18 @@ void sdlPieShot() {
     for (const uint16_t t : p.items) names += (names.empty() ? "" : "; ") + narrow(p.terrainName(t));
     std::printf("pie: terrains %s\n", names.c_str());
 }
-// View > Terrain pie palette: the ring that Space held opens, in Terrain mode, open until a click (the slice in the
+// View > Pie palette: the ring that Space held opens (Terrain mode's, from a mode with no pie), open until a click (the slice in the
 // mouse's direction, anywhere: its terrain; in the middle: no change), another button or Esc.
-void sdlPieFromMenu() {
+static void sdlPieOpenIn(bool terrain) {
     if (!gRoot || !gState.ed || !gState.ed->isOpen()) return;
     setWorkspace(Workspace::Map);
-    if (gState.mode != Mode::Terrain) setMode(Mode::Terrain);
+    if (gState.mode != Mode::Terrain && (terrain || (gState.mode != Mode::Units && gState.mode != Mode::Doodads && gState.mode != Mode::Sprites))) setMode(Mode::Terrain);
     gRoot->relayout();
     gRoot->pieOpen();
-    if (!gRoot->pie.shown()) setMessage(tr(L"The pie palette has no terrains for this tileset"));
+    if (!gRoot->pieShown() && gState.mode == Mode::Terrain) setMessage(tr(L"The pie palette has no terrains for this tileset"));
 }
+void sdlPieFromMenu() { sdlPieOpenIn(false); }
+void sdlTerrainPie() { sdlPieOpenIn(true); }  // (the Terrain palette's pie button: Terrain mode's ring from each mode)
 // The loading view's frame: the window laid out (the view shows while gLoading.on) and painted now, once the work has
 // taken 150 ms (a quick open paints no frame: each waits for the screen).
 void shellLoadingFrame() {
@@ -1295,12 +1338,12 @@ void shellLoadingDone() {
     gRoot->relayout();
     gRoot->invalidate();
 }
-bool sdlPieShown() { return gRoot && gRoot->pie.shown(); }
+bool sdlPieShown() { return gRoot && gRoot->pieShown(); }
 void sdlVariationsSync() {
     if (gRoot) gRoot->variationsSync();
 }
 bool sdlPieClickAway() {
-    if (!gRoot || !gRoot->pie.shown()) return false;
+    if (!gRoot || !gRoot->pieShown()) return false;
     gRoot->pieClose();
     return true;
 }

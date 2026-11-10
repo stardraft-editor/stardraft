@@ -78,9 +78,9 @@ void paletteSortMenuSdl(Mode mode, draw::View& from, PalettePanelView* panel = n
 // The Sort buttons: the search row's (the order of the active mode's palette: Units, Doodads, Sprites) and the Locations
 // filter row's (the order of the locations; its floating window shows in every mode).
 kit::IconButton gSortBtnSdl{kit::IconGlyph::ofIcon(int(UiIcon::Sort)), kit::IconStyle::Boxed, L"", [] { paletteSortMenuSdl(gState.mode, gSortBtnSdl); }};
-void sdlPieFromMenu();
+void sdlTerrainPie();
 // Terrain's search row: the pie palette's button in the Sort button's place (GitHub #257): a click shows the pie.
-kit::IconButton gPieBtnSdl{kit::IconGlyph::ofIcon(int(UiIcon::Pie)), kit::IconStyle::Boxed, L"", [] { sdlPieFromMenu(); }};
+kit::IconButton gPieBtnSdl{kit::IconGlyph::ofIcon(int(UiIcon::Pie)), kit::IconStyle::Boxed, L"", [] { sdlTerrainPie(); }};
 kit::IconButton gLocSortBtnSdl{kit::IconGlyph::ofIcon(int(UiIcon::Sort)), kit::IconStyle::Boxed, L"", [] { paletteSortMenuSdl(Mode::Locations, gLocSortBtnSdl); }};
 // The rows of the panels that are not active (the other side's list, the third list), in the place where the panel has
 // them when it is active. A click in a box goes to that mode, in that box (the search box: its keyboard; the Owner and the
@@ -113,7 +113,7 @@ struct OtherSearchRow {
     explicit OtherSearchRow(PalettePanel& list)
         : view(L"View", kit::Tone::Normal, [this, &list] { paletteMenuSdl(list, view, {0, view.height()}, -1); }),
           sort(kit::IconGlyph::ofIcon(int(UiIcon::Sort)), kit::IconStyle::Boxed, L"", [this] {
-              if (mode == Mode::Terrain) sdlPieFromMenu();  // (Terrain: the pie palette's button, as the active row's)
+              if (mode == Mode::Terrain) sdlTerrainPie();  // (Terrain: the pie palette's button, as the active row's)
               else paletteSortMenuSdl(mode, sort);
           }) {
         ownerCatch.what = OtherSearchCatch::Owner, sectionCatch.what = OtherSearchCatch::Section;

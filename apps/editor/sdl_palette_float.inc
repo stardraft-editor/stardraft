@@ -176,6 +176,7 @@ void floatPaletteViewsBack() {
     for (draw::View* v : views) gRoot->add(*v, draw::Rect(0, 0, 0, 0));
     gRoot->add(gLoadingView, gLoadingView.frame());  // (over them: the loading view, then the pie)
     gRoot->add(gRoot->pie, gRoot->pie.frame());
+    gRoot->add(gRoot->pickPie, gRoot->pickPie.frame());
 }
 
 // The window closes (not by the user: the palette stays floating) and its views go back.

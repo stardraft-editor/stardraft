@@ -68,7 +68,8 @@ std::vector<KeyHint> mapKeyHints(const AppState& app) {
     default: break;
     }
     add(L"Q", L"Quick picker");
-    add(app.mode == Mode::Terrain ? L"Ctrl+Space" : L"Space", L"Overview");  // (held: mapPeekStart)
+    if (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites) add(L"Space", L"Pie palette");  // (held)
+    add(L"Ctrl+Space", L"Overview");  // (held: mapPeekStart)
     add(L"Right-click", inSelection() ? L"Menu" : L"Stop");  // (mapRightClickSdl: placing or painting stops first)
     return out;
 }
