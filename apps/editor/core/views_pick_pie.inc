@@ -13,7 +13,7 @@ struct PickPieNode {
 };
 
 // The mode's groups: Recent, then the palette's sections (the units: a race, then its sections; a mod's units: its main
-// categories, then their sections). More than 9 groups: the last ones are in "More".
+// categories, then their sections). All the groups are in the first ring.
 PickPieNode pickPieTree(AppState& app) {
     PickPieNode root;
     if (!app.ed || !app.ed->isOpen() || (app.mode != Mode::Units && app.mode != Mode::Doodads && app.mode != Mode::Sprites)) return root;
@@ -29,17 +29,13 @@ PickPieNode pickPieTree(AppState& app) {
         if (!u.group.empty()) first = u.group, second = u.groupSection.empty() ? u.section : u.groupSection;
         else if (app.mode == Mode::Units)
             if (const size_t sp = u.section.find(L' '); sp != std::wstring::npos) first = u.section.substr(0, sp), second = u.section.substr(sp + 1);
+        // (the sprites of a tileset's doodads: the tileset's name is sufficient in a slice)
+        if (const std::wstring_view tail = L" doodad sprites"; app.mode == Mode::Sprites && first.size() > tail.size() && first.ends_with(tail)) first.resize(first.size() - tail.size());
         PickPieNode& g = kid(root, first);
         (second.empty() ? g : kid(g, second)).kids.push_back({u.label, u.value, {}});
     }
     for (PickPieNode& g : root.kids)  // (a group with one section: its items at once)
         if (g.kids.size() == 1 && g.kids[0].value < 0) g.kids = std::vector<PickPieNode>(std::move(g.kids[0].kids));
-    if (root.kids.size() > 9) {
-        PickPieNode more{tr(L"More"), -1, {}};
-        more.kids.assign(std::make_move_iterator(root.kids.begin() + 8), std::make_move_iterator(root.kids.end()));
-        root.kids.resize(8);
-        root.kids.push_back(std::move(more));
-    }
     PickPieNode recent{tr(L"Recent"), -1, {}};
     if (const auto found = gRecentPicks.of.find(int(app.mode)); found != gRecentPicks.of.end() && (app.mode != Mode::Doodads || gRecentPicks.era == app.ed->era()))
         for (const int v : found->second)
@@ -63,7 +59,12 @@ struct PickPieView : draw::View {
     std::function<void()> onCancel;  // another button, or the capture went away: the rings close with no change
 
     static constexpr double kTurn = 2 * 3.14159265358979323846;
-    static int hole() { return scale(58); }       // the middle: no slice (letting go there: no change)
+    // The middle: no slice (letting go there: no change). It is larger for many groups, so that each slice of the
+    // first ring has room for its name.
+    int hole() const {
+        const double need = scale(72) * double(root.kids.size()) / kTurn - textWidth() / 2.0;
+        return std::clamp(int(need), scale(58), scale(150));
+    }
     static int textWidth() { return scale(88); }  // a ring of groups
     static inline int cellSize = 50;              // (the host's: larger for the modes whose items have no names to tell them by)
     static int cell() { return scale(cellSize); }  // an item's cell: a row of an items' ring is this wide
@@ -351,7 +352,7 @@ struct PickPieView : draw::View {
         const PickPieNode* shown = hotNode();
         const bool preview = art && shown && shown->value >= 0;
         if (preview) {
-            const int half = int(r0 * 0.66f);
+            const int half = std::min(int(r0 * 0.66f), scale(60));
             art(c, shown->value, {int(cx) - half, int(cy) - half, int(cx) + half, int(cy) + half});
             groups.clear();
         }
