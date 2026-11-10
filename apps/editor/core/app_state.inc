@@ -73,7 +73,7 @@ struct AppState {
     bool correction = false, doodadCheck = true, showLocations = false;  // units: Place only where it fits (the default)
     bool doodadNearest = false;  // Options > Doodads > Move to the nearest place where it fits (with doodadCheck)
     bool showGrid = false;
-    // View > In-game view (experimental): the part of the map that the game shows at one time (21 x 12 tiles) at the
+    // View > In-game view (experimental): the part of the map that the game shows at one time (640 x 480 pixels with SD graphics, 853 x 480 with HD) at the
     // view's middle; the rest of the view is black (GitHub feedback #264). Not saved.
     bool gameView = false;
     bool keyHints = false;  // Program options > Appearance > Show key hints: the tool's keys in the status bar (core/tool_hints.inc)

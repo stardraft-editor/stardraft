@@ -109,8 +109,11 @@ int gCenterUnitPending = -1;
 
 void mapZoomGlideStop();
 void mapViewGlideTo(AppState& app, float zoom, float cx, float cy);
-// View > In-game view: the map pixels that the game shows at one time (21 x 12 tiles).
-constexpr int kGameViewW = 21 * 32, kGameViewH = 12 * 32;
+// View > In-game view: the map pixels that the game shows at one time. With SD graphics the game's screen is 4:3
+// (640 x 480); with HD graphics it is as wide as the monitor, 16:9 here (853 x 480). The game's console is on the
+// bottom part of these pixels.
+constexpr float kGameViewH = 480;
+inline float gameViewW(const AppState& app) { return app.quality == GraphicsQuality::SD ? 640.0f : kGameViewH * 16 / 9; }
 // The zoom at which the whole map is in a view of w x h pixels (at most 4 times).
 float fitZoom(const AppState& app, int w, int h) {
     return std::clamp(std::min(w / (app.ed->width() * 32.0f), h / (app.ed->height() * 32.0f)), 1.0f / 16, 4.0f);
@@ -131,6 +134,7 @@ void fitMap() {
     viewSize(w, h);
     gFitPending = w <= 0 || h <= 0;
     if (gFitPending) return;
+    app.gameView = false;  // (a zoom ends View > In-game view)
     mapZoomGlideStop();
     app.zoom = fitZoom(app, w, h);
     app.camX = (app.ed->width() * 32.0f - w / app.zoom) / 2;
@@ -1392,6 +1396,7 @@ void mapZoomGlideStop();
 void mapZoomAt(AppState& app, float x, float y, float factor) {
     if (app.zoom <= 0 || !(factor > 0)) return;
     mapZoomGlideStop();
+    app.gameView = false;  // (a zoom ends View > In-game view)
     const float wx = app.camX + x / app.zoom, wy = app.camY + y / app.zoom;
     app.zoom = std::clamp(app.zoom * factor, 1.0f / 16, 4.0f);
     app.camX = wx - x / app.zoom, app.camY = wy - y / app.zoom;
@@ -1440,6 +1445,7 @@ void mapViewGlideTo(AppState& app, float zoom, float cx, float cy) {
     viewSize(w, h);
     if (!app.ed || app.zoom <= 0 || w <= 0 || h <= 0) return;
     zoom = std::clamp(zoom, 1.0f / 16, 16.0f);
+    if (zoom != app.zoom) app.gameView = false;  // (a zoom ends View > In-game view; a jump at the same zoom does not)
     gZoomGlide.on = false;
     if (!gMapMotion || !app.smoothPan) {
         gViewGlide.on = false;
@@ -1484,6 +1490,7 @@ struct MapPeek {
     const void* ed = nullptr;
     float zoom = 0, cx = 0, cy = 0;  // the view from before
     int mouseX = 0, mouseY = 0;      // the mouse at the start
+    bool gameView = false;           // View > In-game view from before (the overview's zoom ends it)
 };
 inline MapPeek gMapPeek;
 bool mapPeekOn(const AppState& app) { return gMapPeek.on && app.ed && gMapPeek.ed == app.ed.get(); }
@@ -1491,7 +1498,7 @@ void mapPeekStart(AppState& app) {
     int w = 0, h = 0;
     viewSize(w, h);
     if (gMapPeek.on || !app.ed || !app.ed->isOpen() || app.zoom <= 0 || w <= 0 || h <= 0 || app.drag != Drag::None) return;
-    gMapPeek = {true, app.ed.get(), app.zoom, app.camX + w / 2.0f / app.zoom, app.camY + h / 2.0f / app.zoom, app.mouseX, app.mouseY};
+    gMapPeek = {true, app.ed.get(), app.zoom, app.camX + w / 2.0f / app.zoom, app.camY + h / 2.0f / app.zoom, app.mouseX, app.mouseY, app.gameView};
     mapViewGlideTo(app, std::min(app.zoom, fitZoom(app, w, h)), app.ed->width() * 16.0f, app.ed->height() * 16.0f);  // (never nearer than the view was)
 }
 // `go`: to the place under the mouse; else back to the view from before (the program lost the keyboard).
@@ -1507,6 +1514,7 @@ void mapPeekEnd(AppState& app, bool go) {
         cx = std::clamp(cx, 0.0f, app.ed->width() * 32.0f), cy = std::clamp(cy, 0.0f, app.ed->height() * 32.0f);
     }
     mapViewGlideTo(app, p.zoom, cx, cy);
+    app.gameView = p.gameView;
 }
 // The overview ends with the view from before, at once (the map's tab goes to the back: its view is kept as it was).
 void mapPeekCancel(AppState& app) {
@@ -1518,12 +1526,14 @@ void mapPeekCancel(AppState& app) {
     mapZoomGlideStop();
     if (p.zoom <= 0 || w <= 0 || h <= 0) return;
     app.zoom = p.zoom, app.camX = p.cx - w / 2.0f / p.zoom, app.camY = p.cy - h / 2.0f / p.zoom;
+    app.gameView = p.gameView;
     clampCamera();
     app.dirty = true;
 }
 
 void mapZoomGlideTo(AppState& app, float x, float y, float factor, float most = 4.0f) {
     if (app.zoom <= 0 || !(factor > 0)) return;
+    app.gameView = false;  // (a zoom ends View > In-game view)
     gViewGlide.on = false;  // (the wheel during a glide of the view: the zoom goes on from where the view is)
     const float goal = std::clamp((gZoomGlide.on ? gZoomGlide.goal : app.zoom) * factor, 1.0f / 16, most);
     if (!gMapMotion || !app.smoothZoom) {

@@ -6,9 +6,20 @@
 // The renderer draws in this quality and art (the shell's: shell_win32.inc, shell_sdl.inc; it needs no other editor type).
 void shellRendererGraphics(GraphicsQuality q, bool carbot);
 // The graphics quality and Carbot: the state, the renderer's (shellRendererGraphics), the palette's pictures.
+// View > In-game view: the view glides to the zoom at which the game's screen fills it; the view's middle stays.
+void gameViewFit(AppState& app) {
+    int w, h;
+    viewSize(w, h);
+    if (app.zoom <= 0 || w <= 0 || h <= 0) return;
+    mapViewGlideTo(app, std::min(w / gameViewW(app), h / kGameViewH), app.camX + w / 2.0f / app.zoom, app.camY + h / 2.0f / app.zoom);
+    app.gameView = true;  // (after the glide: its zoom is not one that sets it off)
+}
+
 void setGraphics(GraphicsQuality q, bool carbot) {
     AppState& app = shellState();
+    const float gameW = gameViewW(app);
     app.quality = q, app.carbot = carbot;
+    if (app.gameView && gameViewW(app) != gameW) gameViewFit(app);  // (the game's screen has another width with SD graphics)
     shellRendererGraphics(q, carbot);
     if (carbot) setMessage(L"Carbot (cartooned) graphics");
     shellPaletteChanged();
@@ -126,6 +137,7 @@ void toggleLayer(int k) {
 void zoomAt(float factor, int sx, int sy) {
     AppState& app = shellState();
     mapZoomGlideStop();
+    app.gameView = false;  // (a zoom ends View > In-game view)
     float wx, wy;
     toWorld(sx, sy, wx, wy);
     app.zoom = std::clamp(app.zoom * factor, 1.0f / 16, 16.0f);
@@ -507,14 +519,13 @@ void registerMapCommands() {
     // (off: the zoom, or a jump to a place, is there at once; a glide that is on stops)
     addCommand(ID_VIEW_SMOOTHZOOM, "view.smoothZoom", L"S&mooth zoom", "View", L"", [] { shellState().smoothZoom = !shellState().smoothZoom, mapZoomGlideStop(), shellState().dirty = true; }, [] { return shellState().smoothZoom; });
     addCommand(ID_VIEW_SMOOTHPAN, "view.smoothPan", L"Smooth &pan", "View", L"", [] { shellState().smoothPan = !shellState().smoothPan, mapZoomGlideStop(), shellState().dirty = true; }, [] { return shellState().smoothPan; });
-    // (on: the zoom at which the game's 21 x 12 tiles fill the view, the view's middle stays)
-    addCommand(ID_VIEW_GAMEVIEW, "view.gameView", L"In-&game view (experimental)", "View", L"", [] {
+    // (on: the zoom at which the game's screen fills the view, the view's middle stays; a zoom after that sets
+    // it off: the wheel, a pinch, the zoom commands, Fit map)
+    addCommand(ID_VIEW_GAMEVIEW, "view.gameView", L"In-&game view (experimental)", "View", L"Ctrl+Shift+G", [] {
         AppState& app = shellState();
-        app.gameView = !app.gameView, app.dirty = true;
-        int w, h;
-        viewSize(w, h);
-        if (app.gameView && app.zoom > 0 && w > 0 && h > 0)
-            mapViewGlideTo(app, std::min(w / float(kGameViewW), h / float(kGameViewH)), app.camX + w / 2.0f / app.zoom, app.camY + h / 2.0f / app.zoom);
+        if (app.gameView) app.gameView = false;
+        else gameViewFit(app);
+        app.dirty = true;
     }, [] { return shellState().gameView; });
     addCommand(ID_VIEW_KEYHINTS, "view.keyHints", L"Show &key hints", "View", L"", [] { shellState().keyHints = !shellState().keyHints, shellState().dirty = true, shellStatusChanged(); }, [] { return shellState().keyHints; });
 }

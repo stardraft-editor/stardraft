@@ -78,6 +78,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl++ and Ctrl+-, or + and - on the number pad | Zoom in and out |
 | Ctrl+0 | Actual size |
 | Ctrl+H | Fit the map in the window |
+| Ctrl+Shift+G | In-game view: the part of the map that the game shows at one time (a zoom sets it off) |
 | Arrows | Move the selected units by one pixel, else scroll the map |
 | Shift+arrows | Move the selected units by 8 pixels, or by a grid cell when units snap |
 | Ctrl+arrows | Move the selected units by 16 pixels, or by a grid cell when units snap |

@@ -1192,18 +1192,33 @@ render::Scene buildScene() {
 }
 
 // View > In-game view: the game's screen at the middle of the view (vw x vh pixels), black bars on the rest (a
-// letterbox). The map's labels do not show on the bars.
+// letterbox), and the game's console on its bottom part. The map's labels do not show on the bars.
 void gameViewScene(render::Scene& s, int vw, int vh) {
     const AppState& app = shellState();
     if (!app.gameView || vw <= 0 || vh <= 0 || app.zoom <= 0) return;
     {
-        const float fw = kGameViewW * app.zoom, fh = kGameViewH * app.zoom;
+        const float fw = gameViewW(app) * app.zoom, fh = kGameViewH * app.zoom;
         const float fx0 = std::floor((vw - fw) / 2), fy0 = std::floor((vh - fh) / 2), fx1 = fx0 + fw, fy1 = fy0 + fh;
         const float W = float(vw), H = float(vh);
         if (fy0 > 0) s.rects.push_back({0, 0, W, fy0, 0x000000FFu, true, 1, false});
         if (fy1 < H) s.rects.push_back({0, fy1, W, H, 0x000000FFu, true, 1, false});
         if (fx0 > 0) s.rects.push_back({0, std::max(fy0, 0.0f), fx0, std::min(fy1, H), 0x000000FFu, true, 1, false});
         if (fx1 < W) s.rects.push_back({fx1, std::max(fy0, 0.0f), W, std::min(fy1, H), 0x000000FFu, true, 1, false});
+        // The game's console, as three blocks on the bottom of the screen (game pixels of 640 x 480; with HD graphics
+        // the left and right blocks stay at the sides): the minimap, the unit's data, the command card. The same for
+        // the three races.
+        {
+            const float z = app.zoom, gw = gameViewW(app);
+            const float blocks[3][3] = {{0, 150, 316}, {150, gw - 170, 375}, {gw - 170, gw, 335}};  // x0, x1, top
+            for (const auto& b : blocks) {
+                const float x0 = std::floor(fx0 + b[0] * z), x1 = std::floor(fx0 + b[1] * z), y0 = std::floor(fy0 + b[2] * z);
+                s.rects.push_back({x0, y0, x1, fy1, 0x14161AF0u, true, 1, false});
+            }
+            const float xs[4] = {fx0, std::floor(fx0 + 150 * z), std::floor(fx0 + (gw - 170) * z), fx1};
+            const float ys[3] = {std::floor(fy0 + 316 * z), std::floor(fy0 + 375 * z), std::floor(fy0 + 335 * z)};
+            for (int i = 0; i < 3; ++i) s.rects.push_back({xs[i], ys[i], xs[i + 1], ys[i] + 1, 0xFFFFFF60u, true, 1, false});
+            for (int i = 1; i < 3; ++i) s.rects.push_back({xs[i], std::min(ys[i - 1], ys[i]), xs[i] + 1, std::max(ys[i - 1], ys[i]), 0xFFFFFF60u, true, 1, false});
+        }
         s.rects.push_back({fx0, fy0, fx1, fy1, 0xFFFFFF60u, false, 1, false});
         s.texts.erase(std::remove_if(s.texts.begin(), s.texts.end(),
                                      [&](const render::TextDraw& t) {
@@ -1219,7 +1234,7 @@ draw::Rect gameViewClip(draw::Rect view) {
     const AppState& app = shellState();
     const int vw = view.right - view.left, vh = view.bottom - view.top;
     if (!app.gameView || vw <= 0 || vh <= 0 || app.zoom <= 0) return view;
-    const float fw = kGameViewW * app.zoom, fh = kGameViewH * app.zoom;
+    const float fw = gameViewW(app) * app.zoom, fh = kGameViewH * app.zoom;
     const int fx0 = int(std::floor((vw - fw) / 2)), fy0 = int(std::floor((vh - fh) / 2));
     draw::Rect r = view;
     r.left = std::max(view.left, view.left + fx0), r.top = std::max(view.top, view.top + fy0);
