@@ -64,6 +64,8 @@ inline int snapOnMap(float v, int g, int o, int size) {
     return c >= 0 && c < size ? c : int(v);
 }
 
+enum class Arrange { Left, Center, Right, Top, Middle, Bottom, SpreadH, SpreadV, Row, Column, Grid, Circle };  // (Editor::arrangeSelection)
+
 struct Rect {
     int left = 0, top = 0, right = 0, bottom = 0;  // pixels, right/bottom exclusive
     bool contains(int x, int y) const { return x >= left && x < right && y >= top && y < bottom; }
@@ -452,6 +454,12 @@ public:
     // others stays where it is (with "units anywhere": it goes).
     // Returns how many moved. One undo step.
     int snapSelection(int gw, int gh, int ox, int oy);
+    // Arrange the selected units by their boxes (a building's box with its linked add-on's). Align: an edge or the
+    // middle of each box to that of all the boxes. Spread: the boxes from the first to the last with equal spaces
+    // between them (3 units or more). Row, Column, Grid and Circle: the units side by side in that shape, from where
+    // the selection is. A building stays on its grid; a unit that does not fit among the others stays where it is (with
+    // "units anywhere": it goes). Returns how many moved. One undo step.
+    int arrangeSelection(Arrange how);
     // Terran add-ons: the selected buildings' linked add-ons (they move with them), and the links that are no longer
     // true (a partner deleted, or an add-on off its building's add-on spot) cleared on both sides.
     std::vector<int> withLinkedAddons(std::vector<int> sel) const;
@@ -1025,6 +1033,10 @@ private:
     // Where a unit put at u's position goes by the placement options: as is (units anywhere, or it fits), else the
     // nearest spot where it fits (`correct`), else nullopt (refused).
     std::optional<Unit> fitted(Unit u, bool correct, const std::vector<Unit>& against) const;
+    // The units `sel` (sorted, with their linked add-ons) to the places in `to` (one for each, in that order): a linked
+    // add-on goes to its building's add-on spot in place of that. All of them go when they all fit; else each one that
+    // fits among the others goes. Returns how many moved. One undo step.
+    int moveUnitsTo(const std::vector<int>& sel, std::vector<Unit> to);
 
     const GameData& data_;
     std::filesystem::path path_;

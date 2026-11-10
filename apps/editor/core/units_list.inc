@@ -68,8 +68,7 @@ void unitsListCenter(int unit) {
     const Unit& u = app.ed->units()[size_t(unit)];
     int w = 0, h = 0;
     viewSize(w, h);
-    app.camX = u.x - w / 2.0f / app.zoom, app.camY = u.y - h / 2.0f / app.zoom;
-    app.dirty = true;
+    mapViewGlideTo(app, app.zoom, u.x, u.y);
 }
 
 // The Unit properties window of unit `index` (the host: sdl_map_dialogs.inc; it selects the unit and returns when the

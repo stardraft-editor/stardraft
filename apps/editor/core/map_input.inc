@@ -108,6 +108,19 @@ bool gFitPending = false;
 int gCenterUnitPending = -1;
 
 void mapZoomGlideStop();
+void mapViewGlideTo(AppState& app, float zoom, float cx, float cy);
+// The zoom at which the whole map is in a view of w x h pixels (at most 4 times).
+float fitZoom(const AppState& app, int w, int h) {
+    return std::clamp(std::min(w / (app.ed->width() * 32.0f), h / (app.ed->height() * 32.0f)), 1.0f / 16, 4.0f);
+}
+// View > Fit map: the view glides to the whole map (fitMap, below, is there at once: a map that opens).
+void fitMapGlide() {
+    AppState& app = appState();
+    int w, h;
+    viewSize(w, h);
+    if (!app.ed || !app.ed->isOpen() || w <= 0 || h <= 0) return;
+    mapViewGlideTo(app, fitZoom(app, w, h), app.ed->width() * 16.0f, app.ed->height() * 16.0f);
+}
 // The whole map in the view: the zoom that fits it (at most 4 times), its middle in the view's middle.
 void fitMap() {
     AppState& app = appState();
@@ -117,7 +130,7 @@ void fitMap() {
     gFitPending = w <= 0 || h <= 0;
     if (gFitPending) return;
     mapZoomGlideStop();
-    app.zoom = std::clamp(std::min(w / (app.ed->width() * 32.0f), h / (app.ed->height() * 32.0f)), 1.0f / 16, 4.0f);
+    app.zoom = fitZoom(app, w, h);
     app.camX = (app.ed->width() * 32.0f - w / app.zoom) / 2;
     app.camY = (app.ed->height() * 32.0f - h / app.zoom) / 2;
     app.dirty = true;
@@ -1404,9 +1417,110 @@ struct ZoomGlide {
 };
 inline ZoomGlide gZoomGlide;
 inline bool gMapMotion = true;
-void mapZoomGlideStop() { gZoomGlide.on = false; }
+// The glide of the whole view: a jump to a place (a unit of the list, a location, a click on the minimap, Fit map,
+// Actual size, the overview) does not cut. The view glides there in about a fifth of a second, fast at first; with
+// another zoom at the end, as a zoom around the place. Another map, or a camera or zoom that something else moved (a
+// pan, the wheel), stops it. No glide in a snapshot or test run (gMapMotion off): the view is there at once.
+struct ViewGlide {
+    bool on = false, fresh = false;
+    float zoom0 = 0, cx0 = 0, cy0 = 0;  // from: the zoom and the map point in the view's middle
+    float zoom1 = 0, cx1 = 0, cy1 = 0;  // to
+    float t = 0;                        // 0 to 1
+    const void* ed = nullptr;
+    float zoomWas = 0, camXWas = 0, camYWas = 0;  // (the view after the last step)
+};
+inline ViewGlide gViewGlide;
+void mapZoomGlideStop() { gZoomGlide.on = gViewGlide.on = false; }
+void mapViewGlideTo(AppState& app, float zoom, float cx, float cy) {
+    int w = 0, h = 0;
+    viewSize(w, h);
+    if (!app.ed || app.zoom <= 0 || w <= 0 || h <= 0) return;
+    zoom = std::clamp(zoom, 1.0f / 16, 16.0f);
+    gZoomGlide.on = false;
+    if (!gMapMotion) {
+        gViewGlide.on = false;
+        app.zoom = zoom;
+        app.camX = cx - w / 2.0f / zoom, app.camY = cy - h / 2.0f / zoom;
+    } else {
+        clampCamera();  // (the start is where each frame keeps the view)
+        gViewGlide = {true, true, app.zoom, app.camX + w / 2.0f / app.zoom, app.camY + h / 2.0f / app.zoom, zoom, cx, cy, 0, app.ed.get(), app.zoom, app.camX, app.camY};
+    }
+    app.dirty = true;
+}
+// A frame's step of the view's glide (`dt`: the seconds since the last one). True while the view moves.
+bool mapViewGlideStep(AppState& app, float dt) {
+    ViewGlide& g = gViewGlide;
+    if (!g.on) return false;
+    int w = 0, h = 0;
+    viewSize(w, h);
+    if (app.zoom <= 0 || w <= 0 || h <= 0 || app.ed.get() != g.ed || app.zoom != g.zoomWas || app.camX != g.camXWas || app.camY != g.camYWas) return g.on = false;
+    g.t = std::min(1.0f, g.t + std::clamp(dt, 0.0f, g.fresh ? 1.0f / 60 : 0.1f) / 0.22f);
+    g.fresh = false;
+    const float e = 1 - std::pow(1 - g.t, 3.0f);
+    app.zoom = g.t >= 1 ? g.zoom1 : g.zoom0 * std::pow(g.zoom1 / g.zoom0, e);
+    // The middle: with one zoom, on a line; with two, as far from the goal as the zoom is from its goal (a zoom around
+    // one point of the view).
+    float part = e;
+    if (std::fabs(std::log(g.zoom1 / g.zoom0)) > 0.01f) part = (1 / g.zoom0 - 1 / app.zoom) / (1 / g.zoom0 - 1 / g.zoom1);
+    const float cx = g.cx0 + (g.cx1 - g.cx0) * part, cy = g.cy0 + (g.cy1 - g.cy0) * part;
+    app.camX = cx - w / 2.0f / app.zoom, app.camY = cy - h / 2.0f / app.zoom;
+    clampCamera();
+    g.zoomWas = app.zoom, g.camXWas = app.camX, g.camYWas = app.camY;
+    if (g.t >= 1) g.on = false;
+    app.dirty = true;
+    return true;
+}
+
+// The overview: while Space is held on the map (Ctrl+Space in each mode; Space alone where it is not the terrain
+// palette's), the view shows the whole map. Letting go puts the place under the mouse in the middle of the view, at the
+// zoom from before; with a mouse that did not move, the view from before comes back. An outline at the mouse shows the
+// view that the release gives (paintMapPeek, core/tool_hints.inc).
+struct MapPeek {
+    bool on = false;
+    const void* ed = nullptr;
+    float zoom = 0, cx = 0, cy = 0;  // the view from before
+    int mouseX = 0, mouseY = 0;      // the mouse at the start
+};
+inline MapPeek gMapPeek;
+bool mapPeekOn(const AppState& app) { return gMapPeek.on && app.ed && gMapPeek.ed == app.ed.get(); }
+void mapPeekStart(AppState& app) {
+    int w = 0, h = 0;
+    viewSize(w, h);
+    if (gMapPeek.on || !app.ed || !app.ed->isOpen() || app.zoom <= 0 || w <= 0 || h <= 0 || app.drag != Drag::None) return;
+    gMapPeek = {true, app.ed.get(), app.zoom, app.camX + w / 2.0f / app.zoom, app.camY + h / 2.0f / app.zoom, app.mouseX, app.mouseY};
+    mapViewGlideTo(app, std::min(app.zoom, fitZoom(app, w, h)), app.ed->width() * 16.0f, app.ed->height() * 16.0f);  // (never nearer than the view was)
+}
+// `go`: to the place under the mouse; else back to the view from before (the program lost the keyboard).
+void mapPeekEnd(AppState& app, bool go) {
+    if (!gMapPeek.on) return;
+    const MapPeek p = gMapPeek;
+    gMapPeek.on = false;
+    app.dirty = true;
+    if (!app.ed || app.ed.get() != p.ed) return;  // (another map's tab: its view stays)
+    float cx = p.cx, cy = p.cy;
+    if (go && app.mouseIn && (app.mouseX != p.mouseX || app.mouseY != p.mouseY)) {
+        toWorld(app, app.mouseX, app.mouseY, cx, cy);
+        cx = std::clamp(cx, 0.0f, app.ed->width() * 32.0f), cy = std::clamp(cy, 0.0f, app.ed->height() * 32.0f);
+    }
+    mapViewGlideTo(app, p.zoom, cx, cy);
+}
+// The overview ends with the view from before, at once (the map's tab goes to the back: its view is kept as it was).
+void mapPeekCancel(AppState& app) {
+    if (!mapPeekOn(app)) return;
+    const MapPeek p = gMapPeek;
+    gMapPeek.on = false;
+    int w = 0, h = 0;
+    viewSize(w, h);
+    mapZoomGlideStop();
+    if (p.zoom <= 0 || w <= 0 || h <= 0) return;
+    app.zoom = p.zoom, app.camX = p.cx - w / 2.0f / p.zoom, app.camY = p.cy - h / 2.0f / p.zoom;
+    clampCamera();
+    app.dirty = true;
+}
+
 void mapZoomGlideTo(AppState& app, float x, float y, float factor, float most = 4.0f) {
     if (app.zoom <= 0 || !(factor > 0)) return;
+    gViewGlide.on = false;  // (the wheel during a glide of the view: the zoom goes on from where the view is)
     const float goal = std::clamp((gZoomGlide.on ? gZoomGlide.goal : app.zoom) * factor, 1.0f / 16, most);
     if (!gMapMotion) {
         gZoomGlide.on = false;

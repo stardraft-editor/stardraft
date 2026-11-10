@@ -78,6 +78,7 @@ void stashActive() {
     mapPageClose();
     Doc& d = gDocs[size_t(gActive)];
     d.workspace = gWorkspace;
+    mapPeekCancel(app);  // (the overview: the tab keeps the view from before it)
     d.camX = app.camX, d.camY = app.camY, d.zoom = app.zoom;
     d.hasTerrainSel = app.hasTerrainSel, d.terrainSel = app.terrainSel, d.terrainSelMask = app.terrainSelMask;
     d.pasting = app.pasting, d.terrainPasting = app.terrainPasting;

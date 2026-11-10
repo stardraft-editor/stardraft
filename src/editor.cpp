@@ -3620,23 +3620,11 @@ int Editor::snapSelection(int gw, int gh, int ox, int oy) {
     if (selection_.empty() || gw <= 0 || gh <= 0) return 0;
     std::vector<int> sel = withLinkedAddons(selection_);  // a building's add-on goes with it
     std::sort(sel.begin(), sel.end());
-    std::vector<bool> selected(units_.size(), false);
-    for (int i : sel) selected[size_t(i)] = true;
-    std::vector<Unit> others;  // the units that do not move
-    for (size_t i = 0; i < units_.size(); ++i)
-        if (!selected[i]) others.push_back(units_[i]);
-    std::vector<Unit> now, to;
-    for (int i : sel) now.push_back(units_[size_t(i)]);
-    to = now;
-    std::vector<std::vector<size_t>> groups;  // (a building and its linked add-on go together, or stay together)
-    std::vector<size_t> addons;
+    std::vector<Unit> to;
+    for (int i : sel) to.push_back(units_[size_t(i)]);
     for (size_t k = 0; k < sel.size(); ++k) {
         Unit& u = to[k];
-        if ((u.links & UnitLink::Addon) && addonParent(u.type) >= 0) {
-            addons.push_back(k);
-            continue;
-        }
-        groups.push_back({k});
+        if ((u.links & UnitLink::Addon) && addonParent(u.type) >= 0) continue;  // (it goes with its building: moveUnitsTo)
         if (u.type >= types_.size() || !types_[u.type].is(UnitFlag::Building)) {
             u.x = uint16_t(gridCrossing(u.x, gw, ox, width_ * 32)), u.y = uint16_t(gridCrossing(u.y, gh, oy, height_ * 32));
             continue;
@@ -3651,6 +3639,23 @@ int Editor::snapSelection(int gw, int gh, int ox, int oy) {
         if (gridDistance(t.x - halfW, gw, ox) < gridDistance(u.x - halfW, gw, ox)) u.x = t.x;
         if (gridDistance(t.y - halfH, gh, oy) < gridDistance(u.y - halfH, gh, oy)) u.y = t.y;
     }
+    return moveUnitsTo(sel, std::move(to));
+}
+
+int Editor::moveUnitsTo(const std::vector<int>& sel, std::vector<Unit> to) {
+    std::vector<bool> selected(units_.size(), false);
+    for (int i : sel) selected[size_t(i)] = true;
+    std::vector<Unit> others;  // the units that do not move
+    for (size_t i = 0; i < units_.size(); ++i)
+        if (!selected[i]) others.push_back(units_[i]);
+    std::vector<Unit> now;
+    for (int i : sel) now.push_back(units_[size_t(i)]);
+    std::vector<std::vector<size_t>> groups;  // (a building and its linked add-on go together, or stay together)
+    std::vector<size_t> addons;
+    for (size_t k = 0; k < sel.size(); ++k) {
+        if ((now[k].links & UnitLink::Addon) && addonParent(now[k].type) >= 0) addons.push_back(k), to[k] = now[k];
+        else groups.push_back({k});
+    }
     for (size_t k : addons)  // (with its building in the selection; alone it stays, and it stays linked)
         for (size_t j = 0; j < sel.size(); ++j)
             if (now[j].serial == now[k].relatedSerial && to[j].type < types_.size() && now[k].type < types_.size()) {
@@ -3659,9 +3664,19 @@ int Editor::snapSelection(int gw, int gh, int ox, int oy) {
                 for (std::vector<size_t>& g : groups)
                     if (g[0] == j) g.push_back(k);
             }
-    // Each one goes when it fits among all the others as they are then, so that no snap makes units overlap. Twice: one
-    // may leave the place that another one wants.
-    for (int pass = 0; pass < 2; ++pass)
+    // All of them at once when they fit at their new places (units that change places with each other).
+    bool all = true;
+    if (!allowIllegalUnits_) {
+        std::vector<Unit> against = others;
+        for (size_t k = 0; k < to.size() && all; ++k) {
+            all = placementOk(placementContext(&against), to[k]);
+            against.push_back(to[k]);
+        }
+    }
+    if (all) now = to;
+    // Else each one goes when it fits among all the others as they are then, so that no move makes units overlap. Twice:
+    // one may leave the place that another one wants.
+    for (int pass = 0; pass < 2 && !all; ++pass)
         for (const std::vector<size_t>& g : groups) {
             bool differs = false;
             for (size_t k : g) differs = differs || to[k].x != now[k].x || to[k].y != now[k].y;
@@ -3688,6 +3703,162 @@ int Editor::snapSelection(int gw, int gh, int ox, int oy) {
     writeUnits(chk_, units_);
     commit(false);
     return count;
+}
+
+int Editor::arrangeSelection(Arrange how) {
+    if (selection_.size() < 2) return 0;
+    std::vector<int> sel = withLinkedAddons(selection_);  // a building's add-on goes with it
+    std::sort(sel.begin(), sel.end());
+    std::vector<Unit> to;
+    for (int i : sel) to.push_back(units_[size_t(i)]);
+    // The units to arrange, each with its box (a building's with its linked add-on's). A linked add-on is not one of
+    // them: it goes with its building, or stays.
+    struct Item {
+        size_t k;
+        Rect box;
+        bool building;
+        int w() const { return box.right - box.left; }
+        int h() const { return box.bottom - box.top; }
+        double cx() const { return (box.left + box.right) / 2.0; }
+        double cy() const { return (box.top + box.bottom) / 2.0; }
+    };
+    std::vector<Item> items;
+    bool buildings = false;
+    for (size_t k = 0; k < sel.size(); ++k) {
+        const Unit& u = to[k];
+        if ((u.links & UnitLink::Addon) && addonParent(u.type) >= 0) continue;
+        Item it{k, unitBox(u), u.type < types_.size() && types_[u.type].is(UnitFlag::Building)};
+        if (u.links & UnitLink::Addon)
+            for (const Unit& a : to)
+                if (a.serial == u.relatedSerial && (a.links & UnitLink::Addon) && a.relatedSerial == u.serial) {
+                    const Rect b = unitBox(a);
+                    it.box = {std::min(it.box.left, b.left), std::min(it.box.top, b.top), std::max(it.box.right, b.right), std::max(it.box.bottom, b.bottom)};
+                }
+        buildings = buildings || it.building;
+        items.push_back(it);
+    }
+    const int n = int(items.size());
+    if (n < 2 || ((how == Arrange::SpreadH || how == Arrange::SpreadV) && n < 3)) return 0;
+    Rect all = items[0].box;
+    int maxW = 0, maxH = 0;
+    for (const Item& it : items) {
+        all = {std::min(all.left, it.box.left), std::min(all.top, it.box.top), std::max(all.right, it.box.right), std::max(all.bottom, it.box.bottom)};
+        maxW = std::max(maxW, it.w()), maxH = std::max(maxH, it.h());
+    }
+    // An item's box with its corner at (left, top), as near as the map and a building's grid let it.
+    auto put = [&](Item& it, int left, int top) {
+        Unit& u = to[it.k];
+        const int x0 = u.x, y0 = u.y;
+        u.x = uint16_t(std::clamp(x0 + left - it.box.left, 0, width_ * 32 - 1));
+        u.y = uint16_t(std::clamp(y0 + top - it.box.top, 0, height_ * 32 - 1));
+        if (u.type < types_.size()) snapToGrid(types_[u.type], u.x, u.y);
+        const int dx = int(u.x) - x0, dy = int(u.y) - y0;
+        it.box = {it.box.left + dx, it.box.top + dy, it.box.right + dx, it.box.bottom + dy};
+    };
+    // (a building that its grid moved back over the one before it: one tile on)
+    auto putAfter = [&](Item& it, int left, int top, bool across) {
+        put(it, left, top);
+        if (across && it.box.left < left) put(it, it.box.left + 32, it.box.top);
+        if (!across && it.box.top < top) put(it, it.box.left, it.box.top + 32);
+    };
+    const int gap = buildings ? 0 : 8;  // the space between units side by side (buildings: wall to wall, on the tiles)
+    const int left0 = buildings ? all.left / 32 * 32 : all.left, top0 = buildings ? all.top / 32 * 32 : all.top;
+    // A shape's start for a shape of `size` pixels: moved back so that the whole shape is on the map (`most` pixels).
+    const auto inside = [&](int at, int size, int most) {
+        at = std::max(0, std::min(at, most - size));
+        return buildings ? at / 32 * 32 : at;
+    };
+    const int mapW = width_ * 32, mapH = height_ * 32;
+    const auto byX = [](const Item& a, const Item& b) { return a.cx() < b.cx(); };
+    const auto byY = [](const Item& a, const Item& b) { return a.cy() < b.cy(); };
+    switch (how) {
+    case Arrange::Left:
+        for (Item& it : items) put(it, all.left, it.box.top);
+        break;
+    case Arrange::Center:
+        for (Item& it : items) put(it, (all.left + all.right - it.w()) / 2, it.box.top);
+        break;
+    case Arrange::Right:
+        for (Item& it : items) put(it, all.right - it.w(), it.box.top);
+        break;
+    case Arrange::Top:
+        for (Item& it : items) put(it, it.box.left, all.top);
+        break;
+    case Arrange::Middle:
+        for (Item& it : items) put(it, it.box.left, (all.top + all.bottom - it.h()) / 2);
+        break;
+    case Arrange::Bottom:
+        for (Item& it : items) put(it, it.box.left, all.bottom - it.h());
+        break;
+    case Arrange::SpreadH:
+    case Arrange::SpreadV: {
+        const bool across = how == Arrange::SpreadH;
+        std::stable_sort(items.begin(), items.end(), across ? byX : byY);
+        int sum = 0;
+        for (const Item& it : items) sum += across ? it.w() : it.h();
+        const double space = ((across ? all.right - all.left : all.bottom - all.top) - sum) / double(n - 1);
+        double at = across ? all.left : all.top;
+        for (Item& it : items) {
+            const int size = across ? it.w() : it.h();
+            if (across) put(it, int(std::lround(at)), it.box.top);
+            else put(it, it.box.left, int(std::lround(at)));
+            at += size + space;
+        }
+        break;
+    }
+    case Arrange::Row:
+    case Arrange::Column: {
+        const bool across = how == Arrange::Row;
+        std::stable_sort(items.begin(), items.end(), across ? byX : byY);
+        int total = gap * (n - 1);
+        for (const Item& it : items) total += across ? it.w() : it.h();
+        int at = across ? inside(left0, total, mapW) : inside(top0, total, mapH);
+        for (Item& it : items) {
+            if (across) putAfter(it, at, (all.top + all.bottom - it.h()) / 2, true);
+            else putAfter(it, (all.left + all.right - it.w()) / 2, at, false);
+            at = (across ? it.box.right : it.box.bottom) + gap;
+        }
+        break;
+    }
+    case Arrange::Grid: {
+        // As near to a square as the count lets it be; the units keep their order (the rows from the top, each row
+        // from the left). A cell holds the largest unit; a building is at its cell's corner, on the tiles.
+        const int cols = int(std::ceil(std::sqrt(double(n))));
+        std::stable_sort(items.begin(), items.end(), byY);
+        for (int r = 0; r * cols < n; ++r) std::stable_sort(items.begin() + r * cols, items.begin() + std::min(n, (r + 1) * cols), byX);
+        const int cellW = buildings ? (maxW + 31) / 32 * 32 : maxW + gap, cellH = buildings ? (maxH + 31) / 32 * 32 : maxH + gap;
+        const int gridLeft = inside(left0, cols * cellW, mapW), gridTop = inside(top0, (n + cols - 1) / cols * cellH, mapH);
+        for (int i = 0; i < n; ++i) {
+            Item& it = items[size_t(i)];
+            const int cl = gridLeft + i % cols * cellW, ct = gridTop + i / cols * cellH;
+            if (it.building) put(it, cl, ct);
+            else put(it, cl + (cellW - gap - it.w()) / 2, ct + (cellH - gap - it.h()) / 2);
+        }
+        break;
+    }
+    case Arrange::Circle: {
+        // Round the middle of the selection, in the order that the units have round it now, the first one at its
+        // angle. The circle is as large as the units are far from the middle, and large enough for them side by side.
+        double cx = (all.left + all.right) / 2.0, cy = (all.top + all.bottom) / 2.0;
+        const double turn = 6.283185307179586;
+        const auto angle = [&](const Item& it) { return std::atan2(it.cy() - cy, it.cx() - cx); };
+        std::stable_sort(items.begin(), items.end(), [&](const Item& a, const Item& b) { return angle(a) < angle(b); });
+        double far = 0, round = 0;
+        for (const Item& it : items) far += std::hypot(it.cx() - cx, it.cy() - cy), round += std::hypot(double(it.w()), double(it.h())) + gap;
+        const double radius = std::max(far / n, round / turn), from = angle(items[0]);
+        // (a circle that goes off the map: its middle moves in, when the map is large enough for it)
+        const double halfW = radius + maxW / 2.0, halfH = radius + maxH / 2.0;
+        if (2 * halfW <= mapW) cx = std::clamp(cx, halfW, mapW - halfW);
+        if (2 * halfH <= mapH) cy = std::clamp(cy, halfH, mapH - halfH);
+        for (int i = 0; i < n; ++i) {
+            Item& it = items[size_t(i)];
+            const double a = from + turn * i / n;
+            put(it, int(std::lround(cx + radius * std::cos(a) - it.w() / 2.0)), int(std::lround(cy + radius * std::sin(a) - it.h() / 2.0)));
+        }
+        break;
+    }
+    }
+    return moveUnitsTo(sel, std::move(to));
 }
 
 void Editor::copySelection() {

@@ -22,6 +22,7 @@ const std::vector<AppSetting>& appSettings() {
         SD_SETTING("ShowLocationsInAllModes", shellState().showLocations, bool),
         SD_SETTING("ShowGrid", shellState().showGrid, bool),
         SD_SETTING("ShowKeyHints", shellState().keyHints, bool),
+        SD_SETTING("ShowSelectionBar", shellState().selBar, bool),
         SD_SETTING("Correction", shellState().correction, bool),
         SD_SETTING("AllowIllegalUnits", shellState().allowIllegalUnits, bool),
         SD_SETTING("AllowStacking", shellState().allowStacking, bool),

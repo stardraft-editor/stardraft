@@ -121,6 +121,7 @@
 #include "views_text_prompt.inc"
 #include "views_number_prompt.inc"  // the number form: numbers with their ranges and units, OK and Cancel (shellAskNumbers)
 #include "views_map_menu.inc"
+#include "selection_bar.inc"
 #include "views_quick_pick.inc"
 #include "views_campaign.inc"  // File > Campaign: the campaign's maps (roadmap R25)
 #include "views_trigger_quick.inc"  // Q in the trigger editors: Quick add (roadmap R61)

@@ -226,9 +226,7 @@ void quickPickRun(QuickPickKind kind, bool replace, int v) {
         app.ed->selectLocation(v);
         setListSel(int(std::find(app.items.begin(), app.items.end(), v) - app.items.begin()));
         const Rect r = app.ed->locationRect(v);
-        int vw = 0, vh = 0;
-        shellViewSize(vw, vh);
-        app.camX = (r.left + r.right) / 2.0f - vw / 2.0f / app.zoom, app.camY = (r.top + r.bottom) / 2.0f - vh / 2.0f / app.zoom;
+        mapViewGlideTo(app, app.zoom, (r.left + r.right) / 2.0f, (r.top + r.bottom) / 2.0f);
         setMessage(L"Location " + widen(app.ed->locationName(v)));
         app.dirty = true;
         return;

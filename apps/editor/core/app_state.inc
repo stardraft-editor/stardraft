@@ -72,6 +72,7 @@ struct AppState {
     bool doodadNearest = false;  // Options > Doodads > Move to the nearest place where it fits (with doodadCheck)
     bool showGrid = false;
     bool keyHints = true;  // View > Show key hints: the strip at the bottom of the map (core/tool_hints.inc)
+    bool selBar = true;  // View > Show selection bar: the buttons over the selected units (core/selection_bar.inc)
     // Options > Units, Sprites, Locations > Snap to the grid: they go on the lines of the grid of View > Grid.
     bool snapUnits = false, snapSprites = false, snapLocations = true;
     bool carbot = false;  // Cartooned (Carbot) graphics

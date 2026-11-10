@@ -21,8 +21,9 @@ enum : int {
     ID_EDIT_CORRECTION, ID_EDIT_DOODADCHECK, ID_EDIT_SNAPLOC, ID_EDIT_RENAME, ID_EDIT_SNAPUNITS, ID_EDIT_DUPLICATE,
     ID_EDIT_HISTORY,  // Edit > Undo history (core/undo_history.inc)
     ID_EDIT_SNAPGRID,  // Edit > Snap to the grid: the selected units, doodads or sprites (View > Grid size's grid)
+    ID_EDIT_ARRANGE,  // + stardraft::Arrange (12 of them): Edit > Arrange, the selected units
     ID_VIEW_HD = 400, ID_VIEW_HD2, ID_VIEW_SD, ID_VIEW_CARBOT, ID_VIEW_LOCATIONS, ID_VIEW_ZOOMIN, ID_VIEW_ZOOMOUT, ID_VIEW_ZOOM100, ID_VIEW_FIT, ID_VIEW_GRID,
-    ID_VIEW_WALK, ID_VIEW_PATHS, ID_VIEW_TOWNS, ID_PATHSIZE_SMALL, ID_PATHSIZE_MEDIUM, ID_PATHSIZE_LARGE, ID_VIEW_KEYHINTS,  // the R24 overlays (path_overlay.inc)
+    ID_VIEW_WALK, ID_VIEW_PATHS, ID_VIEW_TOWNS, ID_PATHSIZE_SMALL, ID_PATHSIZE_MEDIUM, ID_PATHSIZE_LARGE, ID_VIEW_KEYHINTS, ID_VIEW_SELBAR,  // the R24 overlays (path_overlay.inc)
     ID_MODE_TERRAIN = 500, ID_MODE_UNITS, ID_MODE_DOODADS, ID_MODE_LOCATIONS, ID_MODE_SPRITES,
     ID_PLAYER_1 = 600,  // + player index, keys 1-9
     ID_QUICKPICK = 660,

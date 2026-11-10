@@ -88,7 +88,8 @@ RECT minimapView(const RECT& r, float sc) {
             r.top + int((app.camY + vh / app.zoom) * sc)};
 }
 
-void minimapJump(int mx, int my) {
+// `glide`: a click (the view glides there); a drag is there at once.
+void minimapJump(int mx, int my, bool glide = false) {
     AppState& app = shellState();
     if (!app.ed || !app.ed->isOpen()) return;
     RECT r;
@@ -98,6 +99,7 @@ void minimapJump(int mx, int my) {
     float wx = (mx - r.left) / sc, wy = (my - r.top) / sc;
     int vw, vh;
     viewSize(vw, vh);
+    if (glide) return mapViewGlideTo(app, app.zoom, wx, wy);
     app.camX = wx - vw / 2.0f / app.zoom;
     app.camY = wy - vh / 2.0f / app.zoom;
     app.dirty = true;
@@ -117,6 +119,7 @@ struct MinimapView final : stardraft::draw::View {
     RECT dotsRect{};
     float dotsScale = 0;
     bool dragging = false;
+    int pressX = -1, pressY = -1;  // where the press was, until the mouse moves (the click's glide goes on till then)
 
     void paint(stardraft::draw::Canvas& c) override {
         const stardraft::draw::Rect all{0, 0, width(), height()};
@@ -201,10 +204,11 @@ struct MinimapView final : stardraft::draw::View {
             keyFocus = false;
             dragging = true;
             if (auto* h = host()) h->capture(*this, true);
-            minimapJump(e.pt.x, e.pt.y);
+            pressX = e.pt.x, pressY = e.pt.y;
+            minimapJump(e.pt.x, e.pt.y, true);
             return true;
         case MouseKind::Move:
-            if (dragging) minimapJump(e.pt.x, e.pt.y);
+            if (dragging && (e.pt.x != pressX || e.pt.y != pressY)) pressX = pressY = -1, minimapJump(e.pt.x, e.pt.y);  // (a move: a drag)
             return true;
         case MouseKind::Up:
             if (dragging) {

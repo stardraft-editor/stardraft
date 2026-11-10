@@ -543,6 +543,11 @@ bool canSnapToGrid(const AppState& app) {
            (app.mode == Mode::Sprites && !app.selSprites.empty());
 }
 
+// Edit > Arrange: two units or more are selected in Units mode, and the units show.
+bool canArrange(const AppState& app) {
+    return app.ed && app.ed->isOpen() && !app.pasting && !app.pastingItems && !modeLayerHidden() && app.mode == Mode::Units && app.ed->selection().size() >= 2;
+}
+
 // Distance between units placed while dragging: the unit's footprint; with a snap, the footprint in whole grid cells.
 float placeSpacing() {
     const UnitType& t = appState().ed->unitTypes()[uint16_t(appState().palette)];

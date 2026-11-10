@@ -295,6 +295,7 @@ MenuModel mapMenuModel(float wx, float wy) {
     item(ID_MAPMENU_REPLACE, L"&Replace with\x2026", L"", has && (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites));
     if (app.mode == Mode::Doodads) item(ID_MAPMENU_TOTERRAIN, L"Convert to t&errain", L"", has);
     if (canSnapToGrid(app)) item(ID_EDIT_SNAPGRID, L"Snap to the &grid", L"", true);
+    if (canArrange(app)) m.push_back(menuPopup(L"&Arrange", arrangeMenuModel()));
     if (terrain && app.terrainRect)  // (#114; Solid: the tiles inside its terrain)
         item(ID_MAPMENU_FILLSEL, gTiles->solid ? L"&Fill selection with the selected terrain" : L"&Fill selection with the selected tiles", L"", has && tilesHavePick());
     if (terrain) item(ID_MAPMENU_SAVESTAMP, L"Save as custom &terrain\x2026", L"", has);  // (core/stamps.inc)

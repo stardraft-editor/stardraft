@@ -330,7 +330,54 @@ struct MapView final : draw::View {
         // The key hints (core/tool_hints.inc): while the mouse is on the map, as the modifier's mark.
         if (gState.keyHints && open() && gState.mouseIn && !panning && !simBarShown() && !sdlPieShown() && host() && !(gHost && gHost->modalOpen()))
             paintKeyHints(c, gState, width(), height(), gState.drag == Drag::None ? host()->modifiers() : 0);
+        // The buttons over the selected units (core/selection_bar.inc); the overview's outline (core/tool_hints.inc).
+        paintSelBar(c, gState, width(), height(), open() && !panning && !rightDown && !simBarShown() && !sdlPieShown());
+        paintMapPeek(c, gState, width(), height());
         paintModMark(c);
+    }
+    // The selection bar's button `i`: its command; Arrange and Give to player open their menus under the button.
+    void selBarRun(int i) {
+        if (i < 0 || size_t(i) >= gSelBar.buttons.size() || !open()) return;
+        const SelBarButton b = gSelBar.buttons[size_t(i)];  // (a copy: the command changes the bar)
+        const draw::Point at{b.r.left, b.r.bottom + scale(3)};
+        if (b.id == kSelBarArrange) sdlPopupMenu(*this, at, sdlModelItems(arrangeMenuModel(), [](int id) { command(id); }), L"Selection bar");
+        else if (b.id == kSelBarGive) {
+            MenuModel give;
+            for (int k = 0; k < 12; ++k) {
+                if (k == 8) give.push_back(menuSeparator());
+                give.push_back(menuItem(ID_PLAYER_1 + k, L"Player " + std::to_wstring(k + 1), k < 9 ? std::to_wstring(k + 1) : std::wstring(k == 9 ? L"0" : k == 10 ? L"-" : L"=")));
+            }
+            sdlPopupMenu(*this, at, sdlModelItems(give, [](int id) { command(id); }), L"Selection bar");
+        } else if (b.id == kSelBarProps) {
+            if (gState.ed->selection().empty()) return;
+            const int u = gState.ed->selection()[0];
+            shellPost([u] { showUnitProperties(u); });
+        } else command(b.id);
+        invalidateMapView();
+    }
+    // The selection bar takes the mouse on it: a press and its release on one button run the button.
+    bool selBarEat = false;
+    bool selBarMouse(const draw::MouseEvent& e) {
+        SelBar& b = gSelBar;
+        const int on = selBarHit(e.pt);
+        if (e.kind == draw::MouseKind::Move || e.kind == draw::MouseKind::Leave) {
+            const int hot = e.kind == draw::MouseKind::Move && gState.drag == Drag::None && !panning && !rightDown && on >= 0 ? on : -1;
+            if (hot != b.hot) b.hot = hot, invalidate();
+            return e.kind == draw::MouseKind::Move && (selBarEat || (on != -1 && gState.drag == Drag::None && !panning && !rightDown));
+        }
+        if ((e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick) && on != -1 && gState.drag == Drag::None && !panning && !rightDown) {
+            selBarEat = true, b.pressed = e.button == 0 ? on : -1, invalidate();
+            if (draw::Host* h = host()) h->capture(*this, true);  // (the release comes here from each place)
+            return true;
+        }
+        if (e.kind == draw::MouseKind::Up && selBarEat) {
+            const int was = b.pressed;
+            selBarEat = false, b.pressed = -1, invalidate();
+            if (draw::Host* h = host()) h->capture(*this, false);
+            if (was >= 0 && was == on) selBarRun(was);
+            return true;
+        }
+        return false;
     }
     std::wstring focusedItem() const override { return L"Map"; }
     bool mouse(const draw::MouseEvent& e) override {
@@ -350,6 +397,10 @@ struct MapView final : draw::View {
             if (press) maskClosedAt = {};
             if (e.kind == draw::MouseKind::Up && maskPressed) return maskPressed = false, true;
         }
+        // A press on the map during the overview: the view goes to that place at once (letting go of Space does nothing more).
+        if ((e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick) && mapPeekOn(gState))
+            return gState.mouseX = e.pt.x, gState.mouseY = e.pt.y, gState.mouseIn = true, mapPeekEnd(gState, true), invalidate(), true;
+        if (selBarMouse(e)) return true;  // (the buttons over the selected units)
         // While a live game shows: its bar's buttons; on the map only the view moves (middle button, wheel, pinch).
         if (simBarShown()) {
             if (simBarMouse(e, draw::Rect(0, 0, width(), height()))) {
@@ -484,7 +535,7 @@ struct MapView final : draw::View {
         const auto now = std::chrono::steady_clock::now();
         if (dt < 0) dt = std::chrono::duration<float>(now - panLast).count();
         panLast = now;
-        if (open() && mapZoomGlideStep(gState, dt)) updateStatus(), invalidate();  // (the smooth zoom: a frame's step, then the next frame)
+        if (open() && (mapZoomGlideStep(gState, dt) | int(mapViewGlideStep(gState, dt)))) updateStatus(), invalidate();  // (the smooth zoom, a glide to a place: a frame's step, then the next frame)
         if (!panning || panDrags || !open()) return;
         // The first step after the map stood still: one frame's time at most (not the time since the last frame: the
         // map jumped when the pan began; GitHub #154).
@@ -497,6 +548,7 @@ struct MapView final : draw::View {
     // a Shift stroke. After a release (the view lets the capture go itself) there is nothing left to end.
     void captureLost() override {
         rightDown = false, leftUpInPan = false;
+        selBarEat = false, gSelBar.pressed = -1;  // (a press on the selection bar: no button runs)
         rushCaptured = false, simRushDragLost();
         if (panning) {
             panning = false;
@@ -667,6 +719,8 @@ struct MainView final : draw::View {
         // The focused Triggers pane types too: a letter or a digit opens its block picker (from the text event), so the
         // map's keys (the player 1 to 0, the tools V B A F, Q) do not run (Windows: editFocus for the pane).
         if ((typing || trigPaneFocused()) && typed && !(e.mods & (draw::kCtrl | draw::kAlt))) return false;
+        // During the overview only Space counts: no key opens a window or goes to another tab while it is held.
+        if (gMapPeek.on && e.key != draw::Key::Space) return true;
         // Enter on the map: the selected location's or unit's properties (the Windows map's key).
         if (e.down && !e.repeat && e.key == draw::Key::Enter && !e.mods && !typing && map.shown() && mapEnterSdl()) return true;
         // Esc with the pie palette open (from the menu): it closes with no change.
@@ -680,6 +734,15 @@ struct MainView final : draw::View {
         // back to the map.
         if (e.down && !e.repeat && e.key == draw::Key::Escape && !e.mods && map.shown() && !map.hasFocus() && hasFocusIn(*this) && !hasFocus()) {
             map.focus();
+            return true;
+        }
+        // The overview (core/map_input.inc: mapPeekStart) while Space is held on the map: Ctrl+Space in each mode, Space
+        // alone in the modes where it is not the pie palette's. Letting go goes to the place at the mouse; when the
+        // program lost the keyboard, the view from before comes back.
+        if (e.key == draw::Key::Space && !e.down && gMapPeek.on) return mapPeekEnd(gState, SDL_GetKeyboardFocus() != nullptr), map.invalidate(), true;
+        if (e.key == draw::Key::Space && e.down && !pie.shown() && (e.mods == draw::kCtrl || (!e.mods && gState.mode != Mode::Terrain)) && !typing && map.shown() &&
+            gState.ed && gState.ed->isOpen() && (map.hasFocus() || !hasFocusIn(*this))) {
+            if (!e.repeat) mapPeekStart(gState), map.invalidate();
             return true;
         }
         // Space on the map in Terrain mode: the pie palette while it is held (the Windows map's VK_SPACE, also with Shift);

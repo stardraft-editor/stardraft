@@ -49,6 +49,14 @@ MenuItem menuSeparator() {
     it.kind = MenuItem::Kind::Separator;
     return it;
 }
+// Edit > Arrange's items (the Edit menu, the map's menu, the selection bar): align, equal spaces, the shapes.
+MenuModel arrangeMenuModel() {
+    MenuModel m;
+    menuCommands(m, "Edit/Arrange");
+    for (size_t at : {size_t(8), size_t(6), size_t(3)})  // (from the end: the places stay)
+        if (m.size() > at) m.insert(m.begin() + at, menuSeparator());
+    return m;
+}
 MenuItem menuPopup(std::wstring label, MenuModel items, std::string recent = {}) {
     MenuItem it;
     it.kind = MenuItem::Kind::Popup;
@@ -215,6 +223,7 @@ MenuModel buildMenuModel() {
                    menuItem(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A"),
                    menuItem(ID_EDIT_RENAME, L"Re&name location", L"F2")};
     menuCommand(edit, "edit.snapToGrid");
+    edit.push_back(menuPopup(L"Arran&ge", arrangeMenuModel()));
     // The Tools menu: the checks of the map, doodads where they fit (roadmap R37), the map revealers and the simulation.
     MenuModel tools{menuItem(ID_SCEN_CHECK, L"&Check that StarCraft can start the map")};
     {
@@ -294,6 +303,7 @@ MenuModel buildMenuModel() {
     }
     view.push_back(menuItem(ID_OPT_ANIMATE, L"A&nimate units"));  // (the units' idle animations on the map)
     menuCommand(view, "view.keyHints");  // (the strip of the tool's modifier keys at the bottom of the map)
+    menuCommand(view, "view.selectionBar");  // (the buttons over the selected units)
     view.push_back(menuSeparator());
     for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit"}) menuCommand(view, id);
     view.push_back(menuSeparator());

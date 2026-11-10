@@ -9,13 +9,14 @@ struct KeyHint {
     unsigned mod = 0;     // the modifier of the keys (draw::kShift, kCtrl, kAlt): the hint is bright while it is down
 };
 
-// The hints for the mode, the tool and the pick that are on now: the most useful first, four at most.
+// The hints for the mode, the tool and the pick that are on now: the most useful first, five at most.
 std::vector<KeyHint> mapKeyHints(const AppState& app) {
     std::vector<KeyHint> out;
     if (!app.ed || !app.ed->isOpen() || app.mode == Mode::Layers) return out;
+    if (mapPeekOn(app)) return {{L"Release", L"Go to the place at the mouse"}};  // (the overview: core/map_input.inc)
     const int tool = currentTool(app);
     auto add = [&](const wchar_t* keys, const wchar_t* what, unsigned mod = 0) {
-        if (out.size() < 4) out.push_back({keys, what, mod});
+        if (out.size() < 5) out.push_back({keys, what, mod});
     };
     switch (app.mode) {
     case Mode::Terrain: {
@@ -67,8 +68,17 @@ std::vector<KeyHint> mapKeyHints(const AppState& app) {
     default: break;
     }
     add(L"Q", L"Quick picker");
+    add(app.mode == Mode::Terrain ? L"Ctrl+Space" : L"Space", L"Overview");  // (held: mapPeekStart)
     add(L"Right-click", inSelection() ? L"Menu" : L"Stop");  // (mapRightClickSdl: placing or painting stops first)
     return out;
+}
+
+// The overview's outline (mapPeekStart): the view that letting go of Space gives, round the mouse.
+void paintMapPeek(draw::Canvas& c, const AppState& app, int viewW, int viewH) {
+    if (!mapPeekOn(app) || !app.mouseIn || app.zoom <= 0 || gMapPeek.zoom <= 0) return;
+    const int hw = std::max(scale(6), int(viewW * app.zoom / gMapPeek.zoom / 2)), hh = std::max(scale(6), int(viewH * app.zoom / gMapPeek.zoom / 2));
+    if (hw * 2 >= viewW && hh * 2 >= viewH) return;  // (the view from before showed all of this)
+    c.roundBox({app.mouseX - hw, app.mouseY - hh, app.mouseX + hw, app.mouseY + hh}, draw::kNone, kAccent, float(scale(3)), std::max(1, scale(2)));
 }
 
 // The strip: each hint is its keys in a key cap, then its text. `mods`: the modifier keys that are down (their hints are

@@ -323,7 +323,7 @@ bool sdlRuns(int id) {
 bool simBarShown();  // (sdl_simulation.inc)
 bool simCommandEnabled(int id);  // (sdl_simulation.inc)
 bool simLocksCommand(int id) {
-    return (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_HISTORY || id == ID_EDIT_SNAPGRID || id == ID_EDIT_TERRAINUNITS || id == ID_EDIT_TERRAINDOODADS ||
+    return (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_HISTORY || id == ID_EDIT_SNAPGRID || (id >= ID_EDIT_ARRANGE && id < ID_EDIT_ARRANGE + 12) || id == ID_EDIT_TERRAINUNITS || id == ID_EDIT_TERRAINDOODADS ||
            (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) || (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) || id == ID_QUICKPICK ||
            (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) || (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 16) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) || id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SCEN_PLAYERS ||
            id == ID_SCEN_PROPS || id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG || id == ID_PROJ_FROMMAP;
@@ -338,6 +338,7 @@ bool sdlEnabled(int id) {
     if (id >= ID_SIM_PLAY && id <= ID_SIM_CLOSE && !simCommandEnabled(id)) return false;  // (the bar's: while it shows)
     if (mapCommand(id) && !docOpen()) return false;
     if (id == ID_EDIT_SNAPGRID && (gWorkspace != Workspace::Map || !canSnapToGrid(gState))) return false;  // (a selection in the map)
+    if (id >= ID_EDIT_ARRANGE && id < ID_EDIT_ARRANGE + 12 && (gWorkspace != Workspace::Map || !canArrange(gState))) return false;  // (units to arrange)
     if (!editInWorkspace(id)) return false;  // (the map's Edit commands in another workspace: core/commands_core.inc)
     // The start page or the New page over the open map (File > New, the tabs' +): the map's commands are gray, as on the
     // Windows program's page tabs (a Delete or Paste would change the map nobody sees).
@@ -784,9 +785,12 @@ void sdlFocusLine() {
     std::printf("\n");
 }
 
-void sdlPressKey(const std::string& chord) {
+void sdlPressKey(const std::string& chordIn) {
+    const bool up = chordIn.size() > 3 && chordIn.compare(chordIn.size() - 3, 3, ":up") == 0;  // (<key>:up: the key's release, after a --key that holds it)
+    const std::string chord = up ? chordIn.substr(0, chordIn.size() - 3) : chordIn;
     const auto c = stardraft::parseShortcut(chord);
     draw::KeyEvent e;
+    e.down = !up;
     if (!gRoot || !gHost || !c || !keyOfChord(c->key, e.key)) return void(std::fprintf(stderr, "--key %s: no such key\n", chord.c_str()));
     e.mods = (c->ctrl ? kShortcutCtrl : 0) | (c->shift ? draw::kShift : 0) | (c->alt ? draw::kAlt : 0);
     if (const char ch = c->key.size() == 1 ? c->key[0] : 0; ch >= '0' && ch <= '9')  // (the keys' places on a US keyboard)

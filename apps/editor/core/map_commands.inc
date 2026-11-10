@@ -459,6 +459,26 @@ void registerMapCommands() {
                                     : std::wstring(L"The selection is on the grid, or does not fit on it."));
         app.dirty = true;
     });
+    {  // Edit > Arrange: the selected units (Editor::arrangeSelection), in stardraft::Arrange's order
+        static const struct { const char* id; const wchar_t* label; } arrange[] = {
+            {"edit.arrange.left", L"Align &left"},        {"edit.arrange.center", L"Align &center"},     {"edit.arrange.right", L"Align &right"},
+            {"edit.arrange.top", L"Align &top"},          {"edit.arrange.middle", L"Align &middle"},     {"edit.arrange.bottom", L"Align &bottom"},
+            {"edit.arrange.spreadAcross", L"Equal spaces &across"}, {"edit.arrange.spreadDown", L"Equal spaces &down"},
+            {"edit.arrange.row", L"Arrange in a ro&w"},   {"edit.arrange.column", L"Arrange in a colum&n"},
+            {"edit.arrange.grid", L"Arrange in a &grid"}, {"edit.arrange.circle", L"Arrange in a c&ircle"}};
+        for (int k = 0; k < 12; ++k)
+            addCommand(ID_EDIT_ARRANGE + k, arrange[k].id, arrange[k].label, "Edit/Arrange", L"", [k] {
+                AppState& app = shellState();
+                if (!canArrange(app)) return;
+                const bool spread = k == int(Arrange::SpreadH) || k == int(Arrange::SpreadV);
+                const int n = app.ed->arrangeSelection(Arrange(k));
+                setMessage(n ? L"Moved " + std::to_wstring(n) + (n == 1 ? L" unit" : L" units")
+                             : spread && app.ed->selection().size() < 3 ? std::wstring(L"Equal spaces: select 3 units or more.")
+                                                                        : std::wstring(L"The units are in their places, or do not fit there."));
+                app.dirty = true;
+            });
+    }
+    addCommand(ID_VIEW_SELBAR, "view.selectionBar", L"Show &selection bar", "View", L"", [] { shellState().selBar = !shellState().selBar, shellState().dirty = true; }, [] { return shellState().selBar; });
     addCommand(ID_REVEAL_REMOVE, "edit.revealers.removeAll", L"&Remove all map revealers", "Edit/Tools", L"", [] { removeMapRevealersCommand(); });
     addCommand(ID_CMBW_REPAIRISOM, "edit.cmbw.repairIsom", L"Try to repair the &ISOM", "Cosmonarchy", L"", [] { cmbwRepairIsomCommand(); });
     addCommand(ID_CMBW_CHECKCOMMENTS, "scen.cmbw.checkComments", L"&Check the CRIG commands", "Cosmonarchy", L"", [] { cmbwCheckCommentsCommand(); });
@@ -479,10 +499,11 @@ void registerMapCommands() {
     }, {}, false, false);
     addCommand(ID_VIEW_ZOOM100, "view.actualSize", L"&Actual size", "View", L"Ctrl+0", [] {
         if (gWorkspace == Workspace::Triggers) return trigZoomReset();  // the trigger pane back to its normal size
+        AppState& app = shellState();
         int w, h;
         viewSize(w, h);
-        zoomAt(1.0f / shellState().zoom, w / 2, h / 2);
+        if (app.zoom > 0) mapViewGlideTo(app, 1.0f, app.camX + w / 2.0f / app.zoom, app.camY + h / 2.0f / app.zoom);
     });
-    addCommand(ID_VIEW_FIT, "view.fit", L"&Fit map", "View", L"Ctrl+H", [] { fitMap(); });
+    addCommand(ID_VIEW_FIT, "view.fit", L"&Fit map", "View", L"Ctrl+H", [] { fitMapGlide(); });
     addCommand(ID_VIEW_KEYHINTS, "view.keyHints", L"Show &key hints", "View", L"", [] { shellState().keyHints = !shellState().keyHints, shellState().dirty = true; }, [] { return shellState().keyHints; });
 }
