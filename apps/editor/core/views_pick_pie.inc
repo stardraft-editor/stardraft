@@ -327,7 +327,10 @@ struct PickPieView : draw::View {
                         if (pic) groundTile(a0 + k * step, a0 + (k + 1) * step, ra, rb, on, pic);
                         else tile(a0 + k * step, a0 + (k + 1) * step, ra, rb, on ? kAccentFill : kCtlHot);
                         const PointF q = at(a0 + (k + 0.5) * step, (ra + rb) / 2);
-                        const int half = (cell() - scale(10)) / 2;
+                        // (the picture's box is in the cell: the cell's smaller side, less for a cell at a slant)
+                        const double am = a0 + (k + 0.5) * step;
+                        const double side = std::min(double(cell()), step * ra) - gap - scale(4);
+                        const int half = std::max(scale(8), int(side / (std::fabs(std::cos(am)) + std::fabs(std::sin(am))) / 2));
                         if (art) art(c, r.of->kids[size_t(first + k)].value, {int(q.x) - half, int(q.y) - half, int(q.x) + half, int(q.y) + half});
                         if (on) hotAngle = a0 + (k + 0.5) * step;
                     }
