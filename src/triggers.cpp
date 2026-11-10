@@ -1652,6 +1652,18 @@ struct Gen {
             helpers.insert(id == "val.max" ? "max" : "min");
             return std::string(id == "val.max" ? "sd_max(" : "sd_min(") + arg(c, *d, "a") + ", " + arg(c, *d, "b") + ")";
         }
+        if (id == "val.diff") {
+            helpers.insert("diff");
+            return "sd_diff(" + arg(c, *d, "a") + ", " + arg(c, *d, "b") + ")";
+        }
+        if (id == "val.clamp") {
+            helpers.insert("clamp");
+            return "sd_clamp(" + arg(c, *d, "a") + ", " + arg(c, *d, "low") + ", " + arg(c, *d, "high") + ")";
+        }
+        if (id == "val.playercount") {
+            helpers.insert("playercount");
+            return "sd_playerCount()";
+        }
         if (id == "val.upgrade") return "bread(" + upgradeAddr(playerNumber(c, d->param("player"), raw(c, *d, "player")), value(c, *d, d->param("upgrade"))) + ")";
         if (id == "val.unitcount" || id == "val.kills")
             return std::string("dwread_epd(EPD(") + (id == "val.kills" ? "0x5878A4" : "0x582324") + ") + 12 * " + value(c, *d, d->param("unit")) + " + " +
@@ -2007,7 +2019,11 @@ struct Gen {
                   d.title + " is not the same on each computer. Use it in Run local block, or only for what a player sees or hears: if it changes the game, the game desyncs");
         if (d.id == "cond.pname") {
             const std::string p = raw(c, d, "player");
-            if (!(p == "CurrentPlayer" || (p.size() == 2 && p[0] == 'P' && p[1] >= '1' && p[1] <= '8')))
+            const int pi = d.param("player");
+            const bool block = pi >= 0 && pi < int(c.argBlocks.size()) && !c.argBlocks[size_t(pi)].empty();
+            // (a variable or a value: one player, as a number)
+            const bool number = block || (!p.empty() && !playerGroupName(p) && !(p[0] == 'P' && p.size() >= 2 && std::isdigit(static_cast<unsigned char>(p[1]))));
+            if (!number && !(p == "CurrentPlayer" || (p.size() == 2 && p[0] == 'P' && p[1] >= '1' && p[1] <= '8')))
                 issue(TriggerIssue::Level::Error, &c, d.param("player"), "Use Player 1 to Player 8, or the current player");
         }
         if ((d.id == "cond.elapsed" || d.id == "cond.countdown") && raw(c, d, "cmp") == "Exactly")
@@ -3101,6 +3117,10 @@ std::string TriggerSet::helperLibrary() {
            "            DoActions(list(SetMemory(setRemoveTimer + 16, Add, 0x110 / 4), setRemoveTimer));\n"
            "        }\n"
            "    }\n}\n";
+    out += "function sd_diff(a, b) {  // the larger one minus the smaller one\n    if (a < b) return b - a;\n    return a - b;\n}\n"
+           "function sd_clamp(a, low, high) {\n    if (a < low) return low;\n    if (a > high) return high;\n    return a;\n}\n"
+           "function sd_playerCount() {  // Player 1 to Player 8 in the game\n    var n = 0;\n"
+           "    for (var pl = 0; pl < 8; pl++) {\n        if (playerexist(pl)) n += 1;\n    }\n    return n;\n}\n";
     out += "function sd_clearMessages() {  // an empty text on each of the 11 message lines (not the center line)\n"
            "    for (var line = 0; line < 11; line++) printAt(line, \"\");\n}\n"
            "function sd_clearMessagesAll() {\n    for (var line = 0; line < 11; line++) printAllAt(line, \"\");\n}\n";
@@ -3398,6 +3418,9 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
             {"groups", "sd_groupAdd"},
             {"buttons", "sd_button sd_setButton"},
             {"min", "sd_min"},
+            {"diff", "sd_diff"},
+            {"clamp", "sd_clamp"},
+            {"playercount", "sd_playerCount"},
             {"loc", "sd_locAddr"},
             {"scroll", "sd_scrollLock"},
             {"camera", "sd_camPan sd_camShake"},
