@@ -86,7 +86,7 @@ struct State {
 constexpr size_t kMaxParticles = 1200, kMaxShards = 120;  // (a shard is up to about 100 rects)
 size_t shardCount = 0;
 constexpr uint64_t kPopMs = 420, kShakeMs = 140;
-constexpr size_t kMaxDeaths = 64;
+constexpr size_t kMaxDeaths = 4096;  // (more than a map's units: each deleted unit dies, also when all go at once)
 constexpr int kDeathTicks = 240;  // (10 s of the game's ticks)
 
 uint64_t skewMs = 0;  // (a snapshot's --wait: the time that went by in the run, funAdvanceFor)
@@ -359,7 +359,7 @@ void watch(const Editor& ed) {
     // Units: placed ones thud and pop (by serial: a moved unit keeps it), deleted ones die (their Death animation and
     // its sounds; a unit with no Death animation puffs).
     std::unordered_set<uint32_t> serials;
-    int placed = 0, deleted = 0, puffed = 0, readyType = -1;
+    int placed = 0, puffed = 0, readyType = -1;
     uint32_t readySerial = 0;
     float pitch = 1;
     for (const Unit& un : ed.units()) {
@@ -376,7 +376,7 @@ void watch(const Editor& ed) {
     }
     AppState& app = shellState();
     for (const Unit& un : g.units) {
-        if (serials.count(un.serial) || ++deleted > 64) continue;
+        if (serials.count(un.serial)) continue;
         UnitSprites* sp = app.ed.get() == &ed ? &app.ed->unitSprites() : nullptr;
         const int image = sp ? mapUnitImage(*sp, un) : -1;
         if (image < 0 || !sp->animOffset(image, 1) || g.deaths.size() >= kMaxDeaths) {

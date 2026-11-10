@@ -20,8 +20,8 @@ editing the map gives feedback:
   have none, 1 has the adviser's sound), else units.datex's Ready Sound. A sound's file is its line of the mod's
   arr\sounds.txt (line n: the sound n, cmbw::soundFile), read from the mod's data, which has the game's files too.
   arr\sfxdata.dat's Sound File is not that line: do not use it. A placed doodad thunks and shakes the view a little.
-- A deleted unit with a Death animation (iscript) plays it at its place, with the animation's sounds (at most 64 at
-  a time, 240 ticks each at most); the map view draws frames until the last one ends. Other deleted units and
+- A deleted unit with a Death animation (iscript) plays it at its place, with the animation's sounds (each
+  deleted unit, also when many go at once: at most 4,096 at a time, 240 ticks each at most; 2 of their sounds at a time); the map view draws frames until the last one ends. Other deleted units and
   doodads puff.
 - A very large brush (an edit of 80 tiles or more: a brush of about 12 and up, a big fill) shakes the view a little,
   more for more tiles (up to 1.5 times a doodad's thunk), at most every 0.25 s: a long drag is a light rumble.
