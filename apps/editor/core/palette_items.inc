@@ -47,6 +47,38 @@ struct PaletteUnit {
 };
 constexpr uint8_t kQuickMarkOption = 1, kQuickMarkOn = 2, kQuickMarkGray = 4;
 
+// The last picks of each mode (pickUnit: the palette, the quick picker, the pipette), the newest first, 8 at most: the
+// quick picker shows them first while nothing is typed. For the program's run, not saved. The terrains and the doodads
+// are a tileset's: another tileset starts them again.
+struct RecentPicks {
+    uint16_t era = 0xFFFF;
+    std::map<int, std::vector<int>> of;  // (the mode -> its picks)
+};
+inline RecentPicks gRecentPicks;
+void recentPickAdd(const AppState& app, int v) {
+    if (!app.ed || v < 0) return;
+    if (gRecentPicks.era != app.ed->era()) gRecentPicks.of.erase(int(Mode::Terrain)), gRecentPicks.of.erase(int(Mode::Doodads)), gRecentPicks.era = app.ed->era();
+    std::vector<int>& list = gRecentPicks.of[int(app.mode)];
+    list.erase(std::remove(list.begin(), list.end(), v), list.end());
+    list.insert(list.begin(), v);
+    if (list.size() > 8) list.resize(8);
+}
+// The rows with the mode's last picks first, in their order, each with "Recent" as its section.
+void recentPicksFirst(const AppState& app, std::vector<PaletteUnit>& rows) {
+    if (!app.ed) return;
+    const auto found = gRecentPicks.of.find(int(app.mode));
+    if (found == gRecentPicks.of.end() || ((app.mode == Mode::Terrain || app.mode == Mode::Doodads) && gRecentPicks.era != app.ed->era())) return;
+    std::vector<PaletteUnit> first;
+    for (int v : found->second) {
+        const auto at = std::find_if(rows.begin(), rows.end(), [v](const PaletteUnit& u) { return u.value == v; });
+        if (at == rows.end()) continue;
+        first.push_back(std::move(*at));
+        first.back().section = tr(L"Recent");
+        rows.erase(at);
+    }
+    rows.insert(rows.begin(), std::make_move_iterator(first.begin()), std::make_move_iterator(first.end()));
+}
+
 std::vector<PaletteUnit> paletteUnits(AppState& app) {
     std::vector<PaletteUnit> out;
     if (!app.ed || !app.ed->isOpen()) return out;

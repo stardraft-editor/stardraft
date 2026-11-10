@@ -293,6 +293,7 @@ MenuModel buildMenuModel() {
         view.push_back(menuPopup(L"&Modes", layers));
     }
     view.push_back(menuItem(ID_OPT_ANIMATE, L"A&nimate units"));  // (the units' idle animations on the map)
+    menuCommand(view, "view.keyHints");  // (the strip of the tool's modifier keys at the bottom of the map)
     view.push_back(menuSeparator());
     for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit"}) menuCommand(view, id);
     view.push_back(menuSeparator());

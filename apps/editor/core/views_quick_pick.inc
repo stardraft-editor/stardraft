@@ -565,6 +565,8 @@ private:
                                          : kind_ == QuickPickKind::Open || kind_ == QuickPickKind::Custom ? openRows_
                                                                                                           : quickPickItems();
         shown_ = quickPickFilter(std::move(items), words_, kind_ == QuickPickKind::Open, kind_ == QuickPickKind::Custom && gQuickCustom.exact);
+        // (nothing typed: the mode's last picks first; not the tile groups, the custom terrain or the locations)
+        if (kind_ == QuickPickKind::Map && words_.empty() && mode_ != Mode::Locations && !tilesOn()) recentPicksFirst(appState(), shown_);
         if (pictures() && mode_ != Mode::Locations) {  // (items of one name: their number after it, as the palettes show them; core/palette_view.inc; a location's section has its number)
             std::map<std::wstring, std::set<int>> values;
             for (const PaletteUnit& u : shown_) values[u.label].insert(u.value);

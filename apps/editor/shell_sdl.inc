@@ -225,7 +225,9 @@ bool shellPaletteStep(int dir) {
     int i = at + dir;
     while (i >= 0 && i < n && rows[size_t(i)].value < 0) i += dir;  // (past the headings)
     if (i < 0 || i >= n) return true;  // (the first or the last: it stays)
+    gRecentPickHold = true;
     pickUnit(gState, rows[size_t(i)].value, false);
+    gRecentPickHold = false;
     shellPaletteReveal(rows[size_t(i)].value);
     return true;
 }

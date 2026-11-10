@@ -327,6 +327,9 @@ struct MapView final : draw::View {
     void paintOver(draw::Canvas& c) override {
         if (tabbed && hasFocus()) paintFocusOutline(c, {0, 0, width(), height()});
         paintMaskChip(c);
+        // The key hints (core/tool_hints.inc): while the mouse is on the map, as the modifier's mark.
+        if (gState.keyHints && open() && gState.mouseIn && !panning && !simBarShown() && !sdlPieShown() && host() && !(gHost && gHost->modalOpen()))
+            paintKeyHints(c, gState, width(), height(), gState.drag == Drag::None ? host()->modifiers() : 0);
         paintModMark(c);
     }
     std::wstring focusedItem() const override { return L"Map"; }
@@ -481,6 +484,7 @@ struct MapView final : draw::View {
         const auto now = std::chrono::steady_clock::now();
         if (dt < 0) dt = std::chrono::duration<float>(now - panLast).count();
         panLast = now;
+        if (open() && mapZoomGlideStep(gState, dt)) updateStatus(), invalidate();  // (the smooth zoom: a frame's step, then the next frame)
         if (!panning || panDrags || !open()) return;
         // The first step after the map stood still: one frame's time at most (not the time since the last frame: the
         // map jumped when the pan began; GitHub #154).

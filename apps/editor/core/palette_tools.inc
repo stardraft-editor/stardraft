@@ -471,8 +471,11 @@ int selectPalette(AppState& app, int value) {
 // Picking a unit means placing it: Units mode, out of paste mode, nothing selected, so the next click
 // on the map places one (Spray and Replace keep their tool: they use the pick too). Ctrl adds units to
 // the pick (or removes them) for sprays.
+void recentPickAdd(const AppState& app, int v);  // (core/palette_items.inc: the quick picker's recent picks)
+inline bool gRecentPickHold = false;  // (a step through the palette's list, shellPaletteStep: not a pick to keep)
 void pickUnit(AppState& app, int v, bool add) {
     if (!app.ed || v < 0) return;
+    if (!add && !gRecentPickHold) recentPickAdd(app, v);
     if (app.mode == Mode::Terrain || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
         // Terrain: paint with it (leaving Select / copy); doodads and sprites: place it. Ctrl adds it to the picks (or
         // takes it out): Spray and Fill put them at random (#79), the Brush and a click the last one.

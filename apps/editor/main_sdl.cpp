@@ -752,6 +752,7 @@ int main(int argc, char** argv) {
     }
     if (!snapshot.empty()) gSilent = true, gNoBoxes = true, gShotDialogs = true;  // (a snapshot shows no file dialog: --pick answers)
     if (!gShotBoxes.empty()) msgbox::hostBox() = sdlShotBox;
+    if (gNoBoxes || gNoActivate || gKpi) gMapMotion = false;  // (a snapshot or a test: the zoom is at its goal at once)
     if (gNoActivate) gSilent = true, gNoBoxes = true;  // (a test: no sound, the default settings, no question waits)
     // A test run (a snapshot, --silent) asks nothing, sends nothing and leaves the user's file types; with no settings file
     // of its own (--settings) it has the default settings: set before anything reads them (core/prefs.inc).

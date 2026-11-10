@@ -60,7 +60,8 @@ void locationMenuPick(int loc, int pick) {
 // buffer. Units add Properties; a location adds its own menu (rename, elevations).
 enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN,
        ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK, ID_MAPMENU_SAVESTAMP, ID_MAPMENU_COPYTILE, ID_MAPMENU_FEEDBACKSEL,
-       ID_MAPMENU_PROTECT, ID_MAPMENU_UNPROTECT, ID_MAPMENU_ADDANCHOR, ID_MAPMENU_REMOVEANCHOR, ID_MAPMENU_CENTERANCHOR, ID_MAPMENU_CLEARMASK, ID_MAPMENU_COPYTEXT };
+       ID_MAPMENU_PROTECT, ID_MAPMENU_UNPROTECT, ID_MAPMENU_ADDANCHOR, ID_MAPMENU_REMOVEANCHOR, ID_MAPMENU_CENTERANCHOR, ID_MAPMENU_CLEARMASK, ID_MAPMENU_COPYTEXT,
+       ID_MAPMENU_SELVIEW, ID_MAPMENU_SELPLAYER, ID_MAPMENU_SELINVERT };
 constexpr int ID_MAPMENU_LAYERROW = 9300;  // + a layer's row + 1 (0: the Background), Map Layers' menu on the map
 
 int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
@@ -194,6 +195,41 @@ int selectSameType(bool forPlayer) {
     return n;
 }
 
+// Units, "Select more": the units in the map view (ID_MAPMENU_SELVIEW), every unit of the player of the unit that the
+// menu opened on (ID_MAPMENU_SELPLAYER), or each unit that is not selected in place of those that are
+// (ID_MAPMENU_SELINVERT). Returns how many are selected.
+int selectMoreUnits(int pick) {
+    AppState& app = appState();
+    if (!app.ed || app.zoom <= 0) return 0;
+    Editor& ed = *app.ed;
+    std::wstring what;
+    if (pick == ID_MAPMENU_SELVIEW) {
+        int w, h;
+        viewSize(w, h);
+        ed.selectRect({int(app.camX), int(app.camY), int(app.camX + w / app.zoom), int(app.camY + h / app.zoom)}, false);
+        what = L" in the view";
+    } else if (pick == ID_MAPMENU_SELPLAYER) {
+        if (gMapMenuUnit < 0 || gMapMenuUnit >= int(ed.units().size())) return 0;
+        const uint8_t owner = ed.units()[size_t(gMapMenuUnit)].owner;
+        ed.clearSelection();
+        for (int i = 0; i < int(ed.units().size()); ++i)
+            if (ed.units()[size_t(i)].owner == owner && ed.pickable(i)) ed.select(i, true);
+        what = L" of Player " + std::to_wstring(owner + 1);
+    } else {
+        const std::vector<int> was = ed.selection();
+        std::vector<char> in(ed.units().size(), 0);
+        for (int i : was)
+            if (i >= 0 && size_t(i) < in.size()) in[size_t(i)] = 1;
+        ed.clearSelection();
+        for (int i = 0; i < int(in.size()); ++i)
+            if (!in[size_t(i)] && ed.pickable(i)) ed.select(i, true);
+    }
+    const int n = int(ed.selection().size());
+    setMessage(L"Selected " + std::to_wstring(n) + (n == 1 ? L" unit" : L" units") + what);
+    app.dirty = true;
+    return n;
+}
+
 // The menu at the map point (wx, wy): what is under it is selected first.
 MenuModel mapMenuModel(float wx, float wy) {
     AppState& app = appState();
@@ -288,7 +324,22 @@ MenuModel mapMenuModel(float wx, float wy) {
     if (gMapMenuUnit >= 0)
         m.push_back(menuItem(ID_MAPMENU_SAMETYPE_PLAYER, L"Select all of this type for Player " + std::to_wstring(ed.units()[size_t(gMapMenuUnit)].owner + 1)));
     if (gMapMenuStack > 1) item(ID_MAPMENU_STACK, L"Select a unit &here\x2026", L"Alt+click", true);  // (a stack: the list of its units)
+    if (app.mode == Mode::Units && !ed.units().empty()) {  // (more ways to select; the usual ones stay above)
+        MenuModel more{menuItem(ID_MAPMENU_SELVIEW, L"Units in the &view")};
+        if (gMapMenuUnit >= 0) more.push_back(menuItem(ID_MAPMENU_SELPLAYER, L"All units of &Player " + std::to_wstring(ed.units()[size_t(gMapMenuUnit)].owner + 1)));
+        more.push_back(menuItem(ID_MAPMENU_SELINVERT, L"&Invert selection"));
+        m.push_back(menuPopup(L"Select &more", std::move(more)));
+    }
     item(ID_MAPMENU_SELECT, L"&Select (no placing)", L"Esc", !inSelection());
+    // The selected units to another player (as the number keys do with a selection and no unit to place).
+    if (app.mode == Mode::Units && has && app.palette < 0 && !app.pasting) {
+        MenuModel give;
+        for (int k = 0; k < 12; ++k) {
+            if (k == 8) give.push_back(menuSeparator());
+            give.push_back(menuItem(ID_PLAYER_1 + k, L"Player " + std::to_wstring(k + 1), k < 9 ? std::to_wstring(k + 1) : std::wstring(k == 9 ? L"0" : k == 10 ? L"-" : L"=")));
+        }
+        m.push_back(menuPopup(L"Give to p&layer", std::move(give)));
+    }
     if (app.mode == Mode::Units) {  // the ranges of the selected units (as View > Unit vision and ranges)
         MenuModel ranges{menuItem(ID_VIEW_RANGES, L"&All ranges", {}, false, gRangeKinds == kRangeAll), menuSeparator()};
         for (int k = 0; k < kRangeKindCount; ++k) ranges.push_back(menuItem(ID_VIEW_RANGEKIND + k, kRangeKinds[k].menu, {}, false, rangeShown(k)));
@@ -343,6 +394,7 @@ void mapMenuPick(int pick) {
     else if (pick == ID_MAPMENU_PROTECT || pick == ID_MAPMENU_UNPROTECT) protectSelection(pick == ID_MAPMENU_PROTECT);
     else if (pick == ID_MAPMENU_FEEDBACKSEL && app.ed) shellReportFeedback(L"the selected terrain", selectedTilesText(*app.ed));
     else if (pick == ID_MAPMENU_SAMETYPE || pick == ID_MAPMENU_SAMETYPE_PLAYER) selectSameType(pick == ID_MAPMENU_SAMETYPE_PLAYER);
+    else if (pick == ID_MAPMENU_SELVIEW || pick == ID_MAPMENU_SELPLAYER || pick == ID_MAPMENU_SELINVERT) selectMoreUnits(pick);
     else if (pick == ID_MAPMENU_TOTERRAIN && app.ed) {
         // The selected doodads (the one under the mouse is selected by the menu): their tiles stay as plain terrain.
         const int n = app.ed->convertDoodadsToTerrain(app.selDoodads);

@@ -193,7 +193,9 @@ std::vector<kit::MenuItem> mapMenuKit(const MenuModel& items) {
         kit::MenuItem k;
         if (it.kind == MenuItem::Kind::Separator) k.separator = true;
         else {
-            k.label = accessFree(it.label), k.shortcut = it.shortcut, k.checked = it.checked, k.enabled = !it.grayed && it.id != 0;
+            k.label = accessFree(it.label), k.shortcut = it.shortcut, k.checked = it.checked;
+            if (it.kind == MenuItem::Kind::Popup) k.sub = mapMenuKit(it.items);  // (a popup: its items as a submenu)
+            k.enabled = !it.grayed && (it.id != 0 || !k.sub.empty());
             for (const auto& [id, icon] : icons)
                 if (id == it.id) k.icon = int(icon);
             if (it.id == ID_MAPMENU_FEEDBACKSEL) k.icon = int(kFeedbackIcon), k.iconColor = draw::Color(kFeedback);  // (as Report feedback)

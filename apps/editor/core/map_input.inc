@@ -107,6 +107,7 @@ bool gFitPending = false;
 // The same for a unit to put in the middle of the view (unitsListCenter; the creep check's picture); -1: none.
 int gCenterUnitPending = -1;
 
+void mapZoomGlideStop();
 // The whole map in the view: the zoom that fits it (at most 4 times), its middle in the view's middle.
 void fitMap() {
     AppState& app = appState();
@@ -115,6 +116,7 @@ void fitMap() {
     viewSize(w, h);
     gFitPending = w <= 0 || h <= 0;
     if (gFitPending) return;
+    mapZoomGlideStop();
     app.zoom = std::clamp(std::min(w / (app.ed->width() * 32.0f), h / (app.ed->height() * 32.0f)), 1.0f / 16, 4.0f);
     app.camX = (app.ed->width() * 32.0f - w / app.zoom) / 2;
     app.camY = (app.ed->height() * 32.0f - h / app.zoom) / 2;
@@ -1371,8 +1373,10 @@ void mapStrokeEnd(AppState& app) {
 
 // --- The map's wheel, trackpad and pinch (one rule for every system) ----------------------------------------------
 // The zoom changes by `factor` around the view point (x, y) (screen pixels): the map's point under it stays under it.
+void mapZoomGlideStop();
 void mapZoomAt(AppState& app, float x, float y, float factor) {
     if (app.zoom <= 0 || !(factor > 0)) return;
+    mapZoomGlideStop();
     const float wx = app.camX + x / app.zoom, wy = app.camY + y / app.zoom;
     app.zoom = std::clamp(app.zoom * factor, 1.0f / 16, 4.0f);
     app.camX = wx - x / app.zoom, app.camY = wy - y / app.zoom;
@@ -1385,6 +1389,54 @@ void mapPanBy(AppState& app, float dx, float dy) {
     app.camX -= dx / app.zoom, app.camY -= dy / app.zoom;
     clampCamera();
     app.dirty = true;
+}
+// The smooth zoom: a wheel's notch and the zoom keys do not jump. The zoom glides to its goal in about a tenth of a
+// second, around the same view point; more notches during the glide move the goal on. A snapshot or test run has no
+// glide (gMapMotion off): the zoom is at its goal at once. Every other zoom or camera jump stops the glide.
+struct ZoomGlide {
+    bool on = false;
+    float goal = 0, x = 0, y = 0;
+    bool fresh = false;  // no step yet: the first one is one frame's time at most (not the time since the last frame)
+    // The map and its view after the last step: another map or zoom stops the glide (another tab); another camera
+    // (a jump to a place, a pan) makes the glide go on around the middle of the view.
+    const void* ed = nullptr;
+    float zoomWas = 0, camXWas = 0, camYWas = 0;
+};
+inline ZoomGlide gZoomGlide;
+inline bool gMapMotion = true;
+void mapZoomGlideStop() { gZoomGlide.on = false; }
+void mapZoomGlideTo(AppState& app, float x, float y, float factor, float most = 4.0f) {
+    if (app.zoom <= 0 || !(factor > 0)) return;
+    const float goal = std::clamp((gZoomGlide.on ? gZoomGlide.goal : app.zoom) * factor, 1.0f / 16, most);
+    if (!gMapMotion) {
+        gZoomGlide.on = false;
+        const float wx = app.camX + x / app.zoom, wy = app.camY + y / app.zoom;
+        app.zoom = goal;
+        app.camX = wx - x / app.zoom, app.camY = wy - y / app.zoom;
+        clampCamera();
+    } else gZoomGlide = {true, goal, x, y, !gZoomGlide.on || gZoomGlide.fresh, app.ed.get(), app.zoom, app.camX, app.camY};
+    app.dirty = true;
+}
+// A frame's step of the glide (`dt`: the seconds since the last one). True while the zoom moves.
+bool mapZoomGlideStep(AppState& app, float dt) {
+    if (!gZoomGlide.on) return false;
+    if (app.zoom <= 0 || app.ed.get() != gZoomGlide.ed || app.zoom != gZoomGlide.zoomWas) return gZoomGlide.on = false;
+    if (app.camX != gZoomGlide.camXWas || app.camY != gZoomGlide.camYWas) {
+        int w = 0, h = 0;
+        viewSize(w, h);
+        gZoomGlide.x = w / 2.0f, gZoomGlide.y = h / 2.0f;
+    }
+    const float part = 1 - std::exp(-std::clamp(dt, 0.0f, gZoomGlide.fresh ? 1.0f / 60 : 0.1f) / 0.04f);
+    gZoomGlide.fresh = false;
+    float z = app.zoom * std::pow(gZoomGlide.goal / app.zoom, part);
+    if (std::fabs(std::log(gZoomGlide.goal / z)) < 0.004f) z = gZoomGlide.goal, gZoomGlide.on = false;
+    const float wx = app.camX + gZoomGlide.x / app.zoom, wy = app.camY + gZoomGlide.y / app.zoom;
+    app.zoom = z;
+    app.camX = wx - gZoomGlide.x / app.zoom, app.camY = wy - gZoomGlide.y / app.zoom;
+    clampCamera();
+    gZoomGlide.zoomWas = app.zoom, gZoomGlide.camXWas = app.camX, gZoomGlide.camYWas = app.camY;
+    app.dirty = true;
+    return true;
 }
 // The wheel or a two-finger scroll on the map at (x, y). `notches`: the wheel's steps, positive away from the user
 // (a trackpad's are fractions); `panX`, `panY`: how far the content moves in screen pixels, in the system's scroll
@@ -1442,7 +1494,9 @@ bool mapWheel(AppState& app, float x, float y, float notches, float panX, float 
         // A notch: 1.2 times; a trackpad's scroll: 1.2 times each 4 of its steps (its steps are small and many). A
         // Windows touchpad's pinch comes as Ctrl and a wheel's fractions: as gentle as a trackpad's.
         const bool fraction = notches != std::trunc(notches);
-        mapZoomAt(app, x, y, std::pow(1.2f, precise || (ctrl && fraction) ? notches / 4 : notches));
+        // (a wheel's whole notches glide; a trackpad's small steps are smooth already)
+        if (precise || fraction) mapZoomAt(app, x, y, std::pow(1.2f, precise || (ctrl && fraction) ? notches / 4 : notches));
+        else mapZoomGlideTo(app, x, y, std::pow(1.2f, notches));
         return true;
     }
     if (panX == 0 && panY == 0) return false;

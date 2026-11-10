@@ -32,6 +32,7 @@
 #include "panel_state.inc"  // each palette panel's own pick, tools, brush, player, mirrors, Isometric or Rectangle and tiles
 #include "path_overlay.inc"
 #include "map_input.inc"
+#include "tool_hints.inc"  // the key hints at the bottom of the map: what the modifier keys do with the tool that is on
 #include "map_mod_mark.inc"  // the mark next to the mouse on the map while a modifier key changes what the tool does
 #include "views_rail.inc"
 #include "views_minimap.inc"

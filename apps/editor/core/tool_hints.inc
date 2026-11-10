@@ -1,0 +1,109 @@
+// The key hints of the map (MapView::paintOver paints them: a strip at the bottom of the map view, View > Show key
+// hints): what the modifier keys and the wheel do with the tool that is on, before a key is down. The mark at the mouse
+// (core/map_mod_mark.inc) shows what a held key does at that place; the hints say which keys there are. They follow
+// mapMouseDown, mapMouseUp and mapWheel (core/map_input.inc): a new modifier there gets its hint here too.
+
+struct KeyHint {
+    const wchar_t* keys;  // the key or the keys with the mouse ("Shift+drag")
+    const wchar_t* what;  // what they do, in a few words
+    unsigned mod = 0;     // the modifier of the keys (draw::kShift, kCtrl, kAlt): the hint is bright while it is down
+};
+
+// The hints for the mode, the tool and the pick that are on now: the most useful first, four at most.
+std::vector<KeyHint> mapKeyHints(const AppState& app) {
+    std::vector<KeyHint> out;
+    if (!app.ed || !app.ed->isOpen() || app.mode == Mode::Layers) return out;
+    const int tool = currentTool(app);
+    auto add = [&](const wchar_t* keys, const wchar_t* what, unsigned mod = 0) {
+        if (out.size() < 4) out.push_back({keys, what, mod});
+    };
+    switch (app.mode) {
+    case Mode::Terrain: {
+        const bool tiles = app.terrainRect;  // (Rectangle: tiles; else the terrain brushes)
+        if (tool == TMoveSel || tool == TErase) break;
+        if (tool == TLine || tool == TPolygon) add(L"Shift", L"Lock angle", draw::kShift);
+        else if (tool == TRect || tool == TRectFill) add(L"Shift", L"Square", draw::kShift);
+        else if (tool == TEllipse || tool == TEllipseFill) add(L"Shift", L"Circle", draw::kShift);
+        else if (tool == TDiamond || tool == TDiamondFill) add(L"Shift", L"Equal sides", draw::kShift);
+        else if (tool == TRamp) add(L"Shift+drag", L"Remove ramp", draw::kShift);
+        else if (tool == TSelect || tool == TWand || tool == TLasso) {
+            add(L"Shift", L"Add to selection", draw::kShift);
+            add(L"Ctrl", L"Remove from selection", draw::kCtrl);
+        } else if (tool == TFill) {
+            add(L"Shift+click", L"Fill all of this terrain", draw::kShift);
+        } else if (tool == TBrush && tiles && tilesStampOn()) {
+            add(L"Shift+drag", L"Jumble", draw::kShift);
+        }
+        if (tool != TSelect && tool != TWand && tool != TLasso && !(tiles && gTiles->stamps))
+            add(L"Ctrl+click", tiles && !gTiles->solid ? L"Pick tile" : L"Pick terrain", draw::kCtrl);  // (Solid: its terrain)
+        if (tool == TBrush || tool == TSpray || tool == TJumble) add(L"Alt+wheel", L"Brush size", draw::kAlt);
+        if (!tiles) add(L"Space", L"Terrain palette");
+        break;
+    }
+    case Mode::Units:
+        if (app.palette < 0 && tool == UPlace) {
+            add(L"Shift", L"Add to selection", draw::kShift);
+            add(L"Ctrl", L"Add or remove", draw::kCtrl);
+        }
+        add(L"Alt+click", L"Pick unit", draw::kAlt);
+        if (tool == USpray) add(L"Alt+wheel", L"Brush size", draw::kAlt);
+        break;
+    case Mode::Doodads:
+        if (app.palette < 0 && tool == DPlace) add(L"Shift+click", L"Add or remove", draw::kShift);  // (selectItemAt: Ctrl too)
+        add(L"Alt+click", L"Pick doodad", draw::kAlt);
+        if (objectSprayOn()) add(L"Alt+wheel", L"Brush size", draw::kAlt);
+        else if (app.palette >= 0) add(L"Alt+wheel", L"Next doodad", draw::kAlt);
+        break;
+    case Mode::Sprites:
+        if (app.palette < 0) add(L"Shift+click", L"Add or remove", draw::kShift);
+        add(L"Alt+click", L"Pick sprite", draw::kAlt);
+        break;
+    case Mode::Locations:
+        if (tool == LErase) break;
+        add(L"Shift+drag", L"Inverted location", draw::kShift);
+        add(L"Alt+drag", L"Select in a box", draw::kAlt);
+        add(L"Shift+click", L"Add or remove", draw::kShift);
+        break;
+    default: break;
+    }
+    add(L"Q", L"Quick picker");
+    add(L"Right-click", inSelection() ? L"Menu" : L"Stop");  // (mapRightClickSdl: placing or painting stops first)
+    return out;
+}
+
+// The strip: each hint is its keys in a key cap, then its text. `mods`: the modifier keys that are down (their hints are
+// bright, the others dim). In the view's pixels at the UI's scale. It takes no clicks; where the mouse is near it, it
+// does not show (the map under it stays free). A narrow view shows the hints that fit, from the first.
+void paintKeyHints(draw::Canvas& c, const AppState& app, int viewW, int viewH, unsigned mods) {
+    const std::vector<KeyHint> hints = mapKeyHints(app);
+    if (hints.empty()) return;
+    const int h = scale(26), capH = scale(18), pad = scale(8), gap = scale(12), capPad = scale(5), margin = scale(10);
+    struct Item { std::wstring keys, what; int capW, textW; bool on; };
+    std::vector<Item> items;
+    int w = pad;
+    for (const KeyHint& k : hints) {
+        Item it{shellKeysText(k.keys), tr(k.what), 0, 0, k.mod && (mods & k.mod)};
+        it.capW = c.measure(it.keys) + 2 * capPad, it.textW = c.measure(it.what);
+        const int iw = it.capW + scale(5) + it.textW + (items.empty() ? 0 : gap);
+        if (w + iw + pad > viewW - 2 * margin) break;
+        w += iw;
+        items.push_back(std::move(it));
+    }
+    if (items.empty()) return;
+    w += pad;
+    const draw::Rect box((viewW - w) / 2, viewH - margin - h, (viewW - w) / 2 + w, viewH - margin);
+    if (app.mouseY >= box.top - scale(24) && app.mouseX >= box.left - scale(24) && app.mouseX < box.right + scale(24)) return;
+    c.roundBox(box, kPanel, kBorder, float(scale(4)));
+    const bool anyOn = std::any_of(items.begin(), items.end(), [](const Item& i) { return i.on; });
+    int x = box.left + pad;
+    for (size_t i = 0; i < items.size(); ++i) {
+        const Item& it = items[i];
+        if (i) x += gap;
+        const draw::Rect cap(x, box.top + (h - capH) / 2, x + it.capW, box.top + (h - capH) / 2 + capH);
+        c.roundBox(cap, it.on ? kSel : kCtl, it.on ? kAccentLine : kBorderStrong, float(scale(3)));
+        c.text(cap, it.keys, it.on ? kAccent : kText, draw::kCenter | draw::kMiddle);
+        x += it.capW + scale(5);
+        c.text({x, box.top, x + it.textW + 1, box.bottom}, it.what, it.on || !anyOn ? kText : kDim, draw::kMiddle);
+        x += it.textW;
+    }
+}

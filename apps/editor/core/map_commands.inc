@@ -125,6 +125,7 @@ void toggleLayer(int k) {
 
 void zoomAt(float factor, int sx, int sy) {
     AppState& app = shellState();
+    mapZoomGlideStop();
     float wx, wy;
     toWorld(sx, sy, wx, wy);
     app.zoom = std::clamp(app.zoom * factor, 1.0f / 16, 16.0f);
@@ -469,12 +470,12 @@ void registerMapCommands() {
     addCommand(ID_VIEW_ZOOMIN, "view.zoomIn", L"Zoom &in", "View", L"Ctrl++", [] {
         int w, h;
         viewSize(w, h);
-        zoomAt(1.25f, w / 2, h / 2);
+        mapZoomGlideTo(shellState(), w / 2.0f, h / 2.0f, 1.25f, 16.0f);
     }, {}, false, false);
     addCommand(ID_VIEW_ZOOMOUT, "view.zoomOut", L"Zoom &out", "View", L"Ctrl+-", [] {
         int w, h;
         viewSize(w, h);
-        zoomAt(0.8f, w / 2, h / 2);
+        mapZoomGlideTo(shellState(), w / 2.0f, h / 2.0f, 0.8f, 16.0f);
     }, {}, false, false);
     addCommand(ID_VIEW_ZOOM100, "view.actualSize", L"&Actual size", "View", L"Ctrl+0", [] {
         if (gWorkspace == Workspace::Triggers) return trigZoomReset();  // the trigger pane back to its normal size
@@ -483,4 +484,5 @@ void registerMapCommands() {
         zoomAt(1.0f / shellState().zoom, w / 2, h / 2);
     });
     addCommand(ID_VIEW_FIT, "view.fit", L"&Fit map", "View", L"Ctrl+H", [] { fitMap(); });
+    addCommand(ID_VIEW_KEYHINTS, "view.keyHints", L"Show &key hints", "View", L"", [] { shellState().keyHints = !shellState().keyHints, shellState().dirty = true; }, [] { return shellState().keyHints; });
 }
