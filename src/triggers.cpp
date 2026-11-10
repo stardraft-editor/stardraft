@@ -2350,6 +2350,10 @@ struct Gen {
             const std::string m = raw(c, *d, "mode"), mode = m == "Disable" ? "0" : m == "Toggle" ? "2" : "1";
             return all ? "sd_scrollLock(" + mode + ");" + tag + "\n" : "if (IsUserCP()) { sd_scrollLock(" + mode + "); }" + tag + "\n";
         }
+        if (id == "act.polarloc") {  // eudplib's lengthdir_256 (0 is up), as A point at a direction (val.dirx, val.diry)
+            helpers.insert("polarloc");
+            return "sd_polarLoc(" + arg(c, *d, "where") + ", " + arg(c, *d, "d") + ", " + arg(c, *d, "a") + ");" + tag + "\n";
+        }
         if (id == "act.gamespeed") {
             helpers.insert("speed");
             return "sd_gameSpeed(" + arg(c, *d, "pct") + ");" + tag + "\n";
@@ -3020,6 +3024,8 @@ std::string TriggerSet::helperLibrary() {
     out += "function sd_max(a, b) {\n    if (a > b) return a;\n    return b;\n}\n";
     out += "function sd_ldirX(d, a) {  // the x of a point d pixels away in direction a (0-255, 0 is up)\n    const x, y = lengthdir_256(d, a);\n    return x;\n}\n"
                "function sd_ldirY(d, a) {\n    const x, y = lengthdir_256(d, a);\n    return y;\n}\n";
+    out += "function sd_polarLoc(loc, d, a) {  // shift a location d pixels in direction a (one direction for x and y)\n"
+               "    const x, y = lengthdir_256(d, a);\n    addloc(loc, x, y);\n}\n";
     out += "const sd_selection = EUDArray(1);\nfunction sd_select(ptr) {  // one unit, as if the player clicked it\n    sd_selection[0] = ptr;\n"
                "    QueueGameCommand_Select(1, sd_selection);\n}\n";
     out += "function sd_groupAdd(g, room, u: CUnit) {  // a unit group: how many, then each unit's address and generation\n"
@@ -3414,6 +3420,7 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
             {"vital", "sd_vital"},
             {"max", "sd_max"},
             {"ldir", "sd_ldirX sd_ldirY"},
+            {"polarloc", "sd_polarLoc"},
             {"select", "sd_select"},
             {"groups", "sd_groupAdd"},
             {"buttons", "sd_button sd_setButton"},

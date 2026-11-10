@@ -456,7 +456,8 @@ int main(int argc, char** argv) {
         dx.args = {"64", "32"};
         setX.argBlocks.resize(setX.args.size());
         setX.argBlocks[1] = {dx};
-        t.actions = {local, ifChat, newUnits, group, humans, trains, block("act.dilateloc", {"1", "16", "16"}), block("act.srand", {"42"}), setX,
+        t.actions = {local, ifChat, newUnits, group, humans, trains, block("act.dilateloc", {"1", "16", "16"}), block("act.polarloc", {"1", "16", "64"}),
+                     block("act.srand", {"42"}), setX,
                      block("act.victory", {"P2"}), block("act.defeat", {"AllPlayers"}), make("act.ifthen")};
         t.actions.back().lists[1] = {block("act.srand", {"7"})};  // If (no Else): if (...) { ... }
         TriggerCall richest = make("act.ifthen");  // a condition and an action for another player than the current one
@@ -882,6 +883,8 @@ int main(int argc, char** argv) {
               code.find("sd_gameSpeed(200);") != std::string::npos && code.find("import .sdlib.f_sd_gameSpeed;") != std::string::npos &&
               code.find(".setloc(1);") != std::string::npos && TriggerSet::helperLibrary().find("function sd_scrollLock(mode)") != std::string::npos,
           "scroll lock, the game speed and the camera on a unit");
+    check(code.find("sd_polarLoc(1, 16, 64);") != std::string::npos && code.find("import .sdlib.f_sd_polarLoc;") != std::string::npos,
+          "shift a location in a direction (lengthdir_256)");
     check(code.find("PVariable(list($U(\"Terran Marine\"), $U(\"Zerg Zergling\"), $U(\"Protoss Zealot\"), 228, 228, 228, 228, 228))") != std::string::npos &&
               code.find("PVariable(list(1, 1, 1, 1, 1, 1, 1, 1))") != std::string::npos && code.find("[getcurpl()], ") != std::string::npos,
           "per player: unit types and locations with a default value for each player; a block takes the current player's");
