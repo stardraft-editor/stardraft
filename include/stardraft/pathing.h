@@ -41,6 +41,10 @@ struct PathingInput {
     const UnitTypes* types = nullptr;
     const std::vector<Unit>* units = nullptr;
     const std::vector<MapSprite>* sprites = nullptr;  // THG2: the entries that are units (not DrawAsSprite) count
+    // A mod's map (Cosmonarchy BW) sets resource areas itself: a start location of player 9 and up is the position
+    // of the area with the player's number, and a resource of Player 12 with the Burrowed state has its area's number
+    // in its hit points (0: no area).
+    bool mapAreas = false;
 };
 
 // The size of the unit that the paths are for: a path goes only where a square of this many cells (8 px each) is

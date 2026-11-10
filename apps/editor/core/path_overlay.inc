@@ -102,9 +102,10 @@ void pathOverlayPoll(bool wait = false) {
         gPath.jobFor = &ed, gPath.jobRev = ed.revision(), gPath.jobSize = gPath.size;
         PathingOptions opt;
         opt.unitSize = gPath.size;
+        // (a mod's map sets resource areas itself: start locations of players 9 and up, resources of Player 12)
         gPath.job = std::async(std::launch::async, [terrain = ed.terrain(), units = ed.units(), sprites = ed.sprites(), types = ed.unitTypes(),
-                                                     tileset = gPath.tileset, opt] {
-            PathingInput in{&terrain, tileset.get(), &types, &units, &sprites};
+                                                     tileset = gPath.tileset, opt, mapAreas = ed.gameData().unitDataLoader() != nullptr] {
+            PathingInput in{&terrain, tileset.get(), &types, &units, &sprites, mapAreas};
             return std::make_shared<PathingAnalysis>(analyzePathing(in, opt));
         });
         if (!wait) return;

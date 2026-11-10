@@ -289,7 +289,7 @@ PathingAnalysis analyzePathing(const PathingInput& in, const PathingOptions& opt
     const std::vector<Obstacle> obs = obstacles(in);
     const std::vector<uint8_t> freeTiles = freeBuildableTiles(in, obs);
     for (const Unit& u : units)
-        if (u.type == kStartLocation) {
+        if (u.type == kStartLocation && !(in.mapAreas && u.owner > 7)) {  // (a mod's map: the position of an area, below)
             Base b;
             b.start = true, b.owner = u.owner, b.x = u.x, b.y = u.y;
             a.bases.push_back(b);
@@ -307,6 +307,13 @@ PathingAnalysis analyzePathing(const PathingInput& in, const PathingOptions& opt
     //     area near it (by their amounts); the one with the most makes an area round the mineral field nearest the
     //     middle of those resources, and the area takes all the resources with no area near that field. The area's
     //     position is the middle of the box round its resources.
+    //   - A mod's map (in.mapAreas) then sets areas itself. A resource of Player 12 with the Burrowed state has its
+    //     area's number in its hit points (0: no area; a number of 249 or more does nothing). There are as many
+    //     areas as the largest of these numbers (at most 249): the ones that the rule above did not make have no
+    //     resources yet. A start location of player 9 and up gives its position to the area with the player's number
+    //     (one that no start location of players 1 to 8 made). Each such resource then goes to its area, and the
+    //     last areas that have no resources (and no start location) are not areas. All this only when the rule above
+    //     made an area.
     // The walk on the ground is by this library's walk grid (the terrain only), not by the game's path regions: a
     // resource at the limit of the walk can go to another area than in the game. The order of the units is the map's.
     const int gw = a.grid.width, gh = a.grid.height, unitCount = int(units.size());
@@ -406,6 +413,7 @@ PathingAnalysis analyzePathing(const PathingInput& in, const PathingOptions& opt
         int x = 0, y = 0;
         int base = -1;  // the start location's base, -1 for an area that the resources made
         std::vector<int> resources;
+        bool placed = false;  // a mod's map: a start location of player 9 and up gave the position
     };
     std::vector<Area> areas(1);  // (the game does not use area 0)
     for (size_t s = 0; s < starts; ++s) {
@@ -493,6 +501,45 @@ PathingAnalysis analyzePathing(const PathingInput& in, const PathingOptions& opt
     };
     if (looseKind[kGeyser]) makeAreas(kGeyser);
     if (looseKind[kMineral]) makeAreas(kMineral);
+    if (in.mapAreas && areas.size() > 1) {
+        const size_t made = areas.size() - 1;
+        size_t prefix = 0;  // the areas of the start locations of players 1 to 8
+        while (prefix < made && areas[prefix + 1].base >= 0) ++prefix;
+        // Each resource's number from the map (-1: none), and the largest of them.
+        std::vector<int> mapArea(units.size(), -1);
+        int largest = -1;
+        for (int i = 0; i < unitCount; ++i) {
+            const Unit& u = units[size_t(i)];
+            if (kind[size_t(i)] == kNoResource || u.owner != 11 || !(u.state & u.validState & UnitState::Burrowed)) continue;
+            mapArea[size_t(i)] = u.hitPoints, largest = std::max(largest, int(u.hitPoints));
+        }
+        if (largest > int(made)) areas.resize(size_t(std::min(largest, kAreaLimit)) + 1);
+        for (const Unit& u : units)
+            if (u.type == kStartLocation && u.owner > 7 && (u.x || u.y) && size_t(u.owner) >= prefix && size_t(u.owner) + 1 < areas.size())
+                areas[size_t(u.owner) + 1].x = u.x, areas[size_t(u.owner) + 1].y = u.y, areas[size_t(u.owner) + 1].placed = true;
+        if (largest >= 0) {
+            for (int i = 0; i < unitCount; ++i) {
+                const int to = mapArea[size_t(i)], from = areaOf[size_t(i)];
+                if (to < 0 || to >= kAreaLimit || to == from || to >= int(areas.size())) continue;
+                if (from) std::erase(areas[size_t(from)].resources, i);
+                areaOf[size_t(i)] = to;
+                if (to) areas[size_t(to)].resources.push_back(i);
+            }
+            while (areas.size() > 1 && areas.back().resources.empty() && areas.back().base < 0 && !areas.back().placed) areas.pop_back();
+            // An area that only the numbers made has no position in the game. Here it shows at the middle of its
+            // resources.
+            for (size_t id = made + 1; id < areas.size(); ++id) {
+                Area& ar = areas[id];
+                if (ar.placed || ar.resources.empty()) continue;
+                int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+                for (int i : ar.resources) {
+                    const Unit& u = units[size_t(i)];
+                    x0 = std::min(x0, int(u.x)), y0 = std::min(y0, int(u.y)), x1 = std::max(x1, int(u.x)), y1 = std::max(y1, int(u.y));
+                }
+                ar.x = (x0 + x1) / 2, ar.y = (y0 + y1) / 2;
+            }
+        }
+    }
 
     auto addResource = [&](Base& b, int i) {
         const Unit& u = units[size_t(i)];
@@ -571,6 +618,7 @@ PathingAnalysis analyzePathing(const PathingInput& in, const PathingOptions& opt
                 continue;
             }
             if (!opt.expansions) continue;
+            if (ar.resources.empty() && !ar.x && !ar.y) continue;  // (a mod's map: an area with nothing to show)
             Base b;
             b.area = int(id), b.areaX = float(ar.x), b.areaY = float(ar.y);
             for (int i : ar.resources) addResource(b, i);

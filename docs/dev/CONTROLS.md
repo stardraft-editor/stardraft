@@ -299,7 +299,11 @@ theme's colors, with transparency (`apps/editor/path_overlay.inc`).
   resources). The town hall of such an area is the place where one can go (4x3 buildable tiles, 3 tiles from every
   resource) nearest its resources; an area with no such place shows at its position. The ground walk is by the walk
   grid (the terrain only), not by the game's path regions: a resource at the limit of the walk can be in another
-  area than in the game.
+  area than in the game. A Cosmonarchy BW map then sets areas itself (only when the rule above made an area): a
+  resource of Player 12 with the Burrowed state goes to the area whose number is in its Hit points field (0: no area;
+  249 or more: no change), there are as many areas as the largest of these numbers (at most 249), a start location
+  of player 9 and up gives its position to the area with the player's number, and the last areas with no resources
+  and no start location are not areas.
 - **Speed:** the analysis runs on a worker thread on copies of the map's data each time the map changes (the editor's
   revision); the map shows the last result until the new one is ready, so edits do not wait. `tools/tests/pathing_test`
   measures each map of the game's Maps folder: less than 50 ms on the 128x128 maps (8 starts: 28 paths), at most
