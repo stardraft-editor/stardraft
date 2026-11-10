@@ -1297,6 +1297,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         if (s.ground) {
             in.depth = 0.985f;  // over shadows, under every unit
             in.color[0] = 0.2f, in.color[1] = 1.0f, in.color[2] = 0.2f;  // the game's selection green
+            if (t->sd) in.level = 1.0f;  // an SD circle (also in HD, where an image has no HD art): each pixel the same green
         }
         if (s.terrain) in.depth = 0.995f;  // on the terrain, under shadows
         // The draw functions that change how it looks (as data_pictures.inc's compositeLookHd draws them).

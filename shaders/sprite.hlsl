@@ -113,9 +113,10 @@ float4 PSMain(VSOut i) : SV_Target {
     }
     if (c.a < 0.4) discard;  // alpha test so the depth buffer orders overlapping sprites
     if (flags & 1) return float4(0, 0, 0, 0.5 * i.color.a);  // shadow
-    // A selection circle: the green, as bright as the art (HD's is white). SD's circle has the palette's dark colors (the
-    // game draws its pixels in the selection color): each of its pixels is the full green.
-    if (flags & 4) return float4(i.color.rgb * (sdArt > 0.5 ? 1.0 : saturate(dot(c.rgb, float3(0.299, 0.587, 0.114)) * 1.8)), c.a);
+    // A selection circle: the green, as bright as the art (HD's is white). An SD circle (level 1: SD art, in each
+    // quality) has the palette's dark colors (the game draws its pixels in the selection color): each of its pixels is
+    // the green at 80 %, about as bright as HD's line.
+    if (flags & 4) return float4(i.color.rgb * (i.info.z > 0.5 ? 0.8 : saturate(dot(c.rgb, float3(0.299, 0.587, 0.114)) * 1.8)), c.a);
     float mask = teamMask.Sample(maskSampler, i.uv).r;
     // Team colour: the masked area is greyscale art; multiply it by the player colour (as the game
     // does), which keeps its shading and the colour's own strength.
