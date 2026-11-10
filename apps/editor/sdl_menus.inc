@@ -1458,7 +1458,7 @@ void saveOpenMap(bool as, std::function<void(bool)> done = {}) {
         if (done) done(ok);
         return;
     }
-    if (!as && !path.empty()) setMessage(L"Cannot write to the map's folder. Select another place for the map.");
+    if (!as && !path.empty()) setMessage(L"Could not write to the map's folder. Select another place for the map.");
     const Editor* asked = gState.ed.get();  // (the answer saves this map, not the tab that is active then)
     showFileDialog(true, [done, asked](const fs::path& picked) {
         fs::path p = picked;

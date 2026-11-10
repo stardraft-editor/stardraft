@@ -81,7 +81,7 @@ void placeMapRevealersCommand() {
     if (!showMapRevealersDialog(owners)) return;
     const int n = app.ed->placeMapRevealers(owners, 8);
     app.dirty = true;
-    setMessage(n ? L"Placed " + std::to_wstring(n) + L" map revealers" : std::wstring(tr(L"Nothing placed: each chosen player has a map revealer on every square")));
+    setMessage(n ? L"Placed " + std::to_wstring(n) + L" map revealers" : std::wstring(tr(L"Nothing placed: each selected player has a map revealer on every square")));
 }
 
 // Tools > Remove all map revealers: every Map Revealer, of every player. One undo step.

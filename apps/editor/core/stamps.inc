@@ -239,7 +239,7 @@ void stampsDelete(const TerrainStamp& s) {
                        tr(L"Cancel")))
         return;
     std::error_code ec;
-    if (!fs::remove(s.file, ec) || ec) return shellErrorBox(tr(L"Cannot delete the file ") + s.file.wstring(), tr(L"Delete custom terrain"));
+    if (!fs::remove(s.file, ec) || ec) return shellErrorBox(tr(L"Could not delete the file ") + s.file.wstring(), tr(L"Delete custom terrain"));
     stampsRenamedInPanels(s.era, name, L"");  // (a panel's Brush that has it: nothing is picked there now)
     stampsChanged();
     setMessage(tr(L"Deleted the custom terrain ") + name);
@@ -258,7 +258,7 @@ void stampsNewFolder(const std::string& parent) {
     std::error_code ec;
     const fs::path dir = terrainStampFolderPath(shellStampsFolder(), uint16_t(app.ed->era() & 7), sub);
     if (fs::exists(dir, ec)) return shellErrorBox(tr(L"A folder with this name is already there."), tr(kTitle));
-    if (!fs::create_directories(dir, ec) || ec) return shellErrorBox(tr(L"Cannot make the folder ") + dir.wstring(), tr(kTitle));
+    if (!fs::create_directories(dir, ec) || ec) return shellErrorBox(tr(L"Could not make the folder ") + dir.wstring(), tr(kTitle));
     gStampsClosed.erase(widen(parent));  // (its parent opens: the new folder shows)
     stampsChanged();
     setMessage(tr(L"Made the folder ") + name + tr(L". Drag custom terrain onto it to put it there."));
@@ -282,7 +282,7 @@ void stampsRenameFolder(const std::string& sub) {
     std::error_code ec;
     if (fs::exists(to, ec) && !fs::equivalent(from, to, ec)) return shellErrorBox(tr(L"A folder with this name is already there."), tr(kTitle));
     fs::rename(from, to, ec);
-    if (ec) return shellErrorBox(tr(L"Cannot rename the folder ") + from.wstring(), tr(kTitle));
+    if (ec) return shellErrorBox(tr(L"Could not rename the folder ") + from.wstring(), tr(kTitle));
     stampsChanged();
     setMessage(tr(L"Renamed the folder to ") + name);
 }
@@ -303,7 +303,7 @@ void stampsDeleteFolder(const std::string& sub) {
         else return setMessage(L"The folder has other files: it stays");
     std::sort(dirs.begin(), dirs.end(), [](const fs::path& a, const fs::path& b) { return a.native().size() > b.native().size(); });
     for (const fs::path& d : dirs) fs::remove(d, ec);
-    if (!fs::remove(dir, ec) || ec) return shellErrorBox(tr(L"Cannot delete the folder ") + dir.wstring(), tr(L"Delete folder"));
+    if (!fs::remove(dir, ec) || ec) return shellErrorBox(tr(L"Could not delete the folder ") + dir.wstring(), tr(L"Delete folder"));
     stampsChanged();
     setMessage(tr(L"Deleted the folder ") + widen(sub));
 }
@@ -324,7 +324,7 @@ void stampsMoveTo(const TerrainStamp& s, const std::string& sub) {
     }
     fs::create_directories(to.parent_path(), ec);
     fs::rename(s.file, to, ec);
-    if (ec) return shellErrorBox(tr(L"Cannot move the file ") + s.file.wstring(), tr(kTitle));
+    if (ec) return shellErrorBox(tr(L"Could not move the file ") + s.file.wstring(), tr(kTitle));
     gStampsClosed.erase(widen(sub));  // (its folder opens: it shows there)
     stampsChanged();
     setMessage(sub.empty() ? tr(L"Moved ") + widen(s.name) + tr(L" out of the folders") : tr(L"Moved ") + widen(s.name) + tr(L" to the folder ") + widen(sub));

@@ -5,7 +5,6 @@ Large	Grande
 Huge	Enorme
 GridX	Cuadrícula X
 GridY	Cuadrícula Y
-&Clear list	&Borrar lista
 None	Ninguno
 Terrain	Terreno
 Units	Unidades
@@ -1748,7 +1747,6 @@ Hid the ranges	Se ocultó el alcance
 Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)	Alcance de las unidades seleccionadas: visión (amarillo), adquisición de objetivo (naranja), arma terrestre (rojo), arma aérea (azul), detección (verde), campo psiónico (morado)
 Favorites	Favoritos
 Add to favorites	Agregar a favoritos
-Remove from favorites	Quitar de favoritos
 Show the favorites	Mostrar los favoritos
 &Fill selection with the selected tiles	&Rellenar la selección con las fichas seleccionadas
 Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill repeats them as a pattern.	Relleno: haga clic dentro de la selección para rellenarla entera. Haga clic fuera de la selección para rellenar los tiles conectados iguales al tile en el que hace clic. Shift+clic rellena todos los tiles iguales a ese tile (dentro de la selección, si la hay). Con varios tiles seleccionados en la lista de Tiles, Rellenar los repite como un patrón.
@@ -2081,7 +2079,7 @@ Change the technology settings	Cambiar los ajustes de las tecnologías
 Change the unit properties of the triggers	Cambiar las propiedades de unidad de los disparadores
 Change the switch names	Cambiar los nombres de los interruptores
 Change the sound files	Cambiar los archivos de sonido
-Change the scenario name and description	Cambiar el nombre y la descripción del escenario
+Change the map name and description	Cambiar el nombre y la descripción del escenario
 Change the fog of war	Cambiar la niebla de guerra
 Change the texts	Cambiar los textos
 Change the map	Cambiar el mapa
@@ -2403,7 +2401,7 @@ Place revealers	Colocar reveladores
 One map revealer on each square of 8 x 8 tiles.	Un revelador del mapa en cada cuadro de 8 x 8 casillas.
 Map revealers show	Los reveladores del mapa se muestran
 Map revealers are hidden (View > Layers shows them again)	Los reveladores del mapa están ocultos (Ver > Capas los muestra otra vez)
-Nothing placed: each chosen player has a map revealer on every square	Nada colocado: cada jugador elegido ya tiene un revelador en cada cuadro
+Nothing placed: each selected player has a map revealer on every square	Nada colocado: cada jugador elegido ya tiene un revelador en cada cuadro
 There are no map revealers on the map	No hay reveladores en el mapa
 &Units list	Lista de &unidades
 Search the units	Buscar unidades
@@ -2416,7 +2414,7 @@ Index	Índice
 Unit ID	ID de unidad
 Lifted	Elevada
 Link selected units	Enlazar las unidades seleccionadas
-Jump to linked unit	Ir a la unidad enlazada
+Go to the linked unit	Ir a la unidad enlazada
  locations	 ubicaciones
 Brushes	Pinceles
 Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 64. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Pinceles: los pinceles giran alrededor del centro de simetría a pasos iguales. 1: un pincel, 2: dos (media vuelta), 4: cuatro (cuartos de vuelta), de 1 a 64. Haz clic para escribir un número. Las flechas y la rueda del ratón lo cambian. En terreno isométrico, una copia va al rombo más cercano salvo que el giro conserve los rombos (2, y 4 en un mapa el doble de ancho que de alto).
@@ -2780,7 +2778,7 @@ Turn clockwise what is on the cursor (R)	Girar en sentido horario lo que hay en 
 Turn back what is on the cursor (Shift+R)	Girar en sentido antihorario lo que hay en el cursor (Shift+R)
 Mirror left and right what is on the cursor (M)	Reflejar de izquierda a derecha lo que hay en el cursor (M)
 Mirror top and bottom what is on the cursor (Shift+M)	Reflejar de arriba abajo lo que hay en el cursor (Shift+M)
-Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush	No hay nada que girar: copia terreno (Ctrl+C) o elige terreno personalizado o casillas copiadas para el pincel
+Nothing to turn: copy terrain (Ctrl+C), or select custom terrain or copied tiles for the Brush	No hay nada que girar: copia terreno (Ctrl+C) o elige terreno personalizado o casillas copiadas para el pincel
 Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	Pegar casillas: haz clic para colocarlas y otra vez para colocar más. R las gira, M las refleja. Clic derecho o Esc para parar.
 Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Pegar terreno: haz clic para colocarlo y otra vez para colocar más. R lo gira, M lo refleja. Clic derecho o Esc para parar.
 Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	Casillas giradas: la imagen de cada casilla no cambia, así que los bordes y acantilados pueden no encajar
@@ -3026,7 +3024,7 @@ Could not read the file: 	No se pudo leer el archivo:
 Could not save 	No se pudo guardar
 Creep is hidden (View > Modes shows it again)	El creep está oculto (Ver > Modos lo muestra de nuevo)
 Cut the terrain: what is under the layer shows in its place (one undo step)	Terreno cortado: lo que hay bajo la capa se muestra en su lugar (un paso de deshacer)
-Delete the selected layers (Del in Map Layers)	Eliminar las capas seleccionadas (Del en Capas del mapa)
+Delete the selected layers (Del in Map layers)	Eliminar las capas seleccionadas (Del en Capas del mapa)
 Did not add 	No se añadió
 Drag to move the layer in the list	Arrastre para mover la capa en la lista
 E&xport map…	E&xportar mapa…
@@ -3048,15 +3046,13 @@ Layers	Capas
 Layers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. 	Las capas permanecen en este archivo de mapa mientras trabaja en ellas.\n\nPara crear el mapa que se juega en StarCraft, use Archivo > Exportar mapa.
 Lock	Bloquear
 Lock or unlock: a locked layer does not change (Ctrl+Alt+L)	Bloquear o desbloquear: una capa bloqueada no cambia (Ctrl+Alt+L)
-Map Layers	Capas del mapa
 Map settings	Ajustes del mapa
 Merge down	Fusionar hacia abajo
 Merge the selected layers	Fusionar las capas seleccionadas
 Merged the layers	Capas fusionadas
 Merged the layers into the Background	Capas fusionadas en el Fondo
 Move	Mover
-Move Layer	Mover capa
-Move Layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.	Mover capa: arrastrar en el mapa mueve las capas seleccionadas. Las herramientas de los demás modos cambian la capa seleccionada.
+Move layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.	Mover capa: arrastrar en el mapa mueve las capas seleccionadas. Las herramientas de los demás modos cambian la capa seleccionada.
 Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.	Mover: arrastre el terreno seleccionado a otro lugar. Isométrico: con sus bordes ajustados allí, y el terreno bajo él sigue siendo válido. Los demás tipos: sus tiles tal cual, con tiles nulos donde estaban. En una capa, lo que hay bajo la capa se muestra donde estaba.
 Moved the layers back to the side bar	Capas devueltas a la barra lateral
 Moved the layers to their own window	Capas movidas a su propia ventana
@@ -3393,7 +3389,7 @@ Variations	Variaciones
 Drag to make Variations taller or shorter	Arrastre para hacer Variaciones más alto o más bajo
 Hide the variations	Ocultar las variaciones
 Show the variations	Mostrar las variaciones
-Symmetry: click to choose the mirrors (Alt+0 to Alt+4)	Simetría: clic para elegir los espejos (Alt+0 a Alt+4)
+Symmetry: click to select the mirrors (Alt+0 to Alt+4)	Simetría: clic para elegir los espejos (Alt+0 a Alt+4)
 Craft mode on	Modo artesanía activado
 Craft mode off	Modo artesanía desactivado
 Show or hide the guides of this boost. The boost stays in use.	Mostrar u ocultar las guías de esta mejora. La mejora sigue en uso.

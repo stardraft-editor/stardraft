@@ -5,7 +5,6 @@ Large	Крупный
 Huge	Огромный
 GridX	Сетка X
 GridY	Сетка Y
-&Clear list	&Очистить список
 None	Нет
 Terrain	Местность
 Units	Юниты
@@ -1640,7 +1639,6 @@ Hid the ranges	Дальность скрыта
 Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)	Дальность выбранных юнитов: обзор (жёлтый), обнаружение цели (оранжевый), наземное оружие (красный), воздушное оружие (синий), обнаружение (зелёный), пси-поле (фиолетовый)
 Favorites	Избранное
 Add to favorites	Добавить в избранное
-Remove from favorites	Удалить из избранного
 Show the favorites	Показать избранное
 &Fill selection with the selected tiles	&Заполнить выделение выбранными тайлами
 Crash reports	Отчёты о сбоях
@@ -2081,7 +2079,7 @@ Change the technology settings	Изменить настройки технол�
 Change the unit properties of the triggers	Изменить свойства юнитов для триггеров
 Change the switch names	Изменить имена переключателей
 Change the sound files	Изменить звуковые файлы
-Change the scenario name and description	Изменить название и описание сценария
+Change the map name and description	Изменить название и описание сценария
 Change the fog of war	Изменить туман войны
 Change the texts	Изменить тексты
 Change the map	Изменить карту
@@ -2403,7 +2401,7 @@ Place revealers	Разместить открыватели
 One map revealer on each square of 8 x 8 tiles.	Один открыватель карты на каждый квадрат 8 x 8 клеток.
 Map revealers show	Открыватели карты показываются
 Map revealers are hidden (View > Layers shows them again)	Открыватели карты скрыты (Вид > Слои показывает их снова)
-Nothing placed: each chosen player has a map revealer on every square	Ничего не размещено: у каждого выбранного игрока уже есть открыватель в каждом квадрате
+Nothing placed: each selected player has a map revealer on every square	Ничего не размещено: у каждого выбранного игрока уже есть открыватель в каждом квадрате
 There are no map revealers on the map	На карте нет открывателей карты
 &Units list	Список &юнитов
 Search the units	Поиск юнитов
@@ -2416,7 +2414,7 @@ Index	Индекс
 Unit ID	ID de unidad
 Lifted	Поднята
 Link selected units	Связать выбранные юниты
-Jump to linked unit	Перейти к связанному юниту
+Go to the linked unit	Перейти к связанному юниту
  locations	 местоположение(й)
 Brushes	Кисти
 Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 64. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Кисти: кисти идут вокруг центра симметрии равными шагами. 1: одна кисть, 2: две (пол-оборота), 4: четыре (четверти оборота), от 1 до 64. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его. На изометрическом рельефе копия идет к ближайшему ромбу, если поворот не сохраняет ромбы (2, и 4 на карте вдвое шире своей высоты).
@@ -2780,7 +2778,7 @@ Turn clockwise what is on the cursor (R)	Повернуть по часовой 
 Turn back what is on the cursor (Shift+R)	Повернуть обратно то, что на курсоре (Shift+R)
 Mirror left and right what is on the cursor (M)	Отразить слева направо то, что на курсоре (M)
 Mirror top and bottom what is on the cursor (Shift+M)	Отразить сверху вниз то, что на курсоре (Shift+M)
-Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush	Нечего поворачивать: скопируйте рельеф (Ctrl+C) или выберите для кисти пользовательский рельеф или скопированные тайлы
+Nothing to turn: copy terrain (Ctrl+C), or select custom terrain or copied tiles for the Brush	Нечего поворачивать: скопируйте рельеф (Ctrl+C) или выберите для кисти пользовательский рельеф или скопированные тайлы
 Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	Вставка тайлов: щелкните, чтобы разместить их, и еще раз, чтобы разместить больше. R поворачивает, M отражает. Правый щелчок или Esc — стоп.
 Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Вставка рельефа: щелкните, чтобы разместить его, и еще раз, чтобы разместить больше. R поворачивает, M отражает. Правый щелчок или Esc — стоп.
 Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	Тайлы повернуты: рисунок каждого тайла не меняется, поэтому края и обрывы могут не совпасть
@@ -3026,7 +3024,7 @@ Could not read the file: 	Не удалось прочитать файл:
 Could not save 	Не удалось сохранить
 Creep is hidden (View > Modes shows it again)	Слизь скрыта (Вид > Режимы снова показывает его)
 Cut the terrain: what is under the layer shows in its place (one undo step)	Рельеф вырезан: на его месте показывается то, что под слоем (один шаг отмены)
-Delete the selected layers (Del in Map Layers)	Удалить выбранные слои (Del в «Слоях карты»)
+Delete the selected layers (Del in Map layers)	Удалить выбранные слои (Del в «Слоях карты»)
 Did not add 	Не добавлено:
 Drag to move the layer in the list	Перетащите, чтобы переместить слой в списке
 E&xport map…	&Экспорт карты…
@@ -3048,15 +3046,13 @@ Layers	Слои
 Layers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. 	Слои хранятся в этом файле карты, пока вы с ними работаете.\n\nЧтобы создать карту для игры в StarCraft, используйте Файл > Экспорт карты.
 Lock	Блокировка
 Lock or unlock: a locked layer does not change (Ctrl+Alt+L)	Заблокировать или разблокировать: заблокированный слой не изменяется (Ctrl+Alt+L)
-Map Layers	Слои карты
 Map settings	Настройки карты
 Merge down	Слить вниз
 Merge the selected layers	Слить выбранные слои
 Merged the layers	Слои слиты
 Merged the layers into the Background	Слои слиты с «Фоном»
 Move	Перемещение
-Move Layer	Перемещение слоя
-Move Layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.	Перемещение слоя: перетаскивание на карте перемещает выбранные слои. Инструменты других режимов изменяют выбранный слой.
+Move layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.	Перемещение слоя: перетаскивание на карте перемещает выбранные слои. Инструменты других режимов изменяют выбранный слой.
 Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.	Перемещение: перетащите выбранный рельеф на другое место. Изометрия: его края подгоняются там, а рельеф под ним остаётся допустимым. Другие виды: его тайлы как есть, с null-тайлами на прежнем месте. На слое то, что под слоем, показывается там, где он был.
 Moved the layers back to the side bar	Слои возвращены на боковую панель
 Moved the layers to their own window	Слои перенесены в отдельное окно
@@ -3393,7 +3389,7 @@ Variations	Варианты
 Drag to make Variations taller or shorter	Перетащите, чтобы сделать «Варианты» выше или ниже
 Hide the variations	Скрыть варианты
 Show the variations	Показать варианты
-Symmetry: click to choose the mirrors (Alt+0 to Alt+4)	Симметрия: щёлкните, чтобы выбрать зеркала (Alt+0 – Alt+4)
+Symmetry: click to select the mirrors (Alt+0 to Alt+4)	Симметрия: щёлкните, чтобы выбрать зеркала (Alt+0 – Alt+4)
 Craft mode on	Режим ремесла включён
 Craft mode off	Режим ремесла выключен
 Show or hide the guides of this boost. The boost stays in use.	Показать или скрыть подсказки этого ускорения. Ускорение остаётся в силе.

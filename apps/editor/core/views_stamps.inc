@@ -141,7 +141,7 @@ public:
 
     void resized() override {
         // (as the side bar's search row, core/layout.inc: the View button 64 wide, the Sort button a square before it)
-        const int rowH = scale(24), pad = scale(4), btnW = scale(64);
+        const int rowH = scale(24), pad = scale(6), btnW = scale(64);
         view_.setFrame({width() - btnW, 0, width(), rowH});
         sort_.setFrame({width() - btnW - pad - rowH, 0, width() - btnW - pad, rowH});
         search_.setFrame({0, 0, std::max(0, width() - btnW - 2 * pad - rowH), rowH});

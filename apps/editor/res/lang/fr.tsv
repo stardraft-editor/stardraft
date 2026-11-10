@@ -5,7 +5,6 @@ Large	Grand
 Huge	Très grand
 GridX	Grille X
 GridY	Grille Y
-&Clear list	&Effacer la liste
 None	Aucun
 Terrain	Terrain
 Units	Unités
@@ -1748,7 +1747,6 @@ Hid the ranges	Portées masquées
 Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)	Portées des unités sélectionnées: vision (jaune), acquisition de cible (orange), arme terrestre (rouge), arme aérienne (bleu), détection (vert), champ psionique (violet)
 Favorites	Favoris
 Add to favorites	Ajouter aux favoris
-Remove from favorites	Retirer des favoris
 Show the favorites	Afficher les favoris
 &Fill selection with the selected tiles	&Remplir la sélection avec les tuiles sélectionnées
 Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill repeats them as a pattern.	Remplissage: cliquez dans la sélection pour remplir toute la sélection. Cliquez ailleurs pour remplir les tuiles connectées identiques à la tuile cliquée. Shift+clic remplit toutes les tuiles identiques (dans la sélection, s'il y en a une). Avec plusieurs tuiles sélectionnées dans la liste Tuiles, Remplissage les répète comme un motif.
@@ -2081,7 +2079,7 @@ Change the technology settings	Modifier les paramètres des technologies
 Change the unit properties of the triggers	Modifier les propriétés d'unité des déclencheurs
 Change the switch names	Modifier les noms des interrupteurs
 Change the sound files	Modifier les fichiers son
-Change the scenario name and description	Modifier le nom et la description du scénario
+Change the map name and description	Modifier le nom et la description du scénario
 Change the fog of war	Modifier le brouillard de guerre
 Change the texts	Modifier les textes
 Change the map	Modifier la carte
@@ -2403,7 +2401,7 @@ Place revealers	Placer des révélateurs
 One map revealer on each square of 8 x 8 tiles.	Un révélateur de carte sur chaque carré de 8 x 8 cases.
 Map revealers show	Les révélateurs de carte sont affichés
 Map revealers are hidden (View > Layers shows them again)	Les révélateurs de carte sont masqués (Affichage > Calques les réaffiche)
-Nothing placed: each chosen player has a map revealer on every square	Rien n'a été placé: chaque joueur choisi a déjà un révélateur de carte sur chaque carré
+Nothing placed: each selected player has a map revealer on every square	Rien n'a été placé: chaque joueur choisi a déjà un révélateur de carte sur chaque carré
 There are no map revealers on the map	Il n'y a aucun révélateur de carte sur la carte
 &Units list	Liste des &unités
 Search the units	Rechercher dans les unités
@@ -2416,7 +2414,7 @@ Index	Index
 Unit ID	ID d'unité
 Lifted	Décollé
 Link selected units	Lier les unités sélectionnées
-Jump to linked unit	Aller à l'unité liée
+Go to the linked unit	Aller à l'unité liée
  locations	 emplacements
 Brushes	Pinceaux
 Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 64. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Pinceaux : les pinceaux tournent autour du centre de symétrie à pas égaux. 1 : un pinceau, 2 : deux (un demi-tour), 4 : quatre (des quarts de tour), de 1 à 64. Cliquez pour saisir un nombre. Les flèches et la molette le changent. Sur le terrain isométrique, une copie va au losange le plus proche sauf si la rotation conserve les losanges (2, et 4 sur une carte deux fois plus large que haute).
@@ -2780,7 +2778,7 @@ Turn clockwise what is on the cursor (R)	Tourner dans le sens horaire ce qui est
 Turn back what is on the cursor (Shift+R)	Tourner dans l'autre sens ce qui est sur le curseur (Shift+R)
 Mirror left and right what is on the cursor (M)	Retourner gauche-droite ce qui est sur le curseur (M)
 Mirror top and bottom what is on the cursor (Shift+M)	Retourner haut-bas ce qui est sur le curseur (Shift+M)
-Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush	Rien à tourner : copiez du terrain (Ctrl+C), ou choisissez un terrain personnalisé ou des tuiles copiées pour le pinceau
+Nothing to turn: copy terrain (Ctrl+C), or select custom terrain or copied tiles for the Brush	Rien à tourner : copiez du terrain (Ctrl+C), ou choisissez un terrain personnalisé ou des tuiles copiées pour le pinceau
 Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	Coller des tuiles : cliquez pour les placer, et encore pour en placer d'autres. R les tourne, M les retourne. Clic droit ou Échap arrête.
 Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Coller du terrain : cliquez pour le placer, et encore pour en placer d'autres. R le tourne, M le retourne. Clic droit ou Échap arrête.
 Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	Tuiles tournées : l'image de chaque tuile reste la même, les bords et falaises peuvent ne pas s'accorder
@@ -3026,7 +3024,7 @@ Could not read the file: 	Impossible de lire le fichier:
 Could not save 	Impossible d'enregistrer
 Creep is hidden (View > Modes shows it again)	Le creep est masqué (Affichage > Modes l'affiche de nouveau)
 Cut the terrain: what is under the layer shows in its place (one undo step)	Terrain coupé: ce qui est sous le calque s'affiche à sa place (une seule étape d'annulation)
-Delete the selected layers (Del in Map Layers)	Supprimer les calques sélectionnés (Del dans Calques de la carte)
+Delete the selected layers (Del in Map layers)	Supprimer les calques sélectionnés (Del dans Calques de la carte)
 Did not add 	Non ajouté:
 Drag to move the layer in the list	Faites glisser pour déplacer le calque dans la liste
 E&xport map…	E&xporter la carte…
@@ -3048,15 +3046,13 @@ Layers	Calques
 Layers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. 	Les calques restent dans ce fichier de carte pendant que vous travaillez dessus.\n\nPour créer la carte que vous jouez dans StarCraft, utilisez Fichier > Exporter la carte.
 Lock	Verrouiller
 Lock or unlock: a locked layer does not change (Ctrl+Alt+L)	Verrouiller ou déverrouiller: un calque verrouillé ne change pas (Ctrl+Alt+L)
-Map Layers	Calques de la carte
 Map settings	Paramètres de la carte
 Merge down	Fusionner vers le bas
 Merge the selected layers	Fusionner les calques sélectionnés
 Merged the layers	Calques fusionnés
 Merged the layers into the Background	Calques fusionnés dans l'Arrière-plan
 Move	Déplacer
-Move Layer	Déplacer le calque
-Move Layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.	Déplacer le calque: un glissement sur la carte déplace les calques sélectionnés. Les outils des autres modes modifient le calque sélectionné.
+Move layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.	Déplacer le calque: un glissement sur la carte déplace les calques sélectionnés. Les outils des autres modes modifient le calque sélectionné.
 Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.	Déplacer: faites glisser le terrain sélectionné ailleurs. Isométrique: avec ses bords ajustés à cet endroit, et le terrain dessous reste valide. Les autres types: leurs tuiles telles quelles, avec des tuiles nulles à leur ancienne place. Sur un calque, ce qui est sous le calque s'affiche là où il était.
 Moved the layers back to the side bar	Calques remis dans la barre latérale
 Moved the layers to their own window	Calques déplacés dans leur propre fenêtre
@@ -3393,7 +3389,7 @@ Variations	Variantes
 Drag to make Variations taller or shorter	Faites glisser pour agrandir ou réduire Variantes
 Hide the variations	Masquer les variantes
 Show the variations	Afficher les variantes
-Symmetry: click to choose the mirrors (Alt+0 to Alt+4)	Symétrie : cliquez pour choisir les miroirs (Alt+0 à Alt+4)
+Symmetry: click to select the mirrors (Alt+0 to Alt+4)	Symétrie : cliquez pour choisir les miroirs (Alt+0 à Alt+4)
 Craft mode on	Mode artisan activé
 Craft mode off	Mode artisan désactivé
 Show or hide the guides of this boost. The boost stays in use.	Afficher ou masquer les guides de cette optimisation. L'optimisation reste utilisée.

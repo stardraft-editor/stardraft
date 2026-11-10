@@ -1004,7 +1004,7 @@ struct MainView final : draw::View {
         if (const double n = double(pickPie.root.kids.size()); pickPieStamps && n > 4 && pickPie.root.kids[0].value >= 0)
             PickPieView::cellSize = std::clamp(int(PickPieView::kTurn * 72 / (n - PickPieView::kTurn / 2)), 56, 110);
         if (pickPie.root.kids.empty()) {
-            if (pickPieStamps) setMessage(tr(L"This tileset has no custom terrain."));
+            if (pickPieStamps) setMessage(tr(L"This tileset has no custom terrain"));
             return;
         }
         pickPie.moreText = tr(pickPieStamps ? L"more in the Custom list" : L"more in the palette");

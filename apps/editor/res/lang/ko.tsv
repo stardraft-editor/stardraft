@@ -5,7 +5,6 @@ Large	크게
 Huge	매우 크게
 GridX	격자 X
 GridY	격자 Y
-&Clear list	목록 지우기(&C)
 None	없음
 Terrain	지형
 Units	유닛
@@ -1749,7 +1748,6 @@ Hid the ranges	사거리를 숨겼습니다
 Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)	선택한 유닛의 사거리: 시야(노랑), 목표 탐지(주황), 지상 무기(빨강), 공중 무기(파랑), 탐지(초록), 사이오닉 필드(보라)
 Favorites	즐겨찾기
 Add to favorites	즐겨찾기에 추가
-Remove from favorites	즐겨찾기에서 제거
 Show the favorites	즐겨찾기 표시
 &Fill selection with the selected tiles	선택 영역을 선택한 타일로 채우기(&F)
 Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill repeats them as a pattern.	채우기: 선택 영역 안을 클릭하면 선택 영역 전체를 채웁니다. 선택 영역 밖을 클릭하면 클릭한 타일과 같고 이어진 타일을 채웁니다. Shift+클릭하면 클릭한 타일과 같은 타일을 모두 채웁니다 (선택 영역이 있으면 그 안에서). 타일 목록에서 여러 타일을 선택하면 채우기가 그 타일들을 패턴으로 반복합니다.
@@ -2081,7 +2079,7 @@ Change the technology settings	기술 설정 변경
 Change the unit properties of the triggers	트리거의 유닛 속성 변경
 Change the switch names	스위치 이름 변경
 Change the sound files	사운드 파일 변경
-Change the scenario name and description	시나리오 이름과 설명 변경
+Change the map name and description	시나리오 이름과 설명 변경
 Change the fog of war	전장의 안개 변경
 Change the texts	텍스트 변경
 Change the map	맵 변경
@@ -2403,7 +2401,7 @@ Place revealers	리비일러 배치
 One map revealer on each square of 8 x 8 tiles.	8 x 8 타일 칸마다 맵 리비일러 하나씩
 Map revealers show	맵 리비일러를 표시합니다
 Map revealers are hidden (View > Layers shows them again)	맵 리비일러를 숨겼습니다 (보기 > 레이어에서 다시 표시)
-Nothing placed: each chosen player has a map revealer on every square	배치하지 않음: 고른 플레이어마다 모든 칸에 맵 리비일러가 이미 있습니다
+Nothing placed: each selected player has a map revealer on every square	배치하지 않음: 고른 플레이어마다 모든 칸에 맵 리비일러가 이미 있습니다
 There are no map revealers on the map	맵에 맵 리비일러가 없습니다
 &Units list	유닛 목록(&U)
 Search the units	유닛 검색
@@ -2416,7 +2414,7 @@ Index	인덱스
 Unit ID	유닛 ID
 Lifted	들어 올림
 Link selected units	선택한 유닛 연결
-Jump to linked unit	연결된 유닛으로 이동
+Go to the linked unit	연결된 유닛으로 이동
  locations	 위치
 Brushes	브러시 수
 Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 64. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	브러시 수: 브러시가 대칭 중심을 같은 간격으로 돕니다. 1: 브러시 하나, 2: 둘(반 바퀴), 4: 넷(1/4 바퀴), 1~64. 클릭하여 숫자를 입력합니다. 화살표와 마우스 휠로 바꿉니다. 등각 지형에서는 회전이 다이아몬드를 유지하지 않으면(2, 그리고 너비가 높이의 두 배인 맵의 4는 유지) 복사본이 가장 가까운 다이아몬드로 갑니다.
@@ -2810,7 +2808,7 @@ Turn clockwise what is on the cursor (R)	커서에 있는 것을 시계 방향�
 Turn back what is on the cursor (Shift+R)	커서에 있는 것을 반대로 돌리기 (Shift+R)
 Mirror left and right what is on the cursor (M)	커서에 있는 것을 좌우로 뒤집기 (M)
 Mirror top and bottom what is on the cursor (Shift+M)	커서에 있는 것을 상하로 뒤집기 (Shift+M)
-Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush	돌릴 것이 없습니다: 지형을 복사하거나(Ctrl+C) 브러시에 사용자 지형이나 복사한 타일을 고르세요
+Nothing to turn: copy terrain (Ctrl+C), or select custom terrain or copied tiles for the Brush	돌릴 것이 없습니다: 지형을 복사하거나(Ctrl+C) 브러시에 사용자 지형이나 복사한 타일을 고르세요
 Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	타일 붙여넣기: 클릭하면 놓이고, 다시 클릭하면 더 놓입니다. R로 돌리고 M으로 뒤집습니다. 오른쪽 클릭이나 Esc로 멈춥니다.
 Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	지형 붙여넣기: 클릭하면 놓이고, 다시 클릭하면 더 놓입니다. R로 돌리고 M으로 뒤집습니다. 오른쪽 클릭이나 Esc로 멈춥니다.
 Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	타일을 돌렸습니다: 각 타일의 그림은 그대로이므로 가장자리와 절벽이 맞지 않을 수 있습니다
@@ -3056,7 +3054,7 @@ Could not read the file: 	파일을 읽을 수 없습니다:
 Could not save 	저장할 수 없음:
 Creep is hidden (View > Modes shows it again)	점막이 숨겨졌습니다 (보기 > 모드에서 다시 표시)
 Cut the terrain: what is under the layer shows in its place (one undo step)	지형을 잘라냈습니다: 레이어 아래에 있던 것이 그 자리에 표시됩니다 (실행 취소 1단계)
-Delete the selected layers (Del in Map Layers)	선택한 레이어 삭제 (맵 레이어에서 Del)
+Delete the selected layers (Del in Map layers)	선택한 레이어 삭제 (맵 레이어에서 Del)
 Did not add 	추가하지 못함:
 Drag to move the layer in the list	끌어서 목록에서 레이어 이동
 E&xport map…	맵 내보내기(&X)…
@@ -3078,15 +3076,13 @@ Layers	레이어
 Layers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. 	레이어는 작업하는 동안 이 맵 파일 안에 있습니다.\n\nStarCraft에서 플레이할 맵을 만들려면 파일 > 맵 내보내기를 사용하십시오.
 Lock	잠금
 Lock or unlock: a locked layer does not change (Ctrl+Alt+L)	잠금/해제: 잠긴 레이어는 변경되지 않습니다 (Ctrl+Alt+L)
-Map Layers	맵 레이어
 Map settings	맵 설정
 Merge down	아래로 병합
 Merge the selected layers	선택한 레이어 병합
 Merged the layers	레이어를 병합했습니다
 Merged the layers into the Background	레이어를 배경에 병합했습니다
 Move	이동
-Move Layer	레이어 이동
-Move Layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.	레이어 이동: 맵에서 끌면 선택한 레이어가 이동합니다. 다른 모드의 도구는 선택한 레이어를 변경합니다.
+Move layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.	레이어 이동: 맵에서 끌면 선택한 레이어가 이동합니다. 다른 모드의 도구는 선택한 레이어를 변경합니다.
 Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.	이동: 선택한 지형을 다른 곳으로 끕니다. 아이소메트릭: 가장자리가 그곳에 맞춰지며, 그 아래 지형도 유효하게 유지됩니다. 다른 종류: 타일이 그대로 옮겨지고, 있던 자리에는 null 타일이 남습니다. 레이어에서는 레이어 아래에 있던 것이 있던 자리에 표시됩니다.
 Moved the layers back to the side bar	레이어를 사이드바로 되돌렸습니다
 Moved the layers to their own window	레이어를 별도 창으로 옮겼습니다
@@ -3423,7 +3419,7 @@ Variations	변형
 Drag to make Variations taller or shorter	끌어서 변형 영역의 높이를 바꿉니다
 Hide the variations	변형 숨기기
 Show the variations	변형 표시
-Symmetry: click to choose the mirrors (Alt+0 to Alt+4)	대칭: 클릭하여 거울 선택 (Alt+0 ~ Alt+4)
+Symmetry: click to select the mirrors (Alt+0 to Alt+4)	대칭: 클릭하여 거울 선택 (Alt+0 ~ Alt+4)
 Craft mode on	크래프트 모드 켜짐
 Craft mode off	크래프트 모드 꺼짐
 Show or hide the guides of this boost. The boost stays in use.	이 최적화의 가이드를 표시하거나 숨깁니다. 최적화는 계속 사용됩니다.

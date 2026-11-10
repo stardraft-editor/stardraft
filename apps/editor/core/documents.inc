@@ -311,7 +311,7 @@ void newUntitledProject() {
     auto pr = std::make_shared<EudProject>();
     std::string err;
     if (!EudProject::create(parent, "Untitled", {}, *pr, err) || !app.ed->save(pr->folder() / "Untitled.scx", err) || !pr->open(pr->file(), err)) {
-        shellLogError(L"Cannot make the new project: " + widen(err));  // the map stays: a plain map
+        shellLogError(L"Could not make the new project: " + widen(err));  // the map stays: a plain map
         return;
     }
     gDocs[size_t(gActive)].project = pr;

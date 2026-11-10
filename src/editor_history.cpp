@@ -133,7 +133,7 @@ Editor::StepName nameOf(const Parts& before, const Parts& after, bool files, boo
     if (changed("SWNM")) return {"Change the switch names", -1};
     if (layers) return {"Change the layers", -1};  // (only the layers' files: stardraft/layers.h)
     if (changed("WAV ") || files) return {"Change the sound files", -1};
-    if (changed("SPRP")) return {"Change the scenario name and description", -1};
+    if (changed("SPRP")) return {"Change the map name and description", -1};
     if (changed("MASK")) return {"Change the fog of war", -1};
     if (anyChanged({"STR ", "STRx"})) return {"Change the texts", -1};
     return {"Change the map", -1};

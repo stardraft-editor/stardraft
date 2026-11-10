@@ -1287,7 +1287,7 @@ void tilesStampTurned(int turn, bool upDown);  // (tiles_edit.inc: the Brush's s
 void mapTurnOrMirror(AppState& app, int turn, bool upDown) {
     const int what = cursorTurnable(app);
     if (!what)
-        return setMessage(app, app.mode == Mode::Terrain ? L"Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush"
+        return setMessage(app, app.mode == Mode::Terrain ? L"Nothing to turn: copy terrain (Ctrl+C), or select custom terrain or copied tiles for the Brush"
                                                          : L"Nothing to turn: copy first, then paste (Ctrl+C, Ctrl+V)");
     if (what >= 4) {  // units, doodads, sprites: their places round the group's middle (their pictures do not turn)
         if (what == 4) {

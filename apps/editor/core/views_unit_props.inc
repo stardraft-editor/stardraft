@@ -228,7 +228,7 @@ public:
         link_.setText(std::wstring(tr(L"Link selected units")));
         link_.onClick = [this] { linkSelected(); };
         add(link_, {0, 0, 0, 0});
-        jump_.setText(std::wstring(tr(L"Jump to linked unit")));
+        jump_.setText(std::wstring(tr(L"Go to the linked unit")));
         jump_.onClick = [this] { jumpToLinked(); };
         add(jump_, {0, 0, 0, 0});
         link_.setEnabled(false), jump_.setEnabled(false);  // (greyed until a link applies)
@@ -383,7 +383,7 @@ private:
             if (list_.isSelected(r)) out.push_back(rows_[size_t(r)]);
         return out;
     }
-    // Link selected units is on for two selected units that can be linked; Jump to linked unit for a shown unit with a link.
+    // Link selected units is on for two selected units that can be linked; Go to the linked unit for a shown unit with a link.
     void refreshLinks() {
         const std::vector<int> sel = selectedUnits();
         const bool link = sel.size() == 2 && ed_->canLinkUnits(sel[0], sel[1]);
@@ -396,7 +396,7 @@ private:
         const std::vector<int> sel = selectedUnits();
         if (sel.size() == 2 && ed_->linkUnits(sel[0], sel[1])) rebuild();
     }
-    // Jump to linked unit: the window shows the linked unit next, and the view goes to it.
+    // Go to the linked unit: the window shows the linked unit next, and the view goes to it.
     void jumpToLinked() {
         const int other = ed_->linkedUnit(shownUnit());
         if (other < 0) return;

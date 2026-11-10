@@ -854,7 +854,7 @@ public:
             }
             c.fill({br.right, br.top + 1, br.right + 1, br.bottom - 1}, kBorder);  // (the line between the two)
             mirrorIcon(c, square(br), mask, on ? kAccentBright : over2 ? kText : kDim, on ? kSel : over2 ? kCtlHot : kCtl);
-            addHit(br, [this, br] { stripMirrorPopout(*this, br); }, tr(L"Symmetry: click to choose the mirrors (Alt+0 to Alt+4)"));
+            addHit(br, [this, br] { stripMirrorPopout(*this, br); }, tr(L"Symmetry: click to select the mirrors (Alt+0 to Alt+4)"));
             spinner(kNumTurns, {br.right + 1, y, joined.right, y + mb}, L"Brushes", L"", kTurnsTip, false);
             y += mb + gap;
         }
