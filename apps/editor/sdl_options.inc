@@ -131,6 +131,25 @@ std::vector<std::wstring> sdlOpenFiles() {
     }
     return files;
 }
+// The quit keeps what is open (the setting LastSession), for Program options > Open the last session's tabs on start
+// (GitHub feedback #270). Not a test run: it has no session of the user.
+void sdlSessionWrite() {
+    if (!gSilent) prefs::setList(L"LastSession", sdlOpenFiles());
+}
+// The last session's maps and projects open again (the ones that are there still); false when the option is off or
+// nothing opened.
+bool sdlSessionReopen() {
+    bool on = false;
+    if (!prefs::flag(L"OpenLastSession", on) || !on) return false;
+    std::vector<std::wstring> files;
+    prefs::list(L"LastSession", files);
+    bool opened = false;
+    for (const std::wstring& f : files) {
+        std::error_code ec;
+        if (fs::exists(f, ec)) openAny(f), opened = true;
+    }
+    return opened;
+}
 void sdlEnsureGameData();  // (main_sdl.cpp: the StarCraft install looked for when the plugin is unloaded)
 // StarDraft 2 starts again (its open maps and projects open again) and this one ends; false when it could not start.
 bool restartProcessSdl() {
@@ -185,7 +204,7 @@ void showOptionsSdl();
 // The Program options commands this system runs (the menus and the keys ask sdlRuns).
 bool sdlOptionsRuns(int id) {
     return id == ID_THEME_DARK || id == ID_THEME_LIGHT || (id == ID_THEME_SYSTEM && kSystemLook) || (id >= ID_OPT_LANG && id < ID_OPT_LANG + kLanguageChoiceCount) || id == ID_OPT_RESTART || id == ID_OPT_RESETALL ||
-           id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT || id == ID_OPT_TINTICONS || id == ID_OPT_DIAGNOSTICS || id == ID_OPT_ASKSTARTLOC || id == ID_OPT_MANYSTARTS || id == ID_GAME_MODE || id == ID_GAME_MODE + 1;
+           id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT || id == ID_OPT_LASTSESSION || id == ID_OPT_TINTICONS || id == ID_OPT_DIAGNOSTICS || id == ID_OPT_ASKSTARTLOC || id == ID_OPT_MANYSTARTS || id == ID_GAME_MODE || id == ID_GAME_MODE + 1;
     // (Look for updates on start and Crash reports are the update check's and the crash reports' commands, with them.)
 }
 // Runs one of them (the same settings and messages as the Windows program's); false: not one of them.
@@ -233,6 +252,11 @@ bool sdlOptionsCommand(int id) {
         prefs::flag(L"OpenLastProject", flag);
         prefs::setNumber(L"OpenLastProject", flag ? 0 : 1);
         setMessage(!flag ? L"At start: open the last project" : L"At start: open no project");
+        break;
+    case ID_OPT_LASTSESSION:
+        prefs::flag(L"OpenLastSession", flag);
+        prefs::setNumber(L"OpenLastSession", flag ? 0 : 1);
+        setMessage(!flag ? L"At start: open the last session's tabs" : L"At start: do not open the last session's tabs");
         break;
     case ID_GAME_MODE:
     case ID_GAME_MODE + 1:
@@ -287,6 +311,8 @@ public:
         v.detailedTiles = stardraft::detailedTilePercent();
         flag = false;
         prefs::flag(L"OpenLastProject", flag), v.openLast = flag;
+        flag = false;
+        prefs::flag(L"OpenLastSession", flag), v.openSession = flag;
         v.tintIcons = tintIconsOn();
         v.diagnostics = diagnosticsOn();
         flag = true;

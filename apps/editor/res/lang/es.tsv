@@ -231,6 +231,8 @@ Crash reports: send an anonymous report after a crash	Informes de errores: envia
 Crash reports: do not send (a report stays on this computer)	Informes de errores: no enviar (el informe se queda en este equipo)
 At start: open the last project	Al iniciar: abrir el último proyecto
 At start: open no project	Al iniciar: no abrir ningún proyecto
+At start: open the last session's tabs	Al iniciar: abrir las pestañas de la última sesión
+At start: do not open the last session's tabs	Al iniciar: no abrir las pestañas de la última sesión
 Units: can be on top of others	Unidades: pueden estar encima de otras
 Units: cannot be on top of others (air units also)	Unidades: no pueden estar encima de otras (tampoco las aéreas)
 Units: place anywhere (terrain edits do not move them)	Unidades: colocar en cualquier lugar (las ediciones de terreno no las mueven)
@@ -1414,6 +1416,8 @@ A&nimate units	A&nimar unidades
 Custom names	Nombres personalizados
 How lists name a unit that has a custom name in the map	Cómo nombran las listas una unidad que tiene un nombre personalizado en el mapa
 Open the last project on start	Abrir el último proyecto al iniciar
+Open the last session's tabs on start	Abrir las pestañas de la última sesión al iniciar
+The maps and projects that were open when StarDraft 2 closed open again	Los mapas y proyectos que estaban abiertos al cerrar StarDraft 2 se abren de nuevo
 Look for updates on start	Buscar actualizaciones al iniciar
 Release builds only	Solo versiones de lanzamiento
 Check now	Comprobar ahora

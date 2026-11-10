@@ -231,6 +231,8 @@ Crash reports: send an anonymous report after a crash	충돌 보고서: 충돌 �
 Crash reports: do not send (a report stays on this computer)	충돌 보고서: 보내지 않음 (보고서는 이 컴퓨터에 남습니다)
 At start: open the last project	시작할 때: 마지막 프로젝트 열기
 At start: open no project	시작할 때: 프로젝트를 열지 않음
+At start: open the last session's tabs	시작할 때: 마지막 세션의 탭 열기
+At start: do not open the last session's tabs	시작할 때: 마지막 세션의 탭을 열지 않음
 Units: can be on top of others	유닛: 다른 유닛 위에 놓을 수 있음
 Units: cannot be on top of others (air units also)	유닛: 다른 유닛 위에 놓을 수 없음 (공중 유닛도 포함)
 Units: place anywhere (terrain edits do not move them)	유닛: 어디에나 배치 (지형을 편집해도 유닛은 이동하지 않음)
@@ -1415,6 +1417,8 @@ A&nimate units	유닛 애니메이션(&N)
 Custom names	사용자 지정 이름
 How lists name a unit that has a custom name in the map	맵에서 사용자 지정 이름을 가진 유닛을 목록에서 표시하는 방법
 Open the last project on start	시작할 때 마지막 프로젝트 열기
+Open the last session's tabs on start	시작할 때 마지막 세션의 탭 열기
+The maps and projects that were open when StarDraft 2 closed open again	StarDraft 2를 닫을 때 열려 있던 맵과 프로젝트를 다시 엽니다
 Look for updates on start	시작할 때 업데이트 확인
 Release builds only	릴리스 빌드만
 Check now	지금 확인

@@ -218,6 +218,8 @@ Crash reports: send an anonymous report after a crash	Отчёты о сбоях
 Crash reports: do not send (a report stays on this computer)	Отчёты о сбоях: не отправлять (отчёт остаётся на этом компьютере)
 At start: open the last project	При запуске: открывать последний проект
 At start: open no project	При запуске: не открывать проект
+At start: open the last session's tabs	При запуске: открывать вкладки последнего сеанса
+At start: do not open the last session's tabs	При запуске: не открывать вкладки последнего сеанса
 Units: can be on top of others	Юниты: могут стоять поверх других
 Units: cannot be on top of others (air units also)	Юниты: нельзя ставить поверх других (в том числе воздушные)
 Units: place anywhere (terrain edits do not move them)	Юниты: размещать где угодно (изменения рельефа их не перемещают)
@@ -1332,6 +1334,8 @@ A&nimate units	&Анимация юнитов
 Custom names	Пользовательские имена
 How lists name a unit that has a custom name in the map	Как в списках называть юнит, которому задано имя на карте
 Open the last project on start	Открывать последний проект при запуске
+Open the last session's tabs on start	Открывать вкладки последнего сеанса при запуске
+The maps and projects that were open when StarDraft 2 closed open again	Карты и проекты, открытые при закрытии StarDraft 2, открываются снова
 Look for updates on start	Проверять обновления при запуске
 Release builds only	Только релизные сборки
 Check now	Проверить сейчас

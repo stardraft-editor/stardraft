@@ -1468,8 +1468,10 @@ void saveOpenMap(bool as, std::function<void(bool)> done = {}) {
     });
 }
 
+void sdlSessionWrite();  // (sdl_options.inc)
 void quitNow() {
     if (gShotDialogs) std::printf("quit: StarDraft 2 ends\n");  // (a snapshot: the run goes on, the output says it)
+    sdlSessionWrite();
     if (gHost) gHost->quit();
 }
 

@@ -1016,7 +1016,9 @@ int main(int argc, char** argv) {
         if (!mapArg.empty()) openAny(widen(mapArg));  // a map, or a project (.eds, .stardraft, its folder): as File > Open does
         bool openLast = false;  // Program options > Open the last project on start (as the Win32 program)
         if (restartPid) restartReopen();  // what the old program had open (the setting Reopen: core/documents.inc)
-        else if (mapArg.empty() && dropArg.empty() && !gSilent && prefs::flag(L"OpenLastProject", openLast) && openLast && !gRecentProjects.empty()) {
+        else if (mapArg.empty() && dropArg.empty() && !gSilent && sdlSessionReopen()) {
+            // (Program options > Open the last session's tabs on start: they are open)
+        } else if (mapArg.empty() && dropArg.empty() && !gSilent && prefs::flag(L"OpenLastProject", openLast) && openLast && !gRecentProjects.empty()) {
             std::error_code ec;
             if (fs::exists(gRecentProjects.front(), ec)) openAny(gRecentProjects.front());
         }

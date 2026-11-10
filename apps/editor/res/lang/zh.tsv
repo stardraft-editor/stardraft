@@ -218,6 +218,8 @@ Crash reports: send an anonymous report after a crash	崩溃报告：崩溃后�
 Crash reports: do not send (a report stays on this computer)	崩溃报告：不发送 (报告留在这台电脑上)
 At start: open the last project	启动时：打开上次的项目
 At start: open no project	启动时：不打开任何项目
+At start: open the last session's tabs	启动时：打开上次会话的标签页
+At start: do not open the last session's tabs	启动时：不打开上次会话的标签页
 Units: can be on top of others	单位: 可以叠放在其他单位上
 Units: cannot be on top of others (air units also)	单位: 不能叠放在其他单位上 (包括空中单位)
 Units: place anywhere (terrain edits do not move them)	单位: 可放在任何位置 (修改地形不会移动它们)
@@ -1332,6 +1334,8 @@ A&nimate units	单位动画(&N)
 Custom names	自定义名称
 How lists name a unit that has a custom name in the map	列表中如何显示地图中已自定义名称的单位
 Open the last project on start	启动时打开上一个项目
+Open the last session's tabs on start	启动时打开上次会话的标签页
+The maps and projects that were open when StarDraft 2 closed open again	重新打开 StarDraft 2 关闭时打开的地图和项目
 Look for updates on start	启动时检查更新
 Release builds only	仅正式版本
 Check now	立即检查
