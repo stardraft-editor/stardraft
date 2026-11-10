@@ -40,9 +40,11 @@ public:
         COLORREF color;
     };
     uint64_t popStart = 0, toggled = 0, textUntil = 0;
+    int logoClicks = 0;  // the clicks on the logo while Craft mode is off: the 9th turns it on
     std::vector<Bit> bits;
     uint64_t lastTick = 0;
     std::wstring craftText;
+    static constexpr int kCraftClicks = 9;
     static constexpr uint64_t kPopMs = 450, kTextMs = 2000;
 
     // The window's size at 100 % (the lines about the name and the EUD tools fit).
@@ -210,6 +212,7 @@ public:
     void logoClick() {
         const uint64_t now = animNowMs();
         popStart = lastTick = now, toggled = 0;
+        if (!shellState().funMode) ++logoClicks;  // (counted here: a fast click comes before the last one's change)
         std::mt19937 rng{uint32_t(now)};
         std::uniform_real_distribution<float> u(0.0f, 1.0f);
         const COLORREF colors[] = {RGB(120, 230, 170), RGB(60, 170, 120), RGB(200, 255, 225), RGB(30, 110, 80)};  // (the logo's greens)
@@ -229,11 +232,15 @@ public:
         lastTick = now;
         for (Bit& b : bits) b.vy += float(scale(700)) * dt, b.x += b.vx * dt, b.y += b.vy * dt, b.size *= 1 - 1.6f * dt;
         std::erase_if(bits, [&](const Bit& b) { return b.size < 0.4f || b.y > float(height()); });
-        if (popStart && !toggled && now - popStart >= 120) {  // (the mode changes as the logo is down: it says so)
+        // The mode changes as the logo is down (it says so): on at the 9th click (kCraftClicks), off at one click.
+        if (popStart && !toggled && now - popStart >= 120) {
             toggled = now;
-            command(ID_OPT_FUNMODE);
-            craftText = shellState().funMode ? L"Craft mode on" : L"Craft mode off";
-            textUntil = now + kTextMs;
+            if (shellState().funMode || logoClicks >= kCraftClicks) {
+                logoClicks = 0;
+                command(ID_OPT_FUNMODE);
+                craftText = shellState().funMode ? L"Craft mode on" : L"Craft mode off";
+                textUntil = now + kTextMs;
+            }
         }
         invalidate();
         if (host() && (!bits.empty() || now - popStart < kPopMs || now < textUntil)) host()->timer(16, [this] { tick(); });

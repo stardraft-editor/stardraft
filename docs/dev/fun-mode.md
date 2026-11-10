@@ -1,8 +1,8 @@
 # Craft mode (a spike; "fun mode" in the code)
 
-A hidden extra, off by default: a click on the logo in Help > About StarDraft 2 turns Craft mode on (the logo squashes
-and springs back, green bits fly out of it with a thunk, and "Craft mode on" shows under it for 2 seconds); another
-click turns it off ("Craft mode off"). It is in no menu and not in Program options. The setting is saved as before
+A hidden extra, off by default: 9 clicks on the logo in Help > About StarDraft 2 turn Craft mode on (at each click the
+logo squashes and springs back and green bits fly out of it with a thunk; at the 9th, "Craft mode on" shows under it
+for 2 seconds); one more click turns it off ("Craft mode off"). It is in no menu and not in Program options. The setting is saved as before
 (FunMode). In Craft mode, editing the map gives feedback:
 
 - Painted terrain plays a short recorded sound (see "The sounds"), by the terrain that the edited tiles have now and
