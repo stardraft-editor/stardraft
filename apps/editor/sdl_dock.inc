@@ -21,7 +21,7 @@ bool sdlAssetsDrop(const fs::path& f) {
     std::wstring ext = f.extension().wstring();
     std::transform(ext.begin(), ext.end(), ext.begin(), ::towlower);
     std::error_code ec;
-    if (ext == L".scm" || ext == L".scx" || ext == L".chk" || ext == L".stardraft" || ext == L".eds" || fs::is_directory(f, ec)) return false;
+    if (ext == L".scm" || ext == L".scx" || ext == L".chk" || ext == L".hxm" || ext == L".stardraft" || ext == L".eds" || fs::is_directory(f, ec)) return false;
     if (ext == L".wav" || ext == L".ogg" || gFilesPage.allFiles()) {
         if (gAssetDrops.empty()) shellPost(sdlFlushAssetDrops);  // (after the drop's other files)
         gAssetDrops.push_back(f);

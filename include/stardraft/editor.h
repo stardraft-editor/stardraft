@@ -109,8 +109,11 @@ public:
     bool newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terrain, std::string& error);
     // New badlands map with generated terrain (see terrain_gen.h).
     bool generateMap(const struct TerrainGenParams& params, std::string& error);
-    // Writes a .scm/.scx archive (keeping the other archive files) or a raw .chk.
+    // Writes a .scm/.scx archive (keeping the other archive files), a Hyperion map (.hxm) or a raw .chk.
     bool save(const std::filesystem::path& path, std::string& error);
+    // The map as a Hyperion map (.hxm, mods/hyperion.h) at `path`, as save would write it, without changing the map's
+    // path or its saved state (a copy for Hyperion's check).
+    bool writeHxmCopy(const std::filesystem::path& path, std::string& error) const;
     const std::filesystem::path& path() const { return path_; }
     // The map archive's files besides the scenario (sounds and the like), as loaded.
     // The archive's other files (sounds, ...): read on a thread after open; these wait for it.
@@ -690,7 +693,9 @@ public:
     static constexpr int kColorIds = 22;
     static uint32_t colorIdRgb(int id);       // the game's color `id` as 0xRRGGBB (Red, Blue, ..., Black)
     static const char* colorIdName(int id);
-    uint32_t playerRgb(int p) const;          // the color player p (0-7) has on the map (random and choice: its COLR color)
+    // The color player p has on the map (random and choice: its COLR color; index 8 and up on a Hyperion map: its HXPL
+    // color, by Hyperion's numbers, hyperion::colorRgb).
+    uint32_t playerRgb(int p) const;
     // The colors a map's players can have by number: StarCraft's kColorIds, or a mod's (UnitDataLoader::colorNames: its
     // tunit.pcx rows, the swatch its tminimap.pcx gives in the map's tileset).
     int colorCount() const;
@@ -701,12 +706,22 @@ public:
         std::string name;
         uint8_t flags = 0;
     };
-    Player player(int p) const;  // p 0-11 (8-11: the controller and the race)
+    // A Hyperion map's players (its section HXPL: the controller, race, force and color of each player from index 8,
+    // HXRG an RGB color for any of them): up to 65 slots, index 11 the neutral player's (64 players). playerSlots: 12, or
+    // the Hyperion map's slots when it has more. hyperionPlayers: the map has HXPL (players 9 to 11 have a force and a
+    // color too; a color by Hyperion's numbers, hyperion::colorRgb).
+    static constexpr int kMaxPlayerSlots = 65;
+    int playerSlots() const;
+    bool hyperionPlayers() const;
+    Player player(int p) const;  // p 0 to playerSlots() - 1 (8-11 on a classic map: the controller and the race)
     Force force(int f) const;
-    void setPlayer(int p, const Player& player);  // p 0-11; one undo step
+    void setPlayer(int p, const Player& player);  // p 0 to playerSlots() - 1; one undo step
     void setForce(int f, const Force& force);     // one undo step
-    // 8 or 12 players (9-12: the controller and the race) and 4 forces; one undo step.
-    void setPlayersAndForces(const std::vector<Player>& players, const std::vector<Force>& forces);
+    // The players by index (8, 12, or a Hyperion map's slots; 9-12 on a classic map: the controller and the race) and 4
+    // forces; one undo step. `slots` (Hyperion maps): the map's player slots become that many (12 or 13 to 65; the slots
+    // past `players` keep their values); -1 keeps them. A force or color given to players 9 to 11, or slots past 12,
+    // make HXPL (a Hyperion map); 12 slots and players 9 to 11 as on a classic map remove it.
+    void setPlayersAndForces(const std::vector<Player>& players, const std::vector<Force>& forces, int slots = -1);
     // --- Mission briefings (MBRF) ---------------------------------------------------------------
     std::vector<BriefingTrigger> briefings() const;
     void setBriefings(const std::vector<BriefingTrigger>& briefings);  // one undo step
@@ -1148,6 +1163,10 @@ private:
     uint64_t revision_ = nextRevision(), terrainRevision_ = nextRevision();
     uint64_t colorRowsRevision_ = 0;  // (the revision syncColorRows gave unitSprites_ the players' colors at)
     void syncColorRows();
+    // setPlayersAndForces' players 1 to 12 and the forces (OWNR, SIDE, FORC, COLR, CRGB, IOWN); alsoInStep changes the map
+    // more in the same undo step (HXPL).
+    void setPlayersAndForcesClassic(const std::vector<Player>& players, const std::vector<Force>& forces,
+                                    const std::function<void()>& alsoInStep);
     // The map's state: a new number at each change (an undo or redo gives the number of the state it restores), and the
     // state at the last open or save. Undo or Redo back to that state: the map is not modified.
     uint64_t state_ = nextRevision(), savedState_ = state_;

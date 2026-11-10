@@ -4,8 +4,15 @@
 // the start page and File > New make Cosmonarchy maps).
 
 bool gCmbwForced = false;  // (a snapshot's --cmbw: Cosmonarchy for the run)
-int gGameMode = -1;        // 0 Standard, 1 Cosmonarchy (the setting GameMode, read once: the checks run often); -1 not read yet
-bool cmbwMode() {
+bool gHyperionForced = false;  // (a snapshot's --hyperion: the Hyperion plugin for the run)
+// The plugin loaded (Program options > Plugins: one at a time): 0 none (Standard), 1 Cosmonarchy BW, 2 Hyperion (the
+// setting GameMode, read once: the checks run often); -1 not read yet.
+int gGameMode = -1;
+int gameMode();
+bool cmbwMode() { return (gameMode() == 1 && !gHyperionForced) || gCmbwForced; }
+// Hyperion (core/hyperion.inc): maps open and save as .hxm too, larger maps, and Tools > Hyperion tests them in Hyperion.
+bool hyperionMode() { return (gameMode() == 2 || gHyperionForced) && !gCmbwForced; }
+int gameMode() {
     if (gGameMode < 0) {
         int64_t v = 0;  // (tests and screenshot runs: Standard, the default; gSettingsOff)
         if (gSettingsOff || gSelfTest) v = 0;
@@ -14,9 +21,9 @@ bool cmbwMode() {
             prefs::flag(L"CosmonarchyMode", on);
             v = on;
         }
-        gGameMode = v == 1 ? 1 : 0;
+        gGameMode = v == 1 || v == 2 ? int(v) : 0;
     }
-    return gGameMode == 1 || gCmbwForced;
+    return gGameMode;
 }
 void setGraphics(GraphicsQuality q, bool carbot);  // (core/map_commands.inc)
 // Cosmonarchy has SD art only: its maps show in Standard definition (View's HD and Carbot items are gray).
@@ -85,6 +92,7 @@ fs::path gCmbwInUse, gCmbwNext;
 // active tab is a Cosmonarchy BW map (not in a crash report: only settings are read there).
 fs::path cmbwInUse();
 std::string reportPluginsLine(bool tab) {
+    if (hyperionMode()) return "Plugins: Hyperion loaded";
     if (!cmbwMode()) return "Plugins: none loaded";
     std::string s = "Plugins: Cosmonarchy BW (CMBW) loaded";
     if (const fs::path in = cmbwInUse(); !in.empty()) s += ", its folder " + in.filename().string();

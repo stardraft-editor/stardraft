@@ -220,7 +220,10 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
             gPaletteArt.unitPictures.erase(it);
             if (art.width) s = &art;
         }
-        if (!s) s = ed.unitSprites().unitSprite(uint16_t(value), uint8_t(owner), ed.tileset());
+        // (SD: the owner's color row; a Hyperion map's players from 9, whose colors have no row, their RGB color)
+        const bool rgbOwner = owner >= 8 && owner != 11 && ed.hyperionPlayers() && owner < ed.playerSlots();
+        if (!s) s = rgbOwner ? ed.unitSprites().unitSpriteRgb(uint16_t(value), ownerRgb, ed.tileset())
+                             : ed.unitSprites().unitSprite(uint16_t(value), uint8_t(owner), ed.tileset());
         // The icons' view with no icon of the unit's own: its picture as an icon is drawn: in the icons' color (their
         // brightest color, scaled by the picture's gray: as the HD icons take the SD icons'), without its shadow (the
         // see-through pixels; an air unit's shadow is far under it: the crop below then has the unit alone).

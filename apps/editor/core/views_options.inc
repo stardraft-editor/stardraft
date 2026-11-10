@@ -40,7 +40,8 @@ struct OptionsValues {
     bool askStartLocations = true;  // Saving maps: a save asks when the map has no start locations (AskStartLocations)
     bool manyStartLocations = false;  // Placing units: more than one start location for each player (ManyStartLocations)
     int detailedTiles = 5;    // Painting terrain: the chance (0 to 100%) of a detailed tile variant (stardraft/isom.h)
-    int gameMode = 0;         // Plugins > Cosmonarchy BW: 0 not loaded, 1 loaded (core/cmbw.inc cmbwMode)
+    int gameMode = 0;         // Plugins: 0 none, 1 Cosmonarchy BW, 2 Hyperion (core/cmbw.inc gameMode)
+    std::wstring hyperionFolder;  // Plugins > Hyperion: the folder with the Hyperion program ("": none found)
     bool checkUpdates = false;
     bool previews = false;    // Updates > Previews: the pre-releases too (else the stable releases only)
     int crashReports = 0;     // 0 ask, 1 send, 2 do not send
@@ -248,9 +249,13 @@ public:
         manyStarts_.setLabel(L"Many start locations for each player");
         manyStarts_.setTip(L"Off: a new start location for a player moves the start location that the player has");
         manyStarts_.onChange = [this](bool) { host_.command(ID_OPT_MANYSTARTS); };
-        // Plugins: Cosmonarchy BW, loaded or not (Game Standard or Cosmonarchy: ID_GAME_MODE + 0 or 1, core/cmbw.inc gameMode)
-        cmbwPlugin_.setLabel(L"Cosmonarchy BW (CMBW)");
-        cmbwPlugin_.onChange = [this](bool on) { host_.command(ID_GAME_MODE + (on ? 1 : 0)); };
+        // Plugins: one at a time, or none (ID_GAME_MODE + 0, 1 or 2, core/cmbw.inc gameMode)
+        noPlugin_.setTip(L"Maps open and are made as StarCraft: Brood War maps");
+        cmbwPlugin_.setTip(L"Maps open with the Cosmonarchy BW data, and new maps are CMBW maps");
+        hyperionPlugin_.setTip(L"Maps open and save as Hyperion maps (.hxm) too, up to 512 tiles a side, and test in Hyperion");
+        pluginGroup_.onChange = [this](stardraft::kit::RadioButton& b) {
+            host_.command(ID_GAME_MODE + (&b == &cmbwPlugin_ ? 1 : &b == &hyperionPlugin_ ? 2 : 0));
+        };
         override_.setLabel(L"ISOM terrain rules override");
         override_.setTip(L"Terrain rules from a file (Tools > Cosmonarchy > Custom isom terrain editor) in place of the built-in ones");
         override_.onChange = [this](bool) { host_.command(ID_OPT_TERRAINOVERRIDE); };
@@ -263,7 +268,7 @@ public:
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&lastSession_), static_cast<draw::View*>(&tintIcons_), static_cast<draw::View*>(&diagnostics_), static_cast<draw::View*>(&immersive_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&override_), static_cast<draw::View*>(&passages_),
+        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&lastSession_), static_cast<draw::View*>(&tintIcons_), static_cast<draw::View*>(&diagnostics_), static_cast<draw::View*>(&immersive_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&noPlugin_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&hyperionPlugin_), static_cast<draw::View*>(&override_), static_cast<draw::View*>(&passages_),
                         static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_), static_cast<draw::View*>(&smoothZoom_), static_cast<draw::View*>(&smoothPan_),
                         static_cast<draw::View*>(&keyHints_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
@@ -310,6 +315,7 @@ public:
         folder_.setReadOnly(true), folder_.setTabStop(false);
         install_.setReadOnly(true), install_.setTabStop(false);
         cmbw_.setReadOnly(true), cmbw_.setTabStop(false), overrideFile_.setReadOnly(true), overrideFile_.setTabStop(false);
+        hyperion_.setReadOnly(true), hyperion_.setTabStop(false), add(hyperion_, {0, 0, 0, 0}), hyperion_.setVisible(false);
         passagesFile_.setReadOnly(true), passagesFile_.setTabStop(false);
         add(folder_, {0, 0, 0, 0}), add(install_, {0, 0, 0, 0}), add(cmbw_, {0, 0, 0, 0}), add(overrideFile_, {0, 0, 0, 0}), add(passagesFile_, {0, 0, 0, 0});
         folder_.setVisible(false), install_.setVisible(false), cmbw_.setVisible(false), overrideFile_.setVisible(false), passagesFile_.setVisible(false);
@@ -321,6 +327,8 @@ public:
         installBrowse_.onClick = [this] { host_.command(ID_OPT_INSTALL); };
         cmbwBrowse_.setText(L"Browse\x2026"), cmbwBrowse_.setTip(L"Select the Cosmonarchy BW folder");
         cmbwBrowse_.onClick = [this] { host_.command(ID_OPT_CMBWFOLDER); };
+        hyperionBrowse_.setText(L"Browse\x2026"), hyperionBrowse_.setTip(L"Select the folder with the Hyperion program");
+        hyperionBrowse_.onClick = [this] { host_.command(ID_OPT_HYPERIONFOLDER); };
         overrideBrowse_.setText(L"Browse\x2026"), overrideBrowse_.setTip(L"Select a terrain rules file (*.isom)");
         overrideBrowse_.onClick = [this] { host_.command(ID_OPT_TERRAINOVERRIDEFILE); };
         passagesBrowse_.setText(L"Browse\x2026"), passagesBrowse_.setTip(L"Select a passages file (*.scpass)");
@@ -339,7 +347,7 @@ public:
         maps_.onClick = [this] { host_.command(ID_OPT_MAPSDEFAULT); };
         close_.setText(L"Close"), close_.setTone(stardraft::kit::Tone::Primary);
         close_.onClick = [this] { host_.close(); };
-        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &passagesBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) b->setVisible(false);
+        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &hyperionBrowse_, &overrideBrowse_, &passagesBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) b->setVisible(false);
         // The tabs (showTabStrip): fixed pages, in the order of kTabs.
         std::vector<stardraft::kit::Tab> tabs;
         for (const optionsview::Tab& t : optionsview::kTabs) tabs.push_back({t.name});
@@ -465,7 +473,7 @@ private:
         out.push_back(&lightSeg_[2]);
         for (int i = 0; i < 3; ++i) out.push_back(&crashSeg_[i]);
         for (int i = 0; i < 4; ++i) out.push_back(&gpuSeg_[i]);
-        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &passagesBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) out.push_back(b);
+        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &hyperionBrowse_, &overrideBrowse_, &passagesBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) out.push_back(b);
         return out;
     }
     int maxScroll() const { return std::max(0, height_ - std::max(0, contentBottom_ - contentTop_)); }
@@ -510,13 +518,17 @@ private:
     // (Graphics' segments in their order: Automatic, Direct3D 12, Vulkan, Software; their settings' values)
     static constexpr int kGpuValue[4] = {0, 1, 3, 2};
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3], gpuSeg_[4];  // (lightSeg_[2]: Automatic, with systemTheme)
-    stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, overrideBrowse_, passagesBrowse_, check_, restart_, reset_, maps_, close_;
+    stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, hyperionBrowse_, overrideBrowse_, passagesBrowse_, check_, restart_, reset_, maps_, close_;
     stardraft::kit::ScrollBar bar_;  // at the content's right when it is taller than its room
-    stardraft::kit::CheckBox lastProject_, lastSession_, tintIcons_, diagnostics_, immersive_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_, smoothZoom_, smoothPan_, keyHints_;
+    stardraft::kit::CheckBox lastProject_, lastSession_, tintIcons_, diagnostics_, immersive_, askStart_, manyStarts_, override_, passages_, updates_, previews_, smoothZoom_, smoothPan_, keyHints_;
+    // Plugins: one at a time (made in this order: the arrow keys go through them so)
+    stardraft::kit::RadioGroup pluginGroup_;
+    stardraft::kit::RadioButton noPlugin_{L"No plugin", pluginGroup_, true}, cmbwPlugin_{L"Cosmonarchy BW (CMBW)", pluginGroup_},
+        hyperionPlugin_{L"Hyperion", pluginGroup_};
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Slider slider_;
-    stardraft::kit::TextField limit_[2], detail_, folder_, install_, cmbw_, overrideFile_, passagesFile_;
+    stardraft::kit::TextField limit_[2], detail_, folder_, install_, cmbw_, hyperion_, overrideFile_, passagesFile_;
     std::vector<int> langChoices_;     // the choice index of each language dropdown item
     std::vector<OptionsAccent> accents_;
     std::vector<draw::Rect> accentRects_;
@@ -567,7 +579,8 @@ void OptionsView::sync(const OptionsValues& v) {
         gpuChosen_ = v.gpuDriver;
         for (int i = 0; i < 4; ++i) gpuSeg_[i].setTone(kGpuValue[i] == v.gpuDriver ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
-    cmbwPlugin_.setOn(v.gameMode == 1), override_.setOn(v.overrideOn);
+    if (stardraft::kit::RadioButton& b = v.gameMode == 1 ? cmbwPlugin_ : v.gameMode == 2 ? hyperionPlugin_ : noPlugin_; !b.on()) pluginGroup_.select(b);
+    override_.setOn(v.overrideOn);
     if (const std::wstring f = v.overrideFile.empty() ? std::wstring(L"\x2014") : v.overrideFile; overrideFile_.text() != f) overrideFile_.setText(f);
     passages_.setOn(v.passagesOn);
     if (const std::wstring f = v.passagesFile.empty() ? std::wstring(L"\x2014") : v.passagesFile; passagesFile_.text() != f) passagesFile_.setText(f);
@@ -612,6 +625,8 @@ void OptionsView::sync(const OptionsValues& v) {
     if (install_.text() != inst) install_.setText(inst);
     const std::wstring mod = v.cmbwFolder.empty() ? std::wstring(L"\x2014") : v.cmbwFolder;
     if (cmbw_.text() != mod) cmbw_.setText(mod);
+    const std::wstring hyp = v.hyperionFolder.empty() ? std::wstring(L"\x2014") : v.hyperionFolder;
+    if (hyperion_.text() != hyp) hyperion_.setText(hyp);
 }
 
 void OptionsView::paint(draw::Canvas& c) {
@@ -672,7 +687,7 @@ void OptionsView::paint(draw::Canvas& c) {
             x += w;
         }
     };
-    auto checkRow = [&](int rowY, stardraft::kit::CheckBox& cb, const std::string& part) {
+    auto checkRow = [&](int rowY, stardraft::kit::ChoiceBox& cb, const std::string& part) {
         const draw::Rect cr{x0, rowY, x0 + scale(24) + c.measure(cb.label()), rowY + rowH};  // as ui::check: the box and the label
         place(cb, cr, true);
         parts_[part] = cr;
@@ -932,17 +947,35 @@ void OptionsView::paint(draw::Canvas& c) {
         y += pad;
     }
 
-    // Plugins: an early preview (a line says so), each one loaded or not, what it does under it, and its
-    // settings while it is loaded. Cosmonarchy BW (the only switch for the mod's parts: maps open and are made as the
-    // mod's) and the mod's folder (core/cmbw.inc).
+    // Plugins: an early preview (a line says so), one loaded at a time or none (radio buttons), what each does under it,
+    // and the loaded one's settings. Cosmonarchy BW (the only switch for the mod's parts: maps open and are made as the
+    // mod's) and the mod's folder (core/cmbw.inc); Hyperion and its folder (core/hyperion.inc).
     if (shown & optionsview::kPlugins) {
         header(L"Plugins");
         c.text({x0, y, colRight, y + scale(20)}, L"Early feature preview: report the issues that you find", kText, draw::kMiddle | draw::kEllipsis);
         y += scale(20) + scale(6);
+        checkRow(y, noPlugin_, "plugin.none");
+        y += rowH;
         checkRow(y, cmbwPlugin_, "plugin.cmbw");
         y += rowH;
-        note(x0 + scale(24), y - scale(4), L"When loaded, maps open with the CMBW data, and new maps are CMBW maps");
+        note(x0 + scale(24), y - scale(4), L"Maps open with the CMBW data, and new maps are CMBW maps");
         y += scale(20);
+        checkRow(y, hyperionPlugin_, "plugin.hyperion");
+        y += rowH;
+        note(x0 + scale(24), y - scale(4), L"Maps open and save as .hxm too, up to 512 tiles a side, and test in Hyperion");
+        y += scale(20);
+        if (v.gameMode == 2) {  // (the Hyperion folder: only while it is loaded)
+            c.text({x0 + scale(24), y, x0 + labelW, y + rowH}, L"Hyperion folder", kDim, draw::kMiddle | draw::kEllipsis);
+            const int hw = hyperionBrowse_.preferredWidth(c);
+            place(hyperion_, {fx, fieldTop(y), colRight - hw - gap, fieldTop(y) + fieldH}, true);
+            const int hy = buttonTop(y);
+            place(hyperionBrowse_, {colRight - hw, hy, colRight, hy + btnH}, true);
+            parts_["hyperionfolder"] = {colRight - hw, hy, colRight, hy + btnH};
+            y += rowH;
+            note(fx, y - scale(4), v.hyperionFolder.empty() ? std::wstring(L"Not found: select the folder that has Hyperion.exe")
+                                                            : std::wstring(L"The folder that has Hyperion.exe"));
+            y += scale(20);
+        }
         if (v.gameMode != 1) y += pad;  // (the section's end: no folder row below)
     }
     if ((shown & optionsview::kPlugins) && v.gameMode == 1) {  // (the Cosmonarchy folder: only while it is loaded)

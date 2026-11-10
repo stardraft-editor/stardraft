@@ -25,6 +25,7 @@
 #include <set>
 
 #include "stardraft/game_data.h"
+#include "stardraft/mods/hyperion.h"
 #include "stardraft/new_map.h"
 #include "stardraft/ramps.h"  // (a terrain stroke's end fits the ramps again)
 #include "stardraft/terrain_gen.h"
@@ -64,8 +65,14 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     };
     finishFiles();  // a map still being read: done with it first
     Bytes raw;
+    const bool hxm = hyperion::isHxm(path);  // (a Hyperion map: compiled to its CHK, its files read with it)
+    hyperion::HxmMap hx;
     bool archive = lower(path.extension().string()) != ".chk";
-    if (archive) {
+    if (hxm) {
+        if (!hyperion::readHxmFile(path, hx, error)) return false;
+        raw = std::move(hx.chk);
+        step("read the scenario");
+    } else if (archive) {
         // The scenario now; the other files (sounds can be megabytes) on a thread, ready when something needs them.
         if (!readMapFile(path, raw, error)) return false;
         step("read the scenario");
@@ -95,7 +102,9 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     filesError_.clear();
     unreadable_.clear();
     pendingUnreadable_ = std::make_shared<std::vector<std::string>>();
-    if (archive)
+    if (hxm)
+        files_ = std::move(hx.files);
+    else if (archive)
         pendingFiles_ = std::async(std::launch::async, [path, unreadable = pendingUnreadable_] {
             std::vector<ArchiveFile> files;
             std::string err;
@@ -331,7 +340,9 @@ bool Editor::save(const std::filesystem::path& path, std::string& error) {
         const std::string check = terrainCheck();
         setQuietArchiveFile(kLayersCheckFile, Bytes(check.begin(), check.end()));
     }
-    if (archive) {
+    if (hyperion::isHxm(path)) {
+        if (!hyperion::writeHxmFile(path, {raw, files_, {}}, error)) return false;
+    } else if (archive) {
         if (!writeMap(path, raw, files_, error)) return false;
     } else if (!writeFile(path, std::string_view(reinterpret_cast<const char*>(raw.data()), raw.size()), error)) {
         return false;
@@ -341,6 +352,12 @@ bool Editor::save(const std::filesystem::path& path, std::string& error) {
     savedState_ = state_;
     savedSlots_ = slots;
     return true;
+}
+
+bool Editor::writeHxmCopy(const std::filesystem::path& path, std::string& error) const {
+    finishFiles();
+    if (!filesError_.empty()) return error = filesError_, false;
+    return hyperion::writeHxmFile(path, {savedChk(), files_, {}}, error);
 }
 
 void Editor::reloadTerrain() {
@@ -2889,7 +2906,7 @@ void Editor::resizeShift(int& shiftX, int& shiftY) {
 
 bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX, int shiftY, uint16_t fill, std::string& error) {
     if (!isomOk_) return error = "the map's terrain has no ISOM data, so the size and tileset cannot change", false;
-    if (width < 16 || height < 16 || width > 256 || height > 256) return error = "the size must be 16 to 256 tiles", false;
+    if (width < 16 || height < 16 || width > 1024 || height > 1024) return error = "the size must be 16 to 1024 tiles", false;
     const IsomTerrainTable* oldTable = IsomTerrainTable::forEra(era_);
     const IsomTerrainTable* newTable = IsomTerrainTable::forEra(era);
     if (!oldTable || !newTable) return error = "unknown tileset", false;
@@ -4008,7 +4025,38 @@ uint32_t Editor::colorRgb(int id) const {
     return colorIdRgb(id);
 }
 
+namespace {
+uint32_t le32At(const Bytes& d, size_t at) { return uint32_t(d[at]) | uint32_t(d[at + 1]) << 8 | uint32_t(d[at + 2]) << 16 | uint32_t(d[at + 3]) << 24; }
+// HXPL (a Hyperion map: the players from index 8, 4 bytes each: controller, race, force, color or 0xFF): its slots as
+// Hyperion reads it (version 1, 9 to 65 slots but 12, its size theirs); 0 when the map has none, or one Hyperion refuses.
+uint32_t hxplSlots(const Chk& chk) {
+    const Section* s = chk.find("HXPL");
+    if (!s || s->data.size() < 8) return 0;
+    const uint32_t n = le32At(s->data, 4);
+    return le32At(s->data, 0) == 1 && n >= 9 && n <= uint32_t(Editor::kMaxPlayerSlots) && n != 12 && s->data.size() == 8 + 4 * size_t(n - 8) ? n : 0;
+}
+// HXRG (each HXPL player's RGB color: set, r, g, b), when it agrees with HXPL's slots.
+const Bytes* hxrgFor(const Chk& chk, uint32_t slots) {
+    const Section* s = chk.find("HXRG");
+    if (!s || !slots || s->data.size() != 8 + 4 * size_t(slots - 8) || le32At(s->data, 0) != 1 || le32At(s->data, 4) != slots) return nullptr;
+    return &s->data;
+}
+void putLe32(Bytes& d, uint32_t v) {
+    for (int k = 0; k < 4; ++k) d.push_back(uint8_t(v >> (8 * k)));
+}
+}  // namespace
+
+int Editor::playerSlots() const {
+    const uint32_t n = hxplSlots(chk_);
+    return n > 12 ? int(n) : 12;
+}
+bool Editor::hyperionPlayers() const { return hxplSlots(chk_) != 0; }
+
 uint32_t Editor::playerRgb(int p) const {
+    if (p >= 8 && p != 11 && (p >= 12 || hyperionPlayers())) {  // (Hyperion's numbers)
+        const PlayerColor c = player(p).color;
+        return c.kind == PlayerColor::Custom ? c.rgb : hyperion::colorRgb(c.kind == PlayerColor::Id ? c.id : hyperion::defaultColor(p));
+    }
     if (p < 0 || p >= 8) return colorIdRgb(p == 11 ? 11 : p);
     const PlayerColor c = player(p).color;
     if (c.kind == PlayerColor::Custom) return c.rgb;
@@ -4032,12 +4080,29 @@ void Editor::syncColorRows() {
 
 Editor::Player Editor::player(int p) const {
     Player out;
-    if (p < 0 || p >= 12) return out;
-    const Bytes ownr = editorSlots();
-    const Bytes side = sectionOr(chk_, "SIDE", 12, 5), forc = sectionOr(chk_, "FORC", 20, 0);
-    out.controller = Controller(ownr[size_t(p)]);
-    out.race = Race(side[size_t(p)]);
-    if (p >= 8) return out;  // (players 9-12: no force, no color)
+    if (p < 0 || p >= playerSlots()) return out;
+    // A Hyperion map's player from index 8 (HXPL; HXRG its RGB color); 9-11 have the controller and the race of OWNR
+    // and SIDE, which HXPL repeats.
+    const uint32_t hx = hxplSlots(chk_);
+    const uint8_t* h = p >= 8 && p != 11 && uint32_t(p) < hx ? chk_.find("HXPL")->data.data() + 8 + 4 * size_t(p - 8) : nullptr;
+    if (p >= 12) {
+        out.controller = Controller(h[0]), out.race = Race(h[1]);
+    } else {
+        const Bytes ownr = editorSlots();
+        const Bytes side = sectionOr(chk_, "SIDE", 12, 5);
+        out.controller = Controller(ownr[size_t(p)]);
+        out.race = Race(side[size_t(p)]);
+    }
+    if (p >= 8) {  // (players 9-11 of a classic map and 12: no force, no color)
+        out.color = {PlayerColor::Id, uint8_t(hyperion::defaultColor(p)), 0};
+        if (!h) return out;
+        out.force = std::min<int>(h[2], 3);
+        if (h[3] != 0xFF) out.color.id = h[3];
+        if (const Bytes* rg = hxrgFor(chk_, hx); rg && (*rg)[8 + 4 * size_t(p - 8)])
+            out.color = {PlayerColor::Custom, 0, uint32_t((*rg)[9 + 4 * size_t(p - 8)]) << 16 | uint32_t((*rg)[10 + 4 * size_t(p - 8)]) << 8 | (*rg)[11 + 4 * size_t(p - 8)]};
+        return out;
+    }
+    const Bytes forc = sectionOr(chk_, "FORC", 20, 0);
     out.force = std::min<int>(forc[size_t(p)], 3);
     if (const Section* crgb = chk_.find("CRGB"); crgb && crgb->data.size() >= 32) {
         const uint8_t* d = crgb->data.data();
@@ -4065,7 +4130,60 @@ Editor::Force Editor::force(int f) const {
     return out;
 }
 
-void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::vector<Force>& forces) {
+void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::vector<Force>& forces, int slots) {
+    // A Hyperion map's players (HXPL, and HXRG when one has an RGB color): the players from index 8, made while a slot
+    // past 12, or a force or color of players 9 to 11, needs them. A color byte that was 0xFF (none: the player's own)
+    // stays so while the player keeps that color; under an RGB color the byte stays as it was.
+    const uint32_t hxBefore = hxplSlots(chk_);
+    const int slotsNow = playerSlots();
+    const int slotsAfter = slots < 0 ? slotsNow : slots > 12 ? std::min(slots, kMaxPlayerSlots) : 12;
+    auto playerAt = [&](int s) {
+        if (s < int(players.size())) return players[size_t(s)];
+        if (s < slotsNow) return player(s);
+        return Player{Controller::Human, Race::UserSelect, 0, {PlayerColor::Id, uint8_t(hyperion::defaultColor(s)), 0}};  // (a new player)
+    };
+    bool needHx = slotsAfter > 12;
+    for (int p = 8; p < 11 && !needHx; ++p) {
+        const Player pl = playerAt(p);
+        needHx = pl.force != 0 || !(pl.color == PlayerColor{PlayerColor::Id, uint8_t(hyperion::defaultColor(p)), 0});
+    }
+    Bytes hxpl, hxrg;
+    if (needHx) {
+        const uint32_t n = slotsAfter > 12 ? uint32_t(slotsAfter) : 11;
+        const Section* old = hxBefore ? chk_.find("HXPL") : nullptr;
+        putLe32(hxpl, 1), putLe32(hxpl, n), putLe32(hxrg, 1), putLe32(hxrg, n);
+        bool anyRgb = false;
+        for (uint32_t s = 8; s < n; ++s) {
+            if (s == 11) {  // (the neutral player's entry)
+                putLe32(hxpl, 0), putLe32(hxrg, 0);
+                continue;
+            }
+            const Player pl = playerAt(int(s));
+            const uint8_t was = old && s < hxBefore ? old->data[8 + 4 * size_t(s - 8) + 3] : 0xFF;
+            uint8_t color = was;
+            if (pl.color.kind == PlayerColor::Id) color = pl.color.id == hyperion::defaultColor(int(s)) && was == 0xFF ? 0xFF : pl.color.id;
+            hxpl.push_back(uint8_t(pl.controller)), hxpl.push_back(uint8_t(pl.race));
+            hxpl.push_back(uint8_t(std::clamp(pl.force, 0, 3))), hxpl.push_back(color);
+            const bool rgb = pl.color.kind == PlayerColor::Custom;
+            hxrg.push_back(rgb ? 1 : 0);
+            for (int k = 2; k >= 0; --k) hxrg.push_back(rgb ? uint8_t(pl.color.rgb >> (8 * k)) : 0);
+            anyRgb |= rgb;
+        }
+        if (!anyRgb) hxrg.clear();
+    }
+    setPlayersAndForcesClassic(players, forces, [&] {
+        if (needHx) {
+            chk_.set("HXPL", std::move(hxpl));
+            if (!hxrg.empty()) chk_.set("HXRG", std::move(hxrg));
+            else if (hxBefore) chk_.remove("HXRG");
+        } else if (hxBefore) {
+            chk_.remove("HXPL"), chk_.remove("HXRG");
+        }
+    });
+}
+
+void Editor::setPlayersAndForcesClassic(const std::vector<Player>& players, const std::vector<Force>& forces,
+                                        const std::function<void()>& alsoInStep) {
     // Colors: COLR and CRGB change only when a color changes (a map saved unchanged keeps its bytes); CRGB is there
     // only when a color needs it (random, the player's choice, RGB, or ids 12 and up): else it goes, and the lobby has
     // the map's colors again.
@@ -4132,14 +4250,15 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
     chk_.set("OWNR", std::move(ownr));
     chk_.set("SIDE", std::move(side));
     chk_.set("FORC", std::move(forc));
+    if (alsoInStep) alsoInStep();
     commit(false);
 }
 
 void Editor::setPlayer(int p, const Player& pl) {
-    if (p < 0 || p >= 12) return;
+    if (p < 0 || p >= playerSlots()) return;
     std::vector<Player> players;
     std::vector<Force> forces;
-    for (int i = 0; i < 12; ++i) players.push_back(i == p ? pl : player(i));
+    for (int i = 0; i < playerSlots(); ++i) players.push_back(i == p ? pl : player(i));
     for (int i = 0; i < 4; ++i) forces.push_back(force(i));
     setPlayersAndForces(players, forces);
 }

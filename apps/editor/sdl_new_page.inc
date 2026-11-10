@@ -125,6 +125,7 @@ bool NewHostSdl::make() {
 bool shellMapsReady();  // (sdl_start.inc)
 void openNewPageSdl(int kind) {
     if (cmbwMode() && kind != 2) kind = -1;  // (Cosmonarchy: the start page, its Cosmonarchy map card; 2: that card's page)
+    if (hyperionMode() && kind != 0) kind = -1;  // (Hyperion: the start page, its Hyperion map card; 0: that card's page, a map)
     if (kind >= 0 && !shellMapsReady()) {  // (no game files: no new map; the start page says why)
         kind = -1;
         setMessage(tr(L"Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files"));
@@ -189,4 +190,6 @@ void shellPageTabClose() {
 }
 
 // The tab's name: the kind (the document tabs name a page with it).
-const wchar_t* gNewTitle() { return gNewView.cosmonarchy ? L"New Cosmonarchy map" : gNewView.project ? L"New EUD project" : L"New classic project"; }
+const wchar_t* gNewTitle() {
+    return gNewView.cosmonarchy ? L"New Cosmonarchy map" : gNewView.project ? L"New EUD project" : hyperionMode() ? L"New Hyperion map" : L"New classic project";
+}

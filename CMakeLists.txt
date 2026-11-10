@@ -180,6 +180,7 @@ add_library(stardraft
     src/game_data.cpp
     src/creep.cpp
     src/mods/cmbw.cpp
+    src/mods/hyperion.cpp
     src/mods/terrain_rules.cpp
     src/tileset.cpp
     src/terrain.cpp
@@ -230,6 +231,8 @@ target_include_directories(stardraft PUBLIC include PRIVATE src ${stb_SOURCE_DIR
 # IsomTerrain (third_party/IsomTerrain, MIT): its IsomApi.h, unchanged, is the isometric terrain core
 # (src/isom_core.cpp); its includes find StarDraft's stand-ins for Chkdraft's headers beside it.
 target_include_directories(stardraft PRIVATE third_party/IsomTerrain/IsomTerrain)
+# Hyperion maps (.hxm) are zip files: StormLib's own zlib reads and writes them (src/mods/hyperion.cpp).
+set_source_files_properties(src/mods/hyperion.cpp PROPERTIES INCLUDE_DIRECTORIES ${stormlib_SOURCE_DIR}/src/zlib)
 find_package(Threads REQUIRED)  # std::async; older glibc needs -pthread for it
 target_link_libraries(stardraft PRIVATE storm casc_static vpx ogg_vorbis lua51 PUBLIC Threads::Threads)
 if(WIN32)  # wide-char paths, as StormLib and CascLib are built on Windows (TCHAR = wchar_t)
@@ -282,6 +285,8 @@ target_link_libraries(media_test PRIVATE stardraft)
 target_compile_definitions(media_test PRIVATE STARDRAFT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_executable(cmbw_test tools/plugins/cmbw/tests/cmbw_test.cpp)  # Cosmonarchy maps: learned tile terrains, the brush, CRIG words, races
 target_link_libraries(cmbw_test PRIVATE stardraft)
+add_executable(hyperion_test tools/plugins/hyperion/tests/hyperion_test.cpp)  # Hyperion maps (.hxm): the compile against Hyperion's, round trips
+target_link_libraries(hyperion_test PRIVATE stardraft)
 
 add_executable(strings_test tools/tests/strings_test.cpp)  # the map string table's editor: moves renumber every use
 target_link_libraries(strings_test PRIVATE stardraft)

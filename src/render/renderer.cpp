@@ -100,8 +100,10 @@ struct GpuRect {
     float rect[4], color[4], line[4];  // line[0]: thickness, 0 for a rectangle
 };
 
-// Player colours (StarCraft defaults, players 1-12); setPlayerColors gives a map's own.
-float kPlayerRgb[12][3] = {{0.957f, 0.016f, 0.016f}, {0.047f, 0.282f, 0.8f},   {0.173f, 0.706f, 0.58f},
+// Player colours (StarCraft defaults, players 1-12; past them, a Hyperion map's players to 65, and an owner past those
+// the last's); setPlayerColors gives a map's own.
+constexpr int kPlayerColors = 65;
+float kPlayerRgb[kPlayerColors][3] = {{0.957f, 0.016f, 0.016f}, {0.047f, 0.282f, 0.8f},   {0.173f, 0.706f, 0.58f},
                                  {0.533f, 0.251f, 0.612f}, {0.973f, 0.549f, 0.078f}, {0.439f, 0.188f, 0.078f},
                                  {0.8f, 0.878f, 0.816f},   {0.988f, 0.988f, 0.22f},  {0.031f, 0.502f, 0.031f},
                                  {0.988f, 0.988f, 0.486f}, {0.925f, 0.769f, 0.69f},  {0.251f, 0.408f, 0.831f}};
@@ -947,8 +949,8 @@ void Renderer::setLoadBudget(double ms) { impl_->loadBudgetMs = ms; }
 void Renderer::setExactTeamColors(uint16_t owners) { impl_->exactTeam = owners; }
 Stats Renderer::stats() const { return impl_->stats; }
 
-void Renderer::setPlayerColors(const uint32_t rgb[12]) {
-    for (int i = 0; i < 12; ++i)
+void Renderer::setPlayerColors(const uint32_t* rgb, int count) {
+    for (int i = 0; i < std::min(count, kPlayerColors); ++i)
         for (int c = 0; c < 3; ++c) kPlayerRgb[i][c] = float((rgb[i] >> (16 - 8 * c)) & 255) / 255.0f;
 }
 
@@ -1288,7 +1290,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         }
         float u0 = uf.u0 / t->texW, u1 = uf.u1 / t->texW;
         in.uv[0] = s.flip ? u1 : u0, in.uv[1] = uf.v0 / t->texH, in.uv[2] = s.flip ? u0 : u1, in.uv[3] = uf.v1 / t->texH;
-        const float* rgb = kPlayerRgb[std::min<int>(s.owner, 11)];
+        const float* rgb = kPlayerRgb[std::clamp<int>(s.owner, 0, kPlayerColors - 1)];
         in.color[0] = rgb[0], in.color[1] = rgb[1], in.color[2] = rgb[2], in.color[3] = s.alpha;
         float yn = std::clamp((s.hasSortY ? s.sortY : s.y) / mapPxH, 0.0f, 1.0f);
         in.depth = std::clamp((s.air ? 0.2f - 0.15f * yn : 0.95f - 0.7f * yn) - s.depthBias, 0.0f, 1.0f);

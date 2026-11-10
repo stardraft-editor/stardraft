@@ -179,7 +179,7 @@ public:
         // The sizes: StarEdit's (as Map properties' size fields), and the map's own size when it is not one of them.
         for (int* sizes : {&oldW_, &oldH_}) {
             std::vector<int>& out = sizes == &oldW_ ? sizesW_ : sizesH_;
-            for (uint16_t s : kMapSizes) out.push_back(s);
+            for (uint16_t s : mapSizes()) out.push_back(s);
             if (std::find(out.begin(), out.end(), *sizes) == out.end()) out.push_back(*sizes), std::sort(out.begin(), out.end());
         }
         const std::vector<uint32_t> colors = megatileColors(ed.tileset());

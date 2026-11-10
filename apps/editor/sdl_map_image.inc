@@ -77,9 +77,9 @@ public:
         gRenderer->updateTerrain(terrain_);
         gRenderer->clearTerrainOverlay();  // (see-through map layers: the view's only)
         gRenderer->setTerrainPreview({});
-        uint32_t team[12];
-        for (int i = 0; i < 12; ++i) team[i] = playerRgba(i, 0) >> 8;
-        gRenderer->setPlayerColors(team);
+        uint32_t team[Editor::kMaxPlayerSlots];
+        for (int i = 0; i < Editor::kMaxPlayerSlots; ++i) team[i] = playerRgba(i, 0) >> 8;
+        gRenderer->setPlayerColors(team, Editor::kMaxPlayerSlots);
         gRenderer->setLoadBudget(1e9);
         gMapEd = nullptr;  // (the map's next frame sets its own terrain again)
         const render::Scene scene = mapImageScene(o_, float(area_.left) + float(x0) / zoom_, float(area_.top) + float(y0) / zoom_, zoom_, kPart, kPart);
@@ -300,9 +300,9 @@ void sdlDrawFuncsCheck(const std::string& folder) {
         }
         return s;
     };
-    uint32_t team[12];
-    for (int i = 0; i < 12; ++i) team[i] = playerRgba(i, 0) >> 8;
-    gRenderer->setPlayerColors(team);
+    uint32_t team[Editor::kMaxPlayerSlots];
+    for (int i = 0; i < Editor::kMaxPlayerSlots; ++i) team[i] = playerRgba(i, 0) >> 8;
+    gRenderer->setPlayerColors(team, Editor::kMaxPlayerSlots);
     gRenderer->setTerrainPreview({});
     gRenderer->setLoadBudget(1e9);
     const GraphicsQuality qualities[3] = {GraphicsQuality::SD, GraphicsQuality::HD2, GraphicsQuality::HD};

@@ -132,23 +132,24 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
         }
         gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers, uploadedCreep = creepRev, uploadedOutside = outside.gen, uploadedClear = clear.gen;
     }
-    // The players' colors: the map's own for players 1 to 8, the fixed ones for the rest (core/map_scene.inc: playerRgba).
-    uint32_t team[12];
-    for (int i = 0; i < 12; ++i) team[i] = playerRgba(i, 0) >> 8;
-    gRenderer->setPlayerColors(team);
+    // The players' colors: the map's own for players 1 to 8 (a Hyperion map's: all its players), the fixed ones for the
+    // rest (core/map_scene.inc: playerRgba).
+    uint32_t team[Editor::kMaxPlayerSlots];
+    for (int i = 0; i < Editor::kMaxPlayerSlots; ++i) team[i] = playerRgba(i, 0) >> 8;
+    gRenderer->setPlayerColors(team, Editor::kMaxPlayerSlots);
     {  // (the palette's player list: each player's color square)
         extern kit::Dropdown gOwnerBox;  // (sdl_panels.inc)
         void palettePanelsOwnerItems(const std::vector<kit::DropdownItem>& owners);  // (sdl_palette_panels.inc)
         // (a Cosmonarchy map: more players, core/palette_tools.inc ownerChoices; made again only when a color or the
         // number of players changed)
         static std::vector<kit::DropdownItem> owners;
-        static uint32_t ownersTeam[12] = {};
+        static uint32_t ownersTeam[Editor::kMaxPlayerSlots] = {};
         static int ownersCount = -1;
-        if (const int count = ownerChoices(); count != ownersCount || !std::equal(team, team + 12, ownersTeam)) {
-            ownersCount = count, std::copy(team, team + 12, ownersTeam);
+        if (const int count = ownerChoices(); count != ownersCount || !std::equal(team, team + Editor::kMaxPlayerSlots, ownersTeam)) {
+            ownersCount = count, std::copy(team, team + Editor::kMaxPlayerSlots, ownersTeam);
             owners.clear();
             for (int i = 0; i < count; ++i) {
-                const uint32_t c = team[std::min(i, 11)];
+                const uint32_t c = team[std::min(i, Editor::kMaxPlayerSlots - 1)];
                 owners.push_back({L"Player " + std::to_wstring(i + 1) + (i == 11 ? L" (neutral)" : L""), -1, -1,
                                   draw::rgb(int(c >> 16 & 255), int(c >> 8 & 255), int(c & 255))});
             }

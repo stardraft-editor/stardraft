@@ -60,6 +60,7 @@
 #include <optional>
 #include <random>
 #include <set>
+#include <span>  // (core/views_map_props.inc: mapSizes)
 #include <sstream>
 #include <string>
 #include <thread>
@@ -131,6 +132,8 @@
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
 #include "stardraft/game_data.h"
 #include "stardraft/mods/cmbw.h"
+#include "stardraft/process.h"  // runProcess (core/hyperion.inc: Hyperion's map check)
+#include "stardraft/mods/hyperion.h"  // Hyperion's player colors (core/views_players.inc)
 #include "stardraft/mods/terrain_rules.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/msqc.h"  // the triggers' keys and buttons (core/project_build.inc)
@@ -747,6 +750,7 @@ int main(int argc, char** argv) {
         else if (a == "--restart") restartPid = std::uint32_t(std::strtoul(next().c_str(), nullptr, 10));  // the old program's process id (sdl_options.inc)
         else if (a == "--passages") passagesArg = next();  // a passages file (.scpass) for the Ramp brush and the Bridge tool, for a snapshot
         else if (a == "--cmbw") cmbwArg = gCmbwForced = true;  // a new Cosmonarchy BW map (the start page's button) before the map argument opens, for a snapshot
+        else if (a == "--hyperion") gHyperionForced = true;  // the Hyperion plugin loaded for the run (core/hyperion.inc), for a snapshot
         else if (a == "--untitled") untitledArg = true;  // a new project that is not saved yet (core/documents.inc), for a snapshot
         else if (a == "--midpan") midPanArg = true;  // the middle button's pan and drag of the map as text, after the snapshot
         else if (a == "--cursors") cursorsArg = true;  // the map view's and a text field's cursors as text, after the snapshot
@@ -947,6 +951,7 @@ int main(int argc, char** argv) {
         if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         cmbwKeepSd();  // (Cosmonarchy: SD art only)
         cmbwUseFolderSetting(), cmbwUseTerrainOverrideSetting(), cmbwUsePassagesSetting();
+        hyperionUseFolderSetting();  // (Program options > Plugins > Hyperion folder: core/hyperion.inc)
         stardraft::rampRefitOn() = kRampBridgeTools;  // (the ramps hidden: a terrain edit leaves them as they are)
         if (!passagesArg.empty()) {  // (--passages: as Program options' Ramp and bridge mappings with that file)
             stardraft::passages::Passages p;

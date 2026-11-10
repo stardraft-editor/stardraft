@@ -29,7 +29,7 @@ enum : int {
     ID_QUICKPICK = 660,
     ID_QUICKOPEN = 661,
     ID_CAMPAIGN_NEW = 663, ID_CAMPAIGN_OPEN, ID_CAMPAIGN_SHOW,  // File > Campaign (roadmap R25: core/views_campaign.inc)
-    ID_GAME_MODE = 670,  // + 0 Standard, 1 Cosmonarchy: Program options > Plugins > Cosmonarchy BW (core/cmbw.inc cmbwMode)
+    ID_GAME_MODE = 670,  // + 0 no plugin, 1 Cosmonarchy BW, 2 Hyperion: Program options > Plugins (core/cmbw.inc gameMode)
     ID_CT_ADD_TRIGGER = 666, ID_CT_ADD_CONDITION, ID_CT_ADD_ACTION,  // T, C, A on the Classic triggers page: as its Add links
     ID_TRIG_FIND = 662,  // Edit > Find in triggers (Ctrl+Shift+F): the Triggers workspace and the Classic triggers page (roadmap R60)  // File > Quick open (Ctrl+Shift+O): an open tab, a recent project or map
     ID_PROJ_NEW = 700, ID_PROJ_OPEN, ID_PROJ_COMPILE, ID_PROJ_FOLDER, ID_PROJ_ADDSCRIPT, ID_PROJ_SETTINGS, ID_PROJ_FROMMAP, ID_PROJ_IMPORT,
@@ -100,6 +100,9 @@ enum : int {
     ID_CMBW_REPAIRISOM = 1099,  // Tools > Cosmonarchy > Try to repair the ISOM (a Cosmonarchy map's tab only: core/cmbw.inc)
     ID_CMBW_PASSAGES = 1113, ID_OPT_PASSAGES, ID_OPT_PASSAGESFILE,  // Tools > Cosmonarchy > Ramp and bridge mapper (core/views_passages.inc); Program options > Plugins > Ramp and bridge mappings: on or off, Browse
     ID_OPT_TERRAINOVERRIDE = 1110, ID_OPT_TERRAINOVERRIDEFILE, ID_CMBW_ISOMRULES,  // Program options > Plugins > ISOM terrain rules override: on or off, Browse; Tools > Cosmonarchy > Custom isom terrain editor
+    // Program options > Plugins > Hyperion folder's Browse; Tools > Hyperion > Check the map in Hyperion, Test in Hyperion
+    // (melee), Test in Hyperion (Use Map Settings) (core/hyperion.inc)
+    ID_OPT_HYPERIONFOLDER = 1116, ID_HYP_CHECK, ID_HYP_TEST, ID_HYP_TESTUMS,
     ID_OPT_CMBWFOLDER = 1097,  // Program options > Cosmonarchy folder's Browse (Cosmonarchy only: shell_sdl.inc)
     ID_CMBW_CHECKCOMMENTS = 1098,  // Tools > Cosmonarchy > Check the CRIG commands (a Cosmonarchy map's tab only: core/cmbw.inc)
     ID_VIEW_UNITLIST = 1060,  // View > Units list (core/units_list.inc: the list of the Units mode's units, in its side bar)

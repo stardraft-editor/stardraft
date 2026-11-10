@@ -31,6 +31,7 @@
 #include "stardraft/dat_extras.h"
 #include "stardraft/dat_units.h"
 #include "stardraft/editor.h"
+#include "stardraft/mods/hyperion.h"  // Hyperion maps (.hxm): read and written as their CHK and files
 #include "stardraft/campaign.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/euddraft.h"
@@ -366,11 +367,16 @@ bool samePath(const fs::path& a, const fs::path& b) {
 
 bool isChk(const fs::path& p) { return lower(ustr(p.extension())) == ".chk"; }
 
-// The scenario of a map file (.scm, .scx or .chk).
+// The scenario of a map file (.scm, .scx, .chk or .hxm).
 Bytes readScenario(const fs::path& map) {
     if (isChk(map)) return readBytes(map);
-    Bytes raw;
     std::string err;
+    if (stardraft::hyperion::isHxm(map)) {
+        stardraft::hyperion::HxmMap hxm;
+        if (!stardraft::hyperion::readHxmFile(map, hxm, err)) fail(err);
+        return hxm.chk;
+    }
+    Bytes raw;
     if (!readMapChk(map, raw, err)) fail(err);
     return raw;
 }
@@ -434,6 +440,16 @@ const char* raceName(Editor::Race r) {
 
 // --- Reading the map (get) ---------------------------------------------------------------------------------------
 
+// A player at index 8 and up with a force and a color by Hyperion's numbers (a Hyperion map's: HXPL).
+bool hyperionPlayer(const Editor& ed, int p) { return p >= 8 && p != 11 && (p >= 12 || ed.hyperionPlayers()); }
+// The players a listing shows: 1 to 8, and a Hyperion map's from 9 (but the neutral Player 12).
+std::vector<int> listedPlayers(const Editor& ed) {
+    std::vector<int> out;
+    for (int p = 0; p < (ed.hyperionPlayers() ? ed.playerSlots() : 8); ++p)
+        if (p != 11) out.push_back(p);
+    return out;
+}
+
 Json playerJson(const Editor& ed, int p) {
     const Editor::Player pl = ed.player(p);
     Obj o;
@@ -444,8 +460,16 @@ Json playerJson(const Editor& ed, int p) {
     else o.add("controller", ctrl);
     if (race == "unknown") o.add("race", int(pl.race));
     else o.add("race", race);
-    if (p >= 8) return o;  // (players 9-12: no force, no color)
+    if (p >= 8 && !hyperionPlayer(ed, p)) return o;  // (players 9-12 of a classic map: no force, no color)
     o.add("force", pl.force + 1);
+    if (hyperionPlayer(ed, p)) {  // (Hyperion's colors by name, or an RGB color)
+        char b[16];
+        std::snprintf(b, sizeof b, "#%06X", unsigned(pl.color.rgb));
+        if (pl.color.kind == Editor::PlayerColor::Custom) o.add("color", b);
+        else if (pl.color.kind == Editor::PlayerColor::Id && pl.color.id < stardraft::hyperion::colorCount()) o.add("color", lower(stardraft::hyperion::colorName(pl.color.id)));
+        else o.add("color", int(pl.color.id));
+        return o;
+    }
     switch (pl.color.kind) {
     case Editor::PlayerColor::Random: o.add("color", "random"); break;
     case Editor::PlayerColor::Choice: o.add("color", "choice"); break;
@@ -477,7 +501,7 @@ Json summary(const Editor& ed) {
     int used = 0;
     for (int i = 0; i < ed.locationCount(); ++i) used += ed.locationUsed(i) ? 1 : 0;
     Json players = jarr(), forces = jarr(), problems = jarr();
-    for (int p = 0; p < 8; ++p) players.items.push_back(playerJson(ed, p));
+    for (int p : listedPlayers(ed)) players.items.push_back(playerJson(ed, p));
     for (int f = 0; f < 4; ++f) forces.items.push_back(forceJson(ed, f));
     for (const std::string& s : ed.playabilityProblems()) problems.items.push_back(jstr(s));
     return Obj()
@@ -577,7 +601,7 @@ Json getWhat(Editor& ed, const std::string& what, int step, bool all) {
     } else if (what == "files") {
         for (const ArchiveFile& f : ed.archiveFiles()) a.items.push_back(Obj().add("name", f.name).add("bytes", double(f.data.size())));
     } else if (what == "players") {
-        for (int p = 0; p < 8; ++p) a.items.push_back(playerJson(ed, p));
+        for (int p : listedPlayers(ed)) a.items.push_back(playerJson(ed, p));
     } else if (what == "forces") {
         for (int f = 0; f < 4; ++f) a.items.push_back(forceJson(ed, f));
     } else if (what == "terrains") {
@@ -875,8 +899,20 @@ Json applyOp(Editor& ed, const Json& op, const std::vector<ClassicAiScript>& ai)
         ed.deleteLocation(location(ed, op));
         return r;
     }
+    if (name == "set_player_slots") {  // (a Hyperion map's players: Players 1 to `slots`, 12 to 65)
+        const int n = int(num(op, "slots"));
+        if (n < 12 || n > Editor::kMaxPlayerSlots) fail("\"slots\" must be 12-65");
+        for (const Unit& u : ed.units())
+            if (u.owner >= n && u.owner < ed.playerSlots()) fail("Player " + std::to_string(u.owner + 1) + " owns units");
+        std::vector<Editor::Player> players;
+        std::vector<Editor::Force> forces;
+        for (int i = 0; i < std::min(n, ed.playerSlots()); ++i) players.push_back(ed.player(i));
+        for (int f = 0; f < 4; ++f) forces.push_back(ed.force(f));
+        ed.setPlayersAndForces(players, forces, n);
+        return Obj().add("slots", ed.playerSlots());
+    }
     if (name == "set_player") {
-        const int p = player(op, "player", 12);
+        const int p = player(op, "player", ed.playerSlots());
         Editor::Player pl = ed.player(p);
         // (a number 0-255: the byte as it is, as the Players page's typed value)
         auto byteOf = [](const Json& c, const char* what) {
@@ -899,9 +935,19 @@ Json applyOp(Editor& ed, const Json& op, const std::vector<ClassicAiScript>& ai)
                 if (s == raceName(Editor::Race(v))) pl.race = Editor::Race(v), ok = true;
             if (!ok) fail("race must be zerg, terran, protoss, independent, neutral, user_select, random, inactive or 0-255");
         }
-        if (p >= 8 && (op.get("force") || op.get("color"))) fail("players 9-12 have no force and no color");
+        if (p == 11 && (op.get("force") || op.get("color"))) fail("Player 12 (neutral) has no force and no color");
+        if (p >= 8 && !hyperionPlayer(ed, p) && !stardraft::hyperion::isHxm(ed.path()) && (op.get("force") || op.get("color")))
+            fail("players 9-11 have no force and no color but on a Hyperion map (.hxm)");
         if (op.get("force")) pl.force = player(op, "force", 4);
-        if (const Json* c = op.get("color")) {
+        if (const Json* c = op.get("color"); c && p >= 8) {  // (Hyperion's colors: a name, 0-64, or #RRGGBB)
+            const std::string s = lower(c->s);
+            bool ok = false;
+            if (c->type == Json::Type::Number) pl.color = {Editor::PlayerColor::Id, byteOf(*c, "color"), 0}, ok = true;
+            else if (s.size() == 7 && s[0] == '#') pl.color = {Editor::PlayerColor::Custom, 0, uint32_t(std::strtoul(s.c_str() + 1, nullptr, 16))}, ok = true;
+            for (int id = 0; id < stardraft::hyperion::colorCount() && !ok; ++id)
+                if (s == lower(stardraft::hyperion::colorName(id))) pl.color = {Editor::PlayerColor::Id, uint8_t(id), 0}, ok = true;
+            if (!ok) fail("no color \"" + c->s + "\"");
+        } else if (c) {
             const std::string s = lower(c->s);
             if (c->type == Json::Type::Number) pl.color = {Editor::PlayerColor::Id, byteOf(*c, "color"), 0};
             else if (s == "random") pl.color.kind = Editor::PlayerColor::Random;
@@ -1324,7 +1370,11 @@ Json cmdStatus(Session& s) {
 std::vector<ArchiveFile> mapFiles(const Work& w) {
     std::vector<ArchiveFile> files;
     std::string err;
-    if (!isChk(w.source)) {
+    if (stardraft::hyperion::isHxm(w.source)) {
+        stardraft::hyperion::HxmMap hxm;
+        if (!stardraft::hyperion::readHxmFile(w.sourceCopy(), hxm, err)) fail(err);
+        files = std::move(hxm.files);
+    } else if (!isChk(w.source)) {
         if (!readMapFiles(w.sourceCopy(), files, err)) fail(err);
         files.erase(std::remove_if(files.begin(), files.end(), [](const ArchiveFile& f) { return lower(f.name) == lower(kChkArchivePath); }), files.end());
     }
@@ -1570,6 +1620,9 @@ Json cmdSave(Session& s) {
     const Bytes chk = ed.savedChk();  // (the working copy, with the slots the game reads: Editor::gameSlots)
     if (isChk(dst)) {
         writeBytes(dst, chk);
+    } else if (stardraft::hyperion::isHxm(dst)) {
+        std::string err;
+        if (!stardraft::hyperion::writeHxmFile(dst, {chk, mapFiles(w), {}}, err)) fail(err);
     } else {
         // The map's other files (sounds and the like) come from the map file as it was opened.
         std::string err;
@@ -1677,7 +1730,8 @@ const char* kOps = R"OPS([
   {"op": "create_location", "params": {"area": "[left, top, right, bottom] px", "name": "text"}, "result": {"location": "its number"}},
   {"op": "set_location", "params": {"location": "number", "name": "text", "area": "[left, top, right, bottom] px", "excluded_elevations": "bits: 1 low, 2 medium, 4 high ground, 8 low, 16 medium, 32 high air"}},
   {"op": "delete_location", "params": {"location": "number"}},
-  {"op": "set_player", "params": {"player": "1-12", "controller": "human | computer | rescue | neutral | closed | inactive | 0-255", "race": "zerg | terran | protoss | user_select | random | 0-255", "force": "1-4 (players 1-8)", "color": "a color name, 0-255, random or choice (players 1-8)"}},
+  {"op": "set_player", "params": {"player": "1-12", "controller": "human | computer | rescue | neutral | closed | inactive | 0-255", "race": "zerg | terran | protoss | user_select | random | 0-255", "force": "1-4 (players 1-8)", "color": "a color name, 0-255, random or choice (players 1-8); on a Hyperion map (.hxm), players 9 and up too, with Hyperion's colors: a name, 0-64 or #RRGGBB"}},
+  {"op": "set_player_slots", "params": {"slots": "12-65: a Hyperion map's players, Players 1 to slots (Player 12 the neutral one); refused while a player past them owns units"}},
   {"op": "set_force", "params": {"force": "1-4", "name": "text", "allies": "bool", "allied_victory": "bool", "shared_vision": "bool", "random_start": "bool"}},
   {"op": "set_scenario", "params": {"name": "text", "description": "text"}},
   {"op": "add_trigger", "params": {"trigger": {"players": "[1-8 or group names]", "conditions": "[{type, ...params}] (see trigger-types; none: Always)", "actions": "[{type, ...params}]", "disabled": "bool"}, "at": "index (default: the end)"}, "result": {"index": "its index"}},
@@ -1740,7 +1794,7 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
                     [--map <file>]             the map, when the one that the project names is not there
   stardraft-cli add-file <map> <name> <file> put a file (a sound: sound\\x.wav) into the map; --remove takes one out
   stardraft-cli check <map | project>       the checks of a save and a build (start locations, scripts, triggers)
-  stardraft-cli save <map> [--to <path>] [--anyway]    write the map (.scm, .scx or .chk)
+  stardraft-cli save <map> [--to <path>] [--anyway]    write the map (.scm, .scx, .chk or .hxm)
   stardraft-cli close <map> [--discard]     remove the working folder
   stardraft-cli ops                         the operations that apply takes, with their parameters
   stardraft-cli skill                       the skill for AI agents (Markdown): how to use stardraft-cli

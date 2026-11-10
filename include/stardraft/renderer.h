@@ -91,7 +91,9 @@ public:
     void setSources(const GameData* data, UnitSprites* sprites, const Tileset* tileset, uint16_t era);
     // The sprites' images changed (other draw functions or remappings): load each image again when it shows.
     void reloadImages();
-    void setPlayerColors(const uint32_t rgb[12]);  // each owner's team color, 0xRRGGBB (the map's player colors)
+    // Each owner's team color, 0xRRGGBB (the map's player colors): `count` of them from owner 0 (up to 65: a Hyperion
+    // map's players; an owner past them has the last's color).
+    void setPlayerColors(const uint32_t* rgb, int count);
     // Upload the terrain (MTXM values); call again whenever it changes.
     void updateTerrain(const TerrainLayer& mtxm);
     // The terrain on a grid larger than the map (map layers' terrain outside of it): `tiles` the grid's tiles (tile 0
