@@ -271,6 +271,7 @@ struct MapView final : draw::View {
         c.fill(all, kBg);
         if (open() && gMapTex && gMapW == width() && gMapH == height()) {
             c.externalImage(gMapTex, all);
+            mapTextPaint(c, all);      // (the locations' names: core/map_scene.inc)
             pathOverlayPaint(c, all);  // (the pathing overlays' labels: core/path_overlay.inc)
             if (simBarShown()) simPaintBar(c, all);
             return;

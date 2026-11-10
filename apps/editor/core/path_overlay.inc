@@ -314,8 +314,9 @@ void addPathOverlays(render::Scene& s) {
 draw::Rect gameViewClip(draw::Rect view);  // (core/map_scene.inc)
 void pathOverlayPaint(draw::Canvas& c, draw::Rect view) {
     if (!pathOverlayOn() || gPathLabels.empty()) return;
+    const draw::Rect all = view;  // (the map's camera is at its top left corner)
     view = gameViewClip(view);  // (View > In-game view: no labels on the black bars)
-    const draw::FontDesc plainDesc{draw::Face::Ui, scale(12)}, boldDesc{draw::Face::Ui, scale(12), true};
+    const draw::FontDesc plainDesc{draw::Face::Ui, scale(13)}, boldDesc{draw::Face::Ui, scale(13), true};
     const auto plain = c.font(plainDesc), bold = c.font(boldDesc);
     const auto old = c.setFont(plain);
     const int h = c.metrics().height, pad = scale(5);
@@ -333,8 +334,8 @@ void pathOverlayPaint(draw::Canvas& c, draw::Rect view) {
         textW = std::max(textW, c.measure(l.text));
         const int w = bar + pad + textW + pad;
         draw::Rect box;
-        box.left = view.left + int(std::lround((l.x - appState().camX) * appState().zoom)) + l.dx;
-        box.top = view.top + int(std::lround((l.y - appState().camY) * appState().zoom)) + l.dy;
+        box.left = all.left + int(std::lround((l.x - appState().camX) * appState().zoom)) + l.dx;
+        box.top = all.top + int(std::lround((l.y - appState().camY) * appState().zoom)) + l.dy;
         // A label that starts in the view stays in it (its end does not go past the view's right side).
         if (box.left < view.right && box.left + w > view.right - scale(4)) box.left = std::max(view.left + scale(4), view.right - scale(4) - w);
         box.right = box.left + w, box.bottom = box.top + (two ? 2 : 1) * h + scale(4);

@@ -62,35 +62,43 @@ std::string wrapLocationName(const std::string& name, float w, float h) {
     return out;
 }
 
-// A location's name as the map shows it: in lines that fit in w x h screen pixels with Options > Locations > Wrap names
-// (wrapLocationName), and its size in screen pixels. Kept for each location until its name, its size or the map font's
-// size changes (the wrap measures each word).
-struct LocationLabel {
-    std::string raw;  // (the name as the map has it)
-    bool wrap = false;
-    float w = 0, h = 0, unit = 0;
-    std::string text;
-    float width = 0, height = 0;
+// A location's name on the map: its place (map pixels), and with Options > Locations > Wrap names the box (screen
+// pixels) its lines fit in. Made with the scene (buildScene), painted by mapTextPaint in the UI font, the same size at
+// each zoom.
+struct MapText {
+    float x = 0, y = 0;
+    int w = 0, h = 0;  // (0: one line, as long as the name)
+    std::wstring text;
+    bool dim = false;  // (not the Locations layer: less bright)
 };
-const LocationLabel& locationLabel(int i, const std::string& raw, bool wrap, float w, float h) {
-    static std::vector<LocationLabel> labels;
-    if (i < 0) i = 0;
-    if (labels.size() <= size_t(i)) labels.resize(size_t(i) + 1);
-    LocationLabel& l = labels[size_t(i)];
-    const float unit = mapTextScale();
-    if (!l.raw.empty() && l.raw == raw && l.wrap == wrap && l.unit == unit && (!wrap || (l.w == w && l.h == h))) return l;
-    l.raw = raw, l.wrap = wrap, l.w = w, l.h = h, l.unit = unit;
-    l.text = narrow(widen(raw));
-    if (wrap) l.text = wrapLocationName(l.text, w, h);
-    int widest = 0, lines = 0;
-    for (size_t from = 0;; ++lines) {
-        const size_t to = l.text.find('\n', from);
-        widest = std::max(widest, render::textWidth(l.text.substr(from, to == std::string::npos ? std::string::npos : to - from)));
-        if (to == std::string::npos) break;
-        from = to + 1;
+std::vector<MapText> gMapTexts;
+
+draw::Rect gameViewClip(draw::Rect view);  // (below)
+// The names on the map view `view`: white with a shadow. A wrapped name: words go to the next line, and the lines and
+// words that do not fit in the location are cut.
+void mapTextPaint(draw::Canvas& c, draw::Rect view) {
+    if (gMapTexts.empty()) return;
+    const AppState& app = shellState();
+    const draw::Rect clip = gameViewClip(view);  // (View > In-game view: no names on the black bars)
+    const auto old = c.setFont(c.font({draw::Face::Ui, scale(13)}));
+    const int lineH = c.metrics().height, in = scale(3);
+    c.pushClip(clip);
+    for (const MapText& t : gMapTexts) {
+        draw::Rect r;
+        r.left = view.left + int(std::lround((t.x - app.camX) * app.zoom)) + in;
+        r.top = view.top + int(std::lround((t.y - app.camY) * app.zoom)) + in;
+        const bool wrap = t.w > 0;
+        r.right = r.left + (wrap ? t.w : c.measure(t.text) + 1);
+        r.bottom = r.top + (wrap ? std::max(1, t.h / lineH) * lineH : lineH);
+        if (r.right + 1 <= clip.left || r.left >= clip.right || r.bottom + 1 <= clip.top || r.top >= clip.bottom) continue;
+        const unsigned flags = wrap ? unsigned(draw::kWrap) : 0u;
+        if (wrap) c.pushClip({r.left, r.top, r.right + 1, r.bottom + 1});
+        c.text({r.left + 1, r.top + 1, r.right + 1, r.bottom + 1}, t.text, draw::rgb(0, 0, 0), flags);  // the shadow
+        c.text(r, t.text, t.dim ? draw::rgb(205, 208, 212) : draw::rgb(255, 255, 255), flags);
+        if (wrap) c.popClip();
     }
-    l.width = float(widest) * unit, l.height = float(lines + 1) * 12 * unit;
-    return l;
+    c.popClip();
+    c.setFont(old);
 }
 
 uint32_t playerRgba(int owner, uint8_t alpha) {
@@ -762,6 +770,7 @@ render::Scene buildScene() {
     if (gLiveScene) gLiveScene(s);  // (the live game's units and sprites)
 
     // Locations.
+    gMapTexts.clear();
     if (app.showLocations || app.mode == Mode::Locations) {
         bool active = app.mode == Mode::Locations;
         // A move: each selected location by the selected one's way; a resize: the selected one.
@@ -781,16 +790,19 @@ render::Scene buildScene() {
             const bool boxShows = float(r.right) + edge >= viewLeft && float(r.left) - edge <= viewRight && float(r.bottom) + edge >= viewTop &&
                                   float(r.top) - edge <= viewBottom;
             if (!boxShows && (float(r.left) > viewRight || float(r.top) > viewBottom)) continue;
-            const LocationLabel& label = locationLabel(i, ed.locationName(i), app.locationWrap, float(r.right - r.left) * app.zoom - 6, float(r.bottom - r.top) * app.zoom - 6);
-            const float textX = float(r.left) + 3 / app.zoom, textY = float(r.top) + 3 / app.zoom;
-            const bool textShows = textX + label.width / viewZoom >= viewLeft && textY + label.height / viewZoom >= viewTop;
-            if (!boxShows && !textShows) continue;
+            // (a name that is not in the view: mapTextPaint leaves it out)
             const bool inv = ed.locationInverted(i);  // inverted (holds air units only): red, not blue
             if (boxShows) {
                 s.rects.push_back({float(r.left), float(r.top), float(r.right), float(r.bottom), inv ? (active ? 0xFF404030u : 0xFF404018u) : active ? 0x2060FF30u : 0x2060FF18u, true});
                 outline(s, r, sel ? 0xFFD040FFu : inv ? (active ? 0xFF5050E0u : 0xFF505080u) : (active ? 0x5080FFE0u : 0x5080FF80u), sel ? 2.0f : 1.0f);
             }
-            if (textShows) s.texts.push_back({textX, textY, label.text, active ? 0xFFFFFFFFu : 0xFFFFFFA0u, true, mapTextScale()});
+            {
+                MapText t;
+                t.x = float(r.left), t.y = float(r.top), t.text = widen(ed.locationName(i)), t.dim = !active;
+                if (app.locationWrap)
+                    t.w = std::max(1, int(float(r.right - r.left) * app.zoom) - 2 * scale(3)), t.h = std::max(1, int(float(r.bottom - r.top) * app.zoom) - 2 * scale(3));
+                gMapTexts.push_back(std::move(t));
+            }
             if (main)  // (the edges of the selected one resize)
                 for (int c = 0; c < 4; ++c) {
                     float hx = (c & 1) ? float(r.right) : float(r.left), hy = (c & 2) ? float(r.bottom) : float(r.top);
