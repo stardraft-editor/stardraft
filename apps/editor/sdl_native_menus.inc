@@ -68,7 +68,7 @@ MacMenuItem macSeparator() {
 std::vector<MacMenuItem> macRecent(bool projects) {
     const std::vector<std::wstring>& list = projects ? gRecentProjects : gRecentMaps;
     std::vector<MacMenuItem> out;
-    for (size_t i = 0; i < list.size() && i < size_t(kRecentMax); ++i) {
+    for (size_t i = 0; i < list.size() && i < size_t(kRecentMenu); ++i) {
         MacMenuItem m;
         m.title = narrow(list[i]), m.tag = (projects ? ID_RECENT_PROJECT : ID_RECENT_MAP) + int(i);
         out.push_back(std::move(m));

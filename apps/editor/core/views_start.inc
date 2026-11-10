@@ -85,6 +85,9 @@ public:
     bool cosmonarchyOnly = false;
     std::function<void()> onCosmonarchy;
     std::function<std::wstring(const fs::path&)> dateOf;
+    // (the lists' dates as last read, and the lists they are of)
+    std::vector<std::wstring> datedProjects_, datedMaps_, projectDates_, mapDates_;
+    std::chrono::steady_clock::time_point datedAt_{};
     // The host's scroll bar for the page after a paint that changed it: the largest position, the page size, the position.
     std::function<void(int, int, int)> scrollInfo;
     // Why the game data is not open (the host sets it; empty when it is open): the page says so under the notice.
@@ -234,8 +237,17 @@ public:
             std::wstring date;
         };
         std::vector<Recent> items;
-        for (size_t i = 0; i < gRecentProjects.size(); ++i) items.push_back({true, i, fs::path(gRecentProjects[i]), dateOf ? dateOf(gRecentProjects[i]) : L""});
-        for (size_t i = 0; i < gRecentMaps.size(); ++i) items.push_back({false, i, fs::path(gRecentMaps[i]), dateOf ? dateOf(gRecentMaps[i]) : L""});
+        // The dates are read from the disk when the lists change and at most each 5 s (not at each paint: the lists
+        // are long, and a file on a drive that is gone is slow).
+        const auto nowT = std::chrono::steady_clock::now();
+        if (datedProjects_ != gRecentProjects || datedMaps_ != gRecentMaps || nowT - datedAt_ > std::chrono::seconds(5)) {
+            datedProjects_ = gRecentProjects, datedMaps_ = gRecentMaps, datedAt_ = nowT;
+            projectDates_.clear(), mapDates_.clear();
+            for (const std::wstring& p : gRecentProjects) projectDates_.push_back(dateOf ? dateOf(p) : L"");
+            for (const std::wstring& p : gRecentMaps) mapDates_.push_back(dateOf ? dateOf(p) : L"");
+        }
+        for (size_t i = 0; i < gRecentProjects.size(); ++i) items.push_back({true, i, fs::path(gRecentProjects[i]), projectDates_[i]});
+        for (size_t i = 0; i < gRecentMaps.size(); ++i) items.push_back({false, i, fs::path(gRecentMaps[i]), mapDates_[i]});
         std::stable_sort(items.begin(), items.end(), [](const Recent& a, const Recent& b) { return a.date > b.date; });
         startProjects_ = int(gRecentProjects.size()), startMaps_ = int(gRecentMaps.size());
         if (items.empty()) {

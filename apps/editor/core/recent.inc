@@ -42,7 +42,8 @@ std::vector<std::wstring> recentLabels(const std::vector<std::wstring>& list) {
     std::vector<std::wstring> out;
     for (size_t i = 0; i < list.size(); ++i) {
         const fs::path p = list[i];
-        std::wstring label = (i < 9 ? L"&" + std::to_wstring(i + 1) : L"1&0") + L"  " + p.filename().wstring() + L"\t" +
+        // (the access keys: 1 to 9, then 0 for the 10th; the ones after it have none)
+        std::wstring label = (i < 9 ? L"&" + std::to_wstring(i + 1) : i == 9 ? std::wstring(L"1&0") : std::to_wstring(i + 1)) + L"  " + p.filename().wstring() + L"\t" +
                              fs::path(p.parent_path()).make_preferred().wstring();
         for (size_t at = 0; (at = label.find(L'&', at + 2)) != std::wstring::npos;) label.insert(at, L"&");  // literal & in names
         out.push_back(label);

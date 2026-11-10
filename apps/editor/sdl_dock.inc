@@ -42,9 +42,9 @@ bool sdlUiWaits() { return gHost && gHost->modalOpen(); }
 std::vector<MacDockItem> sdlDockItems() {
     std::vector<MacDockItem> items;
     const bool enabled = !sdlUiWaits();
-    for (size_t k = 0; k < gRecentMaps.size() && k < size_t(kRecentMax); ++k)
+    for (size_t k = 0; k < gRecentMaps.size() && k < size_t(kRecentMenu); ++k)
         items.push_back({narrow(fs::path(gRecentMaps[k]).filename().wstring()), narrow(gRecentMaps[k]), false, enabled});
-    for (size_t k = 0; k < gRecentProjects.size() && k < size_t(kRecentMax); ++k) {
+    for (size_t k = 0; k < gRecentProjects.size() && k < size_t(kRecentMenu); ++k) {
         fs::path p = fs::path(gRecentProjects[k]);
         if (!p.has_filename()) p = p.parent_path();  // (a folder with a slash at its end)
         items.push_back({narrow(p.filename().wstring()), narrow(gRecentProjects[k]), true, enabled});

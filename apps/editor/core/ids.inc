@@ -37,8 +37,8 @@ enum : int {
     ID_WS_MAP = 720, ID_WS_DATA, ID_WS_TRIGGERS, ID_WS_ASSETS, ID_WS_PROJECT, ID_WS_BRIEFING, ID_WS_FILES, ID_WS_HELP,
     ID_DOCK_MINI_LEFT = 740, ID_DOCK_MINI_RIGHT, ID_DOCK_TOOLS_LEFT, ID_DOCK_TOOLS_RIGHT,
     ID_SCEN_PLAYERS = 760, ID_SCEN_CHECK, ID_OPT_INSTALL, ID_VIEW_LOG, ID_VIEW_TRIGCODE, ID_VIEW_KIT, ID_SCEN_REPLAY,
-    ID_RECENT_MAP = 800,       // + index, up to kRecentMax
-    ID_RECENT_PROJECT = 820,   // + index
+    ID_RECENT_MAP = 1200,      // + index, up to kRecentMax
+    ID_RECENT_PROJECT = 1300,  // + index
     ID_RECENT_CLEAR_MAPS = 840, ID_RECENT_CLEAR_PROJECTS,
     ID_HELP_FEEDBACK = 860, ID_HELP_ISSUE, ID_HELP_UPDATES, ID_OPT_UPDATECHECK, ID_HELP_DISCORD, ID_HELP_ABOUT, ID_OPT_CRASHREPORTS, ID_HELP_GITHUB,
     // Help > What is new (the release notes of this version), the top bar's Update (the newer release's notes), Program
@@ -184,4 +184,6 @@ inline std::vector<Mode> dockTabOrder(const Dock& d) {
     return out;
 }
 enum class Workspace { Map, Data, Triggers, Assets, Project, Briefing, Files, Help, Properties, Players, ClassicTriggers, ClassicSettings };
-constexpr int kRecentMax = 10;
+// The recent maps and the recent projects: kRecentMax of each are kept (the start page and the quick pick show them
+// all); a menu shows the newest kRecentMenu.
+constexpr int kRecentMax = 50, kRecentMenu = 15;

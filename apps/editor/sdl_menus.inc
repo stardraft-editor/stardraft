@@ -452,7 +452,7 @@ std::vector<kit::MenuItem> recentItems(bool projects) {
     const std::vector<std::wstring>& list = projects ? gRecentProjects : gRecentMaps;
     const int base = projects ? ID_RECENT_PROJECT : ID_RECENT_MAP;
     std::vector<kit::MenuItem> out;
-    for (size_t i = 0; i < list.size() && i < size_t(kRecentMax); ++i) {
+    for (size_t i = 0; i < list.size() && i < size_t(kRecentMenu); ++i) {
         kit::MenuItem k;
         k.label = list[i];
         const int id = base + int(i);
