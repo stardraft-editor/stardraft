@@ -648,7 +648,7 @@ std::vector<StripItem> stripTools(Mode m) {
     case Mode::Layers:
         return {{UiIcon::MoveLayer, L"Move layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.", LayersMove, true}};
     case Mode::Locations:
-        return {{UiIcon::Select, L"Select, move and resize locations; drag on empty ground to make one", LSelect, true},
+        return {{UiIcon::Select, L"Select, move and resize locations; drag on empty ground to make one; Alt and a drag selects several", LSelect, true},
                 {UiIcon::Erase, L"Erase: drag the brush over locations to delete them (Size: the brush's size)", LErase, false}};
     }
     return {};

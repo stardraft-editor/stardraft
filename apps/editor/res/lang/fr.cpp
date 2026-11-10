@@ -832,7 +832,7 @@ constexpr UiText kRows[] = {
     {L"Select a sprite: click it; drag it to move. Esc returns to the Select tool.", L"S\u00E9lectionner un sprite: cliquez dessus; faites-le glisser pour le d\u00E9placer. Esc revient \u00E0 l'outil S\u00E9lection."},
     {L"Place the sprites selected in the list (several: each one at random); drag to place more", L"Placer les sprites s\u00E9lectionn\u00E9s dans la liste (plusieurs: chacun au hasard); faites glisser pour en placer d'autres"},
     {L"Spray: random sprites of the selected kinds (Density). Hold the button to spray more.", L"A\u00E9rographe: sprites al\u00E9atoires des types s\u00E9lectionn\u00E9s (Densit\u00E9). Maintenez le bouton enfonc\u00E9 pour pulv\u00E9riser davantage."},
-    {L"Select, move and resize locations; drag on empty ground to make one", L"S\u00E9lectionner, d\u00E9placer et redimensionner les emplacements; faites glisser sur un sol vide pour en cr\u00E9er un"},
+    {L"Select, move and resize locations; drag on empty ground to make one; Alt and a drag selects several", L"S\u00E9lectionner, d\u00E9placer et redimensionner les emplacements; faites glisser sur un sol vide pour en cr\u00E9er un ; Alt et un glissement en s\u00E9lectionnent plusieurs"},
     {L"Tile: the tools place tiles as they are. Select a tile in the Tiles list.", L"Tuile: les outils placent les tuiles telles quelles. S\u00E9lectionnez une tuile dans la liste Tuiles."},
     {L"Isometric: the tools paint terrains and correct the edges between them", L"Isom\u00E9trique: les outils peignent les terrains et corrigent les bords entre eux"},
     {L"Isometric", L"Isom\u00E9trique"},

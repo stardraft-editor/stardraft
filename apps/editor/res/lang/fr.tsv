@@ -828,7 +828,7 @@ Spray: random doodads of the selected kinds (Density). Hold the button to spray 
 Select a sprite: click it; drag it to move. Esc returns to the Select tool.	Sélectionner un sprite: cliquez dessus; faites-le glisser pour le déplacer. Esc revient à l'outil Sélection.
 Place the sprites selected in the list (several: each one at random); drag to place more	Placer les sprites sélectionnés dans la liste (plusieurs: chacun au hasard); faites glisser pour en placer d'autres
 Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	Aérographe: sprites aléatoires des types sélectionnés (Densité). Maintenez le bouton enfoncé pour pulvériser davantage.
-Select, move and resize locations; drag on empty ground to make one	Sélectionner, déplacer et redimensionner les emplacements; faites glisser sur un sol vide pour en créer un
+Select, move and resize locations; drag on empty ground to make one; Alt and a drag selects several	Sélectionner, déplacer et redimensionner les emplacements; faites glisser sur un sol vide pour en créer un ; Alt et un glissement en sélectionnent plusieurs
 Tile: the tools place tiles as they are. Select a tile in the Tiles list.	Tuile: les outils placent les tuiles telles quelles. Sélectionnez une tuile dans la liste Tuiles.
 Isometric: the tools paint terrains and correct the edges between them	Isométrique: les outils peignent les terrains et corrigent les bords entre eux
 Isometric	Isométrique

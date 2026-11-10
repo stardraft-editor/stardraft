@@ -832,7 +832,7 @@ constexpr UiText kRows[] = {
     {L"Select a sprite: click it; drag it to move. Esc returns to the Select tool.", L"Seleccionar un sprite: haga clic en \u00E9l; arr\u00E1strelo para moverlo. Esc vuelve a la herramienta Seleccionar."},
     {L"Place the sprites selected in the list (several: each one at random); drag to place more", L"Coloca los sprites seleccionados en la lista (varios: cada uno al azar); arrastre para colocar m\u00E1s"},
     {L"Spray: random sprites of the selected kinds (Density). Hold the button to spray more.", L"Spray: sprites al azar de los tipos seleccionados (Densidad). Mantenga pulsado el bot\u00F3n para rociar m\u00E1s."},
-    {L"Select, move and resize locations; drag on empty ground to make one", L"Seleccione, mueva y cambie el tama\u00F1o de las ubicaciones; arrastre sobre el suelo vac\u00EDo para crear una"},
+    {L"Select, move and resize locations; drag on empty ground to make one; Alt and a drag selects several", L"Seleccione, mueva y cambie el tama\u00F1o de las ubicaciones; arrastre sobre el suelo vac\u00EDo para crear una; Alt y arrastrar selecciona varias"},
     {L"Tile: the tools place tiles as they are. Select a tile in the Tiles list.", L"Tile: las herramientas colocan los tiles tal cual. Seleccione un tile en la lista Tiles."},
     {L"Isometric: the tools paint terrains and correct the edges between them", L"Isom\u00E9trico: las herramientas pintan terrenos y corrigen los bordes entre ellos"},
     {L"Isometric", L"Isom\u00E9trico"},

@@ -795,7 +795,7 @@ Place the doodads selected in the list	放置列表中选中的装饰物
 Spray: random doodads of the selected kinds (Density). Hold the button to spray more.	喷洒：所选类型的随机装饰物（密度）。按住按钮可喷洒更多。
 Place the sprites selected in the list (several: each one at random); drag to place more	放置列表中选中的精灵（多个时各自随机）；拖动可放置更多
 Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	喷洒：所选类型的随机精灵（密度）。按住按钮可喷洒更多。
-Select, move and resize locations; drag on empty ground to make one	选择、移动和调整位置大小；在空地上拖动可新建位置
+Select, move and resize locations; drag on empty ground to make one; Alt and a drag selects several	选择、移动和调整位置大小；在空地上拖动可新建位置；按住 Alt 拖动可选择多个
 Tile: the tools place tiles as they are. Select a tile in the Tiles list.	图块：工具按原样放置图块。在图块列表中选择一个图块。
 Isometric: the tools paint terrains and correct the edges between them	等距：工具绘制地形，并修正地形之间的边缘。
 Isometric	等距

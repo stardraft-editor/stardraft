@@ -793,7 +793,7 @@ Place the doodads selected in the list	Размещает декорации, в
 Spray: random doodads of the selected kinds (Density). Hold the button to spray more.	Распыление: случайные декорации выбранных видов (Плотность). Удерживайте кнопку, чтобы распылить больше.
 Place the sprites selected in the list (several: each one at random); drag to place more	Размещает спрайты, выбранные в списке (несколько: каждый выбирается случайно); перетащите, чтобы разместить больше
 Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	Распыление: случайные спрайты выбранных видов (Плотность). Удерживайте кнопку, чтобы распылить больше.
-Select, move and resize locations; drag on empty ground to make one	Выделение, перемещение и изменение размера локаций; перетащите по пустому месту, чтобы создать локацию
+Select, move and resize locations; drag on empty ground to make one; Alt and a drag selects several	Выделение, перемещение и изменение размера локаций; перетащите по пустому месту, чтобы создать локацию; Alt и перетаскивание выделяют несколько
 Tile: the tools place tiles as they are. Select a tile in the Tiles list.	Тайл: инструменты ставят тайлы как есть. Выберите тайл в списке «Тайлы».
 Isometric: the tools paint terrains and correct the edges between them	Изометрия: инструменты рисуют местность и исправляют стыки между разными видами местности.
 Isometric	Изометрия

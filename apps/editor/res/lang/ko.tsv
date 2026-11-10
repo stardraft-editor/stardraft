@@ -828,7 +828,7 @@ Spray: random doodads of the selected kinds (Density). Hold the button to spray 
 Select a sprite: click it; drag it to move. Esc returns to the Select tool.	스프라이트 선택: 클릭하면 선택되고 드래그하면 이동합니다. Esc를 누르면 선택 도구로 돌아갑니다.
 Place the sprites selected in the list (several: each one at random); drag to place more	목록에서 선택한 스프라이트를 배치합니다 (여러 개: 각각 무작위로). 드래그하면 더 배치합니다
 Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	스프레이: 선택한 종류의 스프라이트를 무작위로 놓습니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
-Select, move and resize locations; drag on empty ground to make one	위치를 선택, 이동, 크기 조절합니다. 빈 땅에서 드래그하면 새 위치를 만듭니다
+Select, move and resize locations; drag on empty ground to make one; Alt and a drag selects several	위치를 선택, 이동, 크기 조절합니다. 빈 땅에서 드래그하면 새 위치를 만듭니다. Alt+드래그로 여러 위치를 선택합니다
 Tile: the tools place tiles as they are. Select a tile in the Tiles list.	타일: 도구가 타일을 그대로 배치합니다. 타일 목록에서 타일을 선택합니다.
 Isometric: the tools paint terrains and correct the edges between them	아이소메트릭: 도구가 지형을 칠하고 지형 사이의 가장자리를 보정합니다
 Isometric	아이소메트릭
