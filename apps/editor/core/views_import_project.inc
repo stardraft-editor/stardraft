@@ -482,7 +482,7 @@ private:
             fileBrowse_.setText(tr(L"Select\x2026"));
         } else {
             fileName_.setText(file_.filename().wstring()), fileName_.setIcon(int(UiIcon::Project)), fileName_.setTone(LabelTone::Normal);
-            filePath_.setText(importPath(file_.parent_path()));
+            filePath_.setText(importPath(file_.parent_path())), filePath_.setPath(true);
             fileBrowse_.setText(tr(L"Change\x2026"));
             if (!scanned_) fileWhat_.setText(importFmt(tr(L"Could not read the file. %s"), {error_})), fileWhat_.setTone(LabelTone::Bad);
             else {
@@ -495,7 +495,7 @@ private:
         }
         // 2
         mapName_.setText(mapPath().empty() ? tr(L"None") : mapPath().filename().wstring());
-        if (mapThere()) mapPathL_.setText(importPath(mapPath().parent_path())), mapPathL_.setTone(LabelTone::Faint);
+        if (mapThere()) mapPathL_.setText(importPath(mapPath().parent_path())), mapPathL_.setTone(LabelTone::Faint), mapPathL_.setPath(true);
         else mapPathL_.setText(tr(L"The map is not on this computer. Select it to go on.")), mapPathL_.setTone(LabelTone::Warn);
         setBadge(mapChip_, mapThere() ? tr(L"Found") : tr(L"Not found"), mapThere() ? stardraft::kit::BadgeTone::Good : stardraft::kit::BadgeTone::Warn);
         mapBrowse_.setText(mapThere() ? tr(L"Change\x2026") : tr(L"Browse\x2026"));

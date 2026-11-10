@@ -42,7 +42,7 @@ void Label::paint(draw::Canvas& c) {
     const draw::Rect tr{textLeft(), 0, width(), h};
     const draw::Font of = hasFont_ ? c.setFont(c.font(font_)) : draw::Font{};
     if (wrap_) c.text(tr, text_, col, draw::kWrap);
-    else c.text(tr, text_, col, draw::kMiddle | draw::kEllipsis);
+    else c.text(tr, text_, col, draw::kMiddle | (path_ ? draw::kPathEllipsis : draw::kEllipsis));
     if (hasFont_) c.setFont(of);
 }
 

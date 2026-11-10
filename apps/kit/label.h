@@ -36,6 +36,11 @@ public:
         invalidate();
     }
     bool wrap() const { return wrap_; }
+    // A file path: "..." in its middle when it does not fit, so its start and its end show.
+    void setPath(bool on) {
+        path_ = on;
+        invalidate();
+    }
     // A UI icon (an id of apps/editor/res/ui_icons.h) at the left, in the tone's color; -1: none.
     void setIcon(int icon) {
         icon_ = icon;
@@ -61,7 +66,7 @@ private:
 
     std::wstring text_;
     LabelTone tone_ = LabelTone::Normal;
-    bool wrap_ = false;
+    bool wrap_ = false, path_ = false;
     int icon_ = -1;
     draw::FontDesc font_;
     bool hasFont_ = false;
