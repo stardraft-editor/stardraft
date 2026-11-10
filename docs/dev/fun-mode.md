@@ -13,9 +13,13 @@ click turns it off ("Craft mode off"). It is in no menu and not in Program optio
   Platform and High Platform round painted Space, do not count).
 - A placed unit thuds softly (a building lower), squashes and springs back about its feet, and the first one says its
   ready sound (units.dat's Ready Sound: units 0 to 105; buildings have none). On a Cosmonarchy BW map it is the
-  mod's (cmbw::unitReadySound: units.datex's Ready Sound, the mod's arr\sfxdata.dat and arr\sounds.txt, the file from
-  the mod's data), else, or when the mod has none, the game's. A placed doodad thunks and shakes the
-  view a little. A deleted unit or doodad puffs.
+  mod's only (cmbw::unitReadySound): one of the unit's range of sounds, as the mod's program picks them (71 units; 2
+  have none, 1 has the adviser's sound), else units.datex's Ready Sound. A sound's file is its line of the mod's
+  arr\sounds.txt (line n: the sound n, cmbw::soundFile), read from the mod's data, which has the game's files too.
+  arr\sfxdata.dat's Sound File is not that line: do not use it. A placed doodad thunks and shakes the view a little.
+- A deleted unit with a Death animation (iscript) plays it at its place, with the animation's sounds (at most 64 at
+  a time, 240 ticks each at most); the map view draws frames until the last one ends. Other deleted units and
+  doodads puff.
 - A very large brush (an edit of 80 tiles or more: a brush of about 12 and up, a big fill) shakes the view a little,
   more for more tiles (up to 1.5 times a doodad's thunk), at most every 0.25 s: a long drag is a light rumble.
 - Every changed tile throws small shards of its own new tile (a border tile its own mix of terrains), low and few:

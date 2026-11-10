@@ -71,8 +71,9 @@ struct AppState {
     bool correction = false, doodadCheck = true, showLocations = false;  // units: Place only where it fits (the default)
     bool doodadNearest = false;  // Options > Doodads > Move to the nearest place where it fits (with doodadCheck)
     bool showGrid = false;
-    bool keyHints = false;  // View > Show key hints: the strip at the bottom of the map (core/tool_hints.inc)
-    bool selBar = false;  // View > Show selection bar: the buttons over the selected units (core/selection_bar.inc)
+    bool keyHints = false;  // View > Show key hints: the tool's keys in the status bar (core/tool_hints.inc)
+    bool smoothZoom = true;  // View > Smooth zoom: the wheel and the zoom keys glide to the new zoom (core/map_input.inc)
+    bool smoothPan = true;   // View > Smooth pan: a jump to a place glides there (core/map_input.inc)
     // Options > Units, Sprites, Locations > Snap to the grid: they go on the lines of the grid of View > Grid.
     bool snapUnits = false, snapSprites = false, snapLocations = true;
     bool carbot = false;  // Cartooned (Carbot) graphics

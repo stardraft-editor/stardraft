@@ -1924,11 +1924,66 @@ bool unitRanges(const GameData& data, uint16_t unit, UnitRanges& out) {
     return true;
 }
 
-std::string unitReadySound(const GameData& data, uint16_t unit) {
+namespace {
+
+// The mod's sounds: arr\sounds.txt has a line for each sound (line n: the file of the sound n, sfxdata.txt's entry n).
+// arr\sfxdata.dat's Sound File is not the line: it is the game's own (a string of sfxdata.tbl), so the lines of the
+// game's sounds are not at its values.
+struct SoundTables {
+    std::vector<std::string> names;
+    bool tried = false;
+};
+const SoundTables& soundTables(const GameData& data) {
+    thread_local std::map<const GameData*, SoundTables> cache;  // (each thread its own)
+    SoundTables& t = cache[&data];
+    if (t.tried) return t;
+    t.tried = true;
+    std::string err;
+    Bytes txt;
+    if (!data.readFile("arr\\sounds.txt", txt, err)) return t;
+    std::string line;
+    for (uint8_t c : txt) {
+        if (c == '\n') t.names.push_back(line), line.clear();
+        else if (c != '\r') line += char(c);
+    }
+    t.names.push_back(line);
+    return t;
+}
+
+// Cosmonarchy-GPTP get_unit_ready_sound: these units say one of the sounds `first` to `last` (sfxdata.dat entries),
+// not units.datex's Ready Sound.
+struct ReadyRange {
+    uint16_t unit, first, last;
+};
+constexpr ReadyRange kReadyRanges[] = {
+    {5, 1967, 1968},   {6, 1967, 1968},   {10, 1949, 1951},  {15, 1952, 1954},  {18, 2370, 2372},  {20, 2922, 2924},
+    {21, 2001, 2003},  {22, 2208, 2210},  {24, 2287, 2289},  {26, 2059, 2061},  {27, 2249, 2251},  {28, 2238, 2240},
+    {30, 1967, 1968},  {31, 1967, 1968},  {49, 3783, 3785},  {65, 1964, 1965},  {66, 2717, 2719},  {74, 1946, 1948},
+    {75, 3905, 3907},  {76, 1943, 1945},  {77, 2351, 2353},  {79, 1995, 1997},  {87, 1988, 1990},  {91, 1958, 1960},
+    {92, 1955, 1957},  {98, 2074, 2076},  {100, 2742, 2743}, {112, 3939, 3940}, {118, 2238, 2240}, {148, 2431, 2433},
+    {151, 2418, 2420}, {172, 2578, 2580}, {183, 3001, 3003}, {186, 1961, 1963}, {187, 2403, 2405}, {194, 3435, 3437},
+    {195, 2177, 2179}, {211, 2376, 2378}, {253, 2268, 2270}, {255, 2563, 2563}, {256, 2316, 2318}, {262, 2238, 2240},
+    {264, 2219, 2221}, {265, 3842, 3844}, {281, 3449, 3451}, {282, 3179, 3181}, {283, 3147, 3149}, {285, 3867, 3869},
+    {286, 3920, 3922}, {314, 3243, 3245}, {315, 4121, 4123}, {316, 2698, 2700}, {317, 3106, 3108}, {351, 2597, 2600},
+    {395, 2878, 2880}, {428, 2403, 2405}, {430, 2717, 2719}, {431, 2177, 2179}, {439, 3813, 3815}, {443, 3760, 3762},
+    {445, 3886, 3888}, {446, 4348, 4350}, {448, 4273, 4275}, {449, 4071, 4073}, {452, 4374, 4376}, {453, 4098, 4100},
+    {496, 3790, 3792}, {504, 2249, 2251}, {512, 3735, 3737}, {581, 1952, 1954}, {641, 1955, 1957}};
+
+}  // namespace
+
+std::string soundFile(const GameData& data, uint32_t sfx) {
+    const SoundTables& t = soundTables(data);
+    if (!sfx || sfx >= t.names.size() || t.names[sfx].empty()) return {};
+    return "sound\\" + t.names[sfx];
+}
+
+std::string unitReadySound(const GameData& data, uint16_t unit, uint32_t pick) {
+    if (unit == 73 || unit == 85) return {};  // (the Steward and the Plasma Shell say nothing)
+    if (unit == 14) return soundFile(data, 134);  // (the Morningstar: the Terran adjutant's "missile armed")
+    for (const ReadyRange& r : kReadyRanges)
+        if (r.unit == unit) return soundFile(data, r.first + pick % uint32_t(r.last - r.first + 1));
     struct Tables {
         Datex u;
-        std::vector<uint32_t> file;      // (sfxdata.dat's Sound File of each entry)
-        std::vector<std::string> names;  // (sounds.txt's lines)
         bool tried = false, ok = false;
     };
     thread_local std::map<const GameData*, Tables> cache;  // (each thread its own)
@@ -1936,28 +1991,10 @@ std::string unitReadySound(const GameData& data, uint16_t unit) {
     if (!t.tried) {
         t.tried = true;
         std::string err;
-        Bytes sfx, txt;
-        if (!readDatex(data, "units", kUnitFields, t.u, err) || !data.readFile("arr\\sfxdata.dat", sfx, err) ||
-            !data.readFile("arr\\sounds.txt", txt, err) || sfx.size() % 9)
-            return {};
-        const size_t n = sfx.size() / 9;  // (the fields of each entry: Sound File u32, then 5 bytes)
-        t.file.resize(n);
-        for (size_t i = 0; i < n; ++i)
-            t.file[i] = uint32_t(sfx[i * 4]) | uint32_t(sfx[i * 4 + 1]) << 8 | uint32_t(sfx[i * 4 + 2]) << 16 | uint32_t(sfx[i * 4 + 3]) << 24;
-        std::string line;
-        for (uint8_t c : txt) {
-            if (c == '\n') t.names.push_back(line), line.clear();
-            else if (c != '\r') line += char(c);
-        }
-        t.names.push_back(line);
-        t.ok = true;
+        t.ok = readDatex(data, "units", kUnitFields, t.u, err);
     }
     if (!t.ok || unit >= t.u.count()) return {};
-    const uint32_t s = t.u.get(UReady, unit);
-    if (!s || s >= t.file.size()) return {};
-    const uint32_t f = t.file[s];
-    if (!f || f >= t.names.size() || t.names[f].empty()) return {};
-    return "sound\\" + t.names[f];
+    return soundFile(data, t.u.get(UReady, unit));
 }
 
 int tileHeight(const Tileset& ts, uint16_t value) {

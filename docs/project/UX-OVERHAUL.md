@@ -17,8 +17,8 @@ The program has many functions. The gaps are in how a mapper finds them and in t
 
 | Change | Where |
 |---|---|
-| Key hints: a strip at the bottom of the map with the keys of the tool that is on. The hint of a held key is bright. View > Show key hints (off for a new user). | `core/tool_hints.inc` |
-| Smooth zoom: a wheel notch and Zoom in / Zoom out glide to the new zoom. | `core/map_input.inc` (ZoomGlide) |
+| Key hints: the keys of the tool that is on, in the middle of the status bar (the hints that fit). The hint of a held key is bright. View > Show key hints (off for a new user). | `core/tool_hints.inc` |
+| Smooth zoom: a wheel notch and Zoom in / Zoom out glide to the new zoom. View > Smooth zoom (default: on). | `core/map_input.inc` (ZoomGlide) |
 | Units, right-click: Select more (in the view, of the player, invert) and Give to player. | `core/views_map_menu.inc` |
 | Quick picker: the last 8 picks of the mode come first while nothing is typed. | `core/palette_items.inc` |
 
@@ -30,12 +30,11 @@ New tools:
 
 | Change | Where |
 |---|---|
-| Arrange: 12 commands for the selected units (align on 6 lines, equal spaces across and down, in a row, a column, a grid, a circle). Buildings stay on their tiles; units that do not fit stay in their places. One undo step. Edit > Arrange, the map's right-click menu, the selection bar. | `src/editor_selection.cpp` (arrangeSelection), `core/map_commands.inc` |
-| Selection bar: buttons over the selected units (Duplicate, Delete, Arrange, Give to player, Snap to the grid, Properties). View > Show selection bar (off for a new user). | `core/selection_bar.inc` |
-| Pie palette for Units, Doodads and Sprites: while Space is held, rings open at the mouse. Ring 1 has Recent and the groups of the mode's list; the mouse over a group opens its ring outside it; the last ring has the items as pictures. Letting go over an item places it. | `core/views_pick_pie.inc` |
+| Arrange: 12 commands for the selected units (align on 6 lines, equal spaces across and down, in a row, a column, a grid, a circle). Buildings stay on their tiles; units that do not fit stay in their places. One undo step. Edit > Arrange, the map's right-click menu. | `src/editor_selection.cpp` (arrangeSelection), `core/map_commands.inc` |
+| Pie palette for Units, Doodads and Sprites: while Space is held, rings open at the mouse. Ring 1 has Recent and the groups of the mode's list; the mouse over a group opens its ring outside it; the last ring has the items as pictures (a unit: its sprite, not its command icon). A large map view has larger rings (up to 1.7 times). A group's items go into more rows before a long arc (a third of a turn while the rows hold them). The mouse on its way across another group or the middle keeps the open group; the other group takes over after 140 ms on it. The mouse that goes round the ring to another group opens it at once. Letting go over an item places it. | `core/views_pick_pie.inc` |
 | Pie palette for custom terrain: in Terrain mode with Custom on, Space opens rings of the tileset's custom terrain (folders first). The pie palette is for palettes only and for the mouse only (no search, no keys: Q is the keyboard's way). The rings open in 70 ms. A long group name has up to 3 lines. | `core/views_pick_pie.inc` |
 | Overview: while Ctrl+Space is held, the view shows the whole map with an outline at the mouse. Letting go puts that place in the view at the zoom from before. | `core/map_input.inc` (MapPeek) |
-| Glides: Fit map, Actual size, a click on the minimap, a unit of the list and a location of the quick picker move the view in a glide. | `core/map_input.inc` (ViewGlide) |
+| Glides: Fit map, Actual size, a click on the minimap, a unit of the list and a location of the quick picker move the view in a glide. View > Smooth pan (default: on). | `core/map_input.inc` (ViewGlide) |
 
 ## Next rounds (ideas, not in an order)
 

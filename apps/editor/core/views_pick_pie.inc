@@ -1,11 +1,15 @@
 // The pie palette of the Units, Doodads and Sprites modes: hold Space on the map and a ring of the palette's groups
 // comes up in the middle of the map (Terrain mode has the ring of terrains: PieView, core/views_palette.inc). The mouse
 // over a group opens the group's ring outside it, round the group's direction: more groups (a race's Ground Units, Air
-// Units, Buildings), or the group's items as pictures, in rows. Letting go of Space on an item picks it, as a click in
+// Units, Buildings), or the group's items as pictures (a unit: its sprite), in rows. Letting go of Space on an item picks it, as a click in
 // the palette; on a group or in the middle: no change. The first group, at the top, is the mode's last picks (Recent:
 // there also with no picks, so that each group keeps its direction). Terrain mode with Custom on has the rings too: the
 // folders of the tileset's custom terrain, then each folder's custom terrain (no folders: the custom terrain at once).
 // The rings are the mouse's: no keys pick in them (the quick picker, Q, is the keyboard's way).
+// A large map view has larger rings (up to 1.7 times). A group's items are in rows before a long arc: a third of a turn
+// while the rows hold them. The mouse on its way across another group, or across the middle, does not close the open
+// group: that group (or the middle) takes over when the mouse is on it for kHoldMs. The mouse that goes round the ring to
+// another group opens it at once.
 
 // A group (its kids) or an item (`value`, no kids).
 struct PickPieNode {
@@ -86,18 +90,23 @@ struct PickPieView : draw::View {
     // The middle: no slice (letting go there: no change). It is larger for many groups, so that each slice of the
     // first ring has room for its name.
     int hole() const {
-        if (!root.kids.empty() && root.kids[0].value >= 0) return scale(72);  // (a ring of items: room for the hot one's picture)
-        const double need = scale(72) * double(root.kids.size()) / kTurn - textWidth() / 2.0;
-        return std::clamp(int(need), scale(58), scale(150));
+        if (!root.kids.empty() && root.kids[0].value >= 0) return sized(72);  // (a ring of items: room for the hot one's picture)
+        const double need = sized(72) * double(root.kids.size()) / kTurn - textWidth() / 2.0;
+        return std::clamp(int(need), sized(58), sized(150));
     }
-    static int textWidth() { return scale(88); }  // a ring of groups
+    // The rings' size for the view's room: 1 up to a view of 900 px (its smaller side), then larger with it, 1.7 at most.
+    static inline float room = 1;
+    void fit() const { room = std::clamp(float(std::min(width(), height())) / float(scale(900)), 1.0f, 1.7f); }
+    static int sized(int px) { return int(float(scale(px)) * room); }
+    static int textWidth() { return sized(88); }  // a ring of groups
     static inline int cellSize = 50;              // (the host's: larger for the modes whose items have no names to tell them by)
-    static int cell() { return scale(cellSize); }  // an item's cell: a row of an items' ring is this wide
+    static int cell() { return sized(cellSize); }  // an item's cell: a row of an items' ring is this wide
     static constexpr int kMaxRows = 4;
+    static constexpr int kHoldMs = 140;  // the mouse on another group (or the middle) for this long: the open group closes
 
     draw::Point middle() const { return {width() / 2, height() / 2}; }
     // Other groups (the host, before it shows).
-    void reset(PickPieNode tree) { root = std::move(tree), path.clear(), nameWidth_ = 0; }
+    void reset(PickPieNode tree) { root = std::move(tree), path.clear(), nameWidth_ = 0, holding_ = false; }
     // The rings come up: they grow to their size in 70 ms (`motion` off: they are there at once).
     void opened(bool motion) { motion_ = motion, openedAt_ = std::chrono::steady_clock::now(); }
     // How far the rings are open, 0..1 (the host draws the view again each frame until 1).
@@ -154,12 +163,16 @@ struct PickPieView : draw::View {
             if (r.items) {
                 // As few rows as hold the items (kMaxRows at most), each row with its part by its length, so that the
                 // rows have one angle.
-                int rows = 1, room = 0;
-                auto cap = [&](int j) { return std::max(1, int(kTurn / r.rowStep(j))); };
+                int rows = 1, holds = 0;
+                auto cap = [&](int j, double arc = kTurn) { return std::max(1, int(arc / r.rowStep(j))); };
                 // (no row goes out of the view)
                 const int most = std::clamp(int((std::min(width(), height()) / 2 - r.inner) / cell()), 1, kMaxRows);
-                for (room = cap(0); room < count && rows < most; ++rows) room += cap(rows);
-                r.shownItems = std::min(count, room);
+                // (a group's items: rows before a long arc, a third of a turn while the rows hold them)
+                if (level > 0)
+                    for (int third = cap(0, kTurn / 3); third < count && rows < most; ++rows) third += cap(rows, kTurn / 3);
+                for (int j = 0; j < rows; ++j) holds += cap(j);
+                for (; holds < count && rows < most; ++rows) holds += cap(rows);
+                r.shownItems = std::min(count, holds);
                 int left = r.shownItems;
                 double radii = 0;
                 for (int j = 0; j < rows; ++j) radii += r.inner + cell() * (j + 0.5);
@@ -212,29 +225,63 @@ struct PickPieView : draw::View {
         return int(t / r.step + 0.5) % n;
     }
     // The mouse at `p`: the ring it is in (or the outermost one, further out) takes its slice; outside that ring's arc,
-    // the ring before it does.
-    void track(draw::Point p) {
+    // the ring before it does. A slice that closes an open group (another group, or the middle) takes over only when
+    // the mouse is on it for kHoldMs (rest), so that the short way across the rings to a long arc's end keeps the
+    // group open; `now`: at once (a click, the end of the hold, the pick).
+    void track(draw::Point p, bool now = false) {
+        fit();
         const double dx = p.x - middle().x, dy = p.y - middle().y, d = std::hypot(dx, dy), a = std::atan2(dx, -dy);
-        std::vector<int> was = path;
-        if (d < hole()) path.clear();
+        // (the mouse's way: out from the middle, or round it)
+        const double step = std::hypot(double(p.x - at_.x), double(p.y - at_.y));
+        if (step > 0) outward_ = d - std::hypot(double(at_.x - middle().x), double(at_.y - middle().y)) > step * 0.4;
+        at_ = p;
+        std::vector<int> next = path;
+        if (d < hole()) next.clear();
         else {
             const std::vector<Ring> rs = rings();
             int level = 0;
             while (level + 1 < int(rs.size()) && d >= rs[size_t(level) + 1].inner) ++level;
             for (; level >= 0; --level)
                 if (const int i = sliceAt(rs[size_t(level)], d, a); i >= 0) {
-                    path.resize(size_t(level));
-                    path.push_back(i);
+                    next.resize(size_t(level));
+                    next.push_back(i);
                     break;
                 }
         }
-        if (was != path) invalidate();
+        // (another group takes over at once when the mouse goes round the ring to it: the hold is for the way out to
+        // the open group's items, and for the middle)
+        if (!now && motion_ && closesGroup(next) && (next.empty() || outward_ || holding_ && held_ == next)) {
+            const auto time = std::chrono::steady_clock::now();
+            if (!holding_ || held_ != next) holding_ = true, held_ = next, heldSince_ = time;
+            if (time - heldSince_ < std::chrono::milliseconds(kHoldMs)) return;
+        }
+        holding_ = false;
+        if (next != path) path = std::move(next), invalidate();
+    }
+    // `next` in place of the path closes an open group: the first slice of the path that `next` does not keep is a group.
+    bool closesGroup(const std::vector<int>& next) const {
+        const PickPieNode* n = &root;
+        for (size_t i = 0; i < path.size(); ++i) {
+            if (path[i] < 0 || size_t(path[i]) >= n->kids.size()) return false;
+            n = &n->kids[size_t(path[i])];
+            if (i >= next.size() || next[i] != path[i]) return n->value < 0 && !n->kids.empty();
+        }
+        return false;
+    }
+    // The mouse is on a slice that closes an open group, and the hold is not over (the host calls rest each frame).
+    bool holding() const { return holding_; }
+    void rest() {
+        if (holding_) track(at_);
+    }
+    // The pick is made now: the slice under the mouse is the hot one, with no hold.
+    void settle() {
+        if (holding_) track(at_, true);
     }
     void captureLost() override {
         if (shown() && onCancel) onCancel();
     }
     bool mouse(const draw::MouseEvent& e) override {
-        if (e.kind == draw::MouseKind::Down && e.button == 0 && onClick) return track(e.pt), onClick(), true;
+        if (e.kind == draw::MouseKind::Down && e.button == 0 && onClick) return track(e.pt, true), onClick(), true;
         if (e.kind == draw::MouseKind::Down && onCancel) return onCancel(), true;
         if (e.kind != draw::MouseKind::Move) return false;
         track(e.pt);
@@ -242,6 +289,7 @@ struct PickPieView : draw::View {
     }
     void paint(draw::Canvas& c) override {
         using PointF = draw::Canvas::PointF;
+        fit();
         const float cx = float(middle().x), cy = float(middle().y);
         const float open = openness(), grow = 0.86f + 0.14f * open;  // (the rings come up: a little smaller at first)
         auto at = [&](double a, float rad) { return PointF{cx + float(std::sin(a)) * rad * grow, cy - float(std::cos(a)) * rad * grow}; };
@@ -426,4 +474,9 @@ private:
     int nameWidth_ = 0;  // (the first paint's: the widest group name)
     bool motion_ = false;
     std::chrono::steady_clock::time_point openedAt_{};
+    draw::Point at_{};         // (the mouse, as track had it)
+    bool holding_ = false;     // (the mouse is on `held_`, which closes an open group, since `heldSince_`)
+    bool outward_ = false;     // (the mouse's last step was away from the middle)
+    std::vector<int> held_;
+    std::chrono::steady_clock::time_point heldSince_{};
 };

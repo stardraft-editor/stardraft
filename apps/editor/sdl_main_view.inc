@@ -327,57 +327,8 @@ struct MapView final : draw::View {
     void paintOver(draw::Canvas& c) override {
         if (tabbed && hasFocus()) paintFocusOutline(c, {0, 0, width(), height()});
         paintMaskChip(c);
-        // The key hints (core/tool_hints.inc): while the mouse is on the map, as the modifier's mark.
-        if (gState.keyHints && open() && gState.mouseIn && !panning && !simBarShown() && !sdlPieShown() && host() && !(gHost && gHost->modalOpen()))
-            paintKeyHints(c, gState, width(), height(), gState.drag == Drag::None ? host()->modifiers() : 0);
-        // The buttons over the selected units (core/selection_bar.inc); the overview's outline (core/tool_hints.inc).
-        paintSelBar(c, gState, width(), height(), open() && !panning && !rightDown && !simBarShown() && !sdlPieShown());
-        paintMapPeek(c, gState, width(), height());
+        paintMapPeek(c, gState, width(), height());  // (the overview's outline: core/tool_hints.inc)
         paintModMark(c);
-    }
-    // The selection bar's button `i`: its command; Arrange and Give to player open their menus under the button.
-    void selBarRun(int i) {
-        if (i < 0 || size_t(i) >= gSelBar.buttons.size() || !open()) return;
-        const SelBarButton b = gSelBar.buttons[size_t(i)];  // (a copy: the command changes the bar)
-        const draw::Point at{b.r.left, b.r.bottom + scale(3)};
-        if (b.id == kSelBarArrange) sdlPopupMenu(*this, at, sdlModelItems(arrangeMenuModel(), [](int id) { command(id); }), L"Selection bar");
-        else if (b.id == kSelBarGive) {
-            MenuModel give;
-            for (int k = 0; k < 12; ++k) {
-                if (k == 8) give.push_back(menuSeparator());
-                give.push_back(menuItem(ID_PLAYER_1 + k, L"Player " + std::to_wstring(k + 1), k < 9 ? std::to_wstring(k + 1) : std::wstring(k == 9 ? L"0" : k == 10 ? L"-" : L"=")));
-            }
-            sdlPopupMenu(*this, at, sdlModelItems(give, [](int id) { command(id); }), L"Selection bar");
-        } else if (b.id == kSelBarProps) {
-            if (gState.ed->selection().empty()) return;
-            const int u = gState.ed->selection()[0];
-            shellPost([u] { showUnitProperties(u); });
-        } else command(b.id);
-        invalidateMapView();
-    }
-    // The selection bar takes the mouse on it: a press and its release on one button run the button.
-    bool selBarEat = false;
-    bool selBarMouse(const draw::MouseEvent& e) {
-        SelBar& b = gSelBar;
-        const int on = selBarHit(e.pt);
-        if (e.kind == draw::MouseKind::Move || e.kind == draw::MouseKind::Leave) {
-            const int hot = e.kind == draw::MouseKind::Move && gState.drag == Drag::None && !panning && !rightDown && on >= 0 ? on : -1;
-            if (hot != b.hot) b.hot = hot, invalidate();
-            return e.kind == draw::MouseKind::Move && (selBarEat || (on != -1 && gState.drag == Drag::None && !panning && !rightDown));
-        }
-        if ((e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick) && on != -1 && gState.drag == Drag::None && !panning && !rightDown) {
-            selBarEat = true, b.pressed = e.button == 0 ? on : -1, invalidate();
-            if (draw::Host* h = host()) h->capture(*this, true);  // (the release comes here from each place)
-            return true;
-        }
-        if (e.kind == draw::MouseKind::Up && selBarEat) {
-            const int was = b.pressed;
-            selBarEat = false, b.pressed = -1, invalidate();
-            if (draw::Host* h = host()) h->capture(*this, false);
-            if (was >= 0 && was == on) selBarRun(was);
-            return true;
-        }
-        return false;
     }
     std::wstring focusedItem() const override { return L"Map"; }
     bool mouse(const draw::MouseEvent& e) override {
@@ -400,7 +351,6 @@ struct MapView final : draw::View {
         // A press on the map during the overview: the view goes to that place at once (letting go of Space does nothing more).
         if ((e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick) && mapPeekOn(gState))
             return gState.mouseX = e.pt.x, gState.mouseY = e.pt.y, gState.mouseIn = true, mapPeekEnd(gState, true), invalidate(), true;
-        if (selBarMouse(e)) return true;  // (the buttons over the selected units)
         // While a live game shows: its bar's buttons; on the map only the view moves (middle button, wheel, pinch).
         if (simBarShown()) {
             if (simBarMouse(e, draw::Rect(0, 0, width(), height()))) {
@@ -548,7 +498,6 @@ struct MapView final : draw::View {
     // a Shift stroke. After a release (the view lets the capture go itself) there is nothing left to end.
     void captureLost() override {
         rightDown = false, leftUpInPan = false;
-        selBarEat = false, gSelBar.pressed = -1;  // (a press on the selection bar: no button runs)
         rushCaptured = false, simRushDragLost();
         if (panning) {
             panning = false;
@@ -701,7 +650,18 @@ struct MainView final : draw::View {
                 if (const auto& list = stampsList(); pieOfStamps() && size_t(value) < list.size()) stampsDrawPicture(c, list[size_t(value)], box);
                 return;
             }
-            if (draw::Bitmap* b = paletteBitmap(gState.mode, value, gState.playerOwner)) drawPaletteArt(c, *b, box);
+            // A unit: its sprite (as on the map), not its command icon. New pictures have the palette's time in a
+            // paint (kPaletteArtBudgetMs from the paint's first one); the others come in the next frames.
+            static std::chrono::steady_clock::time_point until{};
+            const auto now = std::chrono::steady_clock::now();
+            const auto budget = std::chrono::microseconds(int64_t(kPaletteArtBudgetMs * 1000));
+            if (now > until + budget) until = now + budget;  // (the paint before is over: this one's time starts)
+            const int left = gPaletteArtLeft;
+            gPaletteArtDeadline = until;
+            draw::Bitmap* b = paletteBitmap(gState.mode, value, gState.playerOwner, false, true);
+            gPaletteArtDeadline = {};
+            if (b) drawPaletteArt(c, *b, box);
+            else if (gPaletteArtLeft != left) pickPie.invalidate();
         };
         pickPie.groundOf = [this](int value) { return pickPieGroundOf(value); };
         pickPie.groundPicture = [this](int terrain, int tiles) -> draw::Bitmap* {
@@ -1071,6 +1031,7 @@ struct MainView final : draw::View {
     // click in the palette): it goes into the picks that Spray and Fill use; the terrain in use stays a pick.
     void pieRelease(bool add = false) {
         if (pickPie.shown()) {  // (the rings of items: the hot item is the pick, as a click in the palette; a group: no change)
+            pickPie.settle();  // (the slice under the mouse, with no hold)
             const PickPieNode* n = pickPie.hotNode();
             const int v = n && n->kids.empty() ? n->value : -1;
             const std::wstring name = v >= 0 ? n->label : std::wstring();
@@ -1531,6 +1492,8 @@ void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     simFrame();  // (a live game: its frames for the time that went by)
     gRoot->map.panStep();  // (Options > Middle mouse click and hold > Pan map: the map moves toward the mouse)
     if (gRoot->pickPie.shown() && gRoot->pickPie.openness() < 1) gRoot->pickPie.invalidate();  // (the rings come up: the next frame)
+    // (the mouse rests on another group: it takes over at the hold's end, and frames come until then)
+    if (gRoot->pickPie.shown() && gRoot->pickPie.holding()) gRoot->pickPie.rest(), gState.dirty = true;
     // (the other workspaces hide the map: no frame; nor when only other views paint, as a hover over the side bar or
     // a palette window: SdlHost::paintsNow)
     if (gWorkspace == Workspace::Map && (!gHost || gHost->paintsNow(gRoot->map))) drawMapFrame(cmd, w, h);

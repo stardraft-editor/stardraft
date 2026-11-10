@@ -478,7 +478,6 @@ void registerMapCommands() {
                 app.dirty = true;
             });
     }
-    addCommand(ID_VIEW_SELBAR, "view.selectionBar", L"Show &selection bar", "View", L"", [] { shellState().selBar = !shellState().selBar, shellState().dirty = true; }, [] { return shellState().selBar; });
     addCommand(ID_REVEAL_REMOVE, "edit.revealers.removeAll", L"&Remove all map revealers", "Edit/Tools", L"", [] { removeMapRevealersCommand(); });
     addCommand(ID_CMBW_REPAIRISOM, "edit.cmbw.repairIsom", L"Try to repair the &ISOM", "Cosmonarchy", L"", [] { cmbwRepairIsomCommand(); });
     addCommand(ID_CMBW_CHECKCOMMENTS, "scen.cmbw.checkComments", L"&Check the CRIG commands", "Cosmonarchy", L"", [] { cmbwCheckCommentsCommand(); });
@@ -505,5 +504,8 @@ void registerMapCommands() {
         if (app.zoom > 0) mapViewGlideTo(app, 1.0f, app.camX + w / 2.0f / app.zoom, app.camY + h / 2.0f / app.zoom);
     });
     addCommand(ID_VIEW_FIT, "view.fit", L"&Fit map", "View", L"Ctrl+H", [] { fitMapGlide(); });
-    addCommand(ID_VIEW_KEYHINTS, "view.keyHints", L"Show &key hints", "View", L"", [] { shellState().keyHints = !shellState().keyHints, shellState().dirty = true; }, [] { return shellState().keyHints; });
+    // (off: the zoom, or a jump to a place, is there at once; a glide that is on stops)
+    addCommand(ID_VIEW_SMOOTHZOOM, "view.smoothZoom", L"S&mooth zoom", "View", L"", [] { shellState().smoothZoom = !shellState().smoothZoom, mapZoomGlideStop(), shellState().dirty = true; }, [] { return shellState().smoothZoom; });
+    addCommand(ID_VIEW_SMOOTHPAN, "view.smoothPan", L"Smooth &pan", "View", L"", [] { shellState().smoothPan = !shellState().smoothPan, mapZoomGlideStop(), shellState().dirty = true; }, [] { return shellState().smoothPan; });
+    addCommand(ID_VIEW_KEYHINTS, "view.keyHints", L"Show &key hints", "View", L"", [] { shellState().keyHints = !shellState().keyHints, shellState().dirty = true, shellStatusChanged(); }, [] { return shellState().keyHints; });
 }

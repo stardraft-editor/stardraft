@@ -49,7 +49,7 @@ MenuItem menuSeparator() {
     it.kind = MenuItem::Kind::Separator;
     return it;
 }
-// Edit > Arrange's items (the Edit menu, the map's menu, the selection bar): align, equal spaces, the shapes.
+// Edit > Arrange's items (the Edit menu, the map's menu): align, equal spaces, the shapes.
 MenuModel arrangeMenuModel() {
     MenuModel m;
     menuCommands(m, "Edit/Arrange");
@@ -302,10 +302,9 @@ MenuModel buildMenuModel() {
         view.push_back(menuPopup(L"&Modes", layers));
     }
     view.push_back(menuItem(ID_OPT_ANIMATE, L"A&nimate units"));  // (the units' idle animations on the map)
-    menuCommand(view, "view.keyHints");  // (the strip of the tool's modifier keys at the bottom of the map)
-    menuCommand(view, "view.selectionBar");  // (the buttons over the selected units)
+    menuCommand(view, "view.keyHints");  // (the tool's modifier keys in the status bar)
     view.push_back(menuSeparator());
-    for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit"}) menuCommand(view, id);
+    for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit", "view.smoothZoom", "view.smoothPan"}) menuCommand(view, id);
     view.push_back(menuSeparator());
     view.push_back(menuItem(ID_QUICKPICK, L"&Quick picker\x2026", L"Q"));
     // (Space is held on the map: the text says it, no key of the menu's)

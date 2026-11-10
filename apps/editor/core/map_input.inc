@@ -1405,7 +1405,8 @@ void mapPanBy(AppState& app, float dx, float dy) {
 }
 // The smooth zoom: a wheel's notch and the zoom keys do not jump. The zoom glides to its goal in about a tenth of a
 // second, around the same view point; more notches during the glide move the goal on. A snapshot or test run has no
-// glide (gMapMotion off): the zoom is at its goal at once. Every other zoom or camera jump stops the glide.
+// glide (gMapMotion off): the zoom is at its goal at once, as with View > Smooth zoom off. Every other zoom or camera
+// jump stops the glide.
 struct ZoomGlide {
     bool on = false;
     float goal = 0, x = 0, y = 0;
@@ -1420,7 +1421,8 @@ inline bool gMapMotion = true;
 // The glide of the whole view: a jump to a place (a unit of the list, a location, a click on the minimap, Fit map,
 // Actual size, the overview) does not cut. The view glides there in about a fifth of a second, fast at first; with
 // another zoom at the end, as a zoom around the place. Another map, or a camera or zoom that something else moved (a
-// pan, the wheel), stops it. No glide in a snapshot or test run (gMapMotion off): the view is there at once.
+// pan, the wheel), stops it. No glide in a snapshot or test run (gMapMotion off), or with View > Smooth pan off: the
+// view is there at once.
 struct ViewGlide {
     bool on = false, fresh = false;
     float zoom0 = 0, cx0 = 0, cy0 = 0;  // from: the zoom and the map point in the view's middle
@@ -1437,7 +1439,7 @@ void mapViewGlideTo(AppState& app, float zoom, float cx, float cy) {
     if (!app.ed || app.zoom <= 0 || w <= 0 || h <= 0) return;
     zoom = std::clamp(zoom, 1.0f / 16, 16.0f);
     gZoomGlide.on = false;
-    if (!gMapMotion) {
+    if (!gMapMotion || !app.smoothPan) {
         gViewGlide.on = false;
         app.zoom = zoom;
         app.camX = cx - w / 2.0f / zoom, app.camY = cy - h / 2.0f / zoom;
@@ -1522,7 +1524,7 @@ void mapZoomGlideTo(AppState& app, float x, float y, float factor, float most = 
     if (app.zoom <= 0 || !(factor > 0)) return;
     gViewGlide.on = false;  // (the wheel during a glide of the view: the zoom goes on from where the view is)
     const float goal = std::clamp((gZoomGlide.on ? gZoomGlide.goal : app.zoom) * factor, 1.0f / 16, most);
-    if (!gMapMotion) {
+    if (!gMapMotion || !app.smoothZoom) {
         gZoomGlide.on = false;
         const float wx = app.camX + x / app.zoom, wy = app.camY + y / app.zoom;
         app.zoom = goal;

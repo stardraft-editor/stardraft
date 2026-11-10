@@ -56,6 +56,16 @@ struct Pop {
     uint64_t start;
     float feet;  // (map pixels under its center: the pivot of the squash)
 };
+// A deleted unit's death: its sprite plays its Death animation (iscript animation 1) where the unit was, with the
+// animation's sounds, to its end (its remnants too) or for kDeathTicks at most.
+struct Death {
+    SpriteSim sim;
+    int image;
+    float x, y;
+    uint8_t owner;
+    bool air;
+    int ticks = 0;
+};
 struct State {
     const Editor* ed = nullptr;
     bool armed = false;
@@ -63,7 +73,9 @@ struct State {
     std::vector<uint16_t> tiles;
     std::unordered_set<uint32_t> serials;
     std::unordered_map<uint64_t, int> doodads;  // (id, x, y) -> how many
-    std::vector<std::tuple<uint32_t, uint16_t, uint16_t>> unitPlaces;  // serial, x, y (a deleted unit's poof)
+    std::vector<Unit> units;  // (the map's units then: a deleted unit's death, or its poof)
+    std::vector<Death> deaths;
+    uint64_t deathLast = 0;  // (the deaths' last game tick)
     std::vector<Particle> particles;
     std::unordered_map<uint32_t, Pop> pops;  // by serial
     uint64_t shakeStart = 0, lastFrame = 0;
@@ -74,6 +86,8 @@ struct State {
 constexpr size_t kMaxParticles = 1200, kMaxShards = 120;  // (a shard is up to about 100 rects)
 size_t shardCount = 0;
 constexpr uint64_t kPopMs = 420, kShakeMs = 140;
+constexpr size_t kMaxDeaths = 64;
+constexpr int kDeathTicks = 240;  // (10 s of the game's ticks)
 
 uint64_t skewMs = 0;  // (a snapshot's --wait: the time that went by in the run, funAdvanceFor)
 uint64_t nowMs() { return animNowMs() + skewMs; }
@@ -229,16 +243,30 @@ void snapshot(const Editor& ed) {
     g.ed = &ed, g.armed = true;
     g.loadMark = ed.loadMark(), g.revision = ed.revision(), g.terrainRevision = ed.terrainRevision();
     g.tiles = ed.terrain().tiles;
-    g.serials.clear(), g.unitPlaces.clear();
-    for (const Unit& u : ed.units()) g.serials.insert(u.serial), g.unitPlaces.push_back({u.serial, u.x, u.y});
+    g.serials.clear(), g.units = ed.units();
+    for (const Unit& u : ed.units()) g.serials.insert(u.serial);
     g.doodads.clear();
     for (const Doodad& d : ed.doodads()) ++g.doodads[uint64_t(d.id) << 32 | uint64_t(d.x) << 16 | d.y];
 }
 
-// The edits since the last frame: their sounds, particles, pops and shakes.
+// One game tick of the deaths: their sounds (a mod's map: the mod's sound files), and the ended ones go.
+void tickDeaths(const Editor& ed) {
+    for (Death& d : g.deaths) {
+        d.sim.tick(), ++d.ticks;
+        d.sim.takeAttack();
+        for (int sfx : d.sim.takeSounds()) {
+            if (!modTab()) funPlaySfx(sfx);
+            else if (const std::string file = stardraft::cmbw::soundFile(ed.gameData(), uint32_t(sfx)); !file.empty())
+                funPlaySoundFile(ed.gameData(), file);
+        }
+    }
+    std::erase_if(g.deaths, [](const Death& d) { return !d.sim.anyRunning() || d.ticks >= kDeathTicks; });
+}
+
+// The edits since the last frame: their sounds, particles, pops, deaths and shakes.
 void watch(const Editor& ed) {
     if (!g.armed || g.ed != &ed || g.loadMark != ed.loadMark() || g.tiles.size() != ed.terrain().tiles.size()) {
-        g.particles.clear(), g.pops.clear();
+        g.particles.clear(), g.pops.clear(), g.deaths.clear();
         return snapshot(ed);
     }
     if (g.revision == ed.revision() && g.terrainRevision == ed.terrainRevision()) return;
@@ -295,9 +323,11 @@ void watch(const Editor& ed) {
     if (placedDoodads) play(Kind::Thunk, 1, 1, 60), g.shakeStart = nowMs(), g.shakeAmp = 1;
     else if (deletedDoodads) play(Kind::Poof);
     g.doodads = std::move(doodads);
-    // Units: placed ones thud and pop (by serial: a moved unit keeps it), deleted ones puff.
+    // Units: placed ones thud and pop (by serial: a moved unit keeps it), deleted ones die (their Death animation and
+    // its sounds; a unit with no Death animation puffs).
     std::unordered_set<uint32_t> serials;
-    int placed = 0, deleted = 0, readyType = -1;
+    int placed = 0, deleted = 0, puffed = 0, readyType = -1;
+    uint32_t readySerial = 0;
     float pitch = 1;
     for (const Unit& un : ed.units()) {
         serials.insert(un.serial);
@@ -309,27 +339,39 @@ void watch(const Editor& ed) {
             g.pops[un.serial] = {nowMs() + uint64_t(placed - 1) * 15, hh};
             boxShards(Kind::Plop, un.x - hw, un.y + hh - 8, un.x + hw, un.y + hh, false, big ? 3 : 2);  // (the ground under it)
         }
-        if (placed == 1) pitch = big ? 0.8f : 1.1f, readyType = un.type;  // (a building lower)
+        if (placed == 1) pitch = big ? 0.8f : 1.1f, readyType = un.type, readySerial = un.serial;  // (a building lower)
     }
-    for (const auto& [serial, x, y] : g.unitPlaces)
-        if (!serials.count(serial) && ++deleted <= 64) boxShards(Kind::Poof, x - 8.0f, y - 8.0f, x + 8.0f, y + 8.0f, false, 2);
+    AppState& app = shellState();
+    for (const Unit& un : g.units) {
+        if (serials.count(un.serial) || ++deleted > 64) continue;
+        UnitSprites* sp = app.ed.get() == &ed ? &app.ed->unitSprites() : nullptr;
+        const int image = sp ? mapUnitImage(*sp, un) : -1;
+        if (image < 0 || !sp->animOffset(image, 1) || g.deaths.size() >= kMaxDeaths) {
+            ++puffed, boxShards(Kind::Poof, un.x - 8.0f, un.y - 8.0f, un.x + 8.0f, un.y + 8.0f, false, 2);
+            continue;
+        }
+        const UnitType* type = un.type < ed.unitTypes().size() ? &ed.unitTypes()[un.type] : nullptr;
+        const int dir = sp->facingDirection(un.type, app.randomFacing ? int((un.serial * 2654435761u) >> 27) : -1);  // (as it stood)
+        if (g.deaths.empty()) g.deathLast = nowMs();
+        g.deaths.push_back({SpriteSim(*sp, image, 1, dir, un.serial, ed.tileset().era), image, float(un.x), float(un.y),
+                            uint8_t(std::min<int>(un.owner, 11)), type && type->is(UnitFlag::Flyer) && !type->is(UnitFlag::Building)});
+    }
     if (placed) play(Kind::Plop, pitch, 1, 50);
-    else if (deleted) play(Kind::Poof);
+    else if (puffed) play(Kind::Poof);
     // The first placed unit's ready sound, at most one each 0.6 s (a row or a paste of many units says it once): on a
-    // Cosmonarchy map the mod's (cmbw::unitReadySound), else, or when the mod has none, the game's (units.dat's Ready
-    // Sound: units 0 to 105 have one).
+    // Cosmonarchy map the mod's (cmbw::unitReadySound: a unit with some ready sounds says one of them, by its serial),
+    // else the game's (units.dat's Ready Sound: units 0 to 105 have one).
     static uint64_t lastReady = 0;
     std::string modSound;
     if (placed && readyType >= 0 && nowMs() - lastReady >= 600 && modTab())
-        modSound = stardraft::cmbw::unitReadySound(ed.gameData(), uint16_t(readyType));
+        modSound = stardraft::cmbw::unitReadySound(ed.gameData(), uint16_t(readyType), readySerial * 2654435761u >> 16);
     if (!modSound.empty()) funPlaySoundFile(ed.gameData(), modSound), lastReady = nowMs();
-    else if (placed && readyType >= 0 && readyType < 106 && nowMs() - lastReady >= 600)
+    else if (placed && readyType >= 0 && readyType < 106 && nowMs() - lastReady >= 600 && !modTab())
         if (const DatTable* units = rangeTable("units"))
             if (const DatField* f = units->field("Ready Sound"); f && readyType >= f->first && readyType <= f->last)
                 if (const uint32_t sfx = units->value(*f, readyType); sfx > 0) funPlaySfx(int(sfx)), lastReady = nowMs();
     g.serials = std::move(serials);
-    g.unitPlaces.clear();
-    for (const Unit& un : ed.units()) g.unitPlaces.push_back({un.serial, un.x, un.y});
+    g.units = ed.units();
     // Terrain: the tiles that changed. Their old colors fly off (and some of the new); the sound of the most common new
     // terrain, louder for more tiles.
     if (g.terrainRevision != ed.terrainRevision()) {
@@ -414,7 +456,11 @@ void watch(const Editor& ed) {
 }  // namespace fun
 
 // Something moves: the map paints again each frame (sdlFrameClock).
-bool funModeBusy() { return !fun::g.particles.empty() || !fun::g.pops.empty() || fun::nowMs() - fun::g.shakeStart < fun::kShakeMs; }
+bool funModeBusy() {
+    return !fun::g.particles.empty() || !fun::g.pops.empty() || !fun::g.deaths.empty() || fun::nowMs() - fun::g.shakeStart < fun::kShakeMs;
+}
+// The deaths hold their editor's sprites: none are left when those go (shellForgetAnims).
+void funForgetDeaths() { fun::g.deaths.clear(); }
 
 // A placed unit's pop: its sprites (s.sprites from `from` on) squash, then spring up and settle.
 void funScaleUnit(render::Scene& s, const Unit& u, size_t from) {
@@ -440,7 +486,7 @@ void funScaleUnit(render::Scene& s, const Unit& u, size_t from) {
 void funModeScene(render::Scene& s) {
     AppState& app = shellState();
     if (!app.funMode || !app.ed || !app.ed->isOpen()) {
-        fun::g.armed = false, fun::g.particles.clear(), fun::g.pops.clear();
+        fun::g.armed = false, fun::g.particles.clear(), fun::g.pops.clear(), fun::g.deaths.clear();
         return;
     }
     fun::watch(*app.ed);
@@ -450,6 +496,15 @@ void funModeScene(render::Scene& s) {
     std::erase_if(fun::g.pops, [&](const auto& kv) { return now > kv.second.start && now - kv.second.start >= fun::kPopMs; });
     const float zoom = std::max(s.camera.zoom, 0.01f);
     fun::step(dt, zoom);
+    // The deaths at the game's speed (after a pause: no catching up), then their images where the units were.
+    if (now - fun::g.deathLast > 500) fun::g.deathLast = now - kTickMs;
+    for (; !fun::g.deaths.empty() && now - fun::g.deathLast >= kTickMs; fun::g.deathLast += kTickMs) fun::tickDeaths(*app.ed);
+    for (const fun::Death& d : fun::g.deaths) {
+        render::SpriteDraw b;
+        b.image = d.image, b.frame = d.sim.mainFrame();
+        b.x = d.x, b.y = d.y, b.owner = d.owner, b.alpha = 1, b.air = d.air;
+        addSimSprites(s, d.sim, b);
+    }
     for (const fun::Particle& p : fun::g.particles) {
         const float fade = std::clamp((p.life - p.age) / (p.life * 0.35f), 0.0f, 1.0f);
         // (each pixel at its turned place; a little larger than its step, so no gaps show)
@@ -471,6 +526,8 @@ void funModeScene(render::Scene& s) {
 void funAdvanceFor(int ms) {
     const float zoom = std::max(shellState().zoom, 0.01f);
     for (int t = 0; t < ms; t += 16) fun::step(0.016f, zoom);
+    if (const AppState& app = shellState(); app.ed && fun::g.ed == app.ed.get())
+        for (int t = 0; t < ms / int(kTickMs) && !fun::g.deaths.empty(); ++t) fun::tickDeaths(*app.ed);
     fun::skewMs += uint64_t(std::max(ms, 0));
     fun::g.lastFrame = fun::nowMs();
 }

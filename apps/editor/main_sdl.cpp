@@ -904,6 +904,7 @@ int main(int argc, char** argv) {
         host.setKeyFilter(sequenceKey);  // the second key of a two-key shortcut (Ctrl+K, G: sdl_menus.inc)
         host.setModifierHook([] {  // the modifier key's mark at the mouse (core/map_mod_mark.inc), with no move of the mouse
             if (gRoot && gState.mouseIn) ++gRoot->map.modRepaints, gRoot->map.invalidate();
+            if (gRoot && gState.keyHints) gRoot->status.invalidate();  // (the held key's hint is bright: core/tool_hints.inc)
         });
         host.setRightClickHook(sdlWindowRightClick);  // Report feedback in the dialogs and pop-outs (sdl_menus.inc)
 #ifdef __APPLE__

@@ -1,4 +1,4 @@
-// The key hints of the map (MapView::paintOver paints them: a strip at the bottom of the map view, View > Show key
+// The key hints of the map (StatusView::paint paints them in the status bar, View > Show key
 // hints): what the modifier keys and the wheel do with the tool that is on, before a key is down. The mark at the mouse
 // (core/map_mod_mark.inc) shows what a held key does at that place; the hints say which keys there are. They follow
 // mapMouseDown, mapMouseUp and mapWheel (core/map_input.inc): a new modifier there gets its hint here too.
@@ -82,39 +82,46 @@ void paintMapPeek(draw::Canvas& c, const AppState& app, int viewW, int viewH) {
     c.roundBox({app.mouseX - hw, app.mouseY - hh, app.mouseX + hw, app.mouseY + hh}, draw::kNone, kAccent, float(scale(3)), std::max(1, scale(2)));
 }
 
-// The strip: each hint is its keys in a key cap, then its text. `mods`: the modifier keys that are down (their hints are
-// bright, the others dim). In the view's pixels at the UI's scale. It takes no clicks; where the mouse is near it, it
-// does not show (the map under it stays free). A narrow view shows the hints that fit, from the first.
-void paintKeyHints(draw::Canvas& c, const AppState& app, int viewW, int viewH, unsigned mods) {
+// The hints in the status bar (StatusView::paint gives the room that its parts leave): each hint is its keys in a key
+// cap, then its text, all in the middle of the room. `mods`: the modifier keys that are down (their hints are bright,
+// the others dim). A narrow room shows the hints that fit, from the first.
+void paintKeyHints(draw::Canvas& c, const AppState& app, draw::Rect room, unsigned mods) {
     const std::vector<KeyHint> hints = mapKeyHints(app);
     if (hints.empty()) return;
-    const int h = scale(26), capH = scale(18), pad = scale(8), gap = scale(12), capPad = scale(5), margin = scale(10);
+    const int h = room.bottom - room.top, capH = std::min(scale(18), h - scale(4)), gap = scale(12), capPad = scale(5);
     struct Item { std::wstring keys, what; int capW, textW; bool on; };
     std::vector<Item> items;
-    int w = pad;
+    int w = 0;
     for (const KeyHint& k : hints) {
         Item it{shellKeysText(k.keys), tr(k.what), 0, 0, k.mod && (mods & k.mod)};
         it.capW = c.measure(it.keys) + 2 * capPad, it.textW = c.measure(it.what);
         const int iw = it.capW + scale(5) + it.textW + (items.empty() ? 0 : gap);
-        if (w + iw + pad > viewW - 2 * margin) break;
+        if (w + iw > room.right - room.left) break;
         w += iw;
         items.push_back(std::move(it));
     }
     if (items.empty()) return;
-    w += pad;
-    const draw::Rect box((viewW - w) / 2, viewH - margin - h, (viewW - w) / 2 + w, viewH - margin);
-    if (app.mouseY >= box.top - scale(24) && app.mouseX >= box.left - scale(24) && app.mouseX < box.right + scale(24)) return;
-    c.roundBox(box, kPanel, kBorder, float(scale(4)));
     const bool anyOn = std::any_of(items.begin(), items.end(), [](const Item& i) { return i.on; });
-    int x = box.left + pad;
+    int x = room.left + (room.right - room.left - w) / 2;
     for (size_t i = 0; i < items.size(); ++i) {
         const Item& it = items[i];
         if (i) x += gap;
-        const draw::Rect cap(x, box.top + (h - capH) / 2, x + it.capW, box.top + (h - capH) / 2 + capH);
+        const draw::Rect cap(x, room.top + (h - capH) / 2, x + it.capW, room.top + (h - capH) / 2 + capH);
         c.roundBox(cap, it.on ? kSel : kCtl, it.on ? kAccentLine : kBorderStrong, float(scale(3)));
         c.text(cap, it.keys, it.on ? kAccent : kText, draw::kCenter | draw::kMiddle);
         x += it.capW + scale(5);
-        c.text({x, box.top, x + it.textW + 1, box.bottom}, it.what, it.on || !anyOn ? kText : kDim, draw::kMiddle);
+        c.text({x, room.top, x + it.textW + 1, room.bottom}, it.what, it.on || !anyOn ? kText : kDim, draw::kMiddle);
         x += it.textW;
     }
+}
+
+// The hints that the status bar shows are not the ones of the call before (or they went on or off): the bar is drawn again.
+bool keyHintsChanged(const AppState& app) {
+    static std::vector<const wchar_t*> last;
+    std::vector<const wchar_t*> now;
+    if (app.keyHints)
+        for (const KeyHint& h : mapKeyHints(app)) now.push_back(h.keys), now.push_back(h.what);
+    if (now == last) return false;
+    last = std::move(now);
+    return true;
 }

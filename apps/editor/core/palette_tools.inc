@@ -197,8 +197,10 @@ std::wstring modeCountStatus(const AppState& app) {
     }
     return text;
 }
+bool keyHintsChanged(const AppState& app);  // (tool_hints.inc)
 void updateStatus(AppState& app) {
     if (!shellHasStatusBar()) return;
+    if (keyHintsChanged(app)) shellStatusChanged();  // (the hints are in the bar: no status text changes with them)
     if (!docOpen() || newPageCovers()) {  // no map shows (the start page, the New page): no part of a map's status
         for (int i = 0; i < int(std::size(app.statusText)); ++i)
             if (!app.statusText[i].empty()) setStatusPart(app, i, L"");

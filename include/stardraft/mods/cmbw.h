@@ -60,9 +60,12 @@ struct UnitRanges {
     bool flyer = false, cliff = false;
 };
 bool unitRanges(const GameData& data, uint16_t unit, UnitRanges& out);
-// A unit's ready sound by the mod's tables: units.datex's Ready Sound, the mod's arr\sfxdata.dat (its Sound File) and
-// arr\sounds.txt (the files' names, a line each): its file under sound\ in `data` ("" for none).
-std::string unitReadySound(const GameData& data, uint16_t unit);
+// A sound by the mod's table: the sound's line of arr\sounds.txt (line n: the file of the sound n): its file under
+// sound\ in `data` ("" for none).
+std::string soundFile(const GameData& data, uint32_t sfx);
+// A unit's ready sound as the mod's program picks it: for most units units.datex's Ready Sound; for the units with
+// some ready sounds, one of them by `pick` (the program takes one at random); "" for none.
+std::string unitReadySound(const GameData& data, uint16_t unit, uint32_t pick = 0);
 // The mod's height of a map tile (TILE or MTXM value), as it gives ground units range (Cosmonarchy-GPTP
 // TileHeight_extender): the minitiles' height (VF4 flags 0x6, plus the mod's own height in the flags' high byte) of the
 // walkable ones, summed and divided by 16, rounded; at most 127.

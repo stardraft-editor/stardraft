@@ -1,7 +1,8 @@
 // The status bar as a view (portable, core.inc): moved from main.cpp. A flat strip drawn in full, the panel color, a
 // hairline on top and between the parts, no bevels. The map's parts (mode and tool, the mouse's place, the zoom, the
 // selection, the mode's count, frames) show in the Map workspace only; the message shows only when there is no log line (which shows it
-// already). The corner keeps room for the size grip, which the bar does not draw: over it, the window resizes from the
+// already). The key hints (View > Show key hints, core/tool_hints.inc) are in the middle of the room that the parts
+// leave: the hints that fit. The corner keeps room for the size grip, which the bar does not draw: over it, the window resizes from the
 // corner (sizeGrip). The instance (gStatus) is made in main.cpp, where the app state is.
 
 // Defined by the program (main_sdl.cpp and its sdl_*.inc files) until they move into the core.
@@ -12,6 +13,7 @@ bool diagnosticsOn();
 void setDiagnostics(bool on);
 inline std::wstring gDiagnosticsText;
 void diagnosticsRefresh();  // (made again when a second has gone)
+void paintKeyHints(stardraft::draw::Canvas& c, const AppState& app, stardraft::draw::Rect room, unsigned mods);  // (core/tool_hints.inc)
 
 // The status bar's view: its texts are the app state's (AppState::statusText, the bar's seven parts).
 struct StatusView final : stardraft::draw::View {
@@ -65,7 +67,13 @@ struct StatusView final : stardraft::draw::View {
                 right -= dw;
             }
         }
-        if (!shellLogOpen() && right > x) part(x, right, 4, kText);
+        int left = x;  // (the message, where it shows: the hints are after it)
+        if (!shellLogOpen() && right > x) {
+            part(x, right, 4, kText);
+            if (!st.statusText[4].empty()) left = std::min(right, x + c.measure(st.statusText[4]) + 2 * pad);
+        }
+        if (map && st.keyHints && right - left > 2 * pad)
+            paintKeyHints(c, st, {left + pad, 1, right - pad, h}, st.drag == Drag::None && host() ? host()->modifiers() : 0);
     }
     bool sizeGrip(stardraft::draw::Point p) override { return p.x >= width() - scale(16) && p.y >= height() - scale(16); }
 };

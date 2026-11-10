@@ -462,6 +462,7 @@ void shellInvalidateWorkspaceBar() {
 }
 void shellForgetAnims() {  // (the units' idle animations: core/map_scene.inc)
     gAnims.clear(), gAnimsFor = nullptr;
+    funForgetDeaths();  // (Craft mode: core/fun_mode.inc)
 }
 void shellRendererReloadImages() {
     if (gRenderer) gRenderer->reloadImages();
