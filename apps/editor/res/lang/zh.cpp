@@ -1595,7 +1595,6 @@ constexpr UiText kRows[] = {
     {L"Select a text of the game", L"\u8BF7\u9009\u62E9\u6E38\u620F\u4E2D\u7684\u6587\u672C"},
     {L"The text has more than two {}. Use at most two: one for each value", L"\u6587\u672C\u4E2D\u7684 {} \u8D85\u8FC7\u4E24\u4E2A\u3002\u6700\u591A\u4F7F\u7528\u4E24\u4E2A\uFF1A\u6BCF\u4E2A\u503C\u4E00\u4E2A"},
     {L"For each player accepts all players, Player 1 to Player 8, or a force", L"\u201C\u5BF9\u6BCF\u4E2A\u73A9\u5BB6\u201D\u63A5\u53D7\u6240\u6709\u73A9\u5BB6\u3001\u73A9\u5BB6 1 \u5230\u73A9\u5BB6 8\uFF0C\u6216\u4E00\u4E2A\u52BF\u529B"},
-    {L"For each unit accepts one unit type or Any unit", L"\u201C\u5BF9\u6BCF\u4E2A\u5355\u4F4D\u201D\u63A5\u53D7\u4E00\u79CD\u5355\u4F4D\u7C7B\u578B\u6216\u201C\u4EFB\u610F\u5355\u4F4D\u201D"},
     {L"For each unit accepts the units of one player or of all players", L"\u201C\u5BF9\u6BCF\u4E2A\u5355\u4F4D\u201D\u63A5\u53D7\u4E00\u4E2A\u73A9\u5BB6\u6216\u6240\u6709\u73A9\u5BB6\u7684\u5355\u4F4D"},
     {L"Slow: the actions in it run for each unit (up to 1,700) each time. Keep them short", L"\u6162\uFF1A\u5176\u4E2D\u7684\u52A8\u4F5C\u6BCF\u6B21\u90FD\u4F1A\u5BF9\u6BCF\u4E2A\u5355\u4F4D\uFF08\u6700\u591A 1,700 \u4E2A\uFF09\u6267\u884C\u3002\u8BF7\u4FDD\u6301\u7B80\u77ED"},
     {L"For each new unit accepts the units of one player or of all players", L"\u201C\u5BF9\u6BCF\u4E2A\u65B0\u5355\u4F4D\u201D\u63A5\u53D7\u4E00\u4E2A\u73A9\u5BB6\u6216\u6240\u6709\u73A9\u5BB6\u7684\u5355\u4F4D"},

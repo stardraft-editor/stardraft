@@ -2557,16 +2557,20 @@ struct Gen {
                    ") & 1) != 0 && playerexist(pl" + n + ")) {\n            setcurpl(pl" + n + ");\n" + indentLines(b, "        ") + "        }\n    }\n    setcurpl(cp" +
                    n + ");\n}\n";
         }
+        // A unit loop's test of the unit `cu`: one unit type, or a group (Men, Buildings, Factories: the bit of the unit
+        // type's Staredit Group Flags in units.dat, as the game's own triggers read a group); "" for Any unit.
+        auto unitFilter = [&](const std::string& cu) -> std::string {
+            const std::string unit = raw(c, *d, "unit");
+            if (unit == "Any unit" || unit == "229") return {};
+            const char* bit = unit == "Men" || unit == "230" ? "0x08" : unit == "Buildings" || unit == "231" ? "0x10" : unit == "Factories" || unit == "232" ? "0x20" : nullptr;
+            if (bit) return "(bread(0x6637A0 + " + cu + ".unitType) & " + bit + ") != 0";
+            return cu + ".unitType == " + arg(c, *d, "unit");
+        };
         if (id == "act.foreachunit") {
-            const std::string unit = raw(c, *d, "unit"), owner = raw(c, *d, "player");
+            const std::string owner = raw(c, *d, "player");
             ++unitLoops;
             const std::string n = std::to_string(unitLoops);
-            std::string filter;
-            if (unit != "Any unit" && unit != "229") {
-                if (unit == "Men" || unit == "Buildings" || unit == "Factories" || unit == "230" || unit == "231" || unit == "232")
-                    issue(TriggerIssue::Level::Error, &c, d->param("unit"), "For each unit accepts one unit type or Any unit");
-                else filter = "cu" + n + ".unitType == " + arg(c, *d, "unit");
-            }
+            std::string filter = unitFilter("cu" + n);
             std::string loop = "EUDLoopCUnit()";
             if (owner != "AllPlayers") {
                 if (owner.size() >= 2 && owner[0] == 'P' && std::isdigit(static_cast<unsigned char>(owner[1])) && std::atoi(owner.c_str() + 1) <= 8)
@@ -2587,11 +2591,10 @@ struct Gen {
                    (filter.empty() ? b : "    if (" + filter + ") {\n" + indentLines(b, "    ") + "    }\n") + "}\n";
         }
         if (id == "act.foreachnewunit") {  // the units made since this loop last ran (EUDLoopNewCUnit)
-            const std::string unit = raw(c, *d, "unit"), owner = raw(c, *d, "player");
+            const std::string owner = raw(c, *d, "player");
             ++unitLoops;
             const std::string n = std::to_string(unitLoops);
-            std::string filter;
-            if (unit != "Any unit" && unit != "229") filter = "cu" + n + ".unitType == " + arg(c, *d, "unit");
+            std::string filter = unitFilter("cu" + n);
             if (owner != "AllPlayers") {
                 if (owner.size() >= 2 && owner[0] == 'P' && std::isdigit(static_cast<unsigned char>(owner[1])))
                     filter += (filter.empty() ? "" : " && ") + std::string("cu") + n + ".owner == " + std::to_string(std::atoi(owner.c_str() + 1) - 1);

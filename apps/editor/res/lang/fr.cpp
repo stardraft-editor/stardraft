@@ -1702,7 +1702,6 @@ constexpr UiText kRows[] = {
     {L"Select a text of the game", L"S\u00E9lectionnez un texte du jeu"},
     {L"The text has more than two {}. Use at most two: one for each value", L"Le texte contient plus de deux {}. Utilisez-en au plus deux: un pour chaque valeur"},
     {L"For each player accepts all players, Player 1 to Player 8, or a force", L"Pour chaque joueur accepte tous les joueurs, Joueur 1 \u00E0 Joueur 8, ou une force"},
-    {L"For each unit accepts one unit type or Any unit", L"Pour chaque unit\u00E9 accepte un type d'unit\u00E9 ou N'importe quelle unit\u00E9"},
     {L"For each unit accepts the units of one player or of all players", L"Pour chaque unit\u00E9 accepte les unit\u00E9s d'un joueur ou de tous les joueurs"},
     {L"Slow: the actions in it run for each unit (up to 1,700) each time. Keep them short", L"Lent: les actions qu'il contient s'ex\u00E9cutent pour chaque unit\u00E9 (jusqu'\u00E0 1\u00A0700) \u00E0 chaque fois. Gardez-les courtes"},
     {L"For each new unit accepts the units of one player or of all players", L"Pour chaque nouvelle unit\u00E9 accepte les unit\u00E9s d'un joueur ou de tous les joueurs"},
