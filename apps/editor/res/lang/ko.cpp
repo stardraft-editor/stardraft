@@ -2171,6 +2171,7 @@ constexpr UiText kRows[] = {
     {L"Canceled the map image export", L"\uB9F5 \uC774\uBBF8\uC9C0 \uB0B4\uBCF4\uB0B4\uAE30\uB97C \uCDE8\uC18C\uD568"},
     {L"%d units here (Alt+click: list)", L"\uC5EC\uAE30\uC5D0 \uC720\uB2DB %d\uAC1C (Alt+\uD074\uB9AD: \uBAA9\uB85D)"},
     {L"Select a unit &here\u2026", L"\uC5EC\uAE30\uC758 \uC720\uB2DB \uC120\uD0DD(&H)\u2026"},
+    {L"Select a location &here", L"\uC5EC\uAE30\uC758 \uC704\uCE58 \uC120\uD0DD(&H)"},
     {L"Search the units here", L"\uC5EC\uAE30\uC758 \uC720\uB2DB \uAC80\uC0C9"},
     {L"Selected unit ", L"\uC120\uD0DD\uD55C \uC720\uB2DB "},
     {L"Added unit ", L"\uCD94\uAC00\uD55C \uC720\uB2DB "},

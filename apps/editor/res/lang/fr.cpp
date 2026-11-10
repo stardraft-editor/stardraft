@@ -2171,6 +2171,7 @@ constexpr UiText kRows[] = {
     {L"Canceled the map image export", L"Exportation de l'image de la carte annul\u00E9e"},
     {L"%d units here (Alt+click: list)", L"%d unit\u00E9s ici (Alt+clic: liste)"},
     {L"Select a unit &here\u2026", L"S\u00E9lectionner une unit\u00E9 &ici\u2026"},
+    {L"Select a location &here", L"S\u00E9lectionner un emplacement &ici"},
     {L"Search the units here", L"Rechercher parmi les unit\u00E9s ici"},
     {L"Selected unit ", L"Unit\u00E9 s\u00E9lectionn\u00E9e "},
     {L"Added unit ", L"Unit\u00E9 ajout\u00E9e "},

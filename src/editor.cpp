@@ -3890,6 +3890,19 @@ int Editor::locationAt(int x, int y) const {
     return best;
 }
 
+std::vector<int> Editor::locationsAt(int x, int y) const {
+    std::vector<std::pair<long long, int>> found;  // (the area, the location)
+    for (int i = 0; i < int(locations_.size()); ++i) {
+        if (!locationUsed(i)) continue;
+        const Rect r = locationRect(i);
+        if (r.contains(x, y)) found.push_back({1LL * (r.right - r.left) * (r.bottom - r.top), i});
+    }
+    std::sort(found.begin(), found.end());
+    std::vector<int> out;
+    for (const auto& f : found) out.push_back(f.second);
+    return out;
+}
+
 bool Editor::locationInverted(int i) const { return locationInvertedAxes(i) != 0; }
 int Editor::locationInvertedAxes(int i) const {
     if (i < 0 || i >= int(locations_.size())) return 0;

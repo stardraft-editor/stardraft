@@ -612,6 +612,7 @@ public:
     // top more than its bottom).
     Rect locationEdges(int i) const;
     int locationAt(int x, int y) const;  // smallest used location containing the point, or -1 (never Anywhere)
+    std::vector<int> locationsAt(int x, int y) const;  // each used location containing the point, the smallest first
     // Returns index or -1 if all slots are used. inverted: right < left and bottom < top (the game's trick: such a
     // location holds air units only); one undo step either way.
     // axes (with inverted): 1 left and right swapped, 2 top and bottom swapped, 3 both.

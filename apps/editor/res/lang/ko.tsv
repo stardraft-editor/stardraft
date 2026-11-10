@@ -2168,6 +2168,7 @@ Part %d of %d	%d/%d 부분
 Canceled the map image export	맵 이미지 내보내기를 취소함
 %d units here (Alt+click: list)	여기에 유닛 %d개 (Alt+클릭: 목록)
 Select a unit &here…	여기의 유닛 선택(&H)…
+Select a location &here	여기의 위치 선택(&H)
 Search the units here	여기의 유닛 검색
 Selected unit 	선택한 유닛 
 Added unit 	추가한 유닛 

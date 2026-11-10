@@ -62,6 +62,7 @@ enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMEN
        ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK, ID_MAPMENU_SAVESTAMP, ID_MAPMENU_COPYTILE, ID_MAPMENU_FEEDBACKSEL,
        ID_MAPMENU_PROTECT, ID_MAPMENU_UNPROTECT, ID_MAPMENU_ADDANCHOR, ID_MAPMENU_REMOVEANCHOR, ID_MAPMENU_CENTERANCHOR, ID_MAPMENU_CLEARMASK, ID_MAPMENU_COPYTEXT,
        ID_MAPMENU_SELVIEW, ID_MAPMENU_SELPLAYER, ID_MAPMENU_SELINVERT };
+constexpr int ID_MAPMENU_LOCROW = 9600;  // + a location: the locations under the click, to select one (GitHub feedback #265)
 constexpr int ID_MAPMENU_LAYERROW = 9300;  // + a layer's row + 1 (0: the Background), Map Layers' menu on the map
 
 int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
@@ -331,6 +332,18 @@ MenuModel mapMenuModel(float wx, float wy) {
         more.push_back(menuItem(ID_MAPMENU_SELINVERT, L"&Invert selection"));
         m.push_back(menuPopup(L"Select &more", std::move(more)));
     }
+    // Locations one over another: the ones under the click, the smallest first, to select the one that a click does
+    // not reach (a large location under small ones).
+    if (app.mode == Mode::Locations) {
+        const std::vector<int> under = ed.locationsAt(int(wx), int(wy));
+        MenuModel here;
+        for (int l : under) {
+            std::wstring name = widen(ed.locationName(l));
+            for (size_t at = name.find(L'&'); at != std::wstring::npos; at = name.find(L'&', at + 2)) name.insert(at, 1, L'&');
+            here.push_back(menuItem(ID_MAPMENU_LOCROW + l, name, {}, false, l == ed.selectedLocation()));
+        }
+        if (under.size() > 1) m.push_back(menuPopup(L"Select a location &here", std::move(here)));
+    }
     item(ID_MAPMENU_SELECT, L"&Select (no placing)", L"Esc", !inSelection());
     // The selected units to another player (as the number keys do with a selection and no unit to place).
     if (app.mode == Mode::Units && has && app.palette < 0 && !app.pasting) {
@@ -369,6 +382,14 @@ MenuModel mapMenuModel(float wx, float wy) {
 void mapMenuPick(int pick) {
     AppState& app = appState();
     if (pick >= ID_MAPMENU_LAYERROW && pick <= ID_MAPMENU_LAYERROW + int(gMapLayers.stack.layers.size())) return mapLayersPick(pick - ID_MAPMENU_LAYERROW - 1, 0);
+    if (pick >= ID_MAPMENU_LOCROW && pick < ID_MAPMENU_LOCROW + 256) {  // (it alone, as a click on it)
+        const int l = pick - ID_MAPMENU_LOCROW;
+        if (!app.ed || !app.ed->locationUsed(l)) return;
+        app.ed->selectLocation(l);
+        setMessage(L"Selected " + widen(app.ed->locationName(l)));
+        app.dirty = true;
+        return;
+    }
     if (pick == ID_MAPMENU_PROPS && gMapMenuUnit >= 0) showUnitProperties(gMapMenuUnit);
     else if (pick == ID_MAPMENU_STACK) showUnitStack(gMapMenuWX, gMapMenuWY, app.mouseX, app.mouseY, false);
     else if (pick == ID_MAPMENU_SELECT) enterSelection(), setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");
