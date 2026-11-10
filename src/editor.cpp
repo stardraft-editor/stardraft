@@ -25,6 +25,7 @@
 #include <set>
 
 #include "stardraft/game_data.h"
+#include "stardraft/mods/hyperion.h"
 #include "stardraft/new_map.h"
 #include "stardraft/ramps.h"  // (a terrain stroke's end fits the ramps again)
 #include "stardraft/terrain_gen.h"
@@ -64,8 +65,14 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     };
     finishFiles();  // a map still being read: done with it first
     Bytes raw;
+    const bool hxm = hyperion::isHxm(path);  // (a Hyperion map: compiled to its CHK, its files read with it)
+    hyperion::HxmMap hx;
     bool archive = lower(path.extension().string()) != ".chk";
-    if (archive) {
+    if (hxm) {
+        if (!hyperion::readHxmFile(path, hx, error)) return false;
+        raw = std::move(hx.chk);
+        step("read the scenario");
+    } else if (archive) {
         // The scenario now; the other files (sounds can be megabytes) on a thread, ready when something needs them.
         if (!readMapFile(path, raw, error)) return false;
         step("read the scenario");
@@ -95,7 +102,9 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     filesError_.clear();
     unreadable_.clear();
     pendingUnreadable_ = std::make_shared<std::vector<std::string>>();
-    if (archive)
+    if (hxm)
+        files_ = std::move(hx.files);
+    else if (archive)
         pendingFiles_ = std::async(std::launch::async, [path, unreadable = pendingUnreadable_] {
             std::vector<ArchiveFile> files;
             std::string err;
@@ -331,7 +340,9 @@ bool Editor::save(const std::filesystem::path& path, std::string& error) {
         const std::string check = terrainCheck();
         setQuietArchiveFile(kLayersCheckFile, Bytes(check.begin(), check.end()));
     }
-    if (archive) {
+    if (hyperion::isHxm(path)) {
+        if (!hyperion::writeHxmFile(path, {raw, files_, {}}, error)) return false;
+    } else if (archive) {
         if (!writeMap(path, raw, files_, error)) return false;
     } else if (!writeFile(path, std::string_view(reinterpret_cast<const char*>(raw.data()), raw.size()), error)) {
         return false;
@@ -341,6 +352,12 @@ bool Editor::save(const std::filesystem::path& path, std::string& error) {
     savedState_ = state_;
     savedSlots_ = slots;
     return true;
+}
+
+bool Editor::writeHxmCopy(const std::filesystem::path& path, std::string& error) const {
+    finishFiles();
+    if (!filesError_.empty()) return error = filesError_, false;
+    return hyperion::writeHxmFile(path, {savedChk(), files_, {}}, error);
 }
 
 void Editor::reloadTerrain() {
@@ -2889,7 +2906,7 @@ void Editor::resizeShift(int& shiftX, int& shiftY) {
 
 bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX, int shiftY, uint16_t fill, std::string& error) {
     if (!isomOk_) return error = "the map's terrain has no ISOM data, so the size and tileset cannot change", false;
-    if (width < 16 || height < 16 || width > 256 || height > 256) return error = "the size must be 16 to 256 tiles", false;
+    if (width < 16 || height < 16 || width > 1024 || height > 1024) return error = "the size must be 16 to 1024 tiles", false;
     const IsomTerrainTable* oldTable = IsomTerrainTable::forEra(era_);
     const IsomTerrainTable* newTable = IsomTerrainTable::forEra(era);
     if (!oldTable || !newTable) return error = "unknown tileset", false;

@@ -483,6 +483,9 @@ void registerMapCommands() {
     addCommand(ID_CMBW_CHECKCOMMENTS, "scen.cmbw.checkComments", L"&Check the CRIG commands", "Cosmonarchy", L"", [] { cmbwCheckCommentsCommand(); });
     addCommand(ID_CMBW_ISOMRULES, "tools.cmbw.isomRules", L"Custom isom &terrain editor\x2026", "Cosmonarchy", L"", [] { isomRulesShow(); });
     if (kRampBridgeTools) addCommand(ID_CMBW_PASSAGES, "tools.cmbw.passages", L"Ramp and &bridge mapper\x2026", "Cosmonarchy", L"", [] { passagesShow(); });
+    addCommand(ID_HYP_CHECK, "tools.hyperion.check", L"&Check the map in Hyperion", "Hyperion", L"", [] { hyperionCheckCommand(); });
+    addCommand(ID_HYP_TEST, "tools.hyperion.test", L"&Test in Hyperion (melee)", "Hyperion", L"", [] { hyperionTestCommand(false); });
+    addCommand(ID_HYP_TESTUMS, "tools.hyperion.testUms", L"Test in Hyperion (&Use Map Settings)", "Hyperion", L"", [] { hyperionTestCommand(true); });
     addCommand(ID_SCEN_PATHCHECK, "scen.checkPathing", L"Check &pathing (nooks and crannies)", "Scenario", L"", [] { pathingCheckCommand(); });
     // View: the camera. Ctrl with + or - (the layout's keys), and the number pad's + and -, are the map view's own keys:
     // the number row's - is player 11 (sdl_main_view.inc).

@@ -32,10 +32,11 @@ int NewPageView::paragraph(draw::Canvas& c, draw::Rect r, const std::wstring& te
 }
 
 void NewPageView::paintSizeRow(draw::Canvas& c, int x, int y, int labelW, int right, const wchar_t* name, uint16_t& value, int which) {
-    const int n = int(std::size(kMapSizes)), rowH = scale(stardraft::kit::kFormRowH), cy = y + rowH / 2;
+    const std::span<const uint16_t> sizes = mapSizes();
+    const int n = int(sizes.size()), rowH = scale(stardraft::kit::kFormRowH), cy = y + rowH / 2;
     float at = 0;  // (the thumb: at a stop, or between two for a typed size)
     for (int i = 0; i + 1 < n; ++i)
-        if (value >= kMapSizes[i]) at = float(i) + std::min(1.0f, float(value - kMapSizes[i]) / float(kMapSizes[i + 1] - kMapSizes[i]));
+        if (value >= sizes[i]) at = float(i) + std::min(1.0f, float(value - sizes[i]) / float(sizes[i + 1] - sizes[i]));
     c.text({x, y, x + labelW - scale(48), y + rowH}, name, kDim, draw::kMiddle | draw::kEllipsis);
     c.text({x + labelW - scale(56), y, x + labelW - scale(4), y + rowH}, std::to_wstring(value), kText, draw::kMiddle | draw::kRight);
     const int x0 = x + labelW + scale(8), x1 = right - scale(8);
@@ -51,15 +52,15 @@ void NewPageView::paintSizeRow(draw::Canvas& c, int x, int y, int labelW, int ri
     label.r = {x, y, area.left, y + rowH}, label.name = name;  // its name and value: feedback on it
     hits.push_back(label);
     uint16_t* p = &value;
-    Hit typed;  // (a click on the value: type any size, 16 to 256, as Crop or extend takes)
+    Hit typed;  // (a click on the value: type any size, 16 to the largest, as Crop or extend takes)
     typed.r = {x + labelW - scale(56), y, x + labelW - scale(4), y + rowH}, typed.name = name, typed.cursor = draw::Cursor::Hand;
-    typed.tip = L"Click to type a size: 16 to 256 tiles";
+    typed.tip = L"Click to type a size: 16 to " + std::to_wstring(maxMapSide()) + L" tiles";
     typed.click = [this, p, name] {
         // (copies first: the prompt's loop paints the page again, which makes these hits again and ends this one)
         uint16_t* const target = p;
         const std::wstring what = name;
         NewPageView* const self = this;
-        std::vector<NumberAsk> asks{{what, tr(L"tiles"), double(*target), 16, 256}};
+        std::vector<NumberAsk> asks{{what, tr(L"tiles"), double(*target), 16, double(maxMapSide())}};
         if (!shellAskNumbers(tr(L"Map size"), asks)) return;
         const int v = int(asks[0].value);
         if (v != *target) *target = uint16_t(v), self->changed();
@@ -67,23 +68,23 @@ void NewPageView::paintSizeRow(draw::Canvas& c, int x, int y, int labelW, int ri
     hits.push_back(typed);
     Hit h;
     h.r = area, h.cursor = draw::Cursor::Hand;
-    h.press = [this, p, x0, x1, n](draw::Point pt) {
+    h.press = [this, p, x0, x1, n, sizes](draw::Point pt) {
         const float f = std::clamp(float(pt.x - x0) / float(std::max(1, x1 - x0)), 0.0f, 1.0f);
-        const uint16_t nv = kMapSizes[std::clamp(int(std::lround(f * float(n - 1))), 0, n - 1)];
+        const uint16_t nv = sizes[std::clamp(int(std::lround(f * float(n - 1))), 0, n - 1)];
         if (nv != *p) *p = nv, changed();
     };
-    h.wheel = [this, p, n](int dir) {  // (the next stop above or under the size, also a typed one between them)
+    h.wheel = [this, p, n, sizes](int dir) {  // (the next stop above or under the size, also a typed one between them)
         uint16_t nv = *p;
         if (dir > 0) {
             for (int k = 0; k < n; ++k)
-                if (kMapSizes[k] > *p) {
-                    nv = kMapSizes[k];
+                if (sizes[k] > *p) {
+                    nv = sizes[k];
                     break;
                 }
         } else {
             for (int k = n - 1; k >= 0; --k)
-                if (kMapSizes[k] < *p) {
-                    nv = kMapSizes[k];
+                if (sizes[k] < *p) {
+                    nv = sizes[k];
                     break;
                 }
         }
@@ -187,7 +188,7 @@ void NewPageView::paint(draw::Canvas& c) {
             const std::wstring map = fromMapText();
             sub = map.empty() ? L"an imported map" : L"imported from " + fs::path(map).filename().wstring();
         }
-        y = kitpaint::drawTitle(c, x1, y, x3 + w3, {}, true, proj ? UiIcon::Project : UiIcon::Map, cosmonarchy ? kCosmonarchyName : kKindNames[proj ? 1 : 0],
+        y = kitpaint::drawTitle(c, x1, y, x3 + w3, {}, true, proj ? UiIcon::Project : UiIcon::Map, cosmonarchy ? kCosmonarchyName : !proj && hyperionMode() ? kHyperionName : kKindNames[proj ? 1 : 0],
                                 sub, false)
                 .next;
     }

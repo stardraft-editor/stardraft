@@ -31,6 +31,7 @@
 #include "stardraft/dat_extras.h"
 #include "stardraft/dat_units.h"
 #include "stardraft/editor.h"
+#include "stardraft/mods/hyperion.h"  // Hyperion maps (.hxm): read and written as their CHK and files
 #include "stardraft/campaign.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/euddraft.h"
@@ -366,11 +367,16 @@ bool samePath(const fs::path& a, const fs::path& b) {
 
 bool isChk(const fs::path& p) { return lower(ustr(p.extension())) == ".chk"; }
 
-// The scenario of a map file (.scm, .scx or .chk).
+// The scenario of a map file (.scm, .scx, .chk or .hxm).
 Bytes readScenario(const fs::path& map) {
     if (isChk(map)) return readBytes(map);
-    Bytes raw;
     std::string err;
+    if (stardraft::hyperion::isHxm(map)) {
+        stardraft::hyperion::HxmMap hxm;
+        if (!stardraft::hyperion::readHxmFile(map, hxm, err)) fail(err);
+        return hxm.chk;
+    }
+    Bytes raw;
     if (!readMapChk(map, raw, err)) fail(err);
     return raw;
 }
@@ -1324,7 +1330,11 @@ Json cmdStatus(Session& s) {
 std::vector<ArchiveFile> mapFiles(const Work& w) {
     std::vector<ArchiveFile> files;
     std::string err;
-    if (!isChk(w.source)) {
+    if (stardraft::hyperion::isHxm(w.source)) {
+        stardraft::hyperion::HxmMap hxm;
+        if (!stardraft::hyperion::readHxmFile(w.sourceCopy(), hxm, err)) fail(err);
+        files = std::move(hxm.files);
+    } else if (!isChk(w.source)) {
         if (!readMapFiles(w.sourceCopy(), files, err)) fail(err);
         files.erase(std::remove_if(files.begin(), files.end(), [](const ArchiveFile& f) { return lower(f.name) == lower(kChkArchivePath); }), files.end());
     }
@@ -1570,6 +1580,9 @@ Json cmdSave(Session& s) {
     const Bytes chk = ed.savedChk();  // (the working copy, with the slots the game reads: Editor::gameSlots)
     if (isChk(dst)) {
         writeBytes(dst, chk);
+    } else if (stardraft::hyperion::isHxm(dst)) {
+        std::string err;
+        if (!stardraft::hyperion::writeHxmFile(dst, {chk, mapFiles(w), {}}, err)) fail(err);
     } else {
         // The map's other files (sounds and the like) come from the map file as it was opened.
         std::string err;
@@ -1740,7 +1753,7 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
                     [--map <file>]             the map, when the one that the project names is not there
   stardraft-cli add-file <map> <name> <file> put a file (a sound: sound\\x.wav) into the map; --remove takes one out
   stardraft-cli check <map | project>       the checks of a save and a build (start locations, scripts, triggers)
-  stardraft-cli save <map> [--to <path>] [--anyway]    write the map (.scm, .scx or .chk)
+  stardraft-cli save <map> [--to <path>] [--anyway]    write the map (.scm, .scx, .chk or .hxm)
   stardraft-cli close <map> [--discard]     remove the working folder
   stardraft-cli ops                         the operations that apply takes, with their parameters
   stardraft-cli skill                       the skill for AI agents (Markdown): how to use stardraft-cli

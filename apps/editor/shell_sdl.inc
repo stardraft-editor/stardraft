@@ -597,6 +597,70 @@ void shellChooseInstallFolder() {
                 {L"OK"}, msgbox::Icon::Info);
     shellLogLine(L"StarCraft folder set to " + dir.wstring() + L" (from the next start)");
 }
+// Another program started on its own (Tools > Hyperion > Test in Hyperion: core/hyperion.inc): args[0] with the other
+// arguments as they are, in `dir`; StarDraft does not wait for it, and it keeps running when StarDraft closes.
+bool shellStartProgram(const std::vector<std::string>& args, const fs::path& dir, std::wstring& error) {
+    if (args.empty()) return error = L"No program to start", false;
+#ifdef _WIN32
+    // (Windows: CreateProcess without StarDraft's handles: SDL's processes inherit them, its open files and pipes too)
+    std::wstring cmd;
+    for (const std::string& a : args) {  // (each word quoted, as CommandLineToArgvW reads it back)
+        const std::wstring w = widen(a);
+        if (!cmd.empty()) cmd += L' ';
+        cmd += L'"';
+        size_t slashes = 0;
+        for (const wchar_t ch : w) {
+            if (ch == wchar_t(0x5C)) ++slashes;  // (a backslash)
+            else {
+                if (ch == L'"') cmd.append(slashes + 1, wchar_t(0x5C));
+                slashes = 0;
+            }
+            cmd += ch;
+        }
+        cmd.append(slashes, wchar_t(0x5C));
+        cmd += L'"';
+    }
+    STARTUPINFOW si{};
+    si.cb = sizeof(si);
+    PROCESS_INFORMATION pi{};
+    const std::wstring where = dir.wstring();
+    if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, 0, nullptr, where.empty() ? nullptr : where.c_str(), &si, &pi))
+        return error = L"Could not start " + fs::path(widen(args[0])).filename().wstring() + L" (error " + std::to_wstring(GetLastError()) + L")", false;
+    CloseHandle(pi.hThread), CloseHandle(pi.hProcess);  // (the handles only: the program keeps running)
+    return true;
+#else
+    std::vector<const char*> argv;
+    for (const std::string& a : args) argv.push_back(a.c_str());
+    argv.push_back(nullptr);
+    const std::string where = narrow(dir.wstring());
+    const SDL_PropertiesID props = SDL_CreateProperties();
+    SDL_SetPointerProperty(props, SDL_PROP_PROCESS_CREATE_ARGS_POINTER, argv.data());
+    if (!where.empty()) SDL_SetStringProperty(props, SDL_PROP_PROCESS_CREATE_WORKING_DIRECTORY_STRING, where.c_str());
+    SDL_SetBooleanProperty(props, SDL_PROP_PROCESS_CREATE_BACKGROUND_BOOLEAN, true);
+    // (none of StarDraft's input and output: a program started from a console or a pipe does not hold them open)
+    SDL_SetNumberProperty(props, SDL_PROP_PROCESS_CREATE_STDIN_NUMBER, SDL_PROCESS_STDIO_NULL);
+    SDL_SetNumberProperty(props, SDL_PROP_PROCESS_CREATE_STDOUT_NUMBER, SDL_PROCESS_STDIO_NULL);
+    SDL_SetNumberProperty(props, SDL_PROP_PROCESS_CREATE_STDERR_NUMBER, SDL_PROCESS_STDIO_NULL);
+    SDL_Process* p = SDL_CreateProcessWithProperties(props);
+    SDL_DestroyProperties(props);
+    if (!p) return error = L"Could not start " + fs::path(args.empty() ? std::string() : args[0]).filename().wstring() + L" (" + widen(SDL_GetError()) + L")", false;
+    SDL_DestroyProcess(p);  // (the handle only: the program keeps running)
+    return true;
+#endif
+}
+// Program options > Plugins > Hyperion folder's Browse: a folder that has the Hyperion program (core/hyperion.inc).
+void shellChooseHyperionFolder() {
+    const std::wstring picked = shellPickFolder(shellTr(L"Select the folder with the Hyperion program"));
+    if (picked.empty() || !gRoot) return;
+    if (hyperionExeIn(fs::path(picked)).empty()) {
+        msgbox::ask(*gRoot, shellTr(L"Hyperion folder"), shellTr(L"That folder has no Hyperion program (Hyperion.exe)."), {L"OK"}, msgbox::Icon::Warning);
+        return;
+    }
+    gHyperionDir = fs::path(picked);
+    if (!gSilent) prefs::setText(L"HyperionFolder", picked);  // (tests never change the user's settings)
+    gOptionsView.invalidate();
+    setMessage(L"Set the Hyperion folder");
+}
 void shellChooseCmbwFolder() {
     const std::wstring picked = shellPickFolder(shellTr(L"Select the Cosmonarchy BW folder"));
     if (picked.empty() || !gRoot) return;

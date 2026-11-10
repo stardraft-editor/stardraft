@@ -20,6 +20,7 @@
 #include "views_loading.inc"  // the map's loading view: the file, a progress bar and the steps (openMap)
 #include "documents.inc"
 #include "cmbw.inc"  // Cosmonarchy BW maps: tabs with the mod's data (src/mods/cmbw.cpp)
+#include "hyperion.inc"  // Hyperion maps: .hxm files, and the map tested in Hyperion (src/mods/hyperion.cpp)
 #include "layout.inc"
 #include "menu_model.inc"
 #include "commands_core.inc"

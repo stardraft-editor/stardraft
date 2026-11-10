@@ -21,6 +21,7 @@
 #include <optional>
 #include <random>
 #include <set>
+#include <span>  // (core/views_map_props.inc: mapSizes)
 #include <sstream>
 #include <string>
 #include <thread>
@@ -80,6 +81,7 @@
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
 #include "stardraft/game_data.h"
 #include "stardraft/mods/cmbw.h"
+#include "stardraft/process.h"  // runProcess (core/hyperion.inc: Hyperion's map check)
 #include "stardraft/mods/terrain_rules.h"
 #include "stardraft/pathing.h"
 #include "stardraft/pathing_regions.h"

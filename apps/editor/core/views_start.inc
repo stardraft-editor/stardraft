@@ -20,6 +20,9 @@ const wchar_t* const kKindCards[] = {
 // The last card when Program options > Start > Show Cosmonarchy BW is on (core/cmbw.inc).
 const wchar_t* const kCosmonarchyName = L"Cosmonarchy map";
 const wchar_t* const kCosmonarchyCard = L"Make maps with the units of the Cosmonarchy BW mod.";
+// The one card while the Hyperion plugin is loaded (core/hyperion.inc).
+const wchar_t* const kHyperionName = L"Hyperion map";
+const wchar_t* const kHyperionCard = L"Make maps for Hyperion, up to 512 tiles a side, saved as .hxm.";
 
 // The banner when no StarCraft install was found (the start page's top).
 const wchar_t* const kNoInstallText = L"Could not find StarCraft on your system.";
@@ -84,6 +87,9 @@ public:
     // Program options > Plugins > Cosmonarchy BW loaded: the Cosmonarchy map card alone (no classic map or projects).
     bool cosmonarchyOnly = false;
     std::function<void()> onCosmonarchy;
+    // Program options > Plugins > Hyperion loaded: with cosmonarchyOnly, the one card is the Hyperion map card (its
+    // onCosmonarchy opens the New map page).
+    bool hyperionOnly = false;
     std::function<std::wstring(const fs::path&)> dateOf;
     // The host's scroll bar for the page after a paint that changed it: the largest position, the page size, the position.
     std::function<void(int, int, int)> scrollInfo;
@@ -175,9 +181,9 @@ public:
         const int inPad = scale(16), iconS = scale(32);
         int textH = 0;  // all cards have the height of the longest text
         // The last card: Cosmonarchy map in place of Mod project, when Program options > Start > Show Cosmonarchy BW is on.
-        const bool cmbwCard = cosmonarchyOnly;
-        auto cardName = [cmbwCard](int k) { return k == 3 && cmbwCard ? kCosmonarchyName : kKindNames[k]; };
-        auto cardText = [cmbwCard](int k) { return k == 3 && cmbwCard ? kCosmonarchyCard : kKindCards[k]; };
+        const bool cmbwCard = cosmonarchyOnly, hypCard = hyperionOnly;
+        auto cardName = [cmbwCard, hypCard](int k) { return k == 3 && cmbwCard ? (hypCard ? kHyperionName : kCosmonarchyName) : kKindNames[k]; };
+        auto cardText = [cmbwCard, hypCard](int k) { return k == 3 && cmbwCard ? (hypCard ? kHyperionCard : kCosmonarchyCard) : kKindCards[k]; };
         for (int k = 0; k < 4; ++k) textH = std::max(textH, c.measureBox(cardText(k), cardW - 2 * inPad, kWrap).y);
         const int cardH = inPad + iconS + scale(12) + scale(26) + scale(6) + textH + inPad;
         const UiIcon icons[] = {UiIcon::Map, UiIcon::Project, UiIcon::Folder, UiIcon::Assets};
@@ -215,7 +221,7 @@ public:
                               }, L"", Cursor::Hand, nullptr, std::wstring(L"the ") + cardName(k) + L" card"});
             } else {
                 surface_.add({card, nullptr, nullptr,
-                                 !soon ? (cosmonarchyOnly ? L"Select the Cosmonarchy BW folder first (Options > Program options > Plugins)"
+                                 !soon ? (cosmonarchyOnly && !hyperionOnly ? L"Select the Cosmonarchy BW folder first (Options > Program options > Plugins)"
                                                           : L"Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files")
                                  : k == 2 ? L"Campaign projects come in a later version"
                                           : L"Mod projects come in a later version",

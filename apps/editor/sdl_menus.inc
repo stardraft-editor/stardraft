@@ -251,6 +251,7 @@ bool sdlRuns(int id) {
     case ID_VIEW_LOG:
     case ID_OPT_INSTALL:
     case ID_OPT_CMBWFOLDER:
+    case ID_OPT_HYPERIONFOLDER:
     case ID_OPT_TERRAINOVERRIDE:
     case ID_OPT_TERRAINOVERRIDEFILE:
     case ID_OPT_PASSAGES:
@@ -333,6 +334,7 @@ bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
     if ((id == ID_CMBW_REPAIRISOM || id == ID_CMBW_CHECKCOMMENTS) && !modTab()) return false;  // (a Cosmonarchy map's tab only)
     if ((id == ID_CMBW_ISOMRULES || id == ID_CMBW_PASSAGES) && !cmbwMode()) return false;  // (the mod loaded)
+    if (id >= ID_HYP_CHECK && id <= ID_HYP_TESTUMS && (!hyperionMode() || !docOpen())) return false;  // (the plugin loaded, a map open)
     if ((id == ID_VIEW_HD || id == ID_VIEW_HD2 || id == ID_VIEW_CARBOT) && cmbwMode()) return false;  // (SD art only: cmbwKeepSd)
     if (simBarShown() && simLocksCommand(id)) return false;
     if (id >= ID_SIM_PLAY && id <= ID_SIM_CLOSE && !simCommandEnabled(id)) return false;  // (the bar's: while it shows)
@@ -1398,6 +1400,16 @@ void showFileDialog(bool save, std::function<void(const fs::path&)> done) {
                                                  {"Scenario data", "chk"},
                                                  {"All files", "*"}};
     static const SDL_DialogFileFilter kSave[] = {{"StarCraft maps", "scx;scm"}, {"Scenario data", "chk"}, {"All files", "*"}};
+    // (the Hyperion plugin: its maps too, first in a save; core/hyperion.inc)
+    static const SDL_DialogFileFilter kOpenHyperion[] = {{"Maps and projects", "scx;scm;hxm;chk;stardraft;eds"},
+                                                         {"StarCraft maps", "scx;scm"},
+                                                         {"Hyperion maps", "hxm"},
+                                                         {"StarDraft 2 projects", "stardraft;eds"},
+                                                         {"Scenario data", "chk"},
+                                                         {"All files", "*"}};
+    static const SDL_DialogFileFilter kSaveHyperion[] = {{"Hyperion maps", "hxm"}, {"StarCraft maps", "scx;scm"}, {"Scenario data", "chk"}, {"All files", "*"}};
+    const bool hyp = hyperionMode();
+    const std::wstring untitled = hyp ? L"Untitled.hxm" : L"Untitled.scx";
     auto* call = new DialogCall{std::move(done)};
     // StarCraft's maps folder, where the game lists the maps (macOS: ~/Library/Application Support/Blizzard/StarCraft/
     // Maps), when it is there; else "" (the system chooses).
@@ -1414,12 +1426,12 @@ void showFileDialog(bool save, std::function<void(const fs::path&)> done) {
         const fs::path path = gState.ed ? gState.ed->path() : fs::path();
         const fs::path maps = mapsFolder();
         const std::string where = !path.empty() ? sdlDialogLocation(path.parent_path(), path.filename().wstring())
-                                  : maps.empty() ? std::string("Untitled.scx")
-                                                 : sdlDialogLocation(maps, L"Untitled.scx");
-        sdlFileDialog(SDL_FILEDIALOG_SAVEFILE, dialogDone, call, kSave, 3, where, "");
+                                  : maps.empty() ? narrow(untitled)
+                                                 : sdlDialogLocation(maps, untitled);
+        sdlFileDialog(SDL_FILEDIALOG_SAVEFILE, dialogDone, call, hyp ? kSaveHyperion : kSave, hyp ? 4 : 3, where, "");
     } else {
         const fs::path maps = mapsFolder();
-        sdlFileDialog(SDL_FILEDIALOG_OPENFILE, dialogDone, call, kOpen, 5, maps.empty() ? std::string() : sdlDialogLocation(maps), "");
+        sdlFileDialog(SDL_FILEDIALOG_OPENFILE, dialogDone, call, hyp ? kOpenHyperion : kOpen, hyp ? 6 : 5, maps.empty() ? std::string() : sdlDialogLocation(maps), "");
     }
 }
 
@@ -1462,7 +1474,7 @@ void saveOpenMap(bool as, std::function<void(bool)> done = {}) {
     const Editor* asked = gState.ed.get();  // (the answer saves this map, not the tab that is active then)
     showFileDialog(true, [done, asked](const fs::path& picked) {
         fs::path p = picked;
-        if (!p.empty() && !p.has_extension()) p += ".scx";  // a name without an extension is a StarCraft map
+        if (!p.empty() && !p.has_extension()) p += hyperionMode() ? ".hxm" : ".scx";  // a name without an extension is a StarCraft map (Hyperion: a Hyperion map)
         const bool ok = !p.empty() && saveTo(p, asked);
         if (done) done(ok);
     });
@@ -1560,7 +1572,7 @@ void commandSdl(int id) {
     case ID_GO_PROPS: return command(ID_SCEN_PROPS);
     case ID_GO_ASSETS: return command(ID_WS_ASSETS);
     case ID_GO_DATA: return command(activeProject() ? ID_WS_DATA : ID_SCEN_CLASSIC);
-    case ID_FILE_NEW: openNewPageSdl(cmbwMode() ? 2 : -1); return;  // the start page (Cosmonarchy: the New page of a Cosmonarchy map)
+    case ID_FILE_NEW: openNewPageSdl(cmbwMode() ? 2 : hyperionMode() ? 0 : -1); return;  // the start page (Cosmonarchy, Hyperion: the New page of such a map)
     case ID_PROJ_NEW: openNewPageSdl(1); return;   // the New page, an EUD project's choices
     case ID_OPT_WINDOW: showOptionsSdl(); return;
     case ID_HELP_FEEDBACK: showFeedbackSdl(L"StarDraft 2"); return;
@@ -1592,6 +1604,7 @@ void commandSdl(int id) {
     case ID_VIEW_LOG: gLogPane.setExpanded(!gLogPane.expanded()); return;
     case ID_OPT_INSTALL: shellChooseInstallFolder(); return;
     case ID_OPT_CMBWFOLDER: shellChooseCmbwFolder(); return;
+    case ID_OPT_HYPERIONFOLDER: shellChooseHyperionFolder(); return;
     case ID_OPT_TERRAINOVERRIDE: shellToggleTerrainOverride(); return;
     case ID_OPT_TERRAINOVERRIDEFILE: shellChooseTerrainOverride(); return;
     case ID_OPT_PASSAGES: passagesToggle(); return;  // (core/views_passages.inc)

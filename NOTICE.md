@@ -1,7 +1,8 @@
 # Third-party software and sources
 
-StarDraft is MIT-licensed (see LICENSE). It uses the projects below. Except for IsomTerrain, they are not copied into
-this repository: the build downloads the libraries (CMakeLists.txt, FetchContent), and the documents and data are linked.
+StarDraft is MIT-licensed (see LICENSE). It uses the projects below. Except for IsomTerrain and Hyperion's map format
+code, they are not copied into this repository: the build downloads the libraries (CMakeLists.txt, FetchContent), and
+the documents and data are linked.
 
 ## Libraries
 
@@ -19,6 +20,7 @@ this repository: the build downloads the libraries (CMakeLists.txt, FetchContent
 | Gumbo (in litehtml) | Parses the HTML for litehtml | Apache-2.0 | https://github.com/litehtml/litehtml/tree/master/src/gumbo |
 | Map Simulation | The simulation bar's mining and rush distance (Tools > Simulate mining, Simulate rush distance; `tools/map_lab/`) | MIT, Copyright (c) 2026 Map Editor contributors | Pull request 260 (`third_party/map-simulation/README.md`) |
 | IsomTerrain | The isometric terrain core: StarEdit's brush and tiles (`src/isom_core.cpp`) | MIT, Copyright (c) 2023 Justin F | https://github.com/TheNitesWhoSay/IsomTerrain |
+| Hyperion | Hyperion's map format (.hxm): its compile to a CHK and its name tables, ported to C++ (`src/mods/hyperion.cpp`, `src/mods/hyperion_names.inc`, from Hyperion's `port_hxm.cpp` and `port_hxm_names.h`) | MIT, the Hyperion authors | https://github.com/Mad-Man-Dan/hyperion-public |
 | Dear ImGui | stardraft-next's UI (the new shell's spike) | MIT | https://github.com/ocornut/imgui |
 | Noto Sans, Noto Sans KR, Noto Sans SC | The fonts (Latin, Korean, Chinese) on macOS and Linux; on Windows only Noto Sans, when Segoe UI is not there | SIL Open Font License 1.1 | https://github.com/notofonts |
 

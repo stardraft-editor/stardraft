@@ -109,8 +109,11 @@ public:
     bool newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terrain, std::string& error);
     // New badlands map with generated terrain (see terrain_gen.h).
     bool generateMap(const struct TerrainGenParams& params, std::string& error);
-    // Writes a .scm/.scx archive (keeping the other archive files) or a raw .chk.
+    // Writes a .scm/.scx archive (keeping the other archive files), a Hyperion map (.hxm) or a raw .chk.
     bool save(const std::filesystem::path& path, std::string& error);
+    // The map as a Hyperion map (.hxm, mods/hyperion.h) at `path`, as save would write it, without changing the map's
+    // path or its saved state (a copy for Hyperion's check).
+    bool writeHxmCopy(const std::filesystem::path& path, std::string& error) const;
     const std::filesystem::path& path() const { return path_; }
     // The map archive's files besides the scenario (sounds and the like), as loaded.
     // The archive's other files (sounds, ...): read on a thread after open; these wait for it.

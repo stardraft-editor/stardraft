@@ -196,6 +196,8 @@ void shellChooseInstallFolder();
 // Program options > Cosmonarchy folder's Browse: the folder of the Cosmonarchy BW install (Prerelease, Release or the
 // Cosmonarchy folder that holds them), at once when the mod's data is not open yet, else from the next start.
 void shellChooseCmbwFolder();
+// Program options > Plugins > Hyperion folder's Browse: the folder that has the Hyperion program (core/hyperion.inc).
+void shellChooseHyperionFolder();
 // Program options > Plugins > ISOM terrain rules override: on or off, and Browse (a terrain rules file).
 void shellToggleTerrainOverride();
 void shellChooseTerrainOverride();

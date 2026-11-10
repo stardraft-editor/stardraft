@@ -7,6 +7,13 @@
 
 // The sizes StarEdit offers (also New map) and the anchor names of "Map content at".
 const uint16_t kMapSizes[] = {64, 96, 128, 192, 256};
+const uint16_t kHyperionMapSizes[] = {64, 96, 128, 192, 256, 384, 512};  // (Hyperion's: up to 512 a side for now)
+// The sizes offered: StarEdit's, and with the Hyperion plugin 384 and 512 too (core/hyperion.inc); the largest side.
+std::span<const uint16_t> mapSizes() {
+    if (hyperionMode()) return kHyperionMapSizes;
+    return kMapSizes;
+}
+int maxMapSide() { return mapSizes().back(); }
 const wchar_t* kAnchorNames[] = {L"Top left", L"Top", L"Top right", L"Left", L"Center", L"Right", L"Bottom left", L"Bottom", L"Bottom right"};
 
 // The first terrain of a tileset (the default terrain of new ground).
@@ -191,12 +198,13 @@ private:
     }
     // A size's dropdown: the standard sizes, and the map's own size when it is not one of them (kept as a choice).
     void syncSizes(stardraft::kit::Dropdown& d, std::vector<int>& vals, int& odd, int value, bool changed) {
-        const bool standard = std::find(std::begin(kMapSizes), std::end(kMapSizes), value) != std::end(kMapSizes);
+        const std::span<const uint16_t> sizes = mapSizes();
+        const bool standard = std::find(sizes.begin(), sizes.end(), value) != sizes.end();
         const int want = standard ? -1 : value;
         if (want != odd || vals.empty()) {
             odd = want, vals.clear();
             std::vector<stardraft::kit::DropdownItem> items;
-            for (uint16_t s : kMapSizes) items.push_back({std::to_wstring(s), -1, -1}), vals.push_back(s);
+            for (uint16_t s : sizes) items.push_back({std::to_wstring(s), -1, -1}), vals.push_back(s);
             if (!standard) items.push_back({std::to_wstring(value), -1, -1}), vals.push_back(value);
             d.setItems(items);
         }

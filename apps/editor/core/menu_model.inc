@@ -210,6 +210,12 @@ MenuModel buildMenuModel() {
         });
         if (!file.empty()) file.front().label = L"&New Cosmonarchy map";
     }
+    if (hyperionMode()) {  // (the Hyperion plugin: maps only; File > New makes a Hyperion map, no projects)
+        std::erase_if(file, [&project](const MenuItem& it) {
+            return (it.kind == MenuItem::Kind::Popup && (it.recent == "projects" || it.items.size() == project.size())) || it.id == ID_PROJ_IMPORT;
+        });
+        if (!file.empty()) file.front().label = L"&New Hyperion map";
+    }
     MenuModel edit{menuItem(ID_EDIT_UNDO, L"&Undo", L"Ctrl+Z"),
                    menuItem(ID_EDIT_REDO, L"&Redo", L"Ctrl+Y"),
                    menuItem(ID_EDIT_HISTORY, L"Undo &history\x2026", L"Ctrl+Shift+H"),
@@ -413,6 +419,14 @@ MenuModel buildMenuModel() {
         if (kRampBridgeTools) menuCommand(cosmonarchy, "tools.cmbw.passages");
         tools.push_back(menuSeparator());
         tools.push_back(menuPopup(L"&Cosmonarchy", cosmonarchy));
+    }
+    if (hyperionMode()) {  // (the Hyperion plugin: its tools, a submenu at the end of Tools)
+        MenuModel hyperion;
+        menuCommand(hyperion, "tools.hyperion.check");
+        menuCommand(hyperion, "tools.hyperion.test");
+        menuCommand(hyperion, "tools.hyperion.testUms");
+        tools.push_back(menuSeparator());
+        tools.push_back(menuPopup(L"&Hyperion", hyperion));
     }
     MenuModel bar{menuPopup(L"&File", file), menuPopup(L"&Edit", edit), menuPopup(L"&View", view), menuPopup(L"&Mode", mode),
                   menuPopup(L"&Tools", tools), menuPopup(L"&Options", options), menuPopup(L"&Help", help)};
