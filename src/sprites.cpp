@@ -216,7 +216,7 @@ void UnitSprites::applyUnitEdits(const Bytes& units, const Bytes& flingy) {
     }
     if (flingy.size() >= kFlingies * 2 && flingySprite_.size() >= kFlingies)
         for (size_t i = 0; i < kFlingies; ++i) flingySprite_[i] = readU16(flingy, 2 * i);
-    sprites_.clear();  // the pictures of the unit types
+    sprites_.clear(), rgbSprites_.clear();  // the pictures of the unit types
 }
 
 std::vector<uint16_t> UnitSprites::changedUnitGraphics(const UnitSprites& game, const UnitSprites& edited) {
@@ -621,7 +621,7 @@ bool UnitSprites::load(const GameData& data, std::string& error) {
 
 bool UnitSprites::loadTables(const GameData& data, Tables t, std::string& error) {
     data_ = &data;
-    sprites_.clear();  // loaded again: the game's graphics, without edits
+    sprites_.clear(), rgbSprites_.clear();  // loaded again: the game's graphics, without edits
     grps_.clear();
     Bytes tbl, tunit;
     if (!data.readFile("arr\\images.tbl", tbl, error)) return false;
@@ -1241,8 +1241,14 @@ void UnitSprites::drawImage(Sprite& s, int image, int frame, bool flip, uint8_t 
                 d[3] = std::max<uint8_t>(d[3], std::max({c.r, c.g, c.b}));
                 continue;
             }
-            const Rgb& c = ts.palette[idx];
             uint8_t* d = &s.rgba[(size_t(py) * s.width + px) * 4];
+            if (teamRgb_ >= 0 && raw >= 8 && raw < 16) {  // (an RGB team color: its ramp, light to dark)
+                const int k = 255 - (raw - 8) * 24;
+                d[0] = uint8_t((teamRgb_ >> 16 & 255) * k / 255), d[1] = uint8_t((teamRgb_ >> 8 & 255) * k / 255);
+                d[2] = uint8_t((teamRgb_ & 255) * k / 255), d[3] = 255;
+                continue;
+            }
+            const Rgb& c = ts.palette[idx];
             d[0] = c.r, d[1] = c.g, d[2] = c.b, d[3] = 255;
         }
 }
@@ -1315,12 +1321,26 @@ const Sprite* UnitSprites::iconFrame(uint16_t unitType) {
 }
 
 const Sprite* UnitSprites::unitSprite(uint16_t unitType, uint8_t owner, const Tileset& ts) {
-    if (spriteTileset_ != &ts) sprites_.clear(), spriteTileset_ = &ts;
+    if (spriteTileset_ != &ts) sprites_.clear(), rgbSprites_.clear(), spriteTileset_ = &ts;
     owner = std::min<uint8_t>(owner, 11);
     auto key = std::make_pair(unitType, colorRow_[owner]);  // (players of one color share the picture)
     auto it = sprites_.find(key);
     if (it != sprites_.end()) return it->second.get();
+    return (sprites_[key] = makeUnitSprite(unitType, owner, ts)).get();
+}
 
+const Sprite* UnitSprites::unitSpriteRgb(uint16_t unitType, uint32_t teamRgb, const Tileset& ts) {
+    if (spriteTileset_ != &ts) sprites_.clear(), rgbSprites_.clear(), spriteTileset_ = &ts;
+    teamRgb &= 0xFFFFFF;
+    auto key = std::make_pair(unitType, teamRgb);
+    if (auto it = rgbSprites_.find(key); it != rgbSprites_.end()) return it->second.get();
+    teamRgb_ = int64_t(teamRgb);
+    std::unique_ptr<Sprite> s = makeUnitSprite(unitType, 0, ts);
+    teamRgb_ = -1;
+    return (rgbSprites_[key] = std::move(s)).get();
+}
+
+std::unique_ptr<Sprite> UnitSprites::makeUnitSprite(uint16_t unitType, uint8_t owner, const Tileset& ts) {
     std::unique_ptr<Sprite> s;
     int image = imageFor(unitType);
     if (const Grp* g = grp(image)) {
@@ -1369,7 +1389,7 @@ const Sprite* UnitSprites::unitSprite(uint16_t unitType, uint8_t owner, const Ti
             drawImage(*s, o.image, frame, flip, owner, ts, ox, oy, Blend::Shadow);
         }
     }
-    return (sprites_[key] = std::move(s)).get();
+    return s;
 }
 
 // --- Map rendering --------------------------------------------------------------------------------

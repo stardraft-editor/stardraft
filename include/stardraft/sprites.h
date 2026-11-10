@@ -249,6 +249,9 @@ public:
     // Picture of `unitType` owned by `owner` (0..11), facing down-right, including its subunit
     // (e.g. tank turret). Uses `tileset`'s palette. Cached; nullptr if the unit has no graphics.
     const Sprite* unitSprite(uint16_t unitType, uint8_t owner, const Tileset& tileset);
+    // The same in an RGB team color, 0xRRGGBB (a Hyperion map's player past the 12 color rows, or one with an RGB color):
+    // the player color pixels as that color's ramp, light to dark. Cached.
+    const Sprite* unitSpriteRgb(uint16_t unitType, uint32_t teamRgb, const Tileset& tileset);
     // The unit's command-card icon (unit\cmdicons\cmdicons.grp, frame = unit id), colored as an
     // enabled button (game	icon.pcx row 0 with that file's palette). Cached; nullptr if none.
     const Sprite* commandIcon(uint16_t unitType);
@@ -406,6 +409,9 @@ private:
     std::map<int, std::unique_ptr<Grp>> grps_;
     std::vector<std::string> extraPaths_;  // extra images (extraImage), from kExtraImages
     std::map<std::pair<uint16_t, uint8_t>, std::unique_ptr<Sprite>> sprites_;  // (unit type, color row)
+    std::map<std::pair<uint16_t, uint32_t>, std::unique_ptr<Sprite>> rgbSprites_;  // (unit type, RGB team color)
+    int64_t teamRgb_ = -1;  // (while unitSpriteRgb draws: its color for the player color pixels)
+    std::unique_ptr<Sprite> makeUnitSprite(uint16_t unitType, uint8_t owner, const Tileset& tileset);
     std::unique_ptr<Grp> cmdIcons_;
     std::vector<uint8_t> iconRgb_;  // 16 colors (ticon.pcx row 0), RGB
     bool iconsTried_ = false;
