@@ -249,10 +249,14 @@ public:
     // Picture of `unitType` owned by `owner` (0..11), facing down-right, including its subunit
     // (e.g. tank turret). Uses `tileset`'s palette. Cached; nullptr if the unit has no graphics.
     const Sprite* unitSprite(uint16_t unitType, uint8_t owner, const Tileset& tileset);
-    // The unit's command-card icon (unit\cmdicons\cmdicons.grp, frame = unit id), colored as an
-    // enabled button (game	icon.pcx row 0 with that file's palette). Cached; nullptr if none.
+    // A command-card icon frame (unit\cmdicons\cmdicons.grp; unit\cmdbtns\ in a game of 1.16 MPQs), colored as an
+    // enabled button (ticon.pcx row 0 with that file's palette: game\ticon.pcx or unit\cmdbtns\ticon.pcx). The first
+    // 228 frames are the game's units. Cached; nullptr if none.
     const Sprite* commandIcon(uint16_t unitType);
-    // The game's placeholder icon ("BLANK"), which units without an icon of their own share (commandIcon gives it for them).
+    // The unit's icon: a mod's unit\cmdbtns\uniticons.grp (one frame for each unit id, past the game's 228) when the
+    // game data has it, else the game's icon (commandIcon) of the unit. Cached; nullptr if none.
+    const Sprite* unitIcon(uint16_t unitType);
+    // The game's placeholder icon ("BLANK"), which units without an icon of their own share (unitIcon gives it for them).
     const Sprite* blankIcon();
     // The unit's icon is a placeholder (the unit has no icon of its own: its picture is its sprite).
     bool hasBlankIcon(uint16_t unitType);
@@ -409,9 +413,11 @@ private:
     std::unique_ptr<Grp> cmdIcons_;
     std::vector<uint8_t> iconRgb_;  // 16 colors (ticon.pcx row 0), RGB
     bool iconsTried_ = false;
-    const Sprite* iconFrame(uint16_t frame);  // cmdicons frame, colored
+    const Sprite* iconFrame(const Grp& set, std::map<uint16_t, std::unique_ptr<Sprite>>& cache, uint16_t frame);  // a frame, colored
     std::vector<uint16_t> iconBlank_;  // units whose icon is the placeholder
     std::map<uint16_t, std::unique_ptr<Sprite>> icons_;
+    std::unique_ptr<Grp> unitIcons_;  // a mod's uniticons.grp (frame = unit id); none in the game's data
+    std::map<uint16_t, std::unique_ptr<Sprite>> unitIconSprites_;
     const Tileset* spriteTileset_ = nullptr;
 };
 

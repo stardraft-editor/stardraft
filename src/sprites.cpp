@@ -1253,8 +1253,10 @@ const Sprite* UnitSprites::commandIcon(uint16_t unitType) {
         Bytes grp, ticon;
         std::string err;
         int w = 0, h = 0;
-        if (data_->readFile("unit\\cmdicons\\cmdicons.grp", grp, err) && data_->readFile("game\\ticon.pcx", ticon, err) &&
-            ticon.size() > 128 + 769 && ticon[ticon.size() - 769] == 12) {
+        // (Remastered's paths; then 1.16's, as a mod's data has them)
+        const bool grpFound = data_->readFile("unit\\cmdicons\\cmdicons.grp", grp, err) || data_->readFile("unit\\cmdbtns\\cmdicons.grp", grp, err);
+        const bool ticonFound = data_->readFile("game\\ticon.pcx", ticon, err) || data_->readFile("unit\\cmdbtns\\ticon.pcx", ticon, err);
+        if (grpFound && ticonFound && ticon.size() > 128 + 769 && ticon[ticon.size() - 769] == 12) {
             std::vector<uint8_t> row = decodePcx(ticon, w, h);
             auto g = std::make_unique<Grp>();
             g->parse(grp);  // the last frames run past the end of the file; the unit icons come first
@@ -1262,26 +1264,44 @@ const Sprite* UnitSprites::commandIcon(uint16_t unitType) {
                 const uint8_t* pal = ticon.data() + ticon.size() - 768;
                 for (int i = 0; i < 17; ++i)
                     for (int c = 0; c < 3; ++c) iconRgb_.push_back(pal[row[std::min<size_t>(i, row.size() - 1)] * 3 + c]);
+                // A mod's icons of its units (the game's DatExtend plugins read this file for units past the game's 228).
+                Bytes units;
+                if (data_->readFile("unit\\cmdbtns\\uniticons.grp", units, err)) {
+                    auto u = std::make_unique<Grp>();
+                    u->parse(units);
+                    if (!u->frames.empty() && u->width && u->height) unitIcons_ = std::move(u);
+                }
+                const Grp& set = unitIcons_ ? *unitIcons_ : *g;
+                const int count = unitIcons_ ? int(std::min<size_t>(unitIcons_->frames.size(), 65535)) : 228;
                 // Units without an icon have a placeholder frame ("BLANK", a short line of text; the game has a few of
                 // them): a frame less than half as high as the icon's box (a unit's own icon fills it).
                 std::map<std::vector<uint8_t>, int> seen;
-                for (int i = 0; i < 228; ++i) ++seen[g->frames[size_t(i)].pixels];
-                for (int i = 0; i < 228; ++i) {
-                    const Grp::Frame& f = g->frames[size_t(i)];
-                    if (f.width && 2 * int(f.height) < int(g->height)) iconBlank_.push_back(uint16_t(i));
+                for (int i = 0; i < count; ++i) ++seen[set.frames[size_t(i)].pixels];
+                for (int i = 0; i < count; ++i) {
+                    const Grp::Frame& f = set.frames[size_t(i)];
+                    if (f.width && 2 * int(f.height) < int(set.height)) iconBlank_.push_back(uint16_t(i));
                 }
                 if (iconBlank_.empty()) {  // (another icon set: the frame repeated most often, as before)
                     int most = 0;
                     for (const auto& [px, n] : seen) most = std::max(most, n);
-                    for (int i = 0; i < 228; ++i)
-                        if (most > 1 && seen[g->frames[size_t(i)].pixels] == most) iconBlank_.push_back(uint16_t(i));
+                    for (int i = 0; i < count; ++i)
+                        if (most > 1 && seen[set.frames[size_t(i)].pixels] == most) iconBlank_.push_back(uint16_t(i));
                 }
                 cmdIcons_ = std::move(g);
             }
         }
     }
     if (!cmdIcons_ || unitType >= cmdIcons_->frames.size()) return nullptr;
-    return iconFrame(unitType);
+    return iconFrame(*cmdIcons_, icons_, unitType);
+}
+
+const Sprite* UnitSprites::unitIcon(uint16_t unitType) {
+    commandIcon(0);  // loads the icons
+    if (!unitIcons_) return unitType < 228 ? commandIcon(unitType) : nullptr;  // (the frames after the units are buttons)
+    if (unitType >= unitIcons_->frames.size()) return nullptr;
+    const Grp::Frame& f = unitIcons_->frames[unitType];
+    if (!f.width || !f.height) return nullptr;  // (an empty frame: the unit has no icon in the file; its picture shows)
+    return iconFrame(*unitIcons_, unitIconSprites_, unitType);
 }
 
 bool UnitSprites::hasBlankIcon(uint16_t unitType) {
@@ -1291,15 +1311,15 @@ bool UnitSprites::hasBlankIcon(uint16_t unitType) {
 
 const Sprite* UnitSprites::blankIcon() {
     commandIcon(0);  // loads the icons
-    return iconBlank_.empty() ? nullptr : iconFrame(iconBlank_.front());
+    return iconBlank_.empty() ? nullptr : unitIcon(iconBlank_.front());
 }
 
-const Sprite* UnitSprites::iconFrame(uint16_t unitType) {
-    auto& slot = icons_[unitType];
+const Sprite* UnitSprites::iconFrame(const Grp& set, std::map<uint16_t, std::unique_ptr<Sprite>>& cache, uint16_t frame) {
+    auto& slot = cache[frame];
     if (!slot) {
-        const Grp::Frame& f = cmdIcons_->frames[unitType];
+        const Grp::Frame& f = set.frames[frame];
         auto s = std::make_unique<Sprite>();
-        s->width = cmdIcons_->width, s->height = cmdIcons_->height;
+        s->width = set.width, s->height = set.height;
         s->originX = s->width / 2, s->originY = s->height / 2;
         s->rgba.assign(size_t(s->width) * s->height * 4, 0);
         for (int y = 0; y < f.height; ++y)

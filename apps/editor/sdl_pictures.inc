@@ -196,7 +196,7 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
         if (art.width) s = &art;
     } else {
         if (!sprite && !ed.unitSprites().hasBlankIcon(uint16_t(value))) {  // the command icon (a sprite view, or the game's placeholder: the unit's picture below)
-            if (!mode) s = ed.unitSprites().commandIcon(uint16_t(value));
+            if (!mode) s = ed.unitSprites().unitIcon(uint16_t(value));
             else if (value < int(gPaletteArt.hdIcons.size()) && gPaletteArt.hdIcons[size_t(value)].width) s = &gPaletteArt.hdIcons[size_t(value)];
         }
         if (!s && mode) {  // no icon: the unit's picture of the HD art (a palette's paint: made on a worker, shown a next frame)
@@ -224,7 +224,7 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
         // The icons' view with no icon of the unit's own: its picture as an icon is drawn: in the icons' color (their
         // brightest color, scaled by the picture's gray: as the HD icons take the SD icons'), without its shadow (the
         // see-through pixels; an air unit's shadow is far under it: the crop below then has the unit alone).
-        if (!sprite && s && s != ed.unitSprites().commandIcon(uint16_t(value)) &&
+        if (!sprite && s && s != ed.unitSprites().unitIcon(uint16_t(value)) &&
             !(value < int(gPaletteArt.hdIcons.size()) && s == &gPaletteArt.hdIcons[size_t(value)])) {
             static uint8_t tint[3] = {0, 0, 0};
             if (!tint[0] && !tint[1] && !tint[2])
