@@ -3,7 +3,9 @@
 // over a group opens the group's ring outside it, round the group's direction: more groups (a race's Ground Units, Air
 // Units, Buildings), or the group's items as pictures, in rows. Letting go of Space on an item picks it, as a click in
 // the palette; on a group or in the middle: no change. The first group, at the top, is the mode's last picks (Recent:
-// there also with no picks, so that each group keeps its direction).
+// there also with no picks, so that each group keeps its direction). Terrain mode with Custom on has the rings too: the
+// folders of the tileset's custom terrain, then each folder's custom terrain (no folders: the custom terrain at once).
+// The rings are the mouse's: no keys pick in them (the quick picker, Q, is the keyboard's way).
 
 // A group (its kids) or an item (`value`, no kids).
 struct PickPieNode {
@@ -45,6 +47,27 @@ PickPieNode pickPieTree(AppState& app) {
     return root;
 }
 
+// Custom: a group for each folder of the tileset's custom terrain (a folder in a folder: "A / B"), its items the
+// custom terrain in it (the value: the index in stampsList()). With no folders: the items at once, in one ring.
+PickPieNode pickPieStampTree() {
+    PickPieNode root;
+    const auto& list = stampsList();
+    const bool folders = std::any_of(list.begin(), list.end(), [](const TerrainStamp& s) { return !s.folder.empty(); });
+    for (size_t i = 0; i < list.size(); ++i) {
+        PickPieNode item{widen(list[i].name), int(i), {}};
+        if (!folders) {
+            root.kids.push_back(std::move(item));
+            continue;
+        }
+        std::wstring label = list[i].folder.empty() ? std::wstring(tr(L"No folder")) : widen(list[i].folder);
+        for (size_t at = label.find(L'/'); at != std::wstring::npos; at = label.find(L'/', at + 3)) label.replace(at, 1, L" / ");
+        auto g = std::find_if(root.kids.begin(), root.kids.end(), [&](const PickPieNode& k) { return k.label == label; });
+        if (g == root.kids.end()) g = root.kids.insert(root.kids.end(), PickPieNode{label, -1, {}});
+        g->kids.push_back(std::move(item));
+    }
+    return root;
+}
+
 // The rings' view: as large as the map (the host), the rings round its middle. `path` is the hot slice of each ring
 // from the middle out. While it shows, it has the mouse (the host's capture).
 struct PickPieView : draw::View {
@@ -55,6 +78,7 @@ struct PickPieView : draw::View {
     // slice is filled with it, and a group's slice when most of its items are on one terrain.
     std::function<int(int value)> groundOf;
     std::function<draw::Bitmap*(int terrain, int tiles)> groundPicture;
+    std::wstring moreText;           // after the count of the items with no cell (the host's: where they are)
     std::function<void()> onClick;   // a left click: the slice under it is picked
     std::function<void()> onCancel;  // another button, or the capture went away: the rings close with no change
 
@@ -62,6 +86,7 @@ struct PickPieView : draw::View {
     // The middle: no slice (letting go there: no change). It is larger for many groups, so that each slice of the
     // first ring has room for its name.
     int hole() const {
+        if (!root.kids.empty() && root.kids[0].value >= 0) return scale(72);  // (a ring of items: room for the hot one's picture)
         const double need = scale(72) * double(root.kids.size()) / kTurn - textWidth() / 2.0;
         return std::clamp(int(need), scale(58), scale(150));
     }
@@ -73,6 +98,14 @@ struct PickPieView : draw::View {
     draw::Point middle() const { return {width() / 2, height() / 2}; }
     // Other groups (the host, before it shows).
     void reset(PickPieNode tree) { root = std::move(tree), path.clear(), nameWidth_ = 0; }
+    // The rings come up: they grow to their size in 70 ms (`motion` off: they are there at once).
+    void opened(bool motion) { motion_ = motion, openedAt_ = std::chrono::steady_clock::now(); }
+    // How far the rings are open, 0..1 (the host draws the view again each frame until 1).
+    float openness() const {
+        if (!motion_) return 1;
+        const float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - openedAt_).count() / 0.07f;
+        return t >= 1 ? 1 : 1 - (1 - t) * (1 - t);
+    }
     // The hot node (nullptr: none): an item, or a group.
     const PickPieNode* hotNode() const {
         const PickPieNode* n = &root;
@@ -115,8 +148,8 @@ struct PickPieView : draw::View {
         for (size_t level = 0; n && !n->kids.empty(); ++level) {
             Ring r;
             r.of = n, r.inner = inner, r.mid = mid;
-            if (level == 0) r.mid = (int(n->kids.size()) - 1) * (kTurn / int(n->kids.size())) / 2;  // (the first slice: at the top)
             r.items = n->kids[0].value >= 0;
+            if (level == 0) r.mid = r.items ? 0 : (int(n->kids.size()) - 1) * (kTurn / int(n->kids.size())) / 2;  // (the first slice: at the top)
             const int count = int(n->kids.size());
             if (r.items) {
                 // As few rows as hold the items (kMaxRows at most), each row with its part by its length, so that the
@@ -210,11 +243,12 @@ struct PickPieView : draw::View {
     void paint(draw::Canvas& c) override {
         using PointF = draw::Canvas::PointF;
         const float cx = float(middle().x), cy = float(middle().y);
-        auto at = [&](double a, float rad) { return PointF{cx + float(std::sin(a)) * rad, cy - float(std::cos(a)) * rad}; };
+        const float open = openness(), grow = 0.86f + 0.14f * open;  // (the rings come up: a little smaller at first)
+        auto at = [&](double a, float rad) { return PointF{cx + float(std::sin(a)) * rad * grow, cy - float(std::cos(a)) * rad * grow}; };
         auto deg = [](double a) { return float(a * 360 / kTurn) - 90; };
         const int pad = scale(6), lineH = scale(20);
         const float gap = float(scale(4));
-        c.fill({0, 0, width(), height()}, draw::rgb(0, 0, 0), 150);  // (the map goes dark behind the rings)
+        c.fill({0, 0, width(), height()}, draw::rgb(0, 0, 0), uint8_t(150 * open));  // (the map goes dark behind the rings)
         // A slice: the part of the ring ra..rb between the directions a0 and a1, with half a gap off each side (thin
         // four-corner pieces along the arc).
         // `pic`: the slice is that picture's part there (one picture of 16 x 16 tiles over the rings, 32 px a tile or
@@ -295,22 +329,27 @@ struct PickPieView : draw::View {
                     // (a slice at the side has room for a longer name than its chord)
                     const double side = std::fabs(std::sin(sliceMid(r, k)));
                     const int room = std::max(most, int(side * (r.outer - r.inner)) - scale(10));
-                    // A name longer than its room is on two lines, cut at the space nearest its middle.
-                    std::wstring one = node.label, two;
-                    if (c.measure(one) + 2 * pad > room) {
-                        size_t cut = std::wstring::npos;
-                        for (size_t i = one.find(L' '); i != std::wstring::npos; i = one.find(L' ', i + 1))
-                            if (cut == std::wstring::npos || std::llabs((long long)(i) * 2 - (long long)(one.size())) < std::llabs((long long)(cut) * 2 - (long long)(one.size()))) cut = i;
-                        if (cut != std::wstring::npos) two = one.substr(cut + 1), one.resize(cut);
+                    // A name longer than its room goes on at a space on the next line (3 lines at most).
+                    std::vector<std::wstring> lines(1);
+                    for (size_t from = 0; from < node.label.size();) {
+                        const size_t to = std::min(node.label.find(L' ', from), node.label.size());
+                        const std::wstring word = node.label.substr(from, to - from);
+                        const std::wstring joined = lines.back().empty() ? word : lines.back() + L" " + word;
+                        if (lines.back().empty() || lines.size() == 3 || c.measure(joined) + 2 * pad <= room) lines.back() = joined;
+                        else lines.push_back(word);
+                        from = to + 1;
                     }
-                    const int w = std::min(std::max(c.measure(one), c.measure(two)) + 2 * pad, room), x = int(q.x) - w / 2;
-                    const int y = int(q.y) - (two.empty() ? lineH : 2 * lineH) / 2;
+                    int w = 0;
+                    for (const std::wstring& l : lines) w = std::max(w, c.measure(l));
+                    w = std::min(w + 2 * pad, room);
+                    const int rowH = lines.size() > 1 ? scale(17) : lineH, h = rowH * int(lines.size());
+                    const int x = int(q.x) - w / 2, y = int(q.y) - h / 2;
                     const draw::Color ink = k == hot ? kOnAccent : node.kids.empty() ? kFaint : kText;  // (faint: Recent with no picks)
                     if (pic)  // (on a terrain's picture: the name is on a plate)
-                        c.roundBox({x, y - scale(2), x + w, y + (two.empty() ? lineH : 2 * lineH) + scale(2)}, k == hot ? kAccentFill : kPanel, k == hot ? kAccentLine : kBorder,
+                        c.roundBox({x, y - scale(2), x + w, y + h + scale(2)}, k == hot ? kAccentFill : kPanel, k == hot ? kAccentLine : kBorder,
                                    float(scale(stardraft::kit::kRadius)));
-                    c.text({x, y, x + w, y + lineH}, one, ink, draw::kCenter | draw::kMiddle | draw::kEllipsis);
-                    if (!two.empty()) c.text({x, y + lineH, x + w, y + 2 * lineH}, two, ink, draw::kCenter | draw::kMiddle | draw::kEllipsis);
+                    for (size_t l = 0; l < lines.size(); ++l)
+                        c.text({x, y + int(l) * rowH, x + w, y + int(l + 1) * rowH}, lines[l], ink, draw::kCenter | draw::kMiddle | draw::kEllipsis);
                 }
                 if (hot >= 0 && hot < n) hotAngle = sliceMid(r, hot);
             } else {
@@ -339,7 +378,7 @@ struct PickPieView : draw::View {
             }
         }
         // The middle: the hot groups' names (the last two), or what letting go there does.
-        const float r0 = float(hole()) - gap / 2;
+        const float r0 = (float(hole()) - gap / 2) * grow;
         c.smoothEllipse({cx - r0, cy - r0}, 2 * r0, 2 * r0, kPanel);
         c.smoothArc({cx - r0, cy - r0}, 2 * r0, 2 * r0, 0, 360, path.empty() ? kBorder : kAccentLine, float(scale(2)));
         std::vector<const PickPieNode*> groups;
@@ -365,11 +404,13 @@ struct PickPieView : draw::View {
             c.text({tx, y, tx + tw, y + lineH}, groups[i]->label, i + 1 == groups.size() ? kText : kDim, draw::kCenter | draw::kMiddle | draw::kEllipsis);
         }
         // The hot item's name on a plate outside the rings, in the item's direction; a hot group with more items than
-        // cells: the count of the rest.
+        // cells: the count of the rest (a first ring of items with more items than cells: at the top, with no hot item).
         const PickPieNode* hot = hotNode();
         std::wstring label = hot && hot->value >= 0 ? hot->label : std::wstring();
-        if (hot && hot->value < 0 && !rs.empty() && rs.back().of == hot && rs.back().items && rs.back().shownItems < int(hot->kids.size()))
-            label = std::to_wstring(int(hot->kids.size()) - rs.back().shownItems) + L" " + tr(L"more in the palette");
+        const bool rootItems = !hot && rs.size() == 1 && rs[0].items;
+        if (!rs.empty() && rs.back().items && rs.back().shownItems < int(rs.back().of->kids.size()) && (rootItems || (hot && hot->value < 0 && rs.back().of == hot)))
+            label = std::to_wstring(int(rs.back().of->kids.size()) - rs.back().shownItems) + L" " + moreText;
+        if (rootItems) hotAngle = 0;
         if (label.empty()) return;
         const int lw = std::min(width(), c.measure(label) + 4 * pad), lh = scale(28);
         const PointF q = at(hotAngle, outermost + float(scale(10)));
@@ -383,4 +424,6 @@ struct PickPieView : draw::View {
 
 private:
     int nameWidth_ = 0;  // (the first paint's: the widest group name)
+    bool motion_ = false;
+    std::chrono::steady_clock::time_point openedAt_{};
 };

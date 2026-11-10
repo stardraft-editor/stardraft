@@ -65,6 +65,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl+Alt+T | Terrain mode: Isometric, Rectangle, Tile and Custom, each in turn |
 | Ctrl+click, Shift+click in the palette | Select more terrains (Shift: the ones between). Spray and Fill put them at random; Fill in patches (Mix) |
 | Alt+click in the palette | Add a terrain (Tile: a tile) to the mask, or remove it. It gets an outline. Painting then changes only the terrains (or tiles) in the mask |
+| Alt+click on the map | The pipette: the item under the mouse becomes the pick. Terrain mode: its terrain (Rectangle and Tile: its tile); Units and Sprites modes: the kind and the player; Doodads mode: the doodad; Locations mode: a copy of the location to paste |
 | Shift+click with Fill | Fill every place of the clicked terrain (in the selection, if there is one) |
 | M | Terrain mode's Move tool, when a terrain is selected (with something on the cursor: M mirrors it) |
 | N, Shift+N | Terrain mode's Rectangle and Filled rectangle tools |
@@ -85,7 +86,8 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | R, Shift+R | Turn what is on the cursor (terrain or tiles to paste, the Brush's copied tiles or custom terrain) clockwise, the other way. Isometric terrain makes its edges again; tiles keep their pictures |
 | M, Shift+M | Mirror what is on the cursor left and right, top and bottom |
 | Space (held) | Terrain mode: the pie palette; let go over a slice to paint with its terrain (View > Pie palette: a click on a slice). With Shift held (or Ctrl, pressed after Space): the terrain goes into the selected terrains that Spray and Fill use, or comes out of them, as a Ctrl+click in the palette |
-| Space (held) | Units, Doodads and Sprites modes: the pie palette of the mode's list. The first ring has Recent (the last picks) and the groups; the mouse over a group opens its ring outside it. Let go over an item to place it; let go in the middle or on a group for no change |
+| Space (held) | Units, Doodads and Sprites modes: the pie palette of the mode's list. The first ring has Recent (the last picks) and the groups; the mouse over a group opens its ring outside it. Let go over an item to place it; let go in the middle or on a group for no change. The pie palette is for the mouse only: to find an item by its name, press Q |
+| Space (held) | Terrain mode with Custom on: the pie palette of the tileset's custom terrain. The first ring has the folders (with no folders: the custom terrain). Let go over a custom terrain to paint with it |
 | Ctrl+Space (held) | Overview: the view shows the whole map with an outline at the mouse; let go to put that place in the view |
 | Alt+wheel | The brush one size up or down; Doodads mode with a doodad picked (no spray): the next or previous doodad; otherwise nothing (it never zooms) |
 

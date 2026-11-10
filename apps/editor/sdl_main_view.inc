@@ -606,7 +606,10 @@ struct MainView final : draw::View {
     ModeBarView modes;  // the modes' segmented control, at the top bar's right
     NotHereView notHere;  // the workspace area of a workspace with no view on this system
     PieView pie;  // the pie palette (core/views_palette.inc): over the map while Space is held in Terrain mode
-    PickPieView pickPie;  // the pie palette of the Units, Doodads and Sprites modes (core/views_pick_pie.inc)
+    PickPieView pickPie;  // the pie palette of the Units, Doodads and Sprites modes, and of Custom in Terrain mode (core/views_pick_pie.inc)
+    bool pickPieStamps = false;  // pickPie's items are the tileset's custom terrain (their indexes in stampsList())
+    // Terrain mode with Custom on: Space has the rings of the custom terrain, not the ring of terrains.
+    static bool pieOfStamps() { return gState.mode == Mode::Terrain && tilesOn() && gTiles->stamps; }
     bool pieShown() const { return pie.shown() || pickPie.shown(); }
     Mode pickPieMode = Mode::Units;  // the mode and the map of pickPie's items (another mode or map at the pick: no change)
     const void* pickPieMap = nullptr;
@@ -694,6 +697,10 @@ struct MainView final : draw::View {
         pickPie.setVisible(false);
         pickPie.art = [this](draw::Canvas& c, int value, draw::Rect box) {
             if (gState.mode != pickPieMode || gState.ed.get() != pickPieMap) return;
+            if (pickPieStamps) {
+                if (const auto& list = stampsList(); pieOfStamps() && size_t(value) < list.size()) stampsDrawPicture(c, list[size_t(value)], box);
+                return;
+            }
             if (draw::Bitmap* b = paletteBitmap(gState.mode, value, gState.playerOwner)) drawPaletteArt(c, *b, box);
         };
         pickPie.groundOf = [this](int value) { return pickPieGroundOf(value); };
@@ -984,7 +991,7 @@ struct MainView final : draw::View {
     // The pie palette (core/palette_view.inc: pieTerrains): the ring in the middle of the map, its slice the one the
     // mouse points at. Nothing when the map has no terrain to paint (or the mode is not Terrain).
     void pieOpen() {
-        if (gState.mode != Mode::Terrain) return pickPieOpen();
+        if (gState.mode != Mode::Terrain || pieOfStamps()) return pickPieOpen();
         pie.onClick = [this] {  // (from the menu: a click picks; with Space held, a click picks too)
             pieRelease(shellCtrlOrShiftDown());
         };
@@ -1029,10 +1036,19 @@ struct MainView final : draw::View {
         };
         pickPie.onCancel = [this] { pieClose(); };
         if (!map.shown() || pieShown() || !gState.ed || !gState.ed->isOpen()) return;
-        PickPieView::cellSize = gState.mode == Mode::Doodads ? 62 : gState.mode == Mode::Sprites ? 56 : 50;
-        pickPie.reset(pickPieTree(gState));
+        pickPieStamps = pieOfStamps();
+        PickPieView::cellSize = pickPieStamps ? 72 : gState.mode == Mode::Doodads ? 62 : gState.mode == Mode::Sprites ? 56 : 50;
+        pickPie.reset(pickPieStamps ? pickPieStampTree() : pickPieTree(gState));
         pickPieMode = gState.mode, pickPieMap = gState.ed.get(), pickPieGround.clear();
-        if (pickPie.root.kids.empty()) return;
+        // (custom terrain with no folders, one ring of items: the cells as wide as fills the turn, 56 to 110 px)
+        if (const double n = double(pickPie.root.kids.size()); pickPieStamps && n > 4 && pickPie.root.kids[0].value >= 0)
+            PickPieView::cellSize = std::clamp(int(PickPieView::kTurn * 72 / (n - PickPieView::kTurn / 2)), 56, 110);
+        if (pickPie.root.kids.empty()) {
+            if (pickPieStamps) setMessage(tr(L"This tileset has no custom terrain."));
+            return;
+        }
+        pickPie.moreText = tr(pickPieStamps ? L"more in the Custom list" : L"more in the palette");
+        pickPie.opened(gMapMotion);
         pickPie.setFrame(map.frame());
         pickPie.setVisible(true);
         if (host()) host()->capture(pickPie, true);  // (the mouse picks the slice also outside the map)
@@ -1057,7 +1073,14 @@ struct MainView final : draw::View {
         if (pickPie.shown()) {  // (the rings of items: the hot item is the pick, as a click in the palette; a group: no change)
             const PickPieNode* n = pickPie.hotNode();
             const int v = n && n->kids.empty() ? n->value : -1;
+            const std::wstring name = v >= 0 ? n->label : std::wstring();
             pieClose();
+            if (pickPieStamps) {  // (Custom: the custom terrain is the Brush's, as a click in the Custom list; not when the list changed)
+                const auto& list = stampsList();
+                if (v >= 0 && pieOfStamps() && gState.ed.get() == pickPieMap && size_t(v) < list.size() && widen(list[size_t(v)].name) == name)
+                    stampsUse(list[size_t(v)]), invalidateMapView();
+                return;
+            }
             if (v >= 0 && gState.mode == pickPieMode && gState.ed.get() == pickPieMap) pickUnit(gState, v, add), invalidateMapView();
             return;
         }
@@ -1355,7 +1378,7 @@ static void sdlPieOpenIn(bool terrain) {
     if (gState.mode != Mode::Terrain && (terrain || (gState.mode != Mode::Units && gState.mode != Mode::Doodads && gState.mode != Mode::Sprites))) setMode(Mode::Terrain);
     gRoot->relayout();
     gRoot->pieOpen();
-    if (!gRoot->pieShown() && gState.mode == Mode::Terrain) setMessage(tr(L"The pie palette has no terrains for this tileset"));
+    if (!gRoot->pieShown() && gState.mode == Mode::Terrain && !MainView::pieOfStamps()) setMessage(tr(L"The pie palette has no terrains for this tileset"));
 }
 void sdlPieFromMenu() { sdlPieOpenIn(false); }
 void sdlTerrainPie() { sdlPieOpenIn(true); }  // (the Terrain palette's pie button: Terrain mode's ring from each mode)
@@ -1507,6 +1530,7 @@ void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     if (gCenterUnitPending >= 0 && w > 0 && h > 0) unitsListCenter(gCenterUnitPending), gCenterUnitPending = -1;
     simFrame();  // (a live game: its frames for the time that went by)
     gRoot->map.panStep();  // (Options > Middle mouse click and hold > Pan map: the map moves toward the mouse)
+    if (gRoot->pickPie.shown() && gRoot->pickPie.openness() < 1) gRoot->pickPie.invalidate();  // (the rings come up: the next frame)
     // (the other workspaces hide the map: no frame; nor when only other views paint, as a hover over the side bar or
     // a palette window: SdlHost::paintsNow)
     if (gWorkspace == Workspace::Map && (!gHost || gHost->paintsNow(gRoot->map))) drawMapFrame(cmd, w, h);
