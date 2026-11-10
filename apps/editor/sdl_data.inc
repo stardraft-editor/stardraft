@@ -241,8 +241,11 @@ void funPlayPcm(const std::vector<float>& mono, int rate, const char* name) {
     gFunMix.voices.push_back({mono, 0});
 }
 
-// Immersive mode: a placed unit's ready sound (core/fun_mode.inc), at half the volume and at most 2 at a time (a third one
-// does not start); each sound decoded once (by `key`). A test run plays nothing; STARDRAFT_FUN_WAV writes its key.
+// Immersive mode: a unit's sound (its ready sound, a what sound, a death's sounds: core/fun_mode.inc), at half the
+// volume and at most kFunUnitSounds at a time (one more does not start); all of them softer when more play (1 / sqrt(n)), and
+// the same sound does not start again in 80 ms (many units that die in one tick say it once). Each sound decoded once
+// (by `key`). A test run plays nothing; STARDRAFT_FUN_WAV writes its key.
+constexpr size_t kFunUnitSounds = 16;
 void funPlayReady(const std::string& key, const std::function<bool(SDL_AudioSpec&, std::vector<Uint8>&)>& load) {
     auto note = [&](const char* how) {  // (STARDRAFT_FUN_WAV: the sound's key and whether it was read)
         if (const char* dir = std::getenv("STARDRAFT_FUN_WAV"); dir && *dir) {
@@ -250,11 +253,19 @@ void funPlayReady(const std::string& key, const std::function<bool(SDL_AudioSpec
             std::ofstream(fs::path(widen(dir)) / ("ready-" + std::to_string(++n) + ".txt")) << key << " " << how << "\n";
         }
     };
-    static std::vector<SDL_AudioStream*> playing;
+    struct Playing {
+        SDL_AudioStream* s;
+        std::string key;
+        Uint64 start;
+    };
+    static std::vector<Playing> playing;
     for (auto it = playing.begin(); it != playing.end();)
-        if (SDL_GetAudioStreamQueued(*it) <= 0) closeStreamSdl(*it), it = playing.erase(it);
+        if (SDL_GetAudioStreamQueued(it->s) <= 0) closeStreamSdl(it->s), it = playing.erase(it);
         else ++it;
-    if (playing.size() >= 2) return;
+    if (playing.size() >= kFunUnitSounds) return;
+    const Uint64 nowTicks = SDL_GetTicks();
+    for (const Playing& p : playing)
+        if (p.key == key && nowTicks - p.start < 80) return;
     struct Decoded {
         SDL_AudioSpec spec{};
         std::vector<Uint8> pcm;
@@ -269,11 +280,13 @@ void funPlayReady(const std::string& key, const std::function<bool(SDL_AudioSpec
     }
     note("(read)");
     if (SDL_AudioStream* s = openPlaybackSdl(&it->second.spec)) {
-        SDL_SetAudioStreamGain(s, float(gDock.volume) / 100.0f * 0.5f);
         SDL_PutAudioStreamData(s, it->second.pcm.data(), int(it->second.pcm.size()));
         SDL_FlushAudioStream(s);
+        playing.push_back({s, key, nowTicks});
+        // (the ones that play too: only the new one softer makes the sum of 16 more than 3 times one sound)
+        const float gain = float(gDock.volume) / 100.0f * 0.5f / std::sqrt(float(playing.size()));
+        for (const Playing& p : playing) SDL_SetAudioStreamGain(p.s, gain);
         playStreamSdl(s);
-        playing.push_back(s);
     }
 }
 void funPlaySfx(int sfx) {

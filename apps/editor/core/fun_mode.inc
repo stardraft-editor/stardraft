@@ -11,7 +11,7 @@
 // Defined by the program: plays mono samples (-1..1) at `rate` once (sdl_data.inc; a test run plays nothing). `name`:
 // the sound's kind (STARDRAFT_FUN_WAV=<folder> writes each sound there as <name>-<n>.wav, also in a test run).
 void funPlayPcm(const std::vector<float>& mono, int rate, const char* name);
-// Plays an SFX data entry's sound (a unit's ready sound) at half the volume, at most 2 at a time (sdl_data.inc).
+// Plays an SFX data entry's sound (a unit's ready sound) at half the volume, at most 16 at a time (sdl_data.inc).
 void funPlaySfx(int sfx);
 // Plays the sound file `path` of `data` (a mod's ready sound) as funPlaySfx (sdl_data.inc).
 void funPlaySoundFile(const GameData& data, const std::string& path);
@@ -265,8 +265,8 @@ void tickDeaths(const Editor& ed) {
 
 // The selection since the last frame: the first unit with what sounds (the game's sounds for a click on a unit) that
 // is selected now and was not says one of them at random (units.dat's What Sound Start to What Sound End), at most
-// one each 0.6 s (a box of many units says it once). A unit placed now says its ready sound only. Not on a mod's map
-// (the game's sounds are not its units').
+// one each 0.6 s (a box of many units says it once). A unit placed now says its ready sound only. On a Cosmonarchy map
+// the mod's what sounds (cmbw::unitWhatSound).
 void watchSelection(const Editor& ed) {
     static const Editor* of = nullptr;
     static uint64_t mark = 0, lastYes = 0;
@@ -279,21 +279,28 @@ void watchSelection(const Editor& ed) {
     const DatTable* table = rangeTable("units");
     const DatField* from = table ? table->field("What Sound Start") : nullptr;
     const DatField* to = table ? table->field("What Sound End") : nullptr;
-    const bool say = known && from && to && !modTab() && nowMs() - lastYes >= 600;
+    const bool mod = modTab();
+    const bool say = known && (mod || (from && to)) && nowMs() - lastYes >= 600;
     std::unordered_set<uint32_t> now;
     uint32_t a = 0, b = 0;  // the first new unit's sounds (a 0: none yet)
+    std::string modSound;   // (a mod's map: the first new unit's sound file)
     for (int i : ed.selection()) {
         if (i < 0 || size_t(i) >= units.size()) continue;
         const Unit& un = units[size_t(i)];
         now.insert(un.serial);
         const int type = un.type;
-        if (a || !say || last.count(un.serial) || !g.serials.count(un.serial)) continue;
+        if (a || !modSound.empty() || !say || last.count(un.serial) || !g.serials.count(un.serial)) continue;
+        if (mod) {
+            modSound = stardraft::cmbw::unitWhatSound(ed.gameData(), uint16_t(type), g.rng());
+            continue;
+        }
         if (type < from->first || type > from->last || type < to->first || type > to->last) continue;
         a = table->value(*from, type), b = table->value(*to, type);
         if (b < a) a = 0;
     }
     of = &ed, mark = ed.loadMark(), lastSelection = ed.selection(), last = std::move(now);
-    if (a) funPlaySfx(int(a + std::uniform_int_distribution<uint32_t>(0, b - a)(g.rng))), lastYes = nowMs();
+    if (!modSound.empty()) funPlaySoundFile(ed.gameData(), modSound), lastYes = nowMs();
+    else if (a) funPlaySfx(int(a + std::uniform_int_distribution<uint32_t>(0, b - a)(g.rng))), lastYes = nowMs();
 }
 
 // The edits since the last frame: their sounds, particles, pops, deaths and shakes.

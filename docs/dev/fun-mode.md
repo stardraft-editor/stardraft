@@ -21,7 +21,7 @@ editing the map gives feedback:
   arr\sounds.txt (line n: the sound n, cmbw::soundFile), read from the mod's data, which has the game's files too.
   arr\sfxdata.dat's Sound File is not that line: do not use it. A placed doodad thunks and shakes the view a little.
 - A deleted unit with a Death animation (iscript) plays it at its place, with the animation's sounds (each
-  deleted unit, also when many go at once: at most 4,096 at a time, 240 ticks each at most; 2 of their sounds at a time); the map view draws frames until the last one ends. Other deleted units and
+  deleted unit, also when many go at once: at most 4,096 at a time, 240 ticks each at most); the map view draws frames until the last one ends. Other deleted units and
   doodads puff.
 - A very large brush (an edit of 80 tiles or more: a brush of about 12 and up, a big fill) shakes the view a little,
   more for more tiles (up to 1.5 times a doodad's thunk), at most every 0.25 s: a long drag is a light rumble.
@@ -115,11 +115,14 @@ anyway); they can ship.
   one's, so it is ducked too and stays the quieter one.
 - A selected unit says one of its what sounds at random (the game's sounds for a click on a unit: units.dat's What
   Sound Start to What Sound End; a unit with none says nothing): the first unit that is new in the selection, at most one each 0.6 s (a box of many units says it
-  once), as the ready sound at half the volume. A unit placed now says its ready sound only. Not on a Cosmonarchy BW map.
+  once), as the ready sound at half the volume. A unit placed now says its ready sound only. On a Cosmonarchy BW map
+  the unit says one of the mod's what sounds (units.datex's What Sound Start to What Sound End).
 - Each sound fades in for 8 ms and out for 30 ms (no hard start or stop); the takes stay short and punchy.
 - Each one is a little different (its take and its pitch step).
-- A unit's ready sound: at half the volume, at most one each 0.6 s (a row or a paste of many units says it once), at
-  most 2 at a time.
+- A unit's ready sound: at half the volume, at most one each 0.6 s (a row or a paste of many units says it once).
+- The units' sounds (ready, what and the deaths' sounds) play at most 16 at a time (one more does not start); each is
+  softer when more play (all at 1 / sqrt(n)), and the same sound does not start again in 80 ms (many units that die in
+  one tick say it once).
 - A sound's level goes up with the number of tiles that changed (log2), from 45 % to 100 %.
 - At most 120 shards fly at a time (up to about 100 rects each); about 110 tiles of an edit throw them, spread
   over all its tiles, so a fill of the whole map makes a few.

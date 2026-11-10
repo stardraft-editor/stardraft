@@ -1977,11 +1977,10 @@ std::string soundFile(const GameData& data, uint32_t sfx) {
     return "sound\\" + t.names[sfx];
 }
 
-std::string unitReadySound(const GameData& data, uint16_t unit, uint32_t pick) {
-    if (unit == 73 || unit == 85) return {};  // (the Steward and the Plasma Shell say nothing)
-    if (unit == 14) return soundFile(data, 134);  // (the Morningstar: the Terran adjutant's "missile armed")
-    for (const ReadyRange& r : kReadyRanges)
-        if (r.unit == unit) return soundFile(data, r.first + pick % uint32_t(r.last - r.first + 1));
+namespace {
+
+// units.datex of `data` for the units' sounds (null: not read).
+const Datex* soundUnits(const GameData& data) {
     struct Tables {
         Datex u;
         bool tried = false, ok = false;
@@ -1993,8 +1992,27 @@ std::string unitReadySound(const GameData& data, uint16_t unit, uint32_t pick) {
         std::string err;
         t.ok = readDatex(data, "units", kUnitFields, t.u, err);
     }
-    if (!t.ok || unit >= t.u.count()) return {};
-    return soundFile(data, t.u.get(UReady, unit));
+    return t.ok ? &t.u : nullptr;
+}
+
+}  // namespace
+
+std::string unitReadySound(const GameData& data, uint16_t unit, uint32_t pick) {
+    if (unit == 73 || unit == 85) return {};  // (the Steward and the Plasma Shell say nothing)
+    if (unit == 14) return soundFile(data, 134);  // (the Morningstar: the Terran adjutant's "missile armed")
+    for (const ReadyRange& r : kReadyRanges)
+        if (r.unit == unit) return soundFile(data, r.first + pick % uint32_t(r.last - r.first + 1));
+    const Datex* u = soundUnits(data);
+    if (!u || unit >= u->count()) return {};
+    return soundFile(data, u->get(UReady, unit));
+}
+
+std::string unitWhatSound(const GameData& data, uint16_t unit, uint32_t pick) {
+    const Datex* u = soundUnits(data);
+    if (!u || unit >= u->count()) return {};
+    const uint32_t a = u->get(UWhatStart, unit), b = u->get(UWhatEnd, unit);
+    if (!a || b < a) return {};
+    return soundFile(data, a + pick % (b - a + 1));
 }
 
 int tileHeight(const Tileset& ts, uint16_t value) {

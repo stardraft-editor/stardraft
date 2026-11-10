@@ -66,6 +66,9 @@ std::string soundFile(const GameData& data, uint32_t sfx);
 // A unit's ready sound as the mod's program picks it: for most units units.datex's Ready Sound; for the units with
 // some ready sounds, one of them by `pick` (the program takes one at random); "" for none.
 std::string unitReadySound(const GameData& data, uint16_t unit, uint32_t pick = 0);
+// One of a unit's what sounds (the sounds for a click on it: units.datex's What Sound Start to What Sound End), by
+// `pick`; "" for none.
+std::string unitWhatSound(const GameData& data, uint16_t unit, uint32_t pick = 0);
 // The mod's height of a map tile (TILE or MTXM value), as it gives ground units range (Cosmonarchy-GPTP
 // TileHeight_extender): the minitiles' height (VF4 flags 0x6, plus the mod's own height in the flags' high byte) of the
 // walkable ones, summed and divided by 16, rounded; at most 127.
