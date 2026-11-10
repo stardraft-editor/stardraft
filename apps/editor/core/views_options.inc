@@ -35,6 +35,8 @@ struct OptionsValues {
     bool diagnostics = false; // Graphics and diagnostics: the frames a second and the memory in use in the status bar (ShowDiagnostics)
     bool immersive = false;   // Appearance: Immersive mode (FunMode: core/fun_mode.inc)
     bool immersiveUnlocked = false;  // ... its option is unlocked (About's logo); else it shows "Locked", disabled
+    bool smoothZoom = true, smoothPan = true;  // Map > Map view: the zoom and the jumps glide (view.smoothZoom, view.smoothPan)
+    bool keyHints = false;    // Appearance > Status bar: the tool's keys (view.keyHints)
     bool askStartLocations = true;  // Saving maps: a save asks when the map has no start locations (AskStartLocations)
     bool manyStartLocations = false;  // Placing units: more than one start location for each player (ManyStartLocations)
     int detailedTiles = 5;    // Painting terrain: the chance (0 to 100%) of a detailed tile variant (stardraft/isom.h)
@@ -90,7 +92,7 @@ namespace optionsview {
 // The sections of the window, in their order (the headers), and the tabs: each tab shows some sections, in this order.
 enum Section : unsigned {
     kStart = 1u << 0, kAppearance = 1u << 1, kMouse = 1u << 2, kUnitNames = 1u << 3, kUnitLimit = 1u << 4,
-    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kPlugins = 1u << 9,
+    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kMapView = 1u << 8, kPlugins = 1u << 9,
     kKeyboard = 1u << 10, kReset = 1u << 11, kLanguage = 1u << 12, kGraphics = 1u << 13, kAllSections = (1u << 14) - 1,
 };
 struct Tab {
@@ -103,7 +105,7 @@ inline const Tab kTabs[] = {
     {L"General", kStart | kLanguage | kReset},
     {L"Appearance", kAppearance | kGraphics},
     {L"Mouse and keyboard", kMouse | kKeyboard},
-    {L"Map", kUnitNames | kUnitLimit},
+    {L"Map", kMapView | kUnitNames | kUnitLimit},
     {L"Plugins", kPlugins},
     {L"Folders", kWorkingFolder | kStarCraftFolder},
     {L"Updates", kUpdates},
@@ -227,6 +229,15 @@ public:
         diagnostics_.setTip(L"The frames a second and the memory that StarDraft uses, at the right of the status bar");
         diagnostics_.onChange = [this](bool) { host_.command(ID_OPT_DIAGNOSTICS); };
         immersive_.onChange = [this](bool) { host_.command(ID_OPT_FUNMODE); };  // (its label and tip: setValues, locked or not)
+        smoothZoom_.setLabel(L"Smooth zoom");
+        smoothZoom_.setTip(L"The mouse wheel and the zoom commands glide to the new zoom");
+        smoothZoom_.onChange = [this](bool) { host_.command(ID_VIEW_SMOOTHZOOM); };
+        smoothPan_.setLabel(L"Smooth pan");
+        smoothPan_.setTip(L"A jump to a place on the map glides there");
+        smoothPan_.onChange = [this](bool) { host_.command(ID_VIEW_SMOOTHPAN); };
+        keyHints_.setLabel(L"Show key hints");
+        keyHints_.setTip(L"The keys of the tool that is on, in the middle of the status bar");
+        keyHints_.onChange = [this](bool) { host_.command(ID_VIEW_KEYHINTS); };
         lastProject_.onChange = [this](bool) { host_.command(ID_OPT_LASTPROJECT); };
         lastSession_.setLabel(L"Open the last session's tabs on start");
         lastSession_.setTip(L"The maps and projects that were open when StarDraft 2 closed open again");
@@ -253,7 +264,8 @@ public:
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
         for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&lastSession_), static_cast<draw::View*>(&tintIcons_), static_cast<draw::View*>(&diagnostics_), static_cast<draw::View*>(&immersive_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&override_), static_cast<draw::View*>(&passages_),
-                        static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_)})
+                        static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_), static_cast<draw::View*>(&smoothZoom_), static_cast<draw::View*>(&smoothPan_),
+                        static_cast<draw::View*>(&keyHints_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
             if (i >= 0 && i < int(langChoices_.size())) host_.command(ID_OPT_LANG + langChoices_[size_t(i)]);
@@ -500,7 +512,7 @@ private:
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3], gpuSeg_[4];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, overrideBrowse_, passagesBrowse_, check_, restart_, reset_, maps_, close_;
     stardraft::kit::ScrollBar bar_;  // at the content's right when it is taller than its room
-    stardraft::kit::CheckBox lastProject_, lastSession_, tintIcons_, diagnostics_, immersive_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_;
+    stardraft::kit::CheckBox lastProject_, lastSession_, tintIcons_, diagnostics_, immersive_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_, smoothZoom_, smoothPan_, keyHints_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Slider slider_;
@@ -567,6 +579,7 @@ void OptionsView::sync(const OptionsValues& v) {
         immersive_.setTip(v.immersiveUnlocked ? L"Edits on the map make sounds, particles and pops" : L"A hidden extra unlocks this option");
     }
     lastProject_.setOn(v.openLast), lastSession_.setOn(v.openSession), tintIcons_.setOn(v.tintIcons), diagnostics_.setOn(v.diagnostics), askStart_.setOn(v.askStartLocations), manyStarts_.setOn(v.manyStartLocations), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
+    smoothZoom_.setOn(v.smoothZoom), smoothPan_.setOn(v.smoothPan), keyHints_.setOn(v.keyHints);
     // The languages offered (rebuilt when they change), the chosen one.
     if (langChoices_.size() != v.languages.size() || !std::equal(langChoices_.begin(), langChoices_.end(), v.languages.begin(), [](int a, const auto& b) {
             return a == b.first;
@@ -773,6 +786,13 @@ void OptionsView::paint(draw::Canvas& c) {
             parts_["immersive"] = cr;
         }
         y += rowH;
+        label(L"Status bar");
+        {
+            const draw::Rect cr{fx, y, fx + scale(24) + c.measure(keyHints_.label()), y + rowH};
+            place(keyHints_, cr, true);
+            parts_["keyhints"] = cr;
+        }
+        y += rowH;
         y += pad;
     }
 
@@ -818,6 +838,19 @@ void OptionsView::paint(draw::Canvas& c) {
         header(L"Keyboard");
         note(x0, y, L"Soon you can change the shortcuts here");
         y += scale(20) + pad;
+    }
+
+    // Map view: the zoom and the jumps glide (they were in the View menu; set once and left).
+    if (shown & optionsview::kMapView) {
+        header(L"Map view");
+        label(L"Zoom and pan");
+        for (auto [cb, part] : {std::pair<stardraft::kit::CheckBox*, const char*>{&smoothZoom_, "smoothzoom"}, {&smoothPan_, "smoothpan"}}) {
+            const draw::Rect cr{fx, y, fx + scale(24) + c.measure(cb->label()), y + rowH};
+            place(*cb, cr, true);
+            parts_[part] = cr;
+            y += rowH;
+        }
+        y += pad;
     }
 
     // Unit names: a unit with a custom name (the map's unit settings), in every list that names it.

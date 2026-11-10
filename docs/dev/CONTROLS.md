@@ -343,7 +343,7 @@ The window has seven tabs (`optionsview::kTabs`, core/views_options.inc), each w
 | Tab | Sections | Components |
 |---|---|---|
 | General | Start; Language and sound; Reset | Check boxes; a drop-down; a button |
-| Appearance | Appearance (theme, accent color); Graphics and diagnostics | Segmented choice; color swatches (a ring on the selected one, the name as a tooltip); radio rows |
+| Appearance | Appearance (theme, accent color, unit icons, Show key hints); Graphics and diagnostics | Segmented choice; color swatches (a ring on the selected one, the name as a tooltip); radio rows |
 | Mouse and keyboard | Mouse; Keyboard | Drop-downs and check boxes |
 | Map | Unit names; Map unit limit; Saving maps | Radio rows; a number field (right-aligned, the heading names the unit); check boxes |
 | Plugins | Plugins (not in release builds) | A list with check boxes |

@@ -76,9 +76,9 @@ struct AppState {
     // View > In-game view (experimental): the part of the map that the game shows at one time (21 x 12 tiles) at the
     // view's middle; the rest of the view is black (GitHub feedback #264). Not saved.
     bool gameView = false;
-    bool keyHints = false;  // View > Show key hints: the tool's keys in the status bar (core/tool_hints.inc)
-    bool smoothZoom = true;  // View > Smooth zoom: the wheel and the zoom keys glide to the new zoom (core/map_input.inc)
-    bool smoothPan = true;   // View > Smooth pan: a jump to a place glides there (core/map_input.inc)
+    bool keyHints = false;  // Program options > Appearance > Show key hints: the tool's keys in the status bar (core/tool_hints.inc)
+    bool smoothZoom = true;  // Program options > Map > Smooth zoom: the wheel and the zoom keys glide to the new zoom (core/map_input.inc)
+    bool smoothPan = true;   // Program options > Map > Smooth pan: a jump to a place glides there (core/map_input.inc)
     // Options > Units, Sprites, Locations > Snap to the grid: they go on the lines of the grid of View > Grid.
     bool snapUnits = false, snapSprites = false, snapLocations = true;
     bool carbot = false;  // Cartooned (Carbot) graphics

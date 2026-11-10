@@ -316,6 +316,7 @@ public:
         v.tintIcons = tintIconsOn();
         v.diagnostics = diagnosticsOn();
         v.immersive = shellState().funMode, v.immersiveUnlocked = shellState().immersiveUnlocked();
+        v.smoothZoom = shellState().smoothZoom, v.smoothPan = shellState().smoothPan, v.keyHints = shellState().keyHints;
         flag = true;
         prefs::flag(L"AskStartLocations", flag), v.askStartLocations = flag;
         flag = false;

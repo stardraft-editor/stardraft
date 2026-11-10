@@ -1407,7 +1407,7 @@ void mapPanBy(AppState& app, float dx, float dy) {
 }
 // The smooth zoom: a wheel's notch and the zoom keys do not jump. The zoom glides to its goal in about a tenth of a
 // second, around the same view point; more notches during the glide move the goal on. A snapshot or test run has no
-// glide (gMapMotion off): the zoom is at its goal at once, as with View > Smooth zoom off. Every other zoom or camera
+// glide (gMapMotion off): the zoom is at its goal at once, as with Smooth zoom off (Program options > Map). Every other zoom or camera
 // jump stops the glide.
 struct ZoomGlide {
     bool on = false;
@@ -1423,7 +1423,7 @@ inline bool gMapMotion = true;
 // The glide of the whole view: a jump to a place (a unit of the list, a location, a click on the minimap, Fit map,
 // Actual size, the overview) does not cut. The view glides there in about a fifth of a second, fast at first; with
 // another zoom at the end, as a zoom around the place. Another map, or a camera or zoom that something else moved (a
-// pan, the wheel), stops it. No glide in a snapshot or test run (gMapMotion off), or with View > Smooth pan off: the
+// pan, the wheel), stops it. No glide in a snapshot or test run (gMapMotion off), or with Smooth pan off (Program options > Map): the
 // view is there at once.
 struct ViewGlide {
     bool on = false, fresh = false;

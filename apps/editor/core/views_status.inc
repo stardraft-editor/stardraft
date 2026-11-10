@@ -1,7 +1,7 @@
 // The status bar as a view (portable, core.inc): moved from main.cpp. A flat strip drawn in full, the panel color, a
 // hairline on top and between the parts, no bevels. The map's parts (mode and tool, the mouse's place, the zoom, the
 // selection, the mode's count, frames) show in the Map workspace only; the message shows only when there is no log line (which shows it
-// already). The key hints (View > Show key hints, core/tool_hints.inc) are in the middle of the room that the parts
+// already). The key hints (Program options > Appearance > Show key hints, core/tool_hints.inc) are in the middle of the room that the parts
 // leave: the hints that fit. The corner keeps room for the size grip, which the bar does not draw: over it, the window resizes from the
 // corner (sizeGrip). The instance (gStatus) is made in main.cpp, where the app state is.
 
