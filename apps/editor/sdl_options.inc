@@ -604,6 +604,9 @@ public:
         const FeedbackView* sentFrom = &v;  // the dialog that sent it (and its open): the result goes only there
         const unsigned serial = gFbSerial;
         feedbackSend(v, file, [sentFrom, serial]() -> FeedbackView* { return gFbView && gFbView == sentFrom && gFbSerial == serial ? gFbView : nullptr; });
+        // The send goes on in the background: the dialog closes at once; the result is in the status bar, the issue's page in
+        // the log. (A build that cannot send keeps the dialog open: it says where the feedback is.)
+        if (!issueToken().empty()) close();
     }
     void openDiscord() override { shellOpenUrl(kDiscordInvite); }
     void openIssue(const std::wstring& page) override { SDL_OpenURL(narrow(page).c_str()); }
