@@ -333,7 +333,7 @@ const TriggerProperty* triggerCallProperty(const TriggerDef& d, const std::vecto
     return nullptr;
 }
 
-bool triggerPlayerType(const std::string& name) { return name == "Player" || name == "PlayerGroup" || name == "PlayerId"; }
+bool triggerPlayerType(const std::string& name) { return name == "Player" || name == "PlayerGroup" || name == "PlayerId" || name == "DisplayTo"; }
 
 bool triggerTypeClear(const std::string& name) {
     const TriggerType* t = triggerType(name);
@@ -1552,8 +1552,43 @@ struct Gen {
             return "getcurpl()";
         }
         if (v.size() >= 2 && v[0] == 'P' && std::isdigit(static_cast<unsigned char>(v[1]))) return std::to_string(std::atoi(v.c_str() + 1) - 1);
+        // A value from the game, a variable or an expression (Player 1 is 0), as value() reads a player.
+        if (i >= 0 && i < int(c.argBlocks.size()) && !c.argBlocks[size_t(i)].empty()) return "(" + valueBlock(c.argBlocks[size_t(i)][0]) + ")";
+        if (!v.empty() && !playerGroupName(v))
+            if (const TriggerExprResult r = gx(v); r.ok) {
+                if (r.constant && (r.value < 0 || r.value > 11)) issue(TriggerIssue::Level::Error, &c, i, "Use a player number from 0 to 11 (Player 1 is 0)");
+                return r.constant ? r.code : "(" + r.code + ")";
+            }
         issue(TriggerIssue::Level::Error, &c, i, "Select a player");
         return "0";
+    }
+    // A group of players (not one player): a variable cannot have one of these names.
+    static bool playerGroupName(const std::string& v) {
+        return v == "AllPlayers" || v == "Foes" || v == "Allies" || v == "NeutralPlayers" || v == "NonAlliedVictoryPlayers" || (v.size() == 6 && v.rfind("Force", 0) == 0 && v[5] >= '1' && v[5] <= '4');
+    }
+    // The players of a force of the map as bits (Force1: the first force); 0 for no force.
+    unsigned forceMask(const std::string& group) const {
+        unsigned mask = 0;
+        if (playerGroupName(group) && group.rfind("Force", 0) == 0)
+            for (int pl = 0, f = std::atoi(group.c_str() + 5) - 1; pl < 8; ++pl)
+                if (map.playerForce[pl] == f) mask |= 1u << pl;
+        return mask;
+    }
+    // A unit loop's test of the owner of the unit `cu`: a player from 9, the current player, a force, a variable or a value.
+    std::string ownerFilter(const TriggerCall& c, const TriggerDef& d, const std::string& cu, const char* error) {
+        const std::string owner = raw(c, d, "player");
+        const int pi = d.param("player");
+        const bool block = pi >= 0 && pi < int(c.argBlocks.size()) && !c.argBlocks[size_t(pi)].empty();
+        if (!block && playerGroupName(owner)) {
+            if (const unsigned mask = forceMask(owner)) {
+                char m[16];
+                std::snprintf(m, sizeof m, "0x%02X", mask);
+                return "((" + std::string(m) + " >> " + cu + ".owner) & 1) != 0";
+            }
+            issue(TriggerIssue::Level::Error, &c, pi, error);
+            return {};
+        }
+        return cu + ".owner == " + playerNumber(c, pi, owner);
     }
 
     // A value block: a number read from the game.
@@ -1622,13 +1657,13 @@ struct Gen {
             return std::string("dwread_epd(EPD(") + (id == "val.kills" ? "0x5878A4" : "0x582324") + ") + 12 * " + value(c, *d, d->param("unit")) + " + " +
                    playerNumber(c, d->param("player"), raw(c, *d, "player")) + ")";
         if (id == "val.locx" || id == "val.locy") {
-            const std::string a = locAddr(value(c, *d, d->param("where")));
-            return id == "val.locx" ? "((dwread(" + a + ") + dwread(" + a + " + 8)) / 2)" : "((dwread(" + a + " + 4) + dwread(" + a + " + 12)) / 2)";
+            helpers.insert("locmid");
+            return std::string(id == "val.locx" ? "sd_locX(" : "sd_locY(") + value(c, *d, d->param("where")) + ")";
         }
         if (id == "val.distance") {
             const std::string a = value(c, *d, d->param("a")), b = value(c, *d, d->param("b"));
-            const std::string dx = "(" + a + ".posX - " + b + ".posX)", dy = "(" + a + ".posY - " + b + ".posY)";
-            return "sqrt(" + dx + " * " + dx + " + " + dy + " * " + dy + ")";
+            helpers.insert("distance");
+            return "sd_distance(" + a + ", " + b + ")";
         }
         if (d->code.empty()) {
             issue(TriggerIssue::Level::Error, &c, -1, d->title + ": this block cannot be built yet");
@@ -2078,9 +2113,8 @@ struct Gen {
                    arg(c, *d, "n") + ")";
         if (d->id == "cond.tech") return "(bread(" + techAddr(playerNumber(c, d->param("player"), raw(c, *d, "player")), arg(c, *d, "tech")) + ") != 0)";
         if (d->id == "cond.unitin") {
-            const std::string u = arg(c, *d, "unit"), a = locAddr(arg(c, *d, "where"));
-            return "(" + u + ".posX >= dwread(" + a + ") && " + u + ".posX <= dwread(" + a + " + 8) && " + u + ".posY >= dwread(" + a + " + 4) && " + u +
-                   ".posY <= dwread(" + a + " + 12))";
+            helpers.insert("unitin");
+            return "(sd_unitIn(" + arg(c, *d, "unit") + ", " + arg(c, *d, "where") + ") != 0)";
         }
         return fill(c, *d, d->code);
     }
@@ -2180,11 +2214,21 @@ struct Gen {
         }
         if (!d || d->condition || d->param("to") < 0 || out.empty()) return out;
         const std::string to = raw(c, *d, "to");
-        if (to.size() < 2 || to[0] != 'P' || !std::isdigit(static_cast<unsigned char>(to[1]))) return out;
-        const int pl = std::atoi(to.c_str() + 1) - 1;
-        if (pl < 0 || pl > 7) return out;
+        const int ti = d->param("to");
+        std::string player;
+        if (to.size() >= 2 && to[0] == 'P' && std::isdigit(static_cast<unsigned char>(to[1]))) {
+            const int pl = std::atoi(to.c_str() + 1) - 1;
+            if (pl < 0 || pl > 7) return out;
+            player = std::to_string(pl);
+        } else if ((ti < int(c.argBlocks.size()) && !c.argBlocks[size_t(ti)].empty()) || (to != "all" && to != "current" && !to.empty())) {
+            localDepth += shows;
+            player = value(c, *d, ti);  // one player from a variable or a value (Player 1 is 0)
+            localDepth -= shows;
+        } else {
+            return out;
+        }
         const std::string v = "cpTo" + std::to_string(++toPlayerBlocks);
-        return "{\n    const " + v + " = getcurpl();\n    setcurpl(" + std::to_string(pl) + ");\n" + indentLines(out, "    ") + "    setcurpl(" + v + ");\n}\n";
+        return "{\n    const " + v + " = getcurpl();\n    setcurpl(" + player + ");\n" + indentLines(out, "    ") + "    setcurpl(" + v + ");\n}\n";
     }
     std::string actionBody(const TriggerCall& c) {
         const TriggerDef* d = TriggerDef::find(c.def);
@@ -2311,23 +2355,12 @@ struct Gen {
         // takes it away on the next frame. Its StarEdit availability flags (units.dat, 0x661518 + 2 * 94) allow it for
         // the CreateUnit and are put back after it (made or not). Nothing is made when every unit slot is used.
         if (id == "act.refreshbuttons") {
-            return std::string("if (Memory(0x628438, AtLeast, 0x59CCA8)) {") + tag + "\n"
-                   "    const checkCCMU = Memory(0x628438, Exactly, 0);\n"
-                   "    const restoreFlags = SetMemoryX(0x6615D4, SetTo, 0, 0xFFFF);\n"
-                   "    const setRemoveTimer = SetMemoryXEPD(0, SetTo, 1, 0xFFFF);\n"
-                   "    maskread_epd(EPD(0x6615D4), 0xFFFF, ret=list(EPD(restoreFlags) + 5));\n"
-                   "    cunitepdread_epd(EPD(0x628438), ret=list(EPD(checkCCMU) + 2, EPD(setRemoveTimer) + 4));\n"
-                   "    DoActions(list(SetMemoryX(0x6615D4, SetTo, 2, 0xFFFF), CreateUnit(1, 94, 64, 11), restoreFlags));\n"
-                   "    if (!checkCCMU) {\n"
-                   "        DoActions(list(SetMemory(setRemoveTimer + 16, Add, 0x110 / 4), setRemoveTimer));\n"
-                   "    }\n"
-                   "}\n";
+            helpers.insert("refresh");
+            return "sd_refreshButtons();" + tag + "\n";
         }
         if (id == "act.clearmessages") {  // an empty text on each of the 11 message lines (not the center line)
-            std::string out;
-            for (int line = 0; line < 11; ++line)
-                out += std::string(all ? "printAllAt(" : "printAt(") + std::to_string(line) + ", \"\");" + (line == 0 ? tag : "") + "\n";
-            return out;
+            helpers.insert("clearmsg");
+            return std::string(all ? "sd_clearMessagesAll();" : "sd_clearMessages();") + tag + "\n";
         }
         // A text with values, as eudplib's format text and its values (", a, b").
         auto formatText = [&](std::string& fmt, std::string& values) {
@@ -2543,14 +2576,22 @@ struct Gen {
                 const int pn = std::atoi(group.c_str() + 1);
                 if (pn >= 1 && pn <= 8) mask = 1u << (pn - 1);
             } else if (group.rfind("Force", 0) == 0) {
-                const int f = std::atoi(group.c_str() + 5) - 1;
-                for (int pl = 0; pl < 8; ++pl)
-                    if (map.playerForce[pl] == f) mask |= 1u << pl;
+                mask = forceMask(group);
             }
-            if (!mask) issue(TriggerIssue::Level::Error, &c, d->param("players"), "For each player accepts all players, Player 1 to Player 8, or a force");
+            const int gi = d->param("players");
+            const bool block = gi < int(c.argBlocks.size()) && !c.argBlocks[size_t(gi)].empty();
+            std::string one;  // one player from a variable or a value
+            if (block || (!mask && !group.empty() && !playerGroupName(group) && group != "CurrentPlayer" &&
+                          !(group.size() >= 2 && group[0] == 'P' && std::isdigit(static_cast<unsigned char>(group[1])))))
+                one = value(c, *d, gi);
+            if (!mask && one.empty())
+                issue(TriggerIssue::Level::Error, &c, gi, "For each player accepts all players, Player 1 to Player 8, or a force");
             ++playerLoops, ++loops;
             const std::string n = std::to_string(playerLoops), b = body(c, 0);
             --playerLoops, --loops;
+            if (!one.empty())
+                return "{" + tag + "\n    const cp" + n + " = getcurpl();\n    for (var pl" + n + " = " + one + "; pl" + n + " < 8; pl" + n + " = 8) {  // one turn\n        if (playerexist(pl" + n +
+                       ")) {\n            setcurpl(pl" + n + ");\n" + indentLines(b, "        ") + "        }\n    }\n    setcurpl(cp" + n + ");\n}\n";
             char m[16];
             std::snprintf(m, sizeof m, "0x%02X", mask);
             return "{" + tag + "\n    const cp" + n + " = getcurpl();\n    for (var pl" + n + " = 0; pl" + n + " < 8; pl" + n + "++) {\n        if (((" + m + " >> pl" + n +
@@ -2575,9 +2616,8 @@ struct Gen {
             if (owner != "AllPlayers") {
                 if (owner.size() >= 2 && owner[0] == 'P' && std::isdigit(static_cast<unsigned char>(owner[1])) && std::atoi(owner.c_str() + 1) <= 8)
                     loop = "EUDLoopPlayerCUnit(" + std::to_string(std::atoi(owner.c_str() + 1) - 1) + ")";  // only that player's units
-                else if (owner.size() >= 2 && owner[0] == 'P' && std::isdigit(static_cast<unsigned char>(owner[1])))
-                    filter += (filter.empty() ? "" : " && ") + std::string("cu") + n + ".owner == " + std::to_string(std::atoi(owner.c_str() + 1) - 1);
-                else issue(TriggerIssue::Level::Error, &c, d->param("player"), "For each unit accepts the units of one player or of all players");
+                else if (const std::string f = ownerFilter(c, *d, "cu" + n, "For each unit accepts the units of one player or of all players"); !f.empty())
+                    filter += (filter.empty() ? "" : " && ") + f;
             }
             ++loops;
             unitLoopOnePlayer.push_back(loop != "EUDLoopCUnit()");
@@ -2596,9 +2636,8 @@ struct Gen {
             const std::string n = std::to_string(unitLoops);
             std::string filter = unitFilter("cu" + n);
             if (owner != "AllPlayers") {
-                if (owner.size() >= 2 && owner[0] == 'P' && std::isdigit(static_cast<unsigned char>(owner[1])))
-                    filter += (filter.empty() ? "" : " && ") + std::string("cu") + n + ".owner == " + std::to_string(std::atoi(owner.c_str() + 1) - 1);
-                else issue(TriggerIssue::Level::Error, &c, d->param("player"), "For each new unit accepts the units of one player or of all players");
+                if (const std::string f = ownerFilter(c, *d, "cu" + n, "For each new unit accepts the units of one player or of all players"); !f.empty())
+                    filter += (filter.empty() ? "" : " && ") + f;
             }
             ++loops;
             const std::string b = body(c, 0);
@@ -3049,6 +3088,29 @@ std::string TriggerSet::helperLibrary() {
            "    if (pct <= 0) pct = 100;\n"
            "    for (var i = 0; i < 7; i++) {\n        var ms = sd_speedBase[i] * 100 / pct;\n        if (ms < 1) ms = 1;\n"
            "        dwwrite(0x5124D8 + 4 * i, ms);\n    }\n}\n";
+    // Refresh buttons: a Scanner Sweep of Player 12 at the selected unit, gone at once: the game draws the buttons again.
+    out += "function sd_refreshButtons() {\n"
+           "    if (Memory(0x628438, AtLeast, 0x59CCA8)) {\n"
+           "        const checkCCMU = Memory(0x628438, Exactly, 0);\n"
+           "        const restoreFlags = SetMemoryX(0x6615D4, SetTo, 0, 0xFFFF);\n"
+           "        const setRemoveTimer = SetMemoryXEPD(0, SetTo, 1, 0xFFFF);\n"
+           "        maskread_epd(EPD(0x6615D4), 0xFFFF, ret=list(EPD(restoreFlags) + 5));\n"
+           "        cunitepdread_epd(EPD(0x628438), ret=list(EPD(checkCCMU) + 2, EPD(setRemoveTimer) + 4));\n"
+           "        DoActions(list(SetMemoryX(0x6615D4, SetTo, 2, 0xFFFF), CreateUnit(1, 94, 64, 11), restoreFlags));\n"
+           "        if (!checkCCMU) {\n"
+           "            DoActions(list(SetMemory(setRemoveTimer + 16, Add, 0x110 / 4), setRemoveTimer));\n"
+           "        }\n"
+           "    }\n}\n";
+    out += "function sd_clearMessages() {  // an empty text on each of the 11 message lines (not the center line)\n"
+           "    for (var line = 0; line < 11; line++) printAt(line, \"\");\n}\n"
+           "function sd_clearMessagesAll() {\n    for (var line = 0; line < 11; line++) printAllAt(line, \"\");\n}\n";
+    out += "function sd_locX(loc) {  // the middle of a location\n    const a = sd_locAddr(loc);\n    return (dwread(a) + dwread(a + 8)) / 2;\n}\n"
+           "function sd_locY(loc) {\n    const a = sd_locAddr(loc);\n    return (dwread(a + 4) + dwread(a + 12)) / 2;\n}\n";
+    out += "function sd_unitIn(u: CUnit, loc) {  // 1: the unit's middle is in the location\n    const a = sd_locAddr(loc);\n    const x = u.posX;\n    const y = u.posY;\n"
+           "    if (x >= dwread(a) && x <= dwread(a + 8) && y >= dwread(a + 4) && y <= dwread(a + 12)) return 1;\n    return 0;\n}\n";
+    out += "function sd_distance(a: CUnit, b: CUnit) {  // pixels between the middles of two units\n"
+           "    var dx = a.posX - b.posX;\n    var dy = a.posY - b.posY;\n"
+           "    if (a.posX < b.posX) dx = b.posX - a.posX;\n    if (a.posY < b.posY) dy = b.posY - a.posY;\n    return sqrt(dx * dx + dy * dy);\n}\n";
     return out;
 }
 
@@ -3341,6 +3403,11 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
             {"camera", "sd_camPan sd_camShake"},
             {"tile", "sd_tileAt sd_tileAtLoc"},
             {"chatnum", "sd_chatNumber"},
+            {"refresh", "sd_refreshButtons"},
+            {"clearmsg", "sd_clearMessages sd_clearMessagesAll"},
+            {"locmid", "sd_locX sd_locY"},
+            {"unitin", "sd_unitIn"},
+            {"distance", "sd_distance"},
             {"speed", "sd_gameSpeed"}};
         std::string imports;
         for (const auto& [key, list] : kNames)

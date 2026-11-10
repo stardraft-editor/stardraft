@@ -865,12 +865,12 @@ int main(int argc, char** argv) {
               code.find("(TrgPlayer(getcurpl()).gas >= 100)") != std::string::npos,
           "a player's properties (supply as players see it), from a value and as a condition");
     check(code.find("addloc(1, -32, 64);") != std::string::npos && code.find("cu1.set_color(P2);") != std::string::npos &&
-              code.find("(cu1.posX >= dwread(sd_locAddr(1)) && ") != std::string::npos,
+              code.find("(sd_unitIn(cu1, 1) != 0)") != std::string::npos,
           "locations shifted (negative numbers), a unit colored, a unit in a location");
-    check(code.find("sqrt((cu1.posX - v_boss.posX) * (cu1.posX - v_boss.posX) + ") != std::string::npos &&
+    check(code.find("sd_distance(cu1, v_boss)") != std::string::npos &&
               code.find("v_gold = dwread_epd(EPD(0x582324) + 12 * $U(\"Terran Marine\") + 0);") != std::string::npos &&
               code.find("v_score[1] = dwread_epd(EPD(0x5878A4) + 12 * $U(\"Zerg Zergling\") + 1);") != std::string::npos &&
-              code.find("setloc(1, ((dwread(sd_locAddr(64)) + dwread(sd_locAddr(64) + 8)) / 2), ") != std::string::npos,
+              code.find("setloc(1, sd_locX(64), sd_locY(64));") != std::string::npos,
           "values: distance, unit count, kills, a location's center");
     check(code.find("if ((rand() % 100 < 25)) {") != std::string::npos && code.find("setcurpl(cp1);  // (as it was before For each player)") != std::string::npos &&
               code.find("printAt(2, \"Gold: {} of {}\", v_gold, v_MAX_WAVES);") != std::string::npos && code.find("eprintf(\"Hurry\");") != std::string::npos,
