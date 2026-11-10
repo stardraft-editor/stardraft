@@ -502,12 +502,22 @@ std::vector<kit::MenuItem> toKit(const MenuModel& items) {
 // keys. Out of its menu a name can say too little: an item of a submenu ("Regions") or one whose name another item has
 // too ("Units": Mode, Layers, Workspaces) starts with its menu's name ("Pathing: Regions", "Mode: Units"), unless it has
 // it already ("Show grid"). Under it, the row's menus and keys; an option has a check box (on or off); an item that
-// cannot run now is gray (picked, it says so). Enter runs the item as its menu item does.
+// cannot run now is gray (picked, it says so). Enter runs the item as its menu item does. After them, the options of
+// Program options that are on or off or one of some (its check boxes and the theme), under "Options > Program options >
+// <tab>": Enter changes the option as its control does.
 struct FindCommandRow {
     int id;
     std::wstring name;
     bool enabled;
+    bool program = false;  // an option of Program options (it runs with no window, in each workspace)
 };
+struct ProgramOptionRow {
+    int id;
+    const wchar_t* name;  // (in the list; its control's label can say too little out of its row)
+    const wchar_t* tab;
+    bool on;
+};
+std::vector<ProgramOptionRow> sdlProgramOptionRows();  // (sdl_options.inc)
 std::vector<FindCommandRow> gFindCommandRows;
 void sdlFindCommand() {
     gQuickCustom.cue = tr(L"Find a command or an option");
@@ -564,12 +574,24 @@ void sdlFindCommand() {
                 out.push_back(std::move(u));
             }
         }
+        for (const ProgramOptionRow& o : sdlProgramOptionRows()) {
+            if (std::any_of(found.begin(), found.end(), [&](const Found& f) { return f.it->id == o.id; })) continue;  // (a menu has it)
+            PaletteUnit u;
+            u.value = int(gFindCommandRows.size());
+            u.label = tr(o.name);
+            u.section = std::wstring(tr(L"Options")) + L" > " + tr(L"Program options") + L" > " + tr(o.tab);
+            u.mark = uint8_t(kQuickMarkOption | (o.on ? kQuickMarkOn : 0));
+            u.hay = u.label + L" " + u.section;
+            std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
+            gFindCommandRows.push_back({o.id, u.label, true, true});
+            out.push_back(std::move(u));
+        }
         return out;
     };
     gQuickCustom.run = [](int v) {
         if (v < 0 || v >= int(gFindCommandRows.size())) return;
         const FindCommandRow& r = gFindCommandRows[size_t(v)];
-        if (!r.enabled || !sdlEnabled(r.id)) return setMessage(tr(L"Not available now: ") + r.name);
+        if (!r.program && (!r.enabled || !sdlEnabled(r.id))) return setMessage(tr(L"Not available now: ") + r.name);
         command(r.id);
     };
     shellShowQuickPickerCustom();
@@ -1508,7 +1530,8 @@ void sdlOptionsRefresh();  // (sdl_options.inc)
 void command(int id) {
     commandSdl(id);
     saveSettingsTable();  // an option the command changed stays for the next start (core/app_settings.inc)
-    if (id == ID_OPT_FUNMODE) sdlOptionsRefresh();  // (Immersive mode: About's logo changes it too, with Program options open)
+    // (Immersive mode: About's logo changes it too, with Program options open; the others: Find command)
+    if (id == ID_OPT_FUNMODE || id == ID_VIEW_SMOOTHZOOM || id == ID_VIEW_SMOOTHPAN || id == ID_VIEW_KEYHINTS) sdlOptionsRefresh();
 }
 void commandSdl(int id) {
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax))

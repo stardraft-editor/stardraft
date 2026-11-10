@@ -370,6 +370,30 @@ public:
 OptionsProgramSdl gOptionsProgram;
 OptionsView gOptionsView(gOptionsProgram);
 
+// Find command's rows of Program options (sdl_menus.inc): the options that are on or off, and the theme. Not the ones
+// that need a file or a folder, a number or a restart.
+std::vector<ProgramOptionRow> sdlProgramOptionRows() {
+    OptionsValues v;
+    gOptionsProgram.values(v);
+    std::vector<ProgramOptionRow> out = {
+        {ID_OPT_LASTPROJECT, L"Open the last project on start", L"General", v.openLast},
+        {ID_OPT_LASTSESSION, L"Open the last session's tabs on start", L"General", v.openSession},
+        {ID_THEME_DARK, L"Theme: Dark", L"Appearance", !v.light && !v.themeAuto},
+        {ID_THEME_LIGHT, L"Theme: Light", L"Appearance", v.light && !v.themeAuto},
+        {ID_OPT_TINTICONS, L"Unit icons in the accent color", L"Appearance", v.tintIcons},
+        {ID_VIEW_KEYHINTS, L"Show key hints", L"Appearance", v.keyHints},
+        {ID_OPT_DIAGNOSTICS, L"Show system diagnostics", L"Appearance", v.diagnostics},
+        {ID_VIEW_SMOOTHZOOM, L"Smooth zoom", L"Map", v.smoothZoom},
+        {ID_VIEW_SMOOTHPAN, L"Smooth pan", L"Map", v.smoothPan},
+        {ID_OPT_ASKSTARTLOC, L"Ask about missing start locations", L"Map", v.askStartLocations},
+        {ID_OPT_MANYSTARTS, L"Many start locations for each player", L"Map", v.manyStartLocations},
+        {ID_OPT_UPDATECHECK, L"Look for updates", L"Updates", v.checkUpdates},
+    };
+    if (v.systemTheme) out.insert(out.begin() + 4, {ID_THEME_SYSTEM, L"Theme: Automatic", L"Appearance", v.themeAuto});
+    if (v.immersiveUnlocked) out.insert(out.begin() + 2, {ID_OPT_FUNMODE, L"Immersive mode", L"Appearance", v.immersive});
+    return out;
+}
+
 void OptionsProgramSdl::close() {
     if (gOptionsOpen && gHost) gHost->closeWindow(gOptionsView);
 }
