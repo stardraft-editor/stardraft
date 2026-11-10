@@ -1029,6 +1029,7 @@ struct MainView final : draw::View {
         };
         pickPie.onCancel = [this] { pieClose(); };
         if (!map.shown() || pieShown() || !gState.ed || !gState.ed->isOpen()) return;
+        PickPieView::cellSize = gState.mode == Mode::Doodads ? 62 : gState.mode == Mode::Sprites ? 56 : 50;
         pickPie.reset(pickPieTree(gState));
         pickPieMode = gState.mode, pickPieMap = gState.ed.get(), pickPieGround.clear();
         if (pickPie.root.kids.empty()) return;

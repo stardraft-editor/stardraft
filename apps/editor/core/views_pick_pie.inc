@@ -65,7 +65,8 @@ struct PickPieView : draw::View {
     static constexpr double kTurn = 2 * 3.14159265358979323846;
     static int hole() { return scale(58); }       // the middle: no slice (letting go there: no change)
     static int textWidth() { return scale(88); }  // a ring of groups
-    static int cell() { return scale(50); }       // an item's cell: a row of an items' ring is this wide
+    static inline int cellSize = 50;              // (the host's: larger for the modes whose items have no names to tell them by)
+    static int cell() { return scale(cellSize); }  // an item's cell: a row of an items' ring is this wide
     static constexpr int kMaxRows = 4;
 
     draw::Point middle() const { return {width() / 2, height() / 2}; }
@@ -242,24 +243,25 @@ struct PickPieView : draw::View {
         };
         // A slice with its terrain's picture; the hot one has an accent rim round it.
         auto groundTile = [&](double a0, double a1, float ra, float rb, bool on, draw::Bitmap* pic) {
-            tile(a0, a1, ra, rb, on ? kAccent : kCtlHot);
-            if (pic) tile(a0, a1, ra, rb, kCtlHot, pic, on ? float(scale(3)) : 0);
+            tile(a0, a1, ra, rb, on ? kAccent : kBorderStrong);  // (the rim: a dark terrain's slice shows too)
+            if (pic) tile(a0, a1, ra, rb, kCtlHot, pic, float(scale(on ? 3 : 1)));
         };
-        // A group's terrain: the one that 6 of 10 of its items, or more, are on (0: none, as Recent with mixed picks).
+        // A group's terrain: the one most of its items are on, when 3 of 10 or more are (Recent and a group of groups: 6 of 10; 0: none).
         std::function<void(const PickPieNode&, std::map<int, int>&, int&)> countGround = [&](const PickPieNode& n, std::map<int, int>& by, int& all) {
             for (const PickPieNode& k : n.kids) {
                 if (k.value < 0) countGround(k, by, all);
                 else if (++all; const int t = groundOf(k.value)) ++by[t];
             }
         };
-        auto groundOfGroup = [&](const PickPieNode& n) {
+        auto groundOfGroup = [&](const PickPieNode& n, bool mixed) {
             if (!groundOf) return 0;
             std::map<int, int> by;
             int all = 0;
             countGround(n, by, all);
+            int best = 0, most = 0;
             for (const auto& [t, count] : by)
-                if (count * 10 >= all * 6) return t;
-            return 0;
+                if (count > most) most = count, best = t;
+            return most * 10 >= all * (mixed ? 6 : 3) ? best : 0;
         };
         // The names' width for the outer rings of names: the widest name, 120 px at most.
         int widest = scale(40);
@@ -284,7 +286,7 @@ struct PickPieView : draw::View {
                 const int most = std::max(scale(36), int(2 * rm * std::sin(std::min(r.step, kTurn / 2) / 2)) - scale(8));
                 for (int k = 0; k < n; ++k) {
                     const PickPieNode& node = r.of->kids[size_t(k)];
-                    const int ground = groundOfGroup(node);
+                    const int ground = groundOfGroup(node, (level == 0 && k == 0) || (!node.kids.empty() && node.kids[0].value < 0));
                     draw::Bitmap* pic = ground && groundPicture ? groundPicture(ground, groundTiles) : nullptr;
                     if (pic) groundTile(a0 + k * r.step, a0 + (k + 1) * r.step, r.inner, r.outer, k == hot, pic);
                     else tile(a0 + k * r.step, a0 + (k + 1) * r.step, r.inner, r.outer, k == hot ? kAccentFill : kCtlHot);
@@ -345,7 +347,15 @@ struct PickPieView : draw::View {
         }
         if (groups.size() > 2) groups.erase(groups.begin(), groups.end() - 2);
         const int tx = int(cx - r0) + pad, tw = int(2 * r0) - 2 * pad;
-        if (groups.empty()) c.text({tx, int(cy) - lineH / 2, tx + tw, int(cy) + lineH / 2}, tr(L"No change"), kDim, draw::kCenter | draw::kMiddle | draw::kEllipsis);
+        // (a hot item: its picture, large)
+        const PickPieNode* shown = hotNode();
+        const bool preview = art && shown && shown->value >= 0;
+        if (preview) {
+            const int half = int(r0 * 0.66f);
+            art(c, shown->value, {int(cx) - half, int(cy) - half, int(cx) + half, int(cy) + half});
+            groups.clear();
+        }
+        if (groups.empty() && !preview) c.text({tx, int(cy) - lineH / 2, tx + tw, int(cy) + lineH / 2}, tr(L"No change"), kDim, draw::kCenter | draw::kMiddle | draw::kEllipsis);
         for (size_t i = 0; i < groups.size(); ++i) {
             const int y = int(cy) - int(groups.size()) * lineH / 2 + int(i) * lineH;
             c.text({tx, y, tx + tw, y + lineH}, groups[i]->label, i + 1 == groups.size() ? kText : kDim, draw::kCenter | draw::kMiddle | draw::kEllipsis);
