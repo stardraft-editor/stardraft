@@ -4,7 +4,7 @@ Off by default, and locked: Program options > Appearance > Immersive mode shows 
 hidden extra unlocks it: 9 clicks on the logo in Help > About StarDraft 2 (at each click the logo squashes and springs
 back and green bits fly out of it with a thunk; at the 9th, "Immersive mode unlocked" shows under it for 2 seconds, and
 the mode is on). From then on the option is a usual check box ("Sounds and effects for edits on the map"), and a click
-on the logo turns the mode on or off too ("Immersive mode on", "Immersive mode off"). The settings are FunMode (the
+on the logo does not change the mode (the logo still squashes and the bits fly). The settings are FunMode (the
 mode) and ImmersiveUnlocked (the option is unlocked; a FunMode that is on counts as unlocked). In Immersive mode,
 editing the map gives feedback:
 
@@ -113,6 +113,9 @@ anyway); they can ship.
   is in its fade-out (no loud stop), else it does not play. Each one that plays makes the next one softer (1 / (1 +
   0.5 n): 4 together are about 2.6 times one, 12 about 4.4), so a long stroke or a big fill is one soft texture, not a wall. The replaced terrain's sound starts after the placed
   one's, so it is ducked too and stays the quieter one.
+- A selected unit says one of its what sounds at random (the game's sounds for a click on a unit: units.dat's What
+  Sound Start to What Sound End; a unit with none says nothing): the first unit that is new in the selection, at most one each 0.6 s (a box of many units says it
+  once), as the ready sound at half the volume. A unit placed now says its ready sound only. Not on a Cosmonarchy BW map.
 - Each sound fades in for 8 ms and out for 30 ms (no hard start or stop); the takes stay short and punchy.
 - Each one is a little different (its take and its pitch step).
 - A unit's ready sound: at half the volume, at most one each 0.6 s (a row or a paste of many units says it once), at

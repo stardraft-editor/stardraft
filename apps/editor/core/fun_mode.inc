@@ -263,6 +263,39 @@ void tickDeaths(const Editor& ed) {
     std::erase_if(g.deaths, [](const Death& d) { return !d.sim.anyRunning() || d.ticks >= kDeathTicks; });
 }
 
+// The selection since the last frame: the first unit with what sounds (the game's sounds for a click on a unit) that
+// is selected now and was not says one of them at random (units.dat's What Sound Start to What Sound End), at most
+// one each 0.6 s (a box of many units says it once). A unit placed now says its ready sound only. Not on a mod's map
+// (the game's sounds are not its units').
+void watchSelection(const Editor& ed) {
+    static const Editor* of = nullptr;
+    static uint64_t mark = 0, lastYes = 0;
+    static std::vector<int> lastSelection;
+    static std::unordered_set<uint32_t> last;
+    const bool same = of == &ed && mark == ed.loadMark();
+    if (same && lastSelection == ed.selection()) return;
+    const std::vector<Unit>& units = ed.units();
+    const bool known = same && g.armed && g.ed == &ed;  // (g.serials: the units before this frame's edits)
+    const DatTable* table = rangeTable("units");
+    const DatField* from = table ? table->field("What Sound Start") : nullptr;
+    const DatField* to = table ? table->field("What Sound End") : nullptr;
+    const bool say = known && from && to && !modTab() && nowMs() - lastYes >= 600;
+    std::unordered_set<uint32_t> now;
+    uint32_t a = 0, b = 0;  // the first new unit's sounds (a 0: none yet)
+    for (int i : ed.selection()) {
+        if (i < 0 || size_t(i) >= units.size()) continue;
+        const Unit& un = units[size_t(i)];
+        now.insert(un.serial);
+        const int type = un.type;
+        if (a || !say || last.count(un.serial) || !g.serials.count(un.serial)) continue;
+        if (type < from->first || type > from->last || type < to->first || type > to->last) continue;
+        a = table->value(*from, type), b = table->value(*to, type);
+        if (b < a) a = 0;
+    }
+    of = &ed, mark = ed.loadMark(), lastSelection = ed.selection(), last = std::move(now);
+    if (a) funPlaySfx(int(a + std::uniform_int_distribution<uint32_t>(0, b - a)(g.rng))), lastYes = nowMs();
+}
+
 // The edits since the last frame: their sounds, particles, pops, deaths and shakes.
 void watch(const Editor& ed) {
     if (!g.armed || g.ed != &ed || g.loadMark != ed.loadMark() || g.tiles.size() != ed.terrain().tiles.size()) {
@@ -489,6 +522,7 @@ void funModeScene(render::Scene& s) {
         fun::g.armed = false, fun::g.particles.clear(), fun::g.pops.clear(), fun::g.deaths.clear();
         return;
     }
+    fun::watchSelection(*app.ed);  // (before watch: it reads the units of the last frame)
     fun::watch(*app.ed);
     const uint64_t now = fun::nowMs();
     const float dt = std::clamp(float(now - fun::g.lastFrame) / 1000.0f, 0.0f, 0.05f);

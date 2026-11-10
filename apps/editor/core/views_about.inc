@@ -7,8 +7,8 @@
 //
 // A hidden extra: 9 clicks on the logo unlock Immersive mode (core/fun_mode.inc: edits on the map make sounds, shards
 // and pops) and turn it on: its option in Program options > Appearance is locked before that. After that, a click on
-// the logo turns it on or off. The logo squashes and springs back, bits fly out of it with a sound, and "Immersive
-// mode unlocked" (or on, or off) shows under it for 2 seconds.
+// the logo does not change the mode (the option does). The logo squashes and springs back, bits fly out of it with a
+// sound, and "Immersive mode unlocked" shows under it for 2 seconds.
 
 // The program's Discord server and GitHub repository (crash.inc's kRepo is the same repository).
 inline const wchar_t* const kDiscordInvite = L"https://discord.gg/JBMCwSRJBm";
@@ -209,7 +209,7 @@ public:
         c.setFont(of);
     }
 
-    // A click on the logo: the pop, the bits and a sound now; Immersive mode changes when the pop is at its lowest.
+    // A click on the logo: the pop, the bits and a sound now; the 9th unlocks Immersive mode when the pop is at its lowest.
     void logoClick() {
         const uint64_t now = animNowMs();
         popStart = lastTick = now, toggled = 0;
@@ -234,15 +234,14 @@ public:
         for (Bit& b : bits) b.vy += float(scale(700)) * dt, b.x += b.vx * dt, b.y += b.vy * dt, b.size *= 1 - 1.6f * dt;
         std::erase_if(bits, [&](const Bit& b) { return b.size < 0.4f || b.y > float(height()); });
         // The mode changes as the logo is down (it says so): locked, the 9th click (kCraftClicks) unlocks it and turns
-        // it on; unlocked, each click turns it on or off.
+        // it on. Unlocked, a click changes nothing (Program options has the option).
         if (popStart && !toggled && now - popStart >= 120) {
             toggled = now;
-            const bool unlocked = shellState().immersiveUnlocked();
-            if (unlocked || logoClicks >= kCraftClicks) {
+            if (!shellState().immersiveUnlocked() && logoClicks >= kCraftClicks) {
                 logoClicks = 0;
                 shellState().funUnlocked = true;
-                command(ID_OPT_FUNMODE);
-                craftText = !unlocked ? L"Immersive mode unlocked" : shellState().funMode ? L"Immersive mode on" : L"Immersive mode off";
+                command(ID_OPT_FUNMODE);  // (locked: the mode is off, so this turns it on)
+                craftText = L"Immersive mode unlocked";
                 textUntil = now + kTextMs;
             }
         }
