@@ -206,6 +206,7 @@ add_library(stardraft
     src/triggers.cpp
     src/editor.cpp
     src/editor_history.cpp
+    src/editor_selection.cpp
     src/new_map.cpp
     src/campaign.cpp
     src/project_import.cpp

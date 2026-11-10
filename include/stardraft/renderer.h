@@ -57,6 +57,12 @@ public:
     // Windows: called with each driver's name before createDevice tries it, so that a computer that stops in a try is
     // known at the next start.
     void setTryHook(void (*hook)(const char* driver));
+    // Windows: createDevice asks each video card whether it has Direct3D 12 at feature level 12_0 (about 100 ms of the
+    // start). d3d12Cards is then the cards and their driver versions when they all have it ("": not all, or it did not
+    // ask). With that text of an earlier start that made the Direct3D 12 device, createDevice does not ask the same
+    // cards again, and SDL does not make a device only to see that it can (about 170 ms more).
+    void setKnownD3d12Cards(const std::string& cards);
+    const std::string& d3d12Cards() const;
     // Windows: the driver that createDevice tries first ("vulkan", "direct3d12", "warp"; "": Vulkan, the default); the
     // others follow when it cannot be used.
     void setPreferredDriver(const std::string& driver);

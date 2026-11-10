@@ -6,7 +6,7 @@
    "name": "Start to the first frame (no map)",
    "unit": "ms",
    "dir": "max",
-   "target": 600
+   "target": 325
   },
   "first_frame_small_ms": {
    "area": "perf",
@@ -160,7 +160,7 @@
    "name": "Lines of the largest file",
    "unit": "",
    "dir": "max",
-   "target": 5600
+   "target": 5300
   },
   "compiler_warnings": {
    "area": "code",

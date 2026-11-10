@@ -33,7 +33,7 @@ settings of the computer that measures.
 
 | Area | KPI | How it is measured |
 |---|---|---|
-| perf | Start to the first frame | No map; from the process's start (median of 3 runs) |
+| perf | Start to the first frame | No map; from the process's start (median of 3 runs). Not the first start after an installation or a video driver update, which also asks each video card about Direct3D 12 and makes a device to see that it can (about 220 ms more) |
 | perf | First frame of a map | The 96 x 96 and the 256 x 256 map, opened from the start page (median of 3) |
 | perf | Paint stroke step, slowest 5% | 40 short drags of the Brush on the 128 x 128 map: each drag and the frame after it |
 | perf | Paint stroke step on a layer, slowest 5% | The same on a new map layer |
@@ -109,6 +109,12 @@ go out with it, `targets.json`'s `"accepted"` names the KPI and the reason, for 
 The perf targets were measured again for 0.9.0 (2026-11-08) with each run's own settings: before, the runs read the
 user's settings, which change the numbers (the start mode, the graphics, the one-time notes). Start 600 ms, paint 8.5 ms,
 paint on a layer 11.5 ms, palette scroll 12.5 ms, zoom 7 ms: the new numbers with a little room for noise.
+
+2026-11-10: the start is 257 ms (475 before) and its target 325 ms: a start after the first one on the same video cards
+and drivers does not ask the cards about Direct3D 12 again, and SDL does not make the device two times
+(gpu-cards.txt, cmake/patch_sdl.cmake). What is left is the one Direct3D 12 device (about 200 ms, the driver's time).
+The largest file is src/editor.cpp with 5,267 lines (5,732 before: the selection is in src/editor_selection.cpp) and
+its target 5,300.
 
 The baseline (2026-11-08, before 0.8.8) missed two zero targets: 12 snapshot cases (fixed in 9234c52d) and
 trigger_test (its lock of the file contents is a local file, research/data: --update-lock after a change of the format).

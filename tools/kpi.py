@@ -64,8 +64,15 @@ BARE_SEARCH = re.compile(r'setPlaceholder\((?:tr\()?L"Search(?:\\x2026|\.\.\.)?"
 KPI_SETTINGS = {"MapLayersInfoShown": 1}
 
 
+# The folder of the program's own files (LOCALAPPDATA) for all the runs of one measurement: never the user's.
+_appdata = None
+
+
 def run_program(exe, args, script=None, timeout=600):
     """The program with no window (its output); `script`: the lines of a --script, written to a file of its own."""
+    global _appdata
+    if _appdata is None:
+        _appdata = tempfile.TemporaryDirectory()
     with tempfile.TemporaryDirectory() as tmp:
         settings = Path(tmp) / "settings.json"
         settings.write_text(json.dumps(KPI_SETTINGS), encoding="utf-8")
@@ -75,6 +82,7 @@ def run_program(exe, args, script=None, timeout=600):
             sp.write_text("\n".join(script) + "\n", encoding="utf-8")
             cmd += ["--script", f"{sp}:0"]
         env = dict(os.environ, SDL_VIDEODRIVER=os.environ.get("SDL_VIDEODRIVER", "offscreen"))
+        env["LOCALAPPDATA"] = _appdata.name
         r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=timeout)
         return r.stdout + r.stderr
 
@@ -135,8 +143,11 @@ def stroke(n=40):
 def measure_perf(exe, install, maps, runs, log):
     r = {}
     data = ["--install", install] if install else []
-    # The start, and the memory with no map
+    # The start, and the memory with no map. A run before them is not measured: the first start on a computer asks
+    # each video card about Direct3D 12 and keeps the answer (gpu-cards.txt in the runs' folder), so the measured
+    # start is each later one.
     starts, gpu_nomap = [], []
+    run_program(exe, data, ["wait 10"])
     for _ in range(runs):
         out = run_program(exe, data, ["wait 10", "stats"])
         if m := re.search(r"^kpi: startup ([\d.]+)", out, re.M):

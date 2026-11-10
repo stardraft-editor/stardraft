@@ -54,6 +54,8 @@ inline int gridCrossing(int v, int g, int o, int size) {
     if (c < 0) c += g;
     return std::clamp(c, 0, size - 1);
 }
+// How far v is from the nearest line of that grid.
+inline int gridDistance(int v, int g, int o) { return std::abs(v - (int(std::lround(double(v - o) / g)) * g + o)); }
 // A point on the map goes to its grid line. A point outside the map stays, so that placing there is refused, and so does
 // a point on a side of the map with no line.
 inline int snapOnMap(float v, int g, int o, int size) {

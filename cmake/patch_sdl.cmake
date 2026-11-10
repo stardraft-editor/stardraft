@@ -6,6 +6,9 @@
 # -DDEBUG_IME=ON (STARDRAFT_SDL_DEBUG_IME): SDL also logs each call of the input method (the IME workflow on macOS).
 # Windows: with the hint STARDRAFT_D3D12_WARP set, Direct3D 12 uses WARP (the software device of Windows) in place of the
 # video card. The renderer asks for it when the video card has no Direct3D 12 or Vulkan that SDL can use.
+# With the hint STARDRAFT_D3D12_KNOWN set, SDL does not make a Direct3D 12 device only to see that it can (it makes the
+# device two times: about 170 ms of the start). The renderer sets it when an earlier start made the device on the same
+# video cards and drivers.
 
 # Each change: the text as SDL has it, and as it becomes. A change that does not find its text stops the configure.
 function(change old new)
@@ -51,6 +54,23 @@ if(NOT text MATCHES "STARDRAFT_D3D12_WARP")
         CHECK_D3D12_ERROR_AND_RETURN(\"Could not find adapter for D3D12Device\", NULL);")
     file(WRITE ${file} "${text}")
     message(STATUS "SDL: ${file} changed (Direct3D 12 can use WARP)")
+endif()
+if(NOT text MATCHES "STARDRAFT_D3D12_KNOWN")
+    change("    if (!has_dxbc && !has_dxil) {
+        return false;
+    }
+
+    // Can we load D3D12?"
+"    if (!has_dxbc && !has_dxil) {
+        return false;
+    }
+    if (SDL_GetHintBoolean(\"STARDRAFT_D3D12_KNOWN\", false)) {  // StarDraft: an earlier start made the device
+        return true;
+    }
+
+    // Can we load D3D12?")
+    file(WRITE ${file} "${text}")
+    message(STATUS "SDL: ${file} changed (Direct3D 12 is not made two times)")
 endif()
 
 

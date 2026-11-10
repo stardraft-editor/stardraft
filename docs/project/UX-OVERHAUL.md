@@ -30,7 +30,7 @@ New tools:
 
 | Change | Where |
 |---|---|
-| Arrange: 12 commands for the selected units (align on 6 lines, equal spaces across and down, in a row, a column, a grid, a circle). Buildings stay on their tiles; units that do not fit stay in their places. One undo step. Edit > Arrange, the map's right-click menu, the selection bar. | `src/editor.cpp` (arrangeSelection), `core/map_commands.inc` |
+| Arrange: 12 commands for the selected units (align on 6 lines, equal spaces across and down, in a row, a column, a grid, a circle). Buildings stay on their tiles; units that do not fit stay in their places. One undo step. Edit > Arrange, the map's right-click menu, the selection bar. | `src/editor_selection.cpp` (arrangeSelection), `core/map_commands.inc` |
 | Selection bar: buttons over the selected units (Duplicate, Delete, Arrange, Give to player, Snap to the grid, Properties). View > Show selection bar (off for a new user). | `core/selection_bar.inc` |
 | Pie palette for Units, Doodads and Sprites: while Space is held, rings open at the mouse. Ring 1 has Recent and the groups of the mode's list; the mouse over a group opens its ring outside it; the last ring has the items as pictures. Letting go over an item places it. | `core/views_pick_pie.inc` |
 | Pie palette for custom terrain: in Terrain mode with Custom on, Space opens rings of the tileset's custom terrain (folders first). The pie palette is for palettes only and for the mouse only (no search, no keys: Q is the keyboard's way). The rings open in 70 ms. A long group name has up to 3 lines. | `core/views_pick_pie.inc` |

@@ -396,8 +396,13 @@ std::wstring sdlGraphicsInUse() {
 // frames show, the program ends, or a crash report is written after the device was made (a crash in a try keeps it:
 // the next start does not try that driver). gpu-skip.txt keeps the drivers left out, one a line (Program options >
 // Graphics takes the chosen one out, Automatic all). Not for test runs, nor when STARDRAFT_GPU_DRIVER asks for one.
+// gpu-cards.txt keeps the video cards that all have Direct3D 12 at feature level 12_0 (Renderer::d3d12Cards) after a
+// start that made the Direct3D 12 device: the next start does not ask the same cards again, nor make a device only to
+// see that it can. A start that made another driver's device removes it. Also for --kpi (tools/kpi.py gives it a
+// LOCALAPPDATA of its own).
 #ifdef _WIN32
 fs::path sdlCrashFolder();  // (shell_sdl_win.inc)
+extern bool gKpi;           // (--kpi, below)
 namespace gpustart {
 bool on = false;
 std::wstring note;   // (the Log's line about a driver left out)
@@ -446,7 +451,15 @@ void writeSkips(const std::vector<std::string>& list) {
     for (const std::string& d : list) text += d + "\n";
     writeNow(L"gpu-skip.txt", text);
 }
+std::string cardsRead;  // (gpu-cards.txt at the start)
+void readCards(render::Renderer& r) {
+    std::ifstream in(folder() / "gpu-cards.txt");
+    std::getline(in, cardsRead);
+    if (!cardsRead.empty() && cardsRead.back() == '\r') cardsRead.pop_back();
+    r.setKnownD3d12Cards(cardsRead);
+}
 void before(render::Renderer& r) {
+    if (gKpi && gSilent && !folder().empty() && !std::getenv("STARDRAFT_GPU_DRIVER")) readCards(r);
     // (STARDRAFT_GPU_START_TEST: a --noactivate test of this, with its own LOCALAPPDATA)
     if ((gSilent && !(gNoActivate && std::getenv("STARDRAFT_GPU_START_TEST"))) || std::getenv("STARDRAFT_GPU_DRIVER") || folder().empty()) return;
     // (one start at a time: a second one while the first starts (a double click again) leaves its mark as it is)
@@ -472,9 +485,18 @@ void before(render::Renderer& r) {
     for (const std::string& d : skips) skip += (skip.empty() ? "" : ",") + d;
     r.setSkippedDrivers(skip);
     r.setTryHook(mark);
+    readCards(r);
 }
 void made(const render::Renderer& r) {  // (the device works: the map loads with no mark)
     madeAt = SDL_GetTicks(), driver = r.driverTried();
+    // (the cards as they are now, when createDevice asked them and it is not what the file has)
+    if (on || (gKpi && gSilent && !folder().empty())) {
+        if (driver != "direct3d12") {
+            std::error_code ec;
+            if (!cardsRead.empty()) std::filesystem::remove(folder() / "gpu-cards.txt", ec);
+        } else if (!r.d3d12Cards().empty() && r.d3d12Cards() != cardsRead)
+            writeNow(L"gpu-cards.txt", r.d3d12Cards() + "\n");
+    }
     if (on) removeMark();
 }
 void presentingNow() {  // (just before the window shows: its first frames)

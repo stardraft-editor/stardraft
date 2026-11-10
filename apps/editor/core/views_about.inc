@@ -12,6 +12,16 @@
 // The program's Discord server and GitHub repository (crash.inc's kRepo is the same repository).
 inline const wchar_t* const kDiscordInvite = L"https://discord.gg/JBMCwSRJBm";
 
+// The kind of the program's build, after the build time: a debug build is much slower (its numbers are not the
+// release's).
+inline std::wstring buildKind() {
+#ifdef NDEBUG
+    return tr(L"release build");
+#else
+    return tr(L"debug build");
+#endif
+}
+
 class AboutView final : public draw::View {
 public:
     struct Link {
@@ -83,7 +93,7 @@ public:
         title.px = -shellUiFontLfHeight() * 2, title.weight = 600;
         centered(L"StarDraft 2", c.font(title), kText, scale(40));
         const Font smallText = c.font({});
-        centered(L"v" + shellVersion() + (shellBuildStamp().empty() ? L"" : L"  (" + shellBuildStamp() + L")"), smallText, kDim, scale(22));
+        centered(L"v" + shellVersion() + L"  (" + (shellBuildStamp().empty() ? L"" : shellBuildStamp() + L", ") + buildKind() + L")", smallText, kDim, scale(22));
         centered(L"A map creation tool for EUD-powered maps for StarCraft: Remastered", smallText, kDim, scale(22));
         // The thanks: the program StarDraft 2 is named after, and the projects it is built on. A line's names are links
         // (underlined when the mouse is on them); a translation without the names shows the text only.

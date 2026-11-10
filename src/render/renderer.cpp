@@ -149,6 +149,7 @@ struct Renderer::Impl {
     SDL_Window* window = nullptr;
     SDL_GPUDevice* device = nullptr;
     std::string skipped;           // setSkippedDrivers
+    std::string knownCards, cards; // setKnownD3d12Cards, d3d12Cards
     const char* tried = "";        // driverTried
     std::string preferred;         // setPreferredDriver
     void (*tryHook)(const char*) = nullptr;  // setTryHook
@@ -365,7 +366,7 @@ static SDL_PropertiesID deviceProperties() {
 }
 
 #ifdef STARDRAFT_SHADERS_DXIL
-bool allCardsHaveD3d12FeatureLevel12();  // (d3d12_probe.cpp)
+bool allCardsHaveD3d12FeatureLevel12(const std::string& known, std::string& cards);  // (d3d12_probe.cpp)
 #endif
 
 bool Renderer::Impl::createDevice(std::string& err) {
@@ -403,7 +404,7 @@ bool Renderer::Impl::createDevice(std::string& err) {
     const bool d3d12Skipped = ("," + skipped + ",").find(",direct3d12,") != std::string::npos;
     if (preferred.empty() && only.empty() && !d3d12Skipped) {
         if (tryHook) tryHook("direct3d12");
-        if (allCardsHaveD3d12FeatureLevel12()) std::swap(order[0], order[1]);
+        if (allCardsHaveD3d12FeatureLevel12(knownCards, cards)) std::swap(order[0], order[1]);
     }
     for (size_t i = 1; i < order.size(); ++i)  // (the chosen one first)
         if (preferred == order[i]) std::rotate(order.begin(), order.begin() + std::ptrdiff_t(i), order.begin() + std::ptrdiff_t(i + 1));
@@ -416,6 +417,9 @@ bool Renderer::Impl::createDevice(std::string& err) {
         if (tryHook) tryHook(driver);
         const bool vulkan = std::string(driver) == "vulkan";
         SDL_SetHint("STARDRAFT_D3D12_WARP", std::string(driver) == "warp" ? "1" : "0");  // (cmake/patch_sdl.cmake)
+        // (an earlier start made the device on these cards and drivers: SDL does not make one only to see that it can)
+        const bool known = std::string(driver) == "direct3d12" && !knownCards.empty() && cards == knownCards;
+        SDL_SetHint("STARDRAFT_D3D12_KNOWN", known ? "1" : "0");
         SDL_PropertiesID props = deviceProperties();
         SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_DXIL_BOOLEAN, !vulkan);
         SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, vulkan);
@@ -432,6 +436,7 @@ bool Renderer::Impl::createDevice(std::string& err) {
     SDL_SetLogOutputFunction(reasons.next, reasons.nextData);
     SDL_SetLogPriority(SDL_LOG_CATEGORY_GPU, reasons.shown);
     SDL_ResetHint("STARDRAFT_D3D12_WARP");
+    SDL_ResetHint("STARDRAFT_D3D12_KNOWN");
     if (!device) {
         err = "SDL_CreateGPUDevice: " + errors;
         return false;
@@ -931,6 +936,8 @@ const char* Renderer::driver() const { return impl_->device ? SDL_GetGPUDeviceDr
 void Renderer::setSkippedDrivers(const std::string& drivers) { impl_->skipped = drivers; }
 const char* Renderer::driverTried() const { return impl_->tried; }
 void Renderer::setTryHook(void (*hook)(const char*)) { impl_->tryHook = hook; }
+void Renderer::setKnownD3d12Cards(const std::string& cards) { impl_->knownCards = cards; }
+const std::string& Renderer::d3d12Cards() const { return impl_->cards; }
 void Renderer::setPreferredDriver(const std::string& driver) { impl_->preferred = driver; }
 
 void Renderer::setCarbot(bool carbot) {
