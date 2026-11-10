@@ -278,10 +278,10 @@ theme's colors, with transparency (`apps/editor/path_overlay.inc`).
 
 | View menu item | What shows |
 |---|---|
-| Show town areas | For each start location and each expansion: the buildable tiles near its town hall (green), its resources (orange boxes), and a label with the counts ("P1  392 buildable, 7 minerals, 1 gas"). |
+| Show town areas | Each resource area in its own color: the buildable tiles near its town hall, its resources (boxes, with a line from the area's position to each), the area's position (a square), and a label with the name and the counts ("P1, area 1" and "7 minerals, 1 gas, 392 tiles"). |
 
-- **The legend** in the view's bottom-left corner tells what each color is, for the overlays that show. The map's
-  labels do not show through it.
+- **The status bar** tells what each color is, for the overlays that show (there is no legend on the map). The
+  labels are in the UI font (dark boxes, the same size at each zoom).
 - **The status bar:** when the overlay goes on, it tells what the colors mean. On a base's box it tells the base's
   counts, with the amounts of minerals and gas.
 - **The data** comes from the library (`stardraft/pathing.h`, `analyzePathing`): the walk grid has one cell for each
@@ -289,16 +289,22 @@ theme's colors, with transparency (`apps/editor/path_overlay.inc`).
   resources on the map (UNIT, and the units of THG2) block the cells under their collision box; the start location
   markers and mobile units do not. The paths are A* over the grid (8 directions, no cut corners) for a square of
   the unit's size. A town area is the buildable tiles (CV5) that join the town hall's tiles through buildable tiles
-  that no building or resource covers, at most 12 tiles from the town hall. Resources are the units of StarEdit's
-  Resources group with 64 or more in them (less: a wall, not a resource) and at most 12 tiles from a start location
-  (each goes to the nearest). An expansion is a group of the other resources (each within 7 tiles of the next; a
-  geyser by itself joins a mineral line at most 12 tiles from it) with 3 or more mineral fields or a geyser, and a
-  place where a town hall can go (4x3 buildable tiles, 3 tiles from every resource) near them.
+  that no building or resource covers, at most 12 tiles from the town hall. The bases are the game's resource areas
+  (the areas that a computer player makes its towns at), each with its number. The start locations of players 1 to 8
+  are areas 1 and up: a resource goes to the first of them that is at most 640 px away (a geyser: 896 px), on the
+  same ground level and a ground walk of at most 20 tiles away (a geyser: 28). Then the other geysers, then the
+  other mineral fields, make areas: the one with the most resources near it (by their amounts) makes an area round
+  the mineral field nearest the middle of those resources; the area takes all the resources near that field that
+  have no area, and its position is the middle of the box round them. Each area shows (there is no minimum of
+  resources). The town hall of such an area is the place where one can go (4x3 buildable tiles, 3 tiles from every
+  resource) nearest its resources; an area with no such place shows at its position. The ground walk is by the walk
+  grid (the terrain only), not by the game's path regions: a resource at the limit of the walk can be in another
+  area than in the game.
 - **Speed:** the analysis runs on a worker thread on copies of the map's data each time the map changes (the editor's
   revision); the map shows the last result until the new one is ready, so edits do not wait. `tools/tests/pathing_test`
-  measures each map of the game's Maps folder: 1 to 25 ms on the 128x128 maps (8 starts: 28 paths), at most about
-  85 ms on the 256x256 maps. The labels go on by priority (the one under the mouse, the start locations, the
-  counts, the expansions, the path lengths); a label that would cover one before it does not show.
+  measures each map of the game's Maps folder: less than 50 ms on the 128x128 maps (8 starts: 28 paths), at most
+  about 120 ms on the 256x256 maps. The labels go on by priority (the one under the mouse, the start locations, the
+  expansions, the path lengths); a label that would cover one before it does not show.
 - **Tests:** `pathing_test <install> <maps dir>` checks a ground path on (2)Bottleneck.scm, none on (5)Island Hop.scm,
   the town area counts and the time (`--dump <dir>` writes a picture of each map with the overlays). The snapshot case
   map-view-towns turns the town areas on and captures them. `<map> --pathshots <dir>` captures the three overlays together

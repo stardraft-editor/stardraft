@@ -5,12 +5,13 @@
 //   - Paths between bases: the start locations and the shortest ground path between each pair, with its length in
 //     tiles; a dashed line where there is no ground path. The paths are for a unit of the size set in View > Path unit
 //     size.
-//   - Town areas: around each start location (and each expansion), its resources and the buildable tiles near its
-//     town hall, with their counts.
+//   - Town areas: the game's resource areas (each start location's, then the others), each in its own color: its
+//     resources (a line goes from the area's position to each), the buildable tiles near its town hall, and their
+//     counts.
 // The analysis runs on a worker thread on copies of the map's data when the map changes (the editor's revision); the
-// map shows the last result until the new one is ready. A legend in the view's bottom-left corner tells what the
-// colors are; the status bar tells the length of the path under the mouse.
-float mapTextScale();  // (core/map_scene.inc: the map font's size on the screen)
+// map shows the last result until the new one is ready. The status bar tells what the colors are, and the path or
+// the area under the mouse. The labels are in the UI font, painted on the map view (pathOverlayPaint), the same
+// size at each zoom.
 
 struct PathOverlay {
     bool walk = false, paths = false, towns = false;
@@ -40,14 +41,35 @@ PathOverlay gPath;
 
 bool pathOverlayOn() { return gPath.walk || gPath.paths || gPath.towns; }
 
+// A label on the map: its place (map pixels, then dx, dy screen pixels), one or two lines of text, and a color bar at
+// its left (a resource area's color). Made with the scene (addPathOverlays), painted by pathOverlayPaint.
+struct PathLabel {
+    int priority = 0;  // 0 first: a label that would cover one placed before it does not show
+    float x = 0, y = 0;
+    int dx = 0, dy = 0;
+    std::wstring text, sub;
+    draw::Color color = 0;
+    bool striped = false;
+    draw::Color stripe = 0;
+};
+std::vector<PathLabel> gPathLabels;
+
 uint32_t rgbaOf(COLORREF c, uint8_t alpha) {
     return (uint32_t(GetRValue(c)) << 24) | (uint32_t(GetGValue(c)) << 16) | (uint32_t(GetBValue(c)) << 8) | alpha;
 }
 
 // The tint of ground area r (1, 2, ...): the hues around the circle, with the theme's lightness.
+draw::Color canvasColor(uint32_t rgba) { return draw::rgb(int(rgba >> 24), int(rgba >> 16 & 255), int(rgba >> 8 & 255)); }
+
 uint32_t regionTint(int r) {
     const double hue = std::fmod(30.0 + 137.5 * (r - 1), 360.0);
     return rgbaOf(theme::color(gLightTheme ? 0.62 : 0.72, 0.16, hue), 0x58);
+}
+
+// The color of a base's resource area (each area has its hue); a base with no area has the theme's green.
+uint32_t areaColor(const Base& b, uint8_t alpha) {
+    if (!b.area) return rgbaOf(kGood, alpha);
+    return rgbaOf(theme::color(gLightTheme ? 0.55 : 0.78, 0.17, std::fmod(140.0 + 137.5 * (b.area - 1), 360.0)), alpha);
 }
 
 // Is the result for the map that shows (and for the unit size set)?
@@ -92,13 +114,14 @@ void pathOverlayPoll(bool wait = false) {
 bool pathOverlayBusy() { return pathOverlayOn() && gPath.job.valid(); }
 
 std::wstring baseName(const Base& b) {
-    return b.start ? L"P" + std::to_wstring(b.owner + 1) : std::wstring(L"Expansion");
+    return b.start ? L"P" + std::to_wstring(b.owner + 1) : L"Area " + std::to_wstring(b.area);
 }
 
 std::wstring baseText(const Base& b) {
-    wchar_t buf[200];
-    std::swprintf(buf, 200, L"%s: %d buildable tiles, %d mineral fields (%u minerals in total), %d geysers (%u gas in total)", baseName(b).c_str(), int(b.buildable.size()), b.minerals,
-                  b.mineralAmount, b.geysers, b.gasAmount);
+    wchar_t buf[240];
+    const std::wstring name = b.start && b.area ? baseName(b) + L" (resource area " + std::to_wstring(b.area) + L")" : b.start ? baseName(b) : L"Resource area " + std::to_wstring(b.area);
+    std::swprintf(buf, 240, L"%s: %d buildable tiles, %d mineral fields (%u minerals in total), %d geysers (%u gas in total)%s", name.c_str(), int(b.buildable.size()), b.minerals,
+                  b.mineralAmount, b.geysers, b.gasAmount, b.hall ? L"" : L"; no place for a town hall");
     return buf;
 }
 
@@ -118,7 +141,7 @@ std::wstring pathLegendText() {
     std::wstring s;
     if (gPath.walk) s += L"Shaded: units cannot walk there. Each tint marks a ground area that units cannot walk to from the largest area (no tint). ";
     if (gPath.paths) s += L"Lines: the shortest ground paths between the start locations. ";
-    if (gPath.towns) s += L"Green tiles: buildable tiles near a base. Orange boxes: its resources.";
+    if (gPath.towns) s += L"Each color is a resource area (the game's areas for the towns of computer players): its resources, with a line from the area's position, and the buildable tiles near its town hall.";
     while (!s.empty() && s.back() == L' ') s.pop_back();
     return s;
 }
@@ -170,7 +193,7 @@ void makePathShapes(const PathingAnalysis& a) {
     // Town tiles: runs of tiles on each row.
     const int mw = appState().ed ? appState().ed->width() : w / 4;
     for (const Base& b : a.bases) {
-        const uint32_t fill = rgbaOf(kGood, b.start ? 0x50 : 0x30);
+        const uint32_t fill = areaColor(b, b.start ? 0x58 : 0x40);
         for (size_t k = 0; k < b.buildable.size();) {
             const int t = b.buildable[k];
             size_t e = k + 1;
@@ -185,12 +208,12 @@ void makePathShapes(const PathingAnalysis& a) {
 }
 
 void addPathOverlays(render::Scene& s) {
+    gPathLabels.clear();
     pathOverlayPoll();
     const PathingAnalysis* a = pathOverlayOn() ? pathResult() : nullptr;
     if (!a) return;
     makePathShapes(*a);
     Editor& ed = *appState().ed;
-    const size_t firstText = s.texts.size();
     if (gPath.walk) addRectsInView(s.rects, gPath.walkRects);  // (only those the view shows: core/map_edit.inc)
     auto line = [&](float x0, float y0, float x1, float y1, uint32_t rgba, float thickness) {
         render::RectDraw r;
@@ -198,23 +221,28 @@ void addPathOverlays(render::Scene& s) {
         s.rects.push_back(r);
     };
     const float px = 1 / appState().zoom;  // one screen pixel in map pixels
-    // The labels, placed after the shapes by priority (0 first): a label that would cover one placed before it does
-    // not show (the status bar tells it under the mouse).
-    struct Label {
-        int priority;
-        render::TextDraw t;
-        int needs;  // shows only when label `needs` (an index into labels) shows; -1: none
+    // The labels (pathOverlayPaint places and paints them).
+    auto label = [&](int priority, float x, float y, int dx, int dy, std::wstring text, draw::Color color) -> PathLabel& {
+        PathLabel l;
+        l.priority = priority, l.x = x, l.y = y, l.dx = dx, l.dy = dy, l.text = std::move(text), l.color = color;
+        gPathLabels.push_back(std::move(l));
+        return gPathLabels.back();
     };
-    std::vector<Label> labels;
-    auto label = [&](int priority, float x, float y, std::string text, uint32_t rgba, int needs = -1) {
-        labels.push_back({priority, {x, y, std::move(text), rgba, true, mapTextScale()}, needs});
-        return int(labels.size()) - 1;
-    };
+    const draw::Color white = draw::rgb(255, 255, 255);
     if (gPath.towns) {
         addRectsInView(s.rects, gPath.townRects);
-        for (const Base& b : a->bases)
-            for (int i : b.resources)
-                if (size_t(i) < ed.units().size()) outline(s, ed.unitBox(ed.units()[size_t(i)]), rgbaOf(kWarn, 0xE0), 2);
+        // Each area's resources: a box in the area's color, and a line from the area's position.
+        for (size_t bi = 0; bi < a->bases.size(); ++bi) {
+            const Base& b = a->bases[bi];
+            const bool hot = int(bi) == gPath.hoverBase;
+            const uint32_t color = hot ? rgbaOf(kFeedback, 0xFF) : areaColor(b, 0xFF), spoke = hot ? rgbaOf(kFeedback, 0xD0) : areaColor(b, 0xA0);
+            for (int i : b.resources) {
+                if (size_t(i) >= ed.units().size()) continue;
+                const Rect box = ed.unitBox(ed.units()[size_t(i)]);
+                if (b.area) line(b.areaX, b.areaY, float(box.left + box.right) / 2, float(box.top + box.bottom) / 2, spoke, hot ? 2.0f : 1.5f);
+                outline(s, box, color, 2);
+            }
+        }
     }
     if (gPath.paths) {
         const uint32_t pathColor = rgbaOf(gLightTheme ? kAccent : kAccentBright, 0xF0), hot = rgbaOf(kFeedback, 0xFF), under = rgbaOf(kBg, 0xC0);
@@ -242,14 +270,14 @@ void addPathOverlays(render::Scene& s) {
             const int priority = int(k) == gPath.hoverPath ? 0 : 5;
             if (!p.found) {
                 const Base &from = a->bases[size_t(p.from)], &to = a->bases[size_t(p.to)];
-                label(priority, (from.x + to.x) / 2 + 6 * px, (from.y + to.y) / 2 - 6 * px, "No ground path", rgbaOf(kBad, 0xFF));
+                label(priority, (from.x + to.x) / 2, (from.y + to.y) / 2, scale(6), -scale(6), L"No ground path", draw::rgb(255, 128, 118));
                 continue;
             }
             if (p.points.empty()) continue;
             const auto [mx, my] = p.points[p.points.size() / 2];
-            char buf[32];
-            std::snprintf(buf, sizeof buf, "%.0f tiles", p.lengthTiles);
-            label(priority, mx + 6 * px, my - 6 * px, buf, priority == 0 ? rgbaOf(kFeedback, 0xFF) : 0xFFFFFFFFu);
+            wchar_t buf[32];
+            std::swprintf(buf, 32, L"%.0f tiles", p.lengthTiles);
+            label(priority, mx, my, scale(6), -scale(6), buf, white);
         }
     }
     // The bases: the town hall's box and a label.
@@ -258,88 +286,73 @@ void addPathOverlays(render::Scene& s) {
             const Base& b = a->bases[i];
             if (!b.start && !gPath.towns) continue;
             const Rect hall{int(b.x) - 64, int(b.y) - 48, int(b.x) + 64, int(b.y) + 48};
-            outline(s, hall, rgbaOf(int(i) == gPath.hoverBase ? kFeedback : (b.start ? kAccentBright : kGood), 0xFF), 2);
-            // The name (start locations before the other labels), then the counts beside it where they fit.
-            const std::string name = narrow(baseName(b));
             const bool hot = int(i) == gPath.hoverBase;
-            const float lx = float(hall.left), ly = float(hall.bottom) + 4 * px;
-            const int nameLabel = label(hot ? 0 : b.start ? 1 : 3, lx, ly, name, 0xFFFFFFFFu);
+            const uint32_t color = hot ? rgbaOf(kFeedback, 0xFF) : gPath.towns ? areaColor(b, 0xFF) : rgbaOf(b.start ? kAccentBright : kGood, 0xFF);
+            if (b.hall) outline(s, hall, color, b.start || hot ? 2.0f : 1.0f);
+            // The resource area's position: a square in the area's color (6 screen pixels from its middle).
+            if (gPath.towns && b.area) {
+                const float m = 6 * px;
+                s.rects.push_back({b.areaX - m, b.areaY - m, b.areaX + m, b.areaY + m, color, true, 1, true});
+                s.rects.push_back({b.areaX - m, b.areaY - m, b.areaX + m, b.areaY + m, 0x101216FFu, false, 1.5f, true});
+            }
+            // The name (start locations before the other labels), then the counts below it. An area with no town hall
+            // has them below its position.
+            const std::wstring name = b.start && b.area && gPath.towns ? baseName(b) + L", area " + std::to_wstring(b.area) : baseName(b);
+            PathLabel& l = label(hot ? 0 : b.start ? 1 : 3, b.hall ? float(hall.left) : b.x, b.hall ? float(hall.bottom) : b.y, b.hall ? 0 : -scale(6),
+                                 b.hall ? scale(6) : scale(12), name, white);
             if (gPath.towns) {
-                char buf[96];
-                std::snprintf(buf, sizeof buf, "%d buildable, %d minerals, %d gas", int(b.buildable.size()), b.minerals, b.geysers);
-                label(hot ? 0 : b.start ? 2 : 4, lx + float(name.size() + 1) * 9 * px, ly, buf, 0xFFFFFFFFu, nameLabel);
+                wchar_t buf[96];
+                std::swprintf(buf, 96, L"%d minerals, %d gas, %d tiles", b.minerals, b.geysers, int(b.buildable.size()));
+                l.sub = buf, l.striped = true, l.stripe = canvasColor(color);
             }
         }
-    std::vector<int> order(labels.size());
-    for (size_t i = 0; i < order.size(); ++i) order[i] = int(i);
-    std::stable_sort(order.begin(), order.end(), [&](int l, int r) { return labels[size_t(l)].priority < labels[size_t(r)].priority; });
-    std::vector<std::array<float, 4>> taken;  // screen boxes of the placed labels
-    std::vector<bool> shown(labels.size(), false);
-    for (int i : order) {
-        render::TextDraw& t = labels[size_t(i)].t;
-        if (labels[size_t(i)].needs >= 0 && !shown[size_t(labels[size_t(i)].needs)]) continue;
-        const float x0 = (t.x - appState().camX) * appState().zoom, y0 = (t.y - appState().camY) * appState().zoom;
-        const std::array<float, 4> box{x0 - 2, y0 - 2, x0 + float(t.text.size()) * 6 * t.scale + 2, y0 + 10 * t.scale + 2};
-        bool free = true;
-        for (const auto& o : taken) free &= box[0] >= o[2] || o[0] >= box[2] || box[1] >= o[3] || o[1] >= box[3];
-        if (!free) continue;
-        taken.push_back(box);
-        shown[size_t(i)] = true;
-        s.texts.push_back(std::move(t));
-    }
+}
 
-    // The legend: the view's bottom-left corner, in screen pixels.
-    struct Entry {
-        uint32_t swatch;
-        bool lineSwatch;
-        const char* text;
-    };
-    std::vector<Entry> entries;
-    if (gPath.walk) {
-        entries.push_back({rgbaOf(kBg, 0xFF), false, "Units cannot walk here"});
-        entries.push_back({regionTint(1), false, "A separate ground area (each has a tint)"});
-    }
-    if (gPath.paths) {
-        static char pathLine[80];
-        std::snprintf(pathLine, sizeof pathLine, "Shortest ground path (%s)", pathUnitSizeName(gPath.size));
-        entries.push_back({rgbaOf(gLightTheme ? kAccent : kAccentBright, 0xFF), true, pathLine});
-        entries.push_back({rgbaOf(kBad, 0xFF), true, "No ground path"});
-    }
-    if (gPath.towns) {
-        entries.push_back({rgbaOf(kGood, 0xA0), false, "Buildable tiles near a base"});
-        entries.push_back({rgbaOf(kWarn, 0xFF), false, "Resources of a base"});
-    }
-    int vw, vh;
-    viewSize(vw, vh);
-    const float sc = float(appState().dpi) / 96, rowH = 18 * sc, pad = 8 * sc;
-    float maxW = 0;
-    for (const Entry& e : entries) maxW = std::max(maxW, float(std::strlen(e.text)) * 6.0f * 1.5f * sc);
-    const float boxW = pad * 3 + 14 * sc + maxW, boxH = pad * 2 + rowH * float(entries.size());
-    const float x0 = 10 * sc, y0 = float(vh) - 10 * sc - boxH;
-    // The map's labels do not show through the legend.
-    s.texts.erase(std::remove_if(s.texts.begin() + std::ptrdiff_t(firstText), s.texts.end(),
-                                 [&](const render::TextDraw& t) {
-                                     const float tx = (t.x - appState().camX) * appState().zoom, ty = (t.y - appState().camY) * appState().zoom;
-                                     const float tw = float(t.text.size()) * 6 * t.scale, th = 10 * t.scale;
-                                     return tx < x0 + boxW && tx + tw > x0 && ty < y0 + boxH && ty + th > y0;
-                                 }),
-                  s.texts.end());
-    s.rects.push_back({x0, y0, x0 + boxW, y0 + boxH, rgbaOf(kPanel, 0xE8), true, 1, false});
-    s.rects.push_back({x0, y0, x0 + boxW, y0 + boxH, rgbaOf(kBorder, 0xFF), false, 1, false});
-    for (size_t i = 0; i < entries.size(); ++i) {
-        const float y = y0 + pad + rowH * float(i), sx = x0 + pad;
-        if (entries[i].lineSwatch) {
-            render::RectDraw r;
-            r.x0 = sx, r.y0 = y + 7 * sc, r.x1 = sx + 14 * sc, r.y1 = y + 7 * sc, r.rgba = entries[i].swatch, r.thickness = 3 * sc, r.world = false, r.line = true;
-            s.rects.push_back(r);
-        } else {
-            s.rects.push_back({sx, y + 1 * sc, sx + 14 * sc, y + 13 * sc, entries[i].swatch, true, 1, false});
-            s.rects.push_back({sx, y + 1 * sc, sx + 14 * sc, y + 13 * sc, rgbaOf(kBorderStrong, 0xFF), false, 1, false});
+// The labels on the map view `view`, in the UI font. A label is a dark box at its place on the map (a name in bold,
+// then a second line); the labels go by priority, and a label that would cover one placed before it does not show
+// (the status bar tells it under the mouse).
+draw::Rect gameViewClip(draw::Rect view);  // (core/map_scene.inc)
+void pathOverlayPaint(draw::Canvas& c, draw::Rect view) {
+    if (!pathOverlayOn() || gPathLabels.empty()) return;
+    view = gameViewClip(view);  // (View > In-game view: no labels on the black bars)
+    const draw::FontDesc plainDesc{draw::Face::Ui, scale(12)}, boldDesc{draw::Face::Ui, scale(12), true};
+    const auto plain = c.font(plainDesc), bold = c.font(boldDesc);
+    const auto old = c.setFont(plain);
+    const int h = c.metrics().height, pad = scale(5);
+    c.pushClip(view);
+    std::vector<draw::Rect> taken;
+    std::vector<size_t> order(gPathLabels.size());
+    for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+    std::stable_sort(order.begin(), order.end(), [&](size_t l, size_t r) { return gPathLabels[l].priority < gPathLabels[r].priority; });
+    for (size_t i : order) {
+        const PathLabel& l = gPathLabels[i];
+        const bool two = !l.sub.empty();
+        const int bar = l.striped ? scale(4) : 0;
+        int textW = two ? c.measure(l.sub) : 0;
+        c.setFont(two ? bold : plain);
+        textW = std::max(textW, c.measure(l.text));
+        const int w = bar + pad + textW + pad;
+        draw::Rect box;
+        box.left = view.left + int(std::lround((l.x - appState().camX) * appState().zoom)) + l.dx;
+        box.top = view.top + int(std::lround((l.y - appState().camY) * appState().zoom)) + l.dy;
+        // A label that starts in the view stays in it (its end does not go past the view's right side).
+        if (box.left < view.right && box.left + w > view.right - scale(4)) box.left = std::max(view.left + scale(4), view.right - scale(4) - w);
+        box.right = box.left + w, box.bottom = box.top + (two ? 2 : 1) * h + scale(4);
+        bool free = box.right > view.left && box.left < view.right && box.bottom > view.top && box.top < view.bottom;
+        for (const draw::Rect& o : taken) free = free && (box.left >= o.right || o.left >= box.right || box.top >= o.bottom || o.top >= box.bottom);
+        if (free) {
+            taken.push_back(box);
+            c.roundBox(box, draw::rgb(16, 23, 27), draw::rgb(66, 80, 83), float(scale(3)));
+            if (bar) c.fill({box.left + 1, box.top + 1, box.left + 1 + bar, box.bottom - 1}, l.stripe);
+            const int tx = box.left + bar + pad, ty = box.top + scale(2);
+            c.text({tx, ty, box.right, ty + h}, l.text, l.color, draw::kMiddle);
+            c.setFont(plain);
+            if (two) c.text({tx, ty + h, box.right, ty + h * 2}, l.sub, draw::rgb(176, 188, 192), draw::kMiddle);
         }
-        render::TextDraw t;
-        t.x = sx + 14 * sc + pad, t.y = y + 1 * sc, t.text = entries[i].text, t.rgba = rgbaOf(kText, 0xFF), t.world = false, t.scale = 1.5f * sc;
-        s.texts.push_back(t);
+        c.setFont(plain);
     }
+    c.popClip();
+    c.setFont(old);
 }
 
 // The path or base under the mouse (map pixels): its text for the status bar, empty if none.
@@ -374,7 +387,9 @@ std::wstring pathOverlayHover(float wx, float wy) {
     if (a && text.empty() && (gPath.paths || gPath.towns))
         for (size_t i = 0; i < a->bases.size(); ++i) {
             const Base& b = a->bases[i];
-            if ((b.start || gPath.towns) && std::abs(wx - b.x) <= 64 && std::abs(wy - b.y) <= 48) {
+            const float reach = 8 / appState().zoom;  // (8 screen pixels round the area's position)
+            const bool onArea = gPath.towns && b.area && std::abs(wx - b.areaX) <= reach && std::abs(wy - b.areaY) <= reach;
+            if (onArea || ((b.start || gPath.towns) && std::abs(wx - b.x) <= 64 && std::abs(wy - b.y) <= 48)) {
                 gPath.hoverBase = int(i), text = baseText(b);
                 break;
             }

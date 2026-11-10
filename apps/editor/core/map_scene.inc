@@ -1202,6 +1202,19 @@ void gameViewScene(render::Scene& s, int vw, int vh) {
     }
 }
 
+// The part of the map view `view` that View > In-game view shows (the game's screen); all of it when the option is off.
+draw::Rect gameViewClip(draw::Rect view) {
+    const AppState& app = shellState();
+    const int vw = view.right - view.left, vh = view.bottom - view.top;
+    if (!app.gameView || vw <= 0 || vh <= 0 || app.zoom <= 0) return view;
+    const float fw = kGameViewW * app.zoom, fh = kGameViewH * app.zoom;
+    const int fx0 = int(std::floor((vw - fw) / 2)), fy0 = int(std::floor((vh - fh) / 2));
+    draw::Rect r = view;
+    r.left = std::max(view.left, view.left + fx0), r.top = std::max(view.top, view.top + fy0);
+    r.right = std::min(view.right, view.left + fx0 + int(fw)), r.bottom = std::min(view.bottom, view.top + fy0 + int(fh));
+    return r;
+}
+
 // View > Show ranges of the selected units (GitHub feedback #109): around each selected unit (Units mode), its sight
 // (the tiles it sees, yellow), and its target acquisition (orange) and weapons' ranges: ground (red) and air (blue), its
 // turret's too; a detector's detection range (green dashes) and a Pylon's psi field (purple tiles). From units.dat and weapons.dat: the project's (with its edits) or the game's. A range counts from the

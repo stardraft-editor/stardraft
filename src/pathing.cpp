@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <deque>
 #include <future>
 #include <limits>
 #include <queue>
@@ -14,8 +15,6 @@ namespace stardraft {
 namespace {
 
 constexpr uint16_t kStartLocation = 214;
-// A resource with less than this much in it is a wall of minerals, not a resource of a base (it is still an obstacle).
-constexpr uint32_t kMinResource = 64;
 
 using Clock = std::chrono::steady_clock;
 double msSince(Clock::time_point t) { return std::chrono::duration<double, std::milli>(Clock::now() - t).count(); }
@@ -298,52 +297,212 @@ PathingAnalysis analyzePathing(const PathingInput& in, const PathingOptions& opt
     std::stable_sort(a.bases.begin(), a.bases.end(), [](const Base& l, const Base& r) { return l.owner < r.owner; });
     const size_t starts = a.bases.size();
 
-    auto countsAsResource = [&](int i) {
-        const Unit& u = units[size_t(i)];
-        return u.type < types.size() && isResource(types[u.type]) && u.resources >= kMinResource;
+    // --- Resource areas ---
+    // The game's rule for the areas that a computer player makes its towns at. Each resource (a unit with the resource
+    // flag) goes to one area, and each area has a number.
+    //   - Areas 1 and up: the start locations of players 1 to 8, in the players' order. A resource goes to the first of
+    //     them that is near: at most 640 px away (a geyser: 896 px), on the same ground level, and a walk of at most 20
+    //     tiles (a geyser: 28) on the ground.
+    //   - Then the other geysers, then the other mineral fields, make areas: each of them counts the resources with no
+    //     area near it (by their amounts); the one with the most makes an area round the mineral field nearest the
+    //     middle of those resources, and the area takes all the resources with no area near that field. The area's
+    //     position is the middle of the box round its resources.
+    // The walk on the ground is by this library's walk grid (the terrain only), not by the game's path regions: a
+    // resource at the limit of the walk can go to another area than in the game. The order of the units is the map's.
+    const int gw = a.grid.width, gh = a.grid.height, unitCount = int(units.size());
+    constexpr int kAreaLimit = 249, kNear = 960, kNoWalk = 9999;
+    // The game's distance between two points (pixels): an estimate with no square root.
+    auto gameDistance = [](int x0, int y0, int x1, int y1) {
+        uint32_t dx = uint32_t(std::abs(x0 - x1)), dy = uint32_t(std::abs(y0 - y1));
+        if (dx < dy) std::swap(dx, dy);
+        return (dx >> 2) < dy ? dx - (dx >> 4) + ((3 * dy) >> 3) - (dx >> 6) + ((3 * dy) >> 8) : dx;
     };
+    auto levelAt = [&](int px, int py) { return a.grid.elevation(std::clamp(px / 8, 0, gw - 1), std::clamp(py / 8, 0, gh - 1)); };
+    auto terrainWalkable = [&](int cx, int cy) { return a.grid.inside(cx, cy) && (a.grid.cells[size_t(cy) * gw + cx] & WalkGrid::kTerrainWalkable) != 0; };
+    // The walkable cell of a point: its own, or the nearest one at most 4 cells away; -1 if none.
+    auto walkCell = [&](int px, int py) {
+        const int cx = std::clamp(px / 8, 0, gw - 1), cy = std::clamp(py / 8, 0, gh - 1);
+        if (terrainWalkable(cx, cy)) return cy * gw + cx;
+        for (int r = 1; r <= 4; ++r)
+            for (int y = cy - r; y <= cy + r; ++y)
+                for (int x = cx - r; x <= cx + r; ++x)
+                    if (std::max(std::abs(x - cx), std::abs(y - cy)) == r && terrainWalkable(x, y)) return y * gw + x;
+        return -1;
+    };
+    // The walks from one cell to the cells round it (tenths of a pixel; kFar: none of at most 29 tiles). The last 192
+    // start cells are kept: a resource is the start of some walks at different times.
+    constexpr int kSpan = 29 * 4, kSide = 2 * kSpan + 1, kReach = 29 * 320;
+    constexpr uint16_t kFar = 0xFFFF;
+    struct WalkField {
+        int cell = -1, x0 = 0, y0 = 0;
+        uint64_t used = 0;
+        std::vector<uint16_t> d;
+    };
+    std::deque<WalkField> fields;
+    uint64_t fieldClock = 0;
+    std::vector<std::vector<int>> open(size_t(kReach) + 1);  // the cells to go on from, by their walk
+    auto fieldFrom = [&](int cell) -> const WalkField& {
+        for (WalkField& c : fields)
+            if (c.cell == cell) {
+                c.used = ++fieldClock;
+                return c;
+            }
+        if (fields.size() < 192) fields.emplace_back();
+        WalkField& f = fields.size() < 192 ? fields.back() : *std::min_element(fields.begin(), fields.end(), [](const WalkField& l, const WalkField& r) { return l.used < r.used; });
+        f.cell = cell, f.used = ++fieldClock, f.x0 = cell % gw - kSpan, f.y0 = cell / gw - kSpan;
+        f.d.assign(size_t(kSide) * kSide, kFar);
+        const int first = kSpan * kSide + kSpan;
+        f.d[size_t(first)] = 0;
+        open[0].push_back(first);
+        for (int d = 0; d <= kReach; ++d) {
+            for (size_t k = 0; k < open[size_t(d)].size(); ++k) {
+                const int c = open[size_t(d)][k];
+                if (d != f.d[size_t(c)]) continue;
+                const int lx = c % kSide, ly = c / kSide;
+                for (int dy = -1; dy <= 1; ++dy)
+                    for (int dx = -1; dx <= 1; ++dx) {
+                        const int nx = lx + dx, ny = ly + dy;
+                        if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= kSide || ny >= kSide) continue;
+                        const int gx = f.x0 + nx, gy = f.y0 + ny;
+                        if (!terrainWalkable(gx, gy)) continue;
+                        if (dx && dy && (!terrainWalkable(gx - dx, gy) || !terrainWalkable(gx, gy - dy))) continue;  // (no cut of a corner)
+                        const int nd = d + (dx && dy ? 113 : 80);
+                        const size_t n = size_t(ny) * kSide + nx;
+                        if (nd > kReach || nd >= f.d[n]) continue;
+                        f.d[n] = uint16_t(nd);
+                        open[size_t(nd)].push_back(int(n));
+                    }
+            }
+            open[size_t(d)].clear();
+        }
+        return f;
+    };
+    // The walk between two points in tiles: the game's distance when nothing is in the way, else the walk's length;
+    // kNoWalk when there is none.
+    auto walkTiles = [&](int sx, int sy, int tx, int ty) {
+        const int from = walkCell(sx, sy), to = walkCell(tx, ty);
+        if (from < 0 || to < 0) return kNoWalk;
+        const WalkField& f = fieldFrom(from);
+        const int lx = to % gw - f.x0, ly = to / gw - f.y0;
+        if (lx < 0 || ly < 0 || lx >= kSide || ly >= kSide) return kNoWalk;
+        const int d = f.d[size_t(ly) * kSide + lx];
+        if (d == kFar) return kNoWalk;
+        const int dx = std::abs(lx - kSpan), dy = std::abs(ly - kSpan);
+        if (d <= 80 * std::max(dx, dy) + 33 * std::min(dx, dy)) return int(gameDistance(sx, sy, tx, ty) / 32);
+        return d / 320;
+    };
+
+    // What each unit is: no resource, a mineral field or a geyser with no area, or a resource that has its area.
+    enum : uint8_t { kNoResource, kMineral, kGeyser, kTaken };
+    std::vector<uint8_t> kind(units.size(), kNoResource), gas(units.size(), 0);
+    std::vector<int> areaOf(units.size(), 0);
+    for (int i = 0; i < unitCount; ++i) {
+        const Unit& u = units[size_t(i)];
+        if (u.type >= types.size() || !types[u.type].is(UnitFlag::ResourceContainer)) continue;
+        gas[size_t(i)] = !isResource(types[u.type]) || isGasResource(types[u.type]);  // (a building on a geyser is gas too)
+        kind[size_t(i)] = gas[size_t(i)] ? kGeyser : kMineral;
+    }
+    struct Area {
+        int x = 0, y = 0;
+        int base = -1;  // the start location's base, -1 for an area that the resources made
+        std::vector<int> resources;
+    };
+    std::vector<Area> areas(1);  // (the game does not use area 0)
+    for (size_t s = 0; s < starts; ++s) {
+        const Base& b = a.bases[s];
+        if (b.owner < 0 || b.owner > 7 || (b.x == 0 && b.y == 0)) continue;
+        if (s + 1 < starts && a.bases[s + 1].owner == b.owner) continue;  // (a player's last start location is its place)
+        areas.push_back({int(b.x), int(b.y), int(s), {}});
+    }
+    auto take = [&](int i, int id) {
+        kind[size_t(i)] = kTaken, areaOf[size_t(i)] = id;
+        areas[size_t(id)].resources.push_back(i);
+    };
+    bool looseKind[3] = {};
+    for (int i = 0; i < unitCount; ++i) {
+        if (kind[size_t(i)] == kNoResource) continue;
+        const Unit& u = units[size_t(i)];
+        const bool g = gas[size_t(i)] != 0;
+        int found = 0;
+        for (size_t id = 1; id < areas.size() && !found; ++id) {
+            const Area& ar = areas[id];
+            if (gameDistance(u.x, u.y, ar.x, ar.y) > uint32_t(g ? 896 : 640) || levelAt(u.x, u.y) != levelAt(ar.x, ar.y)) continue;
+            if (walkTiles(ar.x, ar.y, u.x, u.y) <= (g ? 28 : 20)) found = int(id);
+        }
+        if (found) take(i, found);
+        else looseKind[kind[size_t(i)]] = true;
+    }
+    // A resource with no area is near a point: in the box of 960 px round it, on its ground level, at most 640 px
+    // (a geyser: 896 px) away and a walk of less than 20 tiles (a geyser: 28).
+    auto nearPoint = [&](int i, int px, int py) {
+        if (kind[size_t(i)] == kNoResource || areaOf[size_t(i)]) return false;
+        const Unit& u = units[size_t(i)];
+        if (u.x < px - kNear || u.x > px + kNear || u.y < py - kNear || u.y > py + kNear) return false;
+        const bool g = gas[size_t(i)] != 0;
+        if (levelAt(u.x, u.y) != levelAt(px, py) || gameDistance(u.x, u.y, px, py) > uint32_t(g ? 896 : 640)) return false;
+        return walkTiles(px, py, u.x, u.y) < (g ? 28 : 20);
+    };
+    auto makeAreas = [&](uint8_t type) {
+        struct Seed {
+            int unit;
+            uint32_t value;
+        };
+        std::vector<Seed> seeds;
+        for (int i = 0; i < unitCount; ++i) {
+            if (kind[size_t(i)] != type) continue;
+            Seed s{i, 1};
+            for (int j = 0; j < unitCount; ++j)
+                if (nearPoint(j, units[size_t(i)].x, units[size_t(i)].y)) s.value += std::min<uint32_t>(4, units[size_t(j)].resources / 500 + 1);
+            seeds.push_back(s);
+        }
+        for (size_t n = 0; n < seeds.size(); ++n) {
+            Seed* seed = &seeds[0];
+            for (size_t k = 1; k < seeds.size(); ++k)
+                if (seeds[k].value > seed->value) seed = &seeds[k];
+            seed->value = 0;
+            const Unit& su = units[size_t(seed->unit)];
+            int64_t sumX = 0, sumY = 0;
+            int count = 0;
+            for (int j = 0; j < unitCount; ++j)
+                if (nearPoint(j, su.x, su.y)) sumX += units[size_t(j)].x, sumY += units[size_t(j)].y, ++count;
+            if (!count) continue;
+            if (int(areas.size()) - 1 >= kAreaLimit) break;
+            // The mineral field with no area nearest the middle (a walk of at most 20 tiles; of two as near, the later).
+            const int mx = int(sumX / count), my = int(sumY / count);
+            int nearest = seed->unit, best = 99999999;
+            for (int j = 0; j < unitCount; ++j) {
+                if (kind[size_t(j)] != kMineral) continue;
+                // (a walk of 20 tiles does not go out of the box of 960 px)
+                if (std::abs(units[size_t(j)].x - mx) > kNear || std::abs(units[size_t(j)].y - my) > kNear) continue;
+                const int d = walkTiles(mx, my, units[size_t(j)].x, units[size_t(j)].y);
+                if (d <= best && d <= 20) best = d, nearest = j;
+            }
+            seed->unit = nearest;
+            const Unit& nu = units[size_t(nearest)];
+            const int id = int(areas.size());
+            areas.push_back({nu.x, nu.y, -1, {}});
+            int l = nu.x, t = nu.y, r = nu.x, b = nu.y;
+            for (int j = 0; j < unitCount; ++j) {
+                if ((kind[size_t(j)] != kMineral && kind[size_t(j)] != kGeyser) || !nearPoint(j, nu.x, nu.y)) continue;
+                const Unit& u = units[size_t(j)];
+                take(j, id);
+                l = std::min(l, int(u.x)), r = std::max(r, int(u.x)), t = std::min(t, int(u.y)), b = std::max(b, int(u.y));
+            }
+            areas[size_t(id)].x = (l + r) / 2, areas[size_t(id)].y = (t + b) / 2;
+        }
+    };
+    if (looseKind[kGeyser]) makeAreas(kGeyser);
+    if (looseKind[kMineral]) makeAreas(kMineral);
+
     auto addResource = [&](Base& b, int i) {
         const Unit& u = units[size_t(i)];
         b.resources.push_back(i);
-        if (isGasResource(types[u.type])) ++b.geysers, b.gasAmount += u.resources;
+        if (gas[size_t(i)]) ++b.geysers, b.gasAmount += u.resources;
         else ++b.minerals, b.mineralAmount += u.resources;
     };
-    // Each resource near a start location goes to the nearest one.
-    std::vector<int> loose;
-    for (int i = 0; i < int(units.size()); ++i) {
-        if (!countsAsResource(i)) continue;
-        const Unit& u = units[size_t(i)];
-        int best = -1;
-        double bestD = double(opt.resourceRadius) * 32;
-        for (size_t s = 0; s < starts; ++s) {
-            const double d = std::hypot(u.x - a.bases[s].x, u.y - a.bases[s].y);
-            if (d <= bestD) bestD = d, best = int(s);
-        }
-        if (best >= 0) addResource(a.bases[size_t(best)], i);
-        else loose.push_back(i);
-    }
-    // Expansions: groups of the other resources (each within 7 tiles of another of its group) with at least 3 mineral
-    // fields or a geyser. The town hall goes where the game lets one go (buildable, 3 tiles from the resources) nearest
-    // to the resources.
-    if (opt.expansions && !loose.empty()) {
-        std::vector<int> group(loose.size(), -1);
-        int groups = 0;
-        for (size_t s = 0; s < loose.size(); ++s) {
-            if (group[s] >= 0) continue;
-            std::vector<size_t> stack{s};
-            group[s] = groups;
-            while (!stack.empty()) {
-                const size_t c = stack.back();
-                stack.pop_back();
-                const Unit& cu = units[size_t(loose[c])];
-                for (size_t o = 0; o < loose.size(); ++o) {
-                    if (group[o] >= 0) continue;
-                    const Unit& ou = units[size_t(loose[o])];
-                    if (std::hypot(cu.x - ou.x, cu.y - ou.y) <= 7 * 32) group[o] = groups, stack.push_back(o);
-                }
-            }
-            ++groups;
-        }
+    // The bases: a start location's base has its area's resources; each other area is a base (an expansion). Its town
+    // hall goes where the game lets one go (buildable, 3 tiles from the resources) nearest to the resources.
+    {
         // Boxes that a town hall must keep 3 tiles from: every resource (any amount).
         std::vector<Box> keepOut;
         for (const Unit& u : units)
@@ -403,44 +562,29 @@ PathingAnalysis analyzePathing(const PathingInput& in, const PathingOptions& opt
                 }
             return std::isfinite(bestScore);
         };
-        std::vector<Base> found;
-        std::vector<bool> hasHall;
-        for (int gi = 0; gi < groups; ++gi) {
+        for (size_t id = 1; id < areas.size(); ++id) {
+            const Area& ar = areas[id];
+            if (ar.base >= 0) {
+                Base& b = a.bases[size_t(ar.base)];
+                b.area = int(id), b.areaX = float(ar.x), b.areaY = float(ar.y);
+                for (int i : ar.resources) addResource(b, i);
+                continue;
+            }
+            if (!opt.expansions) continue;
             Base b;
-            for (size_t s = 0; s < loose.size(); ++s)
-                if (group[s] == gi) addResource(b, loose[s]);
-            hasHall.push_back(findHall(b));
-            found.push_back(std::move(b));
+            b.area = int(id), b.areaX = float(ar.x), b.areaY = float(ar.y);
+            for (int i : ar.resources) addResource(b, i);
+            b.hall = !b.resources.empty() && findHall(b);
+            if (!b.hall) b.x = b.areaX, b.y = b.areaY;
+            a.bases.push_back(std::move(b));
         }
-        // A group with no mineral line (a geyser by itself) and a group with one: one base when they are at most 12 tiles
-        // apart. Groups whose town halls would be near each other are one base too.
-        auto gap = [&](const Base& p, const Base& q) {
-            double d = std::numeric_limits<double>::infinity();
-            for (int i : p.resources)
-                for (int j : q.resources) d = std::min(d, std::hypot(double(units[size_t(i)].x) - units[size_t(j)].x, double(units[size_t(i)].y) - units[size_t(j)].y));
-            return d;
-        };
-        for (bool merged = true; merged;) {
-            merged = false;
-            for (size_t i = 0; i < found.size() && !merged; ++i)
-                for (size_t j = i + 1; j < found.size() && !merged; ++j) {
-                    const bool lone = (found[i].minerals < 3) != (found[j].minerals < 3) && gap(found[i], found[j]) <= 12 * 32;
-                    const bool nearHalls = hasHall[i] && hasHall[j] && std::hypot(found[i].x - found[j].x, found[i].y - found[j].y) <= 8 * 32;
-                    if (!lone && !nearHalls) continue;
-                    for (int r : found[j].resources) addResource(found[i], r);
-                    found.erase(found.begin() + std::ptrdiff_t(j)), hasHall.erase(hasHall.begin() + std::ptrdiff_t(j));
-                    hasHall[i] = findHall(found[i]);
-                    merged = true;
-                }
-        }
-        for (size_t i = 0; i < found.size(); ++i)
-            if (hasHall[i] && (found[i].minerals >= 3 || found[i].geysers > 0)) a.bases.push_back(std::move(found[i]));
     }
     // Town areas: the buildable tiles joined to the town hall's tiles through buildable tiles, within the radius.
     for (Base& b : a.bases) {
         const int bx = int(b.x) / 32, by = int(b.y) / 32;
         const int cx = std::clamp(int(b.x) / 8, 0, a.grid.width - 1), cy = std::clamp(int(b.y) / 8, 0, a.grid.height - 1);
         b.region = a.regions.id[size_t(cy) * a.grid.width + cx];
+        if (!b.hall) continue;  // (no town hall: no town area)
         const double r2 = double(opt.townRadius) * opt.townRadius;
         auto within = [&](int x, int y) {
             const double dx = x + 0.5 - b.x / 32.0, dy = y + 0.5 - b.y / 32.0;

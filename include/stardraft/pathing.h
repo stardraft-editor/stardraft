@@ -51,9 +51,8 @@ const char* pathUnitSizeName(PathUnitSize size);
 
 struct PathingOptions {
     PathUnitSize unitSize = PathUnitSize::Medium;
-    int townRadius = 12;      // tiles: the buildable tiles of a town area are this near its town hall
-    int resourceRadius = 12;  // tiles: the resources of a start location are this near it
-    bool expansions = true;   // also find the resource groups with no start location
+    int townRadius = 12;     // tiles: the buildable tiles of a town area are this near its town hall
+    bool expansions = true;  // also the resource areas with no start location
 };
 
 // A unit is a static obstacle for ground units: a ground building or a resource (not a start location).
@@ -84,9 +83,14 @@ struct GroundPath {
 };
 
 struct Base {
-    bool start = false;  // a start location (else an expansion: a resource group with no start location)
+    bool start = false;  // a start location (else an expansion: a resource area with no start location)
     int owner = -1;      // the start location's player (0-based), -1 for an expansion
-    float x = 0, y = 0;  // the town hall's middle (the start location), map pixels
+    float x = 0, y = 0;  // the town hall's middle (the start location), map pixels; the area's position if !hall
+    bool hall = true;    // a town hall has a place at x, y
+    // The game's resource area (the areas that a computer player makes its towns at): its number (from 1; 0: none,
+    // a start location that is not a player's place) and its position (map pixels).
+    int area = 0;
+    float areaX = 0, areaY = 0;
     int minerals = 0, geysers = 0;           // resource units
     uint32_t mineralAmount = 0, gasAmount = 0;
     std::vector<int> resources;   // indexes into the input's units
