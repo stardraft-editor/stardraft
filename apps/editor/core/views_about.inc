@@ -5,9 +5,10 @@
 //
 // The links open in the browser (shellOpenUrl); the Close button and Esc or Enter close the window.
 //
-// A hidden extra: a click on the logo turns Craft mode on or off (core/fun_mode.inc: edits on the map make sounds,
-// shards and pops). The logo squashes and springs back, bits fly out of it with a sound, and "Craft mode on" (or off)
-// shows under it for 2 seconds.
+// A hidden extra: 9 clicks on the logo unlock Immersive mode (core/fun_mode.inc: edits on the map make sounds, shards
+// and pops) and turn it on: its option in Program options > Appearance is locked before that. After that, a click on
+// the logo turns it on or off. The logo squashes and springs back, bits fly out of it with a sound, and "Immersive
+// mode unlocked" (or on, or off) shows under it for 2 seconds.
 
 // The program's Discord server and GitHub repository (crash.inc's kRepo is the same repository).
 inline const wchar_t* const kDiscordInvite = L"https://discord.gg/JBMCwSRJBm";
@@ -34,13 +35,13 @@ public:
     std::function<void()> closed;  // the view closed its window (Close, Esc, Enter)
     draw::Rect logoRc;  // from the last paint
 
-    // The logo's click (Craft mode): when it started (animNowMs, 0: none), the bits that fly, the text and until when.
+    // The logo's click (Immersive mode): when it started (animNowMs, 0: none), the bits that fly, the text and until when.
     struct Bit {
         float x, y, vx, vy, size;
         COLORREF color;
     };
     uint64_t popStart = 0, toggled = 0, textUntil = 0;
-    int logoClicks = 0;  // the clicks on the logo while Craft mode is off: the 9th turns it on
+    int logoClicks = 0;  // the clicks on the logo while Immersive mode is locked: the 9th unlocks it
     std::vector<Bit> bits;
     uint64_t lastTick = 0;
     std::wstring craftText;
@@ -208,11 +209,11 @@ public:
         c.setFont(of);
     }
 
-    // A click on the logo: the pop, the bits and a sound now; Craft mode changes when the pop is at its lowest.
+    // A click on the logo: the pop, the bits and a sound now; Immersive mode changes when the pop is at its lowest.
     void logoClick() {
         const uint64_t now = animNowMs();
         popStart = lastTick = now, toggled = 0;
-        if (!shellState().funMode) ++logoClicks;  // (counted here: a fast click comes before the last one's change)
+        if (!shellState().immersiveUnlocked()) ++logoClicks;  // (counted here: a fast click comes before the last one's change)
         std::mt19937 rng{uint32_t(now)};
         std::uniform_real_distribution<float> u(0.0f, 1.0f);
         const COLORREF colors[] = {RGB(120, 230, 170), RGB(60, 170, 120), RGB(200, 255, 225), RGB(30, 110, 80)};  // (the logo's greens)
@@ -232,13 +233,16 @@ public:
         lastTick = now;
         for (Bit& b : bits) b.vy += float(scale(700)) * dt, b.x += b.vx * dt, b.y += b.vy * dt, b.size *= 1 - 1.6f * dt;
         std::erase_if(bits, [&](const Bit& b) { return b.size < 0.4f || b.y > float(height()); });
-        // The mode changes as the logo is down (it says so): on at the 9th click (kCraftClicks), off at one click.
+        // The mode changes as the logo is down (it says so): locked, the 9th click (kCraftClicks) unlocks it and turns
+        // it on; unlocked, each click turns it on or off.
         if (popStart && !toggled && now - popStart >= 120) {
             toggled = now;
-            if (shellState().funMode || logoClicks >= kCraftClicks) {
+            const bool unlocked = shellState().immersiveUnlocked();
+            if (unlocked || logoClicks >= kCraftClicks) {
                 logoClicks = 0;
+                shellState().funUnlocked = true;
                 command(ID_OPT_FUNMODE);
-                craftText = shellState().funMode ? L"Craft mode on" : L"Craft mode off";
+                craftText = !unlocked ? L"Immersive mode unlocked" : shellState().funMode ? L"Immersive mode on" : L"Immersive mode off";
                 textUntil = now + kTextMs;
             }
         }

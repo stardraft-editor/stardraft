@@ -315,6 +315,7 @@ public:
         prefs::flag(L"OpenLastSession", flag), v.openSession = flag;
         v.tintIcons = tintIconsOn();
         v.diagnostics = diagnosticsOn();
+        v.immersive = shellState().funMode, v.immersiveUnlocked = shellState().immersiveUnlocked();
         flag = true;
         prefs::flag(L"AskStartLocations", flag), v.askStartLocations = flag;
         flag = false;
@@ -370,6 +371,11 @@ OptionsView gOptionsView(gOptionsProgram);
 
 void OptionsProgramSdl::close() {
     if (gOptionsOpen && gHost) gHost->closeWindow(gOptionsView);
+}
+
+// Program options shows the values again (a command of the core changed one of them).
+void sdlOptionsRefresh() {
+    if (gOptionsOpen) gOptionsView.invalidate();
 }
 
 void OptionsProgramSdl::setUnitNames(int i) {

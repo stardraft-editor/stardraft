@@ -1,4 +1,4 @@
-// Craft mode (a hidden extra, off by default: 9 clicks on About's logo turn it on, one click turns it off; the code says fun mode): edits
+// Immersive mode (off by default; its option in Program options is locked until 9 clicks on About's logo, a hidden extra; the code says fun mode): edits
 // on the map give feedback. Painted terrain plays a short recorded
 // sound by its terrain (water splashes, mud squelches, grass swishes, dirt and rock crunch, built floors clank;
 // res/fun), and shards of the placed tiles (jagged pieces of their own pixels) fly off, each its own way, turning. A

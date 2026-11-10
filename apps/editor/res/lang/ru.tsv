@@ -3398,8 +3398,14 @@ Drag to make Variations taller or shorter	Перетащите, чтобы сд�
 Hide the variations	Скрыть варианты
 Show the variations	Показать варианты
 Symmetry: click to select the mirrors (Alt+0 to Alt+4)	Симметрия: щёлкните, чтобы выбрать зеркала (Alt+0 – Alt+4)
-Craft mode on	Режим ремесла включён
-Craft mode off	Режим ремесла выключен
+Immersive mode on	Режим погружения включён
+Immersive mode off	Режим погружения выключен
+Immersive mode	Режим погружения
+Immersive mode unlocked	Режим погружения разблокирован
+Locked	Заблокировано
+Sounds and effects for edits on the map	Звуки и эффекты при правке карты
+Edits on the map make sounds, particles and pops	Правки карты дают звуки, частицы и всплески
+A hidden extra unlocks this option	Скрытый секрет открывает эту настройку
 Show or hide the guides of this boost. The boost stays in use.	Показать или скрыть подсказки этого ускорения. Ускорение остаётся в силе.
 Search for this boost at the selected bases. Continue searches on from where it stopped.	Искать это ускорение на выбранных базах. «Продолжить» ищет дальше с того места, где поиск остановился.
 Workers that this boost made faster at the selected bases. A guide shows after its worker does its first command.	Рабочие, которых это ускорение сделало быстрее на выбранных базах. Подсказка появляется после первой команды её рабочего.

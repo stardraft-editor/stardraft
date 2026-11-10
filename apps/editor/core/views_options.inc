@@ -33,6 +33,8 @@ struct OptionsValues {
     bool openSession = false;  // Open the last session's tabs on start
     bool tintIcons = false;   // Appearance: the units' icons in the accent color, not the game's yellow (TintIcons)
     bool diagnostics = false; // Graphics and diagnostics: the frames a second and the memory in use in the status bar (ShowDiagnostics)
+    bool immersive = false;   // Appearance: Immersive mode (FunMode: core/fun_mode.inc)
+    bool immersiveUnlocked = false;  // ... its option is unlocked (About's logo); else it shows "Locked", disabled
     bool askStartLocations = true;  // Saving maps: a save asks when the map has no start locations (AskStartLocations)
     bool manyStartLocations = false;  // Placing units: more than one start location for each player (ManyStartLocations)
     int detailedTiles = 5;    // Painting terrain: the chance (0 to 100%) of a detailed tile variant (stardraft/isom.h)
@@ -224,6 +226,7 @@ public:
         diagnostics_.setLabel(L"Show system diagnostics");
         diagnostics_.setTip(L"The frames a second and the memory that StarDraft uses, at the right of the status bar");
         diagnostics_.onChange = [this](bool) { host_.command(ID_OPT_DIAGNOSTICS); };
+        immersive_.onChange = [this](bool) { host_.command(ID_OPT_FUNMODE); };  // (its label and tip: setValues, locked or not)
         lastProject_.onChange = [this](bool) { host_.command(ID_OPT_LASTPROJECT); };
         lastSession_.setLabel(L"Open the last session's tabs on start");
         lastSession_.setTip(L"The maps and projects that were open when StarDraft 2 closed open again");
@@ -249,7 +252,7 @@ public:
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&lastSession_), static_cast<draw::View*>(&tintIcons_), static_cast<draw::View*>(&diagnostics_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&override_), static_cast<draw::View*>(&passages_),
+        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&lastSession_), static_cast<draw::View*>(&tintIcons_), static_cast<draw::View*>(&diagnostics_), static_cast<draw::View*>(&immersive_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&override_), static_cast<draw::View*>(&passages_),
                         static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
@@ -497,7 +500,7 @@ private:
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3], gpuSeg_[4];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, overrideBrowse_, passagesBrowse_, check_, restart_, reset_, maps_, close_;
     stardraft::kit::ScrollBar bar_;  // at the content's right when it is taller than its room
-    stardraft::kit::CheckBox lastProject_, lastSession_, tintIcons_, diagnostics_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_;
+    stardraft::kit::CheckBox lastProject_, lastSession_, tintIcons_, diagnostics_, immersive_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Slider slider_;
@@ -557,6 +560,12 @@ void OptionsView::sync(const OptionsValues& v) {
     passages_.setOn(v.passagesOn);
     if (const std::wstring f = v.passagesFile.empty() ? std::wstring(L"\x2014") : v.passagesFile; passagesFile_.text() != f) passagesFile_.setText(f);
     accents_ = v.accents;
+    // Immersive mode: locked (disabled, "Locked") until the hidden extra unlocks it.
+    immersive_.setOn(v.immersiveUnlocked && v.immersive);
+    if (const std::wstring l = v.immersiveUnlocked ? L"Sounds and effects for edits on the map" : L"Locked"; immersive_.label() != l || immersive_.enabled() != v.immersiveUnlocked) {
+        immersive_.setLabel(l), immersive_.setEnabled(v.immersiveUnlocked);
+        immersive_.setTip(v.immersiveUnlocked ? L"Edits on the map make sounds, particles and pops" : L"A hidden extra unlocks this option");
+    }
     lastProject_.setOn(v.openLast), lastSession_.setOn(v.openSession), tintIcons_.setOn(v.tintIcons), diagnostics_.setOn(v.diagnostics), askStart_.setOn(v.askStartLocations), manyStarts_.setOn(v.manyStartLocations), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
     // The languages offered (rebuilt when they change), the chosen one.
     if (langChoices_.size() != v.languages.size() || !std::equal(langChoices_.begin(), langChoices_.end(), v.languages.begin(), [](int a, const auto& b) {
@@ -755,6 +764,13 @@ void OptionsView::paint(draw::Canvas& c) {
             const draw::Rect cr{fx, y, fx + scale(24) + c.measure(tintIcons_.label()), y + rowH};
             place(tintIcons_, cr, true);
             parts_["tinticons"] = cr;
+        }
+        y += rowH;
+        label(L"Immersive mode");
+        {
+            const draw::Rect cr{fx, y, fx + scale(24) + c.measure(immersive_.label()), y + rowH};
+            place(immersive_, cr, true);
+            parts_["immersive"] = cr;
         }
         y += rowH;
         y += pad;

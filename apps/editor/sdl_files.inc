@@ -64,7 +64,7 @@ std::string gSoundAsked;
 SDL_AudioDeviceID gPlaybackDevice = 0;
 SDL_AudioSpec gPlaybackSpec{};
 std::set<SDL_AudioStream*> gPlaybackStreams;  // (the streams of openPlaybackSdl not closed yet)
-// Craft mode's mixer stream (sdl_data.inc, funPlayPcm): bound while the device is open, its queue never empty (it fills
+// Immersive mode's mixer stream (sdl_data.inc, funPlayPcm): bound while the device is open, its queue never empty (it fills
 // itself), so it does not count as a sound that plays; each of its sounds keeps the device awake (playbackDeviceSdl).
 SDL_AudioStream* gFunMixStream = nullptr;
 uint64_t gPlaybackFailedAt = 0, gPlaybackSoundAt = 0;

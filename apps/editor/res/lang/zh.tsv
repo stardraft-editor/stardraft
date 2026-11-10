@@ -3398,8 +3398,14 @@ Drag to make Variations taller or shorter	拖动以调整变体区域的高度
 Hide the variations	隐藏变体
 Show the variations	显示变体
 Symmetry: click to select the mirrors (Alt+0 to Alt+4)	对称：单击选择镜像（Alt+0 至 Alt+4）
-Craft mode on	工艺模式已开启
-Craft mode off	工艺模式已关闭
+Immersive mode on	沉浸模式已开启
+Immersive mode off	沉浸模式已关闭
+Immersive mode	沉浸模式
+Immersive mode unlocked	沉浸模式已解锁
+Locked	已锁定
+Sounds and effects for edits on the map	编辑地图时的声音和效果
+Edits on the map make sounds, particles and pops	编辑地图时会有声音、粒子和弹跳效果
+A hidden extra unlocks this option	隐藏彩蛋可解锁此选项
 Show or hide the guides of this boost. The boost stays in use.	显示或隐藏此优化的指引。优化仍然生效。
 Search for this boost at the selected bases. Continue searches on from where it stopped.	在所选基地搜索此优化。继续会从停止处接着搜索。
 Workers that this boost made faster at the selected bases. A guide shows after its worker does its first command.	此优化在所选基地使其更快的农民。农民执行第一个命令后，其指引才会显示。

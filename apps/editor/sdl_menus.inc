@@ -1504,9 +1504,11 @@ bool sdlProjectCommand(int id);  // (sdl_project.inc: Open project, New EUD proj
 bool sdlUpdatesCommand(int id);  // (sdl_updates.inc: Check for updates, Look for updates on start, Crash reports, Maps)
 bool sdlHelpCommand(int id);  // (sdl_help.inc: Help > Documentation, F1)
 void commandSdl(int id);
+void sdlOptionsRefresh();  // (sdl_options.inc)
 void command(int id) {
     commandSdl(id);
     saveSettingsTable();  // an option the command changed stays for the next start (core/app_settings.inc)
+    if (id == ID_OPT_FUNMODE) sdlOptionsRefresh();  // (Immersive mode: About's logo changes it too, with Program options open)
 }
 void commandSdl(int id) {
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax))

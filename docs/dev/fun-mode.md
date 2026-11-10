@@ -1,9 +1,12 @@
-# Craft mode (a spike; "fun mode" in the code)
+# Immersive mode (a spike; "fun mode" in the code)
 
-A hidden extra, off by default: 9 clicks on the logo in Help > About StarDraft 2 turn Craft mode on (at each click the
-logo squashes and springs back and green bits fly out of it with a thunk; at the 9th, "Craft mode on" shows under it
-for 2 seconds); one more click turns it off ("Craft mode off"). It is in no menu and not in Program options. The setting is saved as before
-(FunMode). In Craft mode, editing the map gives feedback:
+Off by default, and locked: Program options > Appearance > Immersive mode shows a disabled check box, "Locked". A
+hidden extra unlocks it: 9 clicks on the logo in Help > About StarDraft 2 (at each click the logo squashes and springs
+back and green bits fly out of it with a thunk; at the 9th, "Immersive mode unlocked" shows under it for 2 seconds, and
+the mode is on). From then on the option is a usual check box ("Sounds and effects for edits on the map"), and a click
+on the logo turns the mode on or off too ("Immersive mode on", "Immersive mode off"). The settings are FunMode (the
+mode) and ImmersiveUnlocked (the option is unlocked; a FunMode that is on counts as unlocked). In Immersive mode,
+editing the map gives feedback:
 
 - Painted terrain plays a short recorded sound (see "The sounds"), by the terrain that the edited tiles have now and
   did not have before (painting water on dirt: the shore tiles count as water): water splashes; tar, lava, magma and
@@ -120,7 +123,7 @@ anyway); they can ship.
 
 ## Open questions
 
-- Volume: a slider of its own (Craft mode's volume), or the program's volume only? 12 sounds a second may be too much
+- Volume: a slider of its own (Immersive mode's volume), or the program's volume only? 12 sounds a second may be too much
   for some people: a "calm" level that plays only at a stroke's start and end?
 - Should a stroke's sound pitch follow the mouse speed, or the brush size?
 - Undo: silent now. A reversed sound could be fun.

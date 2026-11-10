@@ -65,7 +65,9 @@ struct AppState {
     bool animate = true;             // Options: units play their idle animations
     bool dragSnapBack = true;        // Options: dragged units go back to the last position where they fit
     bool dragObjects = true;         // Options: a drag moves units, doodads, sprites and locations (off: a click only selects)
-    bool funMode = false;            // Craft mode (About's logo): edits make sounds, particles and pops (core/fun_mode.inc)
+    bool funMode = false;            // Immersive mode (Program options): edits make sounds, particles and pops (core/fun_mode.inc)
+    bool funUnlocked = false;        // ... its option is unlocked (9 clicks on About's logo)
+    bool immersiveUnlocked() const { return funUnlocked || funMode; }  // (a mode that is on from before the lock: unlocked)
     bool randomFacing = true;        // Options > Units: units with a random units.dat facing each face their own way
     float lastValidDX = 0, lastValidDY = 0;  // offset of that spot from where the drag started
     bool correction = false, doodadCheck = true, showLocations = false;  // units: Place only where it fits (the default)

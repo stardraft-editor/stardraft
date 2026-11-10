@@ -3428,8 +3428,14 @@ Drag to make Variations taller or shorter	끌어서 변형 영역의 높이를 �
 Hide the variations	변형 숨기기
 Show the variations	변형 표시
 Symmetry: click to select the mirrors (Alt+0 to Alt+4)	대칭: 클릭하여 거울 선택 (Alt+0 ~ Alt+4)
-Craft mode on	크래프트 모드 켜짐
-Craft mode off	크래프트 모드 꺼짐
+Immersive mode on	몰입 모드 켜짐
+Immersive mode off	몰입 모드 꺼짐
+Immersive mode	몰입 모드
+Immersive mode unlocked	몰입 모드 잠금 해제됨
+Locked	잠김
+Sounds and effects for edits on the map	맵 편집 시 소리와 효과
+Edits on the map make sounds, particles and pops	맵을 편집하면 소리, 파티클, 팝 효과가 납니다
+A hidden extra unlocks this option	숨겨진 요소가 이 옵션의 잠금을 해제합니다
 Show or hide the guides of this boost. The boost stays in use.	이 최적화의 가이드를 표시하거나 숨깁니다. 최적화는 계속 사용됩니다.
 Search for this boost at the selected bases. Continue searches on from where it stopped.	선택한 기지에서 이 최적화를 검색합니다. 계속은 멈춘 곳부터 다시 검색합니다.
 Workers that this boost made faster at the selected bases. A guide shows after its worker does its first command.	선택한 기지에서 이 최적화로 더 빨라진 일꾼입니다. 가이드는 일꾼이 첫 명령을 수행한 후에 표시됩니다.

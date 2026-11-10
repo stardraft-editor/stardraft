@@ -175,7 +175,7 @@ void sfxPlayOnce(int sfx) {
     }
 }
 
-// Craft mode's mixer: the sounds that play now, each from its start to its end, added together.
+// Immersive mode's mixer: the sounds that play now, each from its start to its end, added together.
 struct FunMix {
     struct Voice {
         std::vector<float> s;
@@ -202,7 +202,7 @@ void SDLCALL funMixSdl(void*, SDL_AudioStream* stream, int additional, int) {
     SDL_PutAudioStreamData(stream, out.data(), int(out.size() * sizeof(float)));
 }
 
-// Craft mode's sounds (core/fun_mode.inc): mono samples, into the mixer (gFunMix); a test run plays nothing.
+// Immersive mode's sounds (core/fun_mode.inc): mono samples, into the mixer (gFunMix); a test run plays nothing.
 void funPlayPcm(const std::vector<float>& mono, int rate, const char* name) {
     if (const char* dir = std::getenv("STARDRAFT_FUN_WAV"); dir && *dir && !mono.empty()) {  // (to listen to them: 16-bit mono WAV)
         static int n = 0;
@@ -241,7 +241,7 @@ void funPlayPcm(const std::vector<float>& mono, int rate, const char* name) {
     gFunMix.voices.push_back({mono, 0});
 }
 
-// Craft mode: a placed unit's ready sound (core/fun_mode.inc), at half the volume and at most 2 at a time (a third one
+// Immersive mode: a placed unit's ready sound (core/fun_mode.inc), at half the volume and at most 2 at a time (a third one
 // does not start); each sound decoded once (by `key`). A test run plays nothing; STARDRAFT_FUN_WAV writes its key.
 void funPlayReady(const std::string& key, const std::function<bool(SDL_AudioSpec&, std::vector<Uint8>&)>& load) {
     auto note = [&](const char* how) {  // (STARDRAFT_FUN_WAV: the sound's key and whether it was read)

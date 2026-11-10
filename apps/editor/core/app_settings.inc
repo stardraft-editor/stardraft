@@ -32,6 +32,7 @@ const std::vector<AppSetting>& appSettings() {
         SD_SETTING("DragSnapBack", shellState().dragSnapBack, bool),
         SD_SETTING("DragObjects", shellState().dragObjects, bool),
         SD_SETTING("FunMode", shellState().funMode, bool),
+        SD_SETTING("ImmersiveUnlocked", shellState().funUnlocked, bool),
         {L"DetailedTiles", [] { return stardraft::detailedTilePercent(); }, [](int v) { stardraft::setDetailedTilePercent(v); }},
         SD_SETTING("RandomFacing", shellState().randomFacing, bool),
         SD_SETTING("Animate", shellState().animate, bool),
