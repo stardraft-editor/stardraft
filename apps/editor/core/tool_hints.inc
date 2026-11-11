@@ -3,6 +3,8 @@
 // (core/map_mod_mark.inc) shows what a held key does at that place; the hints say which keys there are. They follow
 // mapMouseDown, mapMouseUp and mapWheel (core/map_input.inc): a new modifier there gets its hint here too.
 
+bool mapBrushActive(const AppState& app);  // (core/map_input.inc)
+
 struct KeyHint {
     const wchar_t* keys;  // the key or the keys with the mouse ("Shift+drag")
     const wchar_t* what;  // what they do, in a few words
@@ -37,7 +39,7 @@ std::vector<KeyHint> mapKeyHints(const AppState& app) {
         }
         if (tool != TSelect && tool != TWand && tool != TLasso && !(tiles && gTiles->stamps))
             add(L"Ctrl+click", tiles && !gTiles->solid ? L"Use this tile" : L"Use this terrain", draw::kCtrl);  // (Solid: its terrain)
-        if (tool == TBrush || tool == TSpray || tool == TJumble) add(L"Alt+wheel", L"Brush size", draw::kAlt);
+        add(L"Alt+wheel", mapBrushActive(app) ? L"Brush size" : L"Next variation", draw::kAlt);  // (mapWheel)
         if (!tiles) add(L"Space", L"Terrain palette");
         break;
     }

@@ -1604,7 +1604,7 @@ bool mapWheel(AppState& app, float x, float y, float notches, float panX, float 
             }
             return true;
         }
-        if (app.mode == Mode::Terrain && !horizontal && !mapBrushActive(app) && app.zoom > 0) {
+        if (app.mode == Mode::Terrain && !horizontal && !mapBrushActive(app) && app.zoom > 0 && !modeLayerHidden() && !app.pasting) {
             static float steps = 0;  // (a trackpad's or a smooth wheel's fractions until a whole step)
             steps += notches;
             const int tx = int(std::floor((app.camX + x / app.zoom) / 32)), ty = int(std::floor((app.camY + y / app.zoom) / 32));

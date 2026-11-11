@@ -107,6 +107,19 @@ UiIcon terrainModMark(AppState& app, float wx, float wy, bool shift, bool ctrl) 
     return tool == TFill && app.palette > 0 && ed.terrainAt(int(wx), int(wy)) != uint16_t(app.palette) ? UiIcon::SelectAll : kNoModMark;
 }
 
+bool mapBrushActive(const AppState& app);  // (core/map_input.inc)
+
+// What Alt + wheel does at (wx, wy) (mapWheel, also with Ctrl or Shift): the palette's next doodad or the brush size (a
+// value up or down), or the tile's next variation (Terrain with no brush, a tile with no doodad on it, the layer shown,
+// no paste). kNoModMark: nothing.
+UiIcon altWheelMark(AppState& app, float wx, float wy) {
+    if ((app.mode == Mode::Doodads && !objectSprayOn() && app.palette >= 0) || mapBrushActive(app)) return UiIcon::Sort;
+    if (app.mode != Mode::Terrain || modeLayerHidden() || app.pasting || wx < 0 || wy < 0) return kNoModMark;
+    const int tx = int(wx) / 32, ty = int(wy) / 32;
+    if (app.ed->doodadAt(tx * 32 + 16, ty * 32 + 16) >= 0) return kNoModMark;  // (setTileVariation does not change it)
+    return tileVariations(*app.ed, mapTileAt(*app.ed, tx, ty)).subs.size() > 1 ? UiIcon::Shuffle : kNoModMark;
+}
+
 // The mark at the point (sx, sy) of the map view with the keys `mods` down (draw::Mods). kNoModMark: none.
 UiIcon mapModMark(AppState& app, int sx, int sy, unsigned mods) {
     if (!app.ed || !app.ed->isOpen()) return kNoModMark;
@@ -116,11 +129,17 @@ UiIcon mapModMark(AppState& app, int sx, int sy, unsigned mods) {
     toWorld(app, sx, sy, wx, wy);
     if (app.drag != Drag::None) return dragModMark(app, wx, wy, shift, ctrl);
     if (!shift && !ctrl && !alt) return kNoModMark;
-    // (off the map: the tools of Terrain have no tile; a box of objects can start there)
-    if (app.mode == Mode::Terrain && (wx < 0 || wy < 0 || wx >= ed.width() * 32.0f || wy >= ed.height() * 32.0f)) return kNoModMark;
+    // (off the map: the tools of Terrain have no tile, only Alt + wheel's brush size; a box of objects can start there)
+    if (app.mode == Mode::Terrain && (wx < 0 || wy < 0 || wx >= ed.width() * 32.0f || wy >= ed.height() * 32.0f))
+        return alt && mapBrushActive(app) ? UiIcon::Sort : kNoModMark;
     if (alt) {
+        // (Ctrl + Alt and Shift + Alt: the wheel's mark first, as their click is Alt's or Ctrl's own; Alt alone: the
+        // click's mark first, then the wheel's)
+        if (shift || ctrl)
+            if (const UiIcon w = altWheelMark(app, wx, wy); w != kNoModMark) return w;
         if (app.mode == Mode::Units && app.palette < 0 && !app.pasting && !modeLayerHidden() && ed.unitsAt(int(wx), int(wy)).size() > 1) return UiIcon::Log;
         if (pipetteFinds(app, wx, wy)) return app.mode == Mode::Locations ? UiIcon::Copy : UiIcon::Pipette;
+        if (const UiIcon w = altWheelMark(app, wx, wy); w != kNoModMark) return w;  // (the click does nothing: the wheel's)
     }
     if (modeLayerHidden() || trigUnitPickActive() || mapLayersEraseOn(app) || app.mode == Mode::Layers || app.pasting) return kNoModMark;
     if (objectEraseOn() && !app.pastingItems) return kNoModMark;
