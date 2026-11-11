@@ -203,6 +203,7 @@ struct TriggerNode {
 struct TriggerMapInfo {
     std::vector<std::string> locations;  // names of the used locations (Anywhere included)
     std::vector<std::string> sounds;     // sound files in the map archive
+    const std::vector<std::string>* gameSounds = nullptr;  // the game's sound paths (a map plays them without holding them)
     std::vector<std::string> musicTracks;  // the project's music tracks and dot images, by name, in their order (media.h)
     std::vector<std::string> dotImages;
     struct PlacedUnit {

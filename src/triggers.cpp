@@ -1781,7 +1781,10 @@ struct Gen {
         }
         case TriggerPicker::Sound:
             if (v.empty()) issue(TriggerIssue::Level::Error, &c, i, "Select a sound");
-            else if (map.known && std::find(map.sounds.begin(), map.sounds.end(), v) == map.sounds.end())
+            else if (map.known && std::find(map.sounds.begin(), map.sounds.end(), v) == map.sounds.end() &&
+                     !(map.gameSounds && std::any_of(map.gameSounds->begin(), map.gameSounds->end(), [&](const std::string& g) {
+                         return std::equal(g.begin(), g.end(), v.begin(), v.end(), [](unsigned char x, unsigned char y) { return std::tolower(x) == std::tolower(y); });
+                     })))
                 issue(TriggerIssue::Level::Warning, &c, i, "The map has no sound " + v);
             return quote(v);
         case TriggerPicker::MusicTrack:

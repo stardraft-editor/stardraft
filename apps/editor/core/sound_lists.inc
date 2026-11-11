@@ -75,26 +75,9 @@ std::vector<std::string> mapSounds() {
     return out;
 }
 
-// The game's sounds: every file under sound\ (their paths, as a map names them).
-const std::vector<std::string>& gameSounds() {
-    static std::map<const GameData*, std::vector<std::string>> lists;  // (each game data's: a Cosmonarchy tab lists the mod's)
-    const GameData& data = soundGameData();
-    auto [found, fresh] = lists.try_emplace(&data);
-    std::vector<std::string>& out = found->second;
-    if (fresh) {
-        for (const auto& n : data.listFiles()) {
-            if (n.size() < 7 || !isSoundName(n)) continue;
-            std::string lower = n.substr(0, 6);
-            std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-            if (lower == "sound\\") out.push_back(n);
-        }
-        // Sorted without case (as the list has always been: the names differ only in case rarely, but the order must not change).
-        std::sort(out.begin(), out.end(), [](const std::string& a, const std::string& b) {
-            return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(), [](unsigned char x, unsigned char y) { return std::tolower(x) < std::tolower(y); });
-        });
-    }
-    return out;
-}
+// The game's sounds: every file under sound\ (their paths, as a map names them; a Cosmonarchy tab lists the mod's).
+// The library's list (project_build.h), which the trigger checker uses too.
+const std::vector<std::string>& gameSounds() { return stardraft::gameSoundFiles(soundGameData()); }
 
 // A size in bytes, KB or MB, as the table shows it.
 std::wstring sizeText(size_t n) {

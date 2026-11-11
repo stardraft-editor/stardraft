@@ -708,7 +708,7 @@ int main(int argc, char** argv) {
         else if (a == "--classictrig") ctArg = next();  // trigger:kind:entry[:value] (2:1:0): the Classic triggers page selects it (and shows the value's pop-out), for a snapshot
         else if (a == "--briefing") briefArg = next();  // row[:ms]: the Briefing page selects that row of the first briefing, the preview at that time, for a snapshot
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
-        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or blockpick, blockhelp:<block id>, unitprops, locprops, quick, valuepop[:number|:colors|:text], about, message, message:build, message:delete, error or tip: that view is the snapshot
+        else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or blockpick, blockhelp:<block id>, unitprops, locprops, quick, valuepop[:number|:colors|:text|:code|:code:put|:sound], about, message, message:build, message:delete, error or tip: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
         else if (a == "--kpi") gKpi = true;  // the startup's and each scripted input's times (tools/kpi.py)
         else if (a == "--custom") customArg = true;  // Terrain mode's Custom (the Custom list), for a snapshot
@@ -1101,11 +1101,29 @@ int main(int argc, char** argv) {
                     spec.initial = "\x13\x04" "Destroy\x01 the \x06" "enemy base\x01.\nKeep {your} hero alive.";
                 } else if (kind == "text") {
                     spec.type = "Text", spec.title = L"Output file", spec.initial = "build/bneck.scx";
+                } else if (kind == "code" || kind == "code:put") {  // epScript, the caret in a sound's name (code:put: the first sound put in)
+                    spec.type = "Code", spec.code = true, spec.title = L"epScript";
+                    spec.initial = "// Warn all players\nPlayWAV(\"misc\\\\b\");";
+                } else if (kind == "sound") {  // a sound's path, typed
+                    spec.type = "Sound", spec.title = L"Sound file", spec.initial = "buzz";
                 } else {
                     spec.type = "Text", spec.insertValues = true, spec.title = L"Text";
                     spec.initial = "\x03Welcome\x01, {name(current player):s}! You have {gold} minerals{{!}}\n\x13{P2:c}Blue team: {kills:x}";
                 }
                 valueShot = std::make_unique<ValuePopView>(spec);
+                if (spec.code) {
+                    ValuePopField& f = valueShot->field();
+                    f.model().setCaret(f.text().find(L"\")"));
+                    f.afterInput();
+                    const auto& rows = valueShot->suggestions();
+                    for (size_t i = 0; kind == "code:put" && i < rows.size(); ++i)
+                        if (rows[i].kind == ValueSuggestion::Kind::Item) {
+                            valueShot->putIn(int(i));
+                            break;
+                        }
+                    for (const auto& r : valueShot->suggestions()) std::printf("sound row: %s\n", narrow(r.name + r.about).c_str());
+                    std::printf("code: %s\n", narrow(f.text()).c_str());
+                }
                 const draw::Point sz = valueShot->outerSize();
                 width = sz.x, height = sz.y;
             }

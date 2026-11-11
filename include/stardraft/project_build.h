@@ -58,6 +58,9 @@ struct BuildReport {
     MediaBuildReport media;                     // the music tracks' sound parts (media.h)
 };
 
+// The game's sound files (every file under sound\, as a map names them), sorted without case; empty with no game data.
+const std::vector<std::string>& gameSoundFiles(const GameData& data);
+
 // The map's triggers as the checker and the code need them (its locations, sounds, units and players).
 TriggerMapInfo triggerMapInfo(const Editor& ed);
 // The same, with the project's music tracks and dot images (media.json).

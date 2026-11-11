@@ -142,6 +142,146 @@ inline std::vector<ValueSuggestion> valuePopSuggestions(const ValuePopSpec& spec
     return rows;
 }
 
+// The sound files a trigger can play: the map's (its files, then the game sounds it names), then the game's (a mod's
+// map: the mod's too). One list for the Sound picker and the sound suggestions. `map`: the file is in the map.
+struct TrigSoundFile {
+    std::string path;
+    bool map = false;
+};
+inline std::vector<TrigSoundFile> trigSoundFiles() {
+    std::vector<TrigSoundFile> out;
+    std::set<std::string> seen;  // (lower case: the game finds its files without case)
+    auto lower = [](std::string s) {
+        std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+        return s;
+    };
+    const Editor* ed = appState().ed.get();
+    for (const auto& s : mapSounds())
+        if (seen.insert(lower(s)).second) out.push_back({s, ed && ed->archiveFile(s)});
+    for (const auto& s : gameSounds())
+        if (seen.insert(lower(s)).second) out.push_back({s, false});
+    return out;
+}
+
+// Where a sound file name is typed in epScript: in the sound argument of PlayWAV, PlayWAVAll or Transmission. `from`
+// and `to` are the part that a sound replaces (in quotes: the text between them), `typed` the name typed up to the caret.
+struct ValuePopSoundArg {
+    bool in = false, quoted = false;
+    size_t from = 0, to = 0;
+    std::wstring typed;
+    bool operator==(const ValuePopSoundArg&) const = default;
+};
+inline bool valuePopPathChar(wchar_t c) { return iswalnum(c) || c == L'_' || c == L'.' || c == L'\\' || c == L'/' || c == L'-'; }
+inline ValuePopSoundArg valuePopSoundArg(const std::wstring& t, size_t caret) {
+    caret = std::min(caret, t.size());
+    struct Call {
+        std::wstring name;
+        int arg = 0;
+        size_t argStart = 0;
+    };
+    std::vector<Call> calls;
+    std::wstring word;  // the name before a "("
+    bool inStr = false, lineComment = false, blockComment = false;
+    wchar_t quote = 0;
+    size_t strStart = 0;
+    for (size_t i = 0; i < caret; ++i) {
+        const wchar_t c = t[i], next = i + 1 < t.size() ? t[i + 1] : 0;
+        if (lineComment) {
+            lineComment = c != L'\n';
+            continue;
+        }
+        if (blockComment) {
+            if (c == L'*' && next == L'/') blockComment = false, ++i;
+            continue;
+        }
+        if (inStr) {
+            if (c == L'\\') ++i;
+            else if (c == quote || c == L'\n') inStr = false, word.clear();
+            continue;
+        }
+        if (c == L'/' && next == L'/') lineComment = true, ++i;
+        else if (c == L'/' && next == L'*') blockComment = true, ++i;
+        else if (c == L'"' || c == L'\'') inStr = true, quote = c, strStart = i;
+        else if (iswalnum(c) || c == L'_') {
+            if (i == 0 || !(iswalnum(t[i - 1]) || t[i - 1] == L'_')) word.clear();
+            word += c;
+        } else if (c == L'(') calls.push_back({word, 0, i + 1}), word.clear();
+        else if (c == L')') {
+            if (!calls.empty()) calls.pop_back();
+            word.clear();
+        } else if (c == L',') {
+            if (!calls.empty()) ++calls.back().arg, calls.back().argStart = i + 1;
+            word.clear();
+        } else if (!iswspace(c)) word.clear();
+    }
+    ValuePopSoundArg a;
+    if (calls.empty() || lineComment || blockComment) return a;
+    const Call& call = calls.back();
+    if (!(((call.name == L"PlayWAV" || call.name == L"PlayWAVAll") && call.arg == 0) || (call.name == L"Transmission" && call.arg == 2))) return a;
+    if (inStr) {
+        a.quoted = true, a.from = strStart + 1, a.to = caret;
+        while (a.to < t.size() && t[a.to] != quote && t[a.to] != L'\n') a.to += t[a.to] == L'\\' ? 2 : 1;
+        a.to = std::min(a.to, t.size());
+        for (size_t i = a.from; i < caret; ++i) {  // (as the game reads it: "\\" is one backslash)
+            if (t[i] == L'\\' && i + 1 < caret) ++i;
+            a.typed += t[i];
+        }
+    } else {
+        a.from = call.argStart;
+        while (a.from < caret && iswspace(t[a.from])) ++a.from;
+        for (size_t i = a.from; i < caret; ++i)
+            if (!valuePopPathChar(t[i])) return a;
+        a.to = caret;
+        while (a.to < t.size() && valuePopPathChar(t[a.to])) ++a.to;
+        if (a.to < t.size() && (t[a.to] == L'"' || t[a.to] == L'\'')) return a;  // (the caret before a string: not a name of its own)
+        a.typed = t.substr(a.from, caret - a.from);
+    }
+    a.in = true;
+    return a;
+}
+
+// A sound's path as an epScript string: "\\" for each backslash (in quotes when `addQuotes`).
+inline std::wstring valuePopSoundText(const std::wstring& path, bool addQuotes) {
+    std::wstring s;
+    for (wchar_t c : path) s += c == L'\\' ? std::wstring(L"\\\\") : std::wstring(1, c);
+    return addQuotes ? L"\"" + s + L"\"" : s;
+}
+
+// The sound files that hold the typed text (in any part of the path, with no case); each one's text to put in: in
+// epScript a string ("sound\\misc\\buzz.wav", in quotes when `addQuotes`), else the path as it is.
+inline std::vector<ValueSuggestion> valuePopSoundSuggestions(const std::wstring& typed, bool epScript, bool addQuotes) {
+    constexpr size_t kMost = 200;  // (more rows tell nothing: the user types more of the name)
+    std::wstring key = typed;
+    for (auto& c : key) c = c == L'/' ? L'\\' : wchar_t(towlower(c));
+    std::vector<ValueSuggestion> mine, game;
+    size_t more = 0;
+    for (const auto& f : trigSoundFiles()) {
+        const std::wstring path = widen(f.path);
+        std::wstring low = path;
+        for (auto& c : low) c = wchar_t(towlower(c));
+        if (low.find(key) == std::wstring::npos) continue;
+        auto& to = f.map ? mine : game;
+        if (to.size() >= kMost) {
+            ++more;
+            continue;
+        }
+        ValueSuggestion s;
+        s.name = path;
+        s.insert = epScript ? valuePopSoundText(path, addQuotes) : path;
+        to.push_back(s);
+    }
+    std::vector<ValueSuggestion> rows;
+    if (!mine.empty()) rows.push_back({ValueSuggestion::Kind::Heading, L"Map sounds"}), rows.insert(rows.end(), mine.begin(), mine.end());
+    if (!game.empty()) rows.push_back({ValueSuggestion::Kind::Heading, L"Game sounds"}), rows.insert(rows.end(), game.begin(), game.end());
+    if (more) {
+        wchar_t b[96];
+        std::swprintf(b, 96, tr(L"%zu more sound files. Type more of the name."), more);
+        rows.push_back({ValueSuggestion::Kind::Note, L"", L"", b});
+    }
+    if (rows.empty()) rows.push_back({ValueSuggestion::Kind::Note, L"", L"", L"No sound file has this name"});
+    return rows;
+}
+
 // What fits in a text (Insert value): the loop's values, the variables, a player's name, a text of the game, the
 // values from the game and a calculation. The values: "\x01tbl" a text of the game, "\x01v:<id>" a value from the game,
 // "\x01calc" a calculation, else the expression.
@@ -233,6 +373,25 @@ constexpr int kPreviewH = 22;  // the .dat value's line ("Marine   40  ->  45")
 inline int width(const ValuePopSpec& spec, bool number) { return spec.insertValues || spec.colorsOnly ? 680 : number ? 460 : 520; }
 }  // namespace valuePopLayout
 
+// The pop-out's text box: the pop-out sees a key first (the sound suggestions take Up, Down, Enter and Tab from a
+// box of several lines), and after a key or a click, where the caret is.
+class ValuePopField final : public stardraft::kit::TextField {
+public:
+    std::function<bool(const draw::KeyEvent&)> beforeKey;
+    std::function<void()> afterInput;
+    bool key(const draw::KeyEvent& e) override {
+        if (beforeKey && beforeKey(e)) return true;
+        const bool used = TextField::key(e);
+        if (afterInput) afterInput();
+        return used;
+    }
+    bool mouse(const draw::MouseEvent& e) override {
+        const bool used = TextField::mouse(e);
+        if (afterInput && e.kind != draw::MouseKind::Move) afterInput();
+        return used;
+    }
+};
+
 class ValuePopView final : public draw::View {
 public:
     explicit ValuePopView(const ValuePopSpec& spec) : spec_(spec), number_(valuePopIsNumber(spec)), rich_(spec.insertValues || spec.colorsOnly) {
@@ -260,6 +419,10 @@ public:
             field_.onChange = [this] { refresh(); };
             if (!spec.code) field_.onEnter = [this] { accept(); };
             field_.onEscape = [this] { finish(false); };
+            field_.beforeKey = [this](const draw::KeyEvent& e) { return soundKey(e); };
+            field_.afterInput = [this] {
+                if (sounds_) refreshSounds(false);
+            };
             add(field_, {0, 0, 0, 0});
         }
         ok_.setText(tr(L"OK")), ok_.setTone(stardraft::kit::Tone::Primary), ok_.onClick = [this] { accept(); };
@@ -280,10 +443,17 @@ public:
             add(insert_, {0, 0, 0, 0});
         }
         // The list is as tall as what it can hold (headings, the variables, the loop's values), up to a limit.
-        if (number_ && (!spec.constantOnly || spec.constantsNamed)) {
+        // epScript and a sound's path: the sound files (in epScript, when the caret is in a sound's name).
+        sounds_ = !rich_ && (spec.code || spec.type == "Sound");
+        if (sounds_) {  // the searchable list of the sound files (as the Briefing's sound picker)
+            soundList_.setText(tr(L"Sound files\x2026"));
+            soundList_.onClick = [this] { pickSoundFile(); };
+            add(soundList_, {0, 0, 0, 0});
+        }
+        if ((number_ && (!spec.constantOnly || spec.constantsNamed)) || sounds_) {
             int rows = 2 + int(spec.inRepeat) + int(spec.inPlayerLoop);
             for (const auto& [name, node] : gTE.set.variables()) rows += node->variable.kind != TriggerVariable::Kind::Unit;
-            listH_ = std::clamp(rows * scale(kListRowH), scale(kListRowH), scale(kListMaxH));
+            listH_ = sounds_ ? scale(kListMaxH) : std::clamp(rows * scale(kListRowH), scale(kListRowH), scale(kListMaxH));
             bar_.onScroll = [this](int pos) {
                 top_ = pos;
                 invalidate();
@@ -318,7 +488,7 @@ public:
     // The view with the keyboard when the window opens.
     draw::View& focusView() { return rich_ ? static_cast<draw::View&>(text_->preview()) : field_; }
     // The text box (the self-tests type into it); the game text editor of a text with colors or values.
-    stardraft::kit::TextField& field() { return field_; }
+    ValuePopField& field() { return field_; }
     GameTextView* textView() { return text_.get(); }
     // Runs when the pop-out closes itself (OK, Cancel, Esc, From the game): the host closes its window.
     std::function<void()> onDone;
@@ -443,6 +613,7 @@ private:
         cancel_.setFrame({w - pad - bw - 2, y, w - pad - 2, y + bh});
         game_.setFrame({pad, y, pad + scale(kSideButtonW), y + bh});
         insert_.setFrame({pad, y, pad + scale(kSideButtonW), y + bh});
+        soundList_.setFrame({pad, y, pad + scale(kSideButtonW), y + bh});
     }
 
     bool check() {
@@ -453,12 +624,54 @@ private:
     }
     void refresh() {
         check();
-        if (listH_) {
+        if (sounds_) refreshSounds(true);
+        else if (listH_) {
             rows_ = valuePopSuggestions(spec_, field_.text(), field_.model().selectionStart());  // (as the Windows list: the selection's start)
             sel_ = -1, top_ = 0;
             syncBar();
         }
         invalidate();
+    }
+    // The sound files for the text at the caret; only when what was typed or where changed (`always`: the text changed).
+    void refreshSounds(bool always) {
+        const std::wstring& text = field_.text();
+        ValuePopSoundArg a;
+        if (spec_.code) a = valuePopSoundArg(text, field_.model().caret());
+        else a.in = true, a.from = 0, a.to = text.size(), a.typed = text;
+        if (!always && a == soundArg_ && !rows_.empty()) return;
+        soundArg_ = a;
+        if (a.in) rows_ = valuePopSoundSuggestions(a.typed, spec_.code, spec_.code && !a.quoted);
+        else rows_ = {{ValueSuggestion::Kind::Note, L"", L"", L"Sound files show here when you type the sound of PlayWAV or Transmission"}};
+        sel_ = -1, top_ = 0;
+        syncBar();
+        invalidate();
+    }
+    bool soundItems() const {
+        return sounds_ && std::any_of(rows_.begin(), rows_.end(), [](const ValueSuggestion& r) { return r.kind == ValueSuggestion::Kind::Item; });
+    }
+    // Down selects a sound file, Up the one before (with none selected, Up moves the caret); Enter puts in the selected
+    // one, Tab the selected one or else the first. With Shift, Ctrl or Alt the keys are the text box's.
+    bool soundKey(const draw::KeyEvent& e) {
+        if (!e.down || !soundItems() || (e.mods & (draw::kCtrl | draw::kAlt | draw::kShift))) return false;
+        if (e.key == draw::Key::Up && sel_ < 0) return false;
+        if (e.key == draw::Key::Down || e.key == draw::Key::Up) {
+            const int step = e.key == draw::Key::Down ? 1 : -1;
+            for (int i = sel_ + step; i >= 0 && i < int(rows_.size()); i += step)
+                if (rows_[size_t(i)].kind == ValueSuggestion::Kind::Item) return select(i), true;
+            if (step < 0) sel_ = -1, invalidate();  // (Up from the first one: back to the text)
+            return true;
+        }
+        if (e.key == draw::Key::Enter && sel_ >= 0) return putIn(), true;
+        if (e.key == draw::Key::Tab && spec_.code && !(e.mods & draw::kShift)) {
+            if (sel_ < 0)
+                for (int i = 0; i < int(rows_.size()); ++i)
+                    if (rows_[size_t(i)].kind == ValueSuggestion::Kind::Item) {
+                        sel_ = i;
+                        break;
+                    }
+            return putIn(), true;
+        }
+        return false;
     }
 
     // --- The suggestions ----------------------------------------------------------------------------------------
@@ -509,10 +722,40 @@ private:
         if (sel_ < 0 || sel_ >= int(rows_.size()) || rows_[size_t(sel_)].kind != ValueSuggestion::Kind::Item) return;
         const ValueSuggestion row = rows_[size_t(sel_)];
         auto& m = field_.model();
+        if (sounds_) {  // (in place of the sound's name: in quotes the text between them, else the whole value)
+            if (!soundArg_.in) return;
+            m.setSelection(soundArg_.from, std::min(soundArg_.to, field_.text().size()));
+            m.insert(row.insert);
+            if (const size_t c = m.caret(); soundArg_.quoted && c < field_.text().size() && (field_.text()[c] == L'"' || field_.text()[c] == L'\''))
+                m.setCaret(c + 1);  // (after the closing quote)
+            field_.focus();
+            field_.invalidate();
+            refresh();
+            return;
+        }
         const size_t caret = m.caret(), start = valuePopWordStart(field_.text(), caret);
         m.setSelection(start, caret);
         m.insert(row.insert);
         if (row.selectFrom >= 0) m.setSelection(start + size_t(row.selectFrom), start + size_t(row.selectFrom + row.selectLen));
+        field_.focus();
+        field_.invalidate();
+        refresh();
+    }
+    // Sound files...: a sound from the searchable list, in place of the sound's name (epScript: at the caret when the
+    // caret is not in one, as a string in quotes).
+    void pickSoundFile() {
+        refreshSounds(false);
+        std::vector<ListPickItem> items;
+        for (const auto& f : trigSoundFiles()) items.push_back({widen(f.path), f.map ? L"Map sounds" : L"Game sounds", f.path});
+        if (items.empty()) return;
+        const std::string current = spec_.code ? std::string() : narrow(field_.text());
+        const std::string picked = pick(tr(L"Search sounds"), std::move(items), current, soundList_.frame());
+        if (picked.empty()) return;
+        auto& m = field_.model();
+        const std::wstring path = widen(picked);
+        if (!spec_.code) m.selectAll(), m.insert(path);
+        else if (soundArg_.in) m.setSelection(soundArg_.from, std::min(soundArg_.to, field_.text().size())), m.insert(valuePopSoundText(path, !soundArg_.quoted));
+        else m.insert(valuePopSoundText(path, true));
         field_.focus();
         field_.invalidate();
         refresh();
@@ -658,13 +901,14 @@ private:
     ValuePopSpec spec_;
     bool number_ = false, rich_ = false;
     std::unique_ptr<GameTextView> text_;
-    stardraft::kit::TextField field_;
+    ValuePopField field_;
     stardraft::kit::ScrollBar bar_;
-    stardraft::kit::Button ok_, cancel_, game_, insert_;
+    stardraft::kit::Button ok_, cancel_, game_, insert_, soundList_;
     std::vector<TriggerCall> values_;  // the text's values from the game ({#n}), changed here until OK
     std::vector<ValueSuggestion> rows_;
     std::wstring hint_;
-    bool hintBad_ = false, done_ = false, accepted_ = false;
+    bool hintBad_ = false, done_ = false, accepted_ = false, sounds_ = false;
+    ValuePopSoundArg soundArg_;  // where the sound's name is (sounds_)
     int advance_ = 0, listH_ = 0, sel_ = -1, top_ = 0;
     draw::Rect titleRect_, hintRect_, list_, previewRect_;
     draw::Point place_{0, 0};

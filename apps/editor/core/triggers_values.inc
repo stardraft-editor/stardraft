@@ -265,12 +265,12 @@ void trigEditParam(TrigParamHit h) {
     }
     case TriggerPicker::Sound: {
         std::vector<ListPickItem> items;
-        for (const auto& s : trigMapInfo().sounds) items.push_back({widen(s), L"Map sounds", s});
+        for (const auto& s : trigSoundFiles()) items.push_back({widen(s.path), s.map ? L"Map sounds" : L"Game sounds", s.path});
         if (items.empty()) {
-            setMessage(L"The map has no sounds. Type the path of a sound.");
+            setMessage(L"There are no sounds. Type the path of a sound.");
             return trigEditText(h, value, false, true);
         }
-        got = trigPopList(L"Search map sounds", items, value, at, picked);
+        got = trigPopList(L"Search sounds", items, value, at, picked);
         break;
     }
     case TriggerPicker::MusicTrack:

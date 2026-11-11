@@ -198,6 +198,28 @@ bool writeRemakeCode(EudProject& pr, Editor& ed, const GameData& data, const Bui
 
 }  // namespace
 
+const std::vector<std::string>& gameSoundFiles(const GameData& data) {
+    static std::map<const GameData*, std::vector<std::string>> lists;  // (each game data's: a mod's map has the mod's)
+    auto [found, fresh] = lists.try_emplace(&data);
+    std::vector<std::string>& out = found->second;
+    if (fresh) {
+        for (const auto& n : data.listFiles()) {
+            std::string lower = n;
+            std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+            if (lower.size() > 10 && lower.rfind("sound\\", 0) == 0 && (lower.ends_with(".wav") || lower.ends_with(".ogg"))) out.push_back(n);
+        }
+        std::sort(out.begin(), out.end(), [](const std::string& a, const std::string& b) {
+            return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(), [](unsigned char x, unsigned char y) { return std::tolower(x) < std::tolower(y); });
+        });
+    }
+    if (out.empty()) {  // (no game data yet: look again next time)
+        lists.erase(found);
+        static const std::vector<std::string> none;
+        return none;
+    }
+    return out;
+}
+
 TriggerMapInfo triggerMapInfo(const Editor& ed) {
     TriggerMapInfo m;
     if (!ed.isOpen()) return m;
@@ -210,6 +232,7 @@ TriggerMapInfo triggerMapInfo(const Editor& ed) {
         std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
         if (lower.size() > 4 && (lower.ends_with(".wav") || lower.ends_with(".ogg"))) m.sounds.push_back(f.name);
     }
+    m.gameSounds = &gameSoundFiles(ed.gameData());
     for (uint16_t i = 0; i < ed.unitTypes().size(); ++i) m.unitNames.push_back(ed.unitTypes()[i].name);
     for (const auto& u : ed.units()) m.units.push_back({u.serial, u.type, u.owner, u.x, u.y});
     for (int p = 0; p < 8; ++p) {
