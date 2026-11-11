@@ -275,17 +275,19 @@ int mapSpriteAt(Editor& ed, int x, int y) {
 }
 
 // The terrain selection being dragged from the press to (wx, wy). Rectangle: whole tiles, the tile of the press and the
-// tile under the mouse both in it (GitHub feedback #112); Isometric: as dragged.
+// tile under the mouse both in it (GitHub feedback #112); Isometric's square: each tile that the drag touches; the
+// diamond and the circle: as dragged.
 Rect terrainSelectRect(float wx, float wy) {
     Rect r = Rect{int(appState().dragWX), int(appState().dragWY), int(wx), int(wy)}.normalized();
     appState().terrainSelFlip = (wx - appState().dragWX) * (wy - appState().dragWY) < 0;  // (the drag's corners: IsoRectFlip)
     // (Rectangle, and the square in Isometric: whole tiles; the diamond and the circle: as dragged)
     if ((!appState().terrainRect && selectShape() != Editor::SelectShape::Rect) || !appState().ed) return r;
     const int w = appState().ed->width(), h = appState().ed->height();
-    if (!appState().terrainRect) {  // Isometric's square: its sides on the tile lines nearest the press and the mouse (it
-                                    // starts where the press was, not a tile up and left of it)
-        auto line = [](float v, int most) { return std::clamp(int(std::lround(v / 32.0f)), 0, most) * 32; };
-        Rect q = Rect{line(appState().dragWX, w), line(appState().dragWY, h), line(wx, w), line(wy, h)}.normalized();
+    if (!appState().terrainRect) {  // Isometric's square: each tile that the drag touches, also a tile only a bit inside it
+        auto lo = [](float a, float b, int most) { return std::clamp(int(std::floor(std::min(a, b) / 32.0f)), 0, most) * 32; };
+        auto hi = [](float a, float b, int most) { return std::clamp(int(std::ceil(std::max(a, b) / 32.0f)), 0, most) * 32; };
+        const float px = appState().dragWX, py = appState().dragWY;
+        Rect q{lo(px, wx, w), lo(py, wy, h), hi(px, wx, w), hi(py, wy, h)};
         if (q.right == q.left) q.right = std::min(w * 32, q.left + 32), q.left = q.right - 32;  // (at least a tile)
         if (q.bottom == q.top) q.bottom = std::min(h * 32, q.top + 32), q.top = q.bottom - 32;
         return q;
