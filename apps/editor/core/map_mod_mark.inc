@@ -123,11 +123,11 @@ UiIcon terrainModMark(AppState& app, float wx, float wy, bool shift, bool ctrl) 
 bool mapBrushActive(const AppState& app);  // (core/map_input.inc)
 
 // What Alt + wheel does at (wx, wy) (mapWheel, also with Ctrl or Shift): the palette's next doodad or the brush size (a
-// value up or down), or the tile's next variation (Terrain with no brush, a tile with no doodad on it, the layer shown,
-// no paste). kNoModMark: nothing.
-UiIcon altWheelMark(AppState& app, float wx, float wy) {
+// value up or down), or the tile's next variation (Terrain with no brush and no Ctrl, a tile with no doodad on it, the
+// layer shown, no paste). kNoModMark: nothing.
+UiIcon altWheelMark(AppState& app, float wx, float wy, bool ctrl) {
     if ((app.mode == Mode::Doodads && !objectSprayOn() && app.palette >= 0) || mapBrushActive(app)) return UiIcon::Sort;
-    if (app.mode != Mode::Terrain || modeLayerHidden() || app.pasting || wx < 0 || wy < 0) return kNoModMark;
+    if (app.mode != Mode::Terrain || ctrl || modeLayerHidden() || app.pasting || wx < 0 || wy < 0) return kNoModMark;
     const int tx = int(wx) / 32, ty = int(wy) / 32;
     if (app.ed->doodadAt(tx * 32 + 16, ty * 32 + 16) >= 0) return kNoModMark;  // (setTileVariation does not change it)
     return tileVariations(*app.ed, mapTileAt(*app.ed, tx, ty)).subs.size() > 1 ? UiIcon::Shuffle : kNoModMark;
@@ -146,13 +146,13 @@ UiIcon mapModMark(AppState& app, int sx, int sy, unsigned mods) {
     if (app.mode == Mode::Terrain && (wx < 0 || wy < 0 || wx >= ed.width() * 32.0f || wy >= ed.height() * 32.0f))
         return alt && mapBrushActive(app) ? UiIcon::Sort : kNoModMark;
     if (alt) {
-        // (Ctrl + Alt and Shift + Alt: the wheel's mark first, as their click is Alt's or Ctrl's own; Alt alone: the
-        // click's mark first, then the wheel's)
-        if (shift || ctrl)
-            if (const UiIcon w = altWheelMark(app, wx, wy); w != kNoModMark) return w;
+        // (Terrain, and Ctrl + Alt or Shift + Alt: the wheel's mark first, as their click is Ctrl's (Terrain: Alt + click
+        // does what Ctrl + click does); Alt alone in the other modes: the click's mark first, then the wheel's)
+        if (app.mode == Mode::Terrain || shift || ctrl)
+            if (const UiIcon w = altWheelMark(app, wx, wy, ctrl); w != kNoModMark) return w;
         if (app.mode == Mode::Units && app.palette < 0 && !app.pasting && !modeLayerHidden() && ed.unitsAt(int(wx), int(wy)).size() > 1) return UiIcon::Log;
         if (pipetteFinds(app, wx, wy)) return app.mode == Mode::Locations ? UiIcon::Copy : UiIcon::Pipette;
-        if (const UiIcon w = altWheelMark(app, wx, wy); w != kNoModMark) return w;  // (the click does nothing: the wheel's)
+        if (const UiIcon w = altWheelMark(app, wx, wy, ctrl); w != kNoModMark) return w;  // (the click does nothing: the wheel's)
     }
     if (modeLayerHidden() || trigUnitPickActive() || mapLayersEraseOn(app) || app.mode == Mode::Layers || app.pasting) return kNoModMark;
     if (objectEraseOn() && !app.pastingItems) return kNoModMark;

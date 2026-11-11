@@ -1574,7 +1574,8 @@ bool mapZoomGlideStep(AppState& app, float dt) {
 //  - Alt + wheel: the active brush one size up or down (mapBrushWheel); a trackpad's scroll and a smooth wheel's
 //    fractions step once per notch. In Doodads mode with a doodad picked and no spray: the palette's next or previous
 //    doodad (Discord feedback #119). In Terrain mode with no brush (Select, Move): the tile under the mouse takes its
-//    next or previous variation (core/tile_variations.inc). Else, with no brush, Alt + wheel does nothing (it never zooms).
+//    next or previous variation (core/tile_variations.inc; not with Ctrl: Ctrl + Alt + wheel with no brush zooms). Else,
+//    with no brush, Alt + wheel does nothing (it never zooms).
 //  - Ctrl (Cmd on macOS) + wheel or scroll: the zoom at the mouse (a trackpad's: smoothly; Windows sends a touchpad's
 //    pinch as Ctrl + wheel).
 //  - A mouse wheel: the zoom at the mouse (a sideways tilt does nothing).
@@ -1604,7 +1605,7 @@ bool mapWheel(AppState& app, float x, float y, float notches, float panX, float 
             }
             return true;
         }
-        if (app.mode == Mode::Terrain && !horizontal && !mapBrushActive(app) && app.zoom > 0 && !modeLayerHidden() && !app.pasting) {
+        if (app.mode == Mode::Terrain && !ctrl && !horizontal && !mapBrushActive(app) && app.zoom > 0 && !modeLayerHidden() && !app.pasting) {
             static float steps = 0;  // (a trackpad's or a smooth wheel's fractions until a whole step)
             steps += notches;
             const int tx = int(std::floor((app.camX + x / app.zoom) / 32)), ty = int(std::floor((app.camY + y / app.zoom) / 32));
@@ -1615,7 +1616,7 @@ bool mapWheel(AppState& app, float x, float y, float notches, float panX, float 
             }
             return true;
         }
-        return true;  // (no brush: nothing; Alt + wheel never zooms)
+        if (!ctrl) return true;  // (no brush: nothing; Alt + wheel never zooms; Ctrl + Alt: Ctrl's zoom below)
     }
     if (ctrl || !precise) {
         if (horizontal || notches == 0) return false;
