@@ -34,7 +34,7 @@ fs::path hyperionExe() { return hyperionExeIn(hyperionFolder()); }
 bool hyperionReady(fs::path& exe) {
     exe = hyperionExe();
     if (!exe.empty()) return true;
-    shellWarningBox(tr(L"Hyperion was not found. Choose its folder in Program options > Plugins > Hyperion folder."), tr(L"Hyperion"));
+    shellWarningBox(tr(L"Hyperion was not found. Select its folder in Program options > Plugins > Hyperion folder."), tr(L"Hyperion"));
     return false;
 }
 

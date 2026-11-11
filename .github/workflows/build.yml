@@ -59,8 +59,8 @@ env:
 
 jobs:
   # The editor on Windows (StarDraft 2.exe): the release's program and its symbols, its snapshots (on Direct3D 12, which
-  # uses WARP, the CPU: GitHub's Windows machines have no GPU; no game data: the shell with no map), the program alone in
-  # a folder as a release has it, then all the other targets.
+  # uses WARP, the CPU: GitHub's Windows machines have no GPU; no game data: the shell with no map) and the program alone
+  # in a folder as a release has it. All the other targets: the job windows-targets, at the same time.
   windows:
     runs-on: windows-latest
     env:
@@ -92,10 +92,13 @@ jobs:
           git diff --exit-code -- apps/editor/res/lang
 
       # FetchContent sources (SDL3, StormLib, CascLib, stb): cached by the CMake file that pins them.
+      # (restore-keys: after a change to CMakeLists.txt, the newest older sources with the same SDL patch: FetchContent
+      # fetches only what changed. Not after a change to the patch: it does not change a source that it changed before.)
       - uses: actions/cache@v4
         with:
           path: build/_deps
-          key: deps-ninja-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'cmake/patch_sdl.cmake') }}
+          key: deps-ninja-${{ runner.os }}-${{ hashFiles('cmake/patch_sdl.cmake') }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-ninja-${{ runner.os }}-${{ hashFiles('cmake/patch_sdl.cmake') }}-
 
       - name: Restore the compiler cache
         uses: actions/cache/restore@v4
@@ -228,8 +231,73 @@ jobs:
             editor-windows*.png
             stardraft-windows.zip
 
-      # All the other targets (the test programs and tools): compiled only, not run. A target that does not compile
-      # stops the build (and a release of this commit); the editor above is already uploaded.
+      - name: The compiler cache
+        if: ${{ !cancelled() }}
+        run: sccache --show-stats
+
+      - name: Keep the compiler cache
+        if: ${{ !cancelled() && env.KEEP_CACHE == 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}\sccache
+          key: sccache-windows-${{ github.run_id }}-${{ github.run_attempt }}
+
+  # All the other targets on Windows (the test programs and tools): compiled only, not run. A target that does not
+  # compile stops the build (and a release of this commit: tools/ci/tested_run.py). A job of its own, beside the job
+  # windows, so that its build does not wait for the editor's snapshots. The same configuration as the job windows, so
+  # that the compiler cache serves both; this job keeps its own cache (sccache-wintargets-) and reads either.
+  windows-targets:
+    runs-on: windows-latest
+    env:
+      SCCACHE_CACHE_SIZE: 3G
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true  # (the version name: the same defines as the job windows, for the compiler cache)
+
+      - name: The compiler cache's folder
+        shell: bash
+        run: echo "SCCACHE_DIR=$RUNNER_TEMP\sccache" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: deps-ninja-${{ runner.os }}-${{ hashFiles('cmake/patch_sdl.cmake') }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-ninja-${{ runner.os }}-${{ hashFiles('cmake/patch_sdl.cmake') }}-
+
+      - name: Restore the compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}\sccache
+          key: sccache-wintargets-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            sccache-wintargets-
+            sccache-windows-
+
+      - uses: mozilla-actions/sccache-action@v0.0.9
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: The version name
+        id: version
+        shell: bash
+        run: echo "name=$(bash tools/ci/version_name.sh)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure
+        shell: pwsh
+        env:
+          STARDRAFT_ISSUES_TOKEN: ${{ secrets.STARDRAFT_ISSUES_TOKEN }}  # (as the job windows: the same generated files)
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: |
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) { python -m pip install ninja }
+          $version = $env:VERSION_NAME
+          $opts = @('-G', 'Ninja Multi-Config', '-DCMAKE_C_COMPILER=cl', '-DCMAKE_CXX_COMPILER=cl',
+                    '-DCMAKE_C_COMPILER_LAUNCHER=sccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache')
+          if ($version) { $opts += "-DSTARDRAFT_VERSION_NAME=$version" }
+          cmake -S . -B build @opts
+
       - name: Build all targets
         run: cmake --build build --config Release --parallel
 
@@ -257,7 +325,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}\sccache
-          key: sccache-windows-${{ github.run_id }}-${{ github.run_attempt }}
+          key: sccache-wintargets-${{ github.run_id }}-${{ github.run_attempt }}
 
   # The library, the tools and the tests on Linux with GCC (research/ports/PLAN.md, phase 1): built, the tests that
   # need no game data run, and the editor is built and snapshotted (its artifact: stardraft-linux.tar.gz, not on a
@@ -276,6 +344,7 @@ jobs:
       # SDL's build dependencies (its docs/README-linux.md) and Mesa's Vulkan drivers (lavapipe: Vulkan on the CPU).
       - name: Install the build tools
         run: |
+          sudo rm -f /var/lib/man-db/auto-update  # (no rebuild of the manual pages' index after the install)
           sudo apt-get update
           sudo apt-get install -y ninja-build ccache pkg-config mesa-vulkan-drivers libasound2-dev libpulse-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
@@ -289,7 +358,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: build-gcc/_deps
-          key: deps-gcc-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'cmake/patch_sdl.cmake') }}
+          key: deps-gcc-${{ runner.os }}-${{ hashFiles('cmake/patch_sdl.cmake') }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-gcc-${{ runner.os }}-${{ hashFiles('cmake/patch_sdl.cmake') }}-
 
       - name: Restore the compiler cache
         uses: actions/cache/restore@v4
@@ -323,8 +393,9 @@ jobs:
           "$inst/usr/bin/stardraft-thumbnailer" -s 128 "file://$RUNNER_TEMP/preview/test.scx" thumbnail-linux.png
           file thumbnail-linux.png | grep -q "PNG image data"
 
-      # The UI text rules, trigger_test's checks without the game (the block library, the checker, epScript) and the
-      # renderer on Vulkan (lavapipe, no window).
+      # The UI text rules, trigger_test's checks without the game (the block library, the checker, epScript), the other
+      # tests that need no game data (creep rules, the project imports, music and dot images) and the renderer on Vulkan
+      # (lavapipe, no window).
       - name: Run the tests that need no game data
         env:
           SDL_VIDEODRIVER: offscreen
@@ -338,6 +409,11 @@ jobs:
           build-gcc/platform_test "$RUNNER_TEMP"
           build-gcc/kit_test
           build-gcc/pathing_regions_test
+          build-gcc/creep_test
+          build-gcc/import_ee2_test
+          build-gcc/import_ee3_classic_test
+          build-gcc/import_ee3_blocks_test
+          build-gcc/media_test "$RUNNER_TEMP/media_test"
 
       # stardraft-next (the new shell's spike) with no window: a snapshot of each workspace, Korean and Chinese typed
       # into a field. The pictures are kept with the run.
@@ -438,6 +514,7 @@ jobs:
 
       - name: Install the build tools
         run: |
+          sudo rm -f /var/lib/man-db/auto-update  # (no rebuild of the manual pages' index after the install)
           sudo apt-get update
           sudo apt-get install -y ninja-build ccache clang pkg-config libasound2-dev libpulse-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
@@ -446,7 +523,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: build-clang/_deps
-          key: deps-clang-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'cmake/patch_sdl.cmake') }}
+          key: deps-clang-${{ runner.os }}-${{ hashFiles('cmake/patch_sdl.cmake') }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-clang-${{ runner.os }}-${{ hashFiles('cmake/patch_sdl.cmake') }}-
 
       - name: Restore the compiler cache
         uses: actions/cache/restore@v4
@@ -499,6 +577,7 @@ jobs:
 
       - name: Install the build tools
         run: |
+          sudo rm -f /var/lib/man-db/auto-update  # (no rebuild of the manual pages' index after the install)
           sudo apt-get update
           sudo apt-get install -y ninja-build ccache g++-12 pkg-config libasound2-dev libpulse-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
@@ -507,7 +586,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: build/_deps
-          key: deps-appimage-${{ hashFiles('CMakeLists.txt', 'cmake/patch_sdl.cmake') }}
+          key: deps-appimage-${{ hashFiles('cmake/patch_sdl.cmake') }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-appimage-${{ hashFiles('cmake/patch_sdl.cmake') }}-
 
       - name: Restore the compiler cache
         uses: actions/cache/restore@v4
@@ -668,7 +748,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: build/_deps
-          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'cmake/patch_sdl.cmake') }}
+          key: deps-${{ runner.os }}-${{ hashFiles('cmake/patch_sdl.cmake') }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-${{ runner.os }}-${{ hashFiles('cmake/patch_sdl.cmake') }}-
 
       - name: Restore the compiler cache
         uses: actions/cache/restore@v4
@@ -731,6 +812,11 @@ jobs:
           build/kit_test
           build/pathing_regions_test
           build/map_preview_test "$RUNNER_TEMP/map_preview_test"
+          build/creep_test
+          build/import_ee2_test
+          build/import_ee3_classic_test
+          build/import_ee3_blocks_test
+          build/media_test "$RUNNER_TEMP/media_test"
 
       # The renderer on Metal. GitHub's macOS machines may have no Metal device: a failure here does not stop the run.
       - name: Run the renderer on Metal
@@ -803,6 +889,20 @@ jobs:
         run: |
           version_name=$(cat version-macos.txt)
           if [ -n "$version_name" ]; then name="StarDraft-$version_name-macos-arm64.dmg"; else name="StarDraft-macos-arm64.dmg"; fi
+          # Notarized only when a release can take this disk image: a release's commit (a version name), a tag (also
+          # ci-test-*: release.yml's build), a run by hand. Apple's notarization waits minutes on each push otherwise;
+          # the other pushes are signed with the Developer ID all the same.
+          notarize=false
+          if [ -n "$version_name" ] || [[ "$GITHUB_REF" == refs/tags/* ]] || [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            notarize=true
+          elif [ "$GITHUB_EVENT_NAME" = push ] &&
+               [ -n "$(git ls-remote --tags origin 'ci-test-*' | awk -v sha="$GITHUB_SHA" '$1 == sha')" ]; then
+            notarize=true
+          fi
+          if [ "$notarize" != true ]; then
+            echo "Not a release's build: the disk image is not notarized."
+            unset APPLE_ID APPLE_TEAM_ID APPLE_APP_PASSWORD
+          fi
           mkdir -p dist
           bash tools/ci/mac_dist.sh build/stardraft.app "dist/$name"
 
@@ -873,7 +973,7 @@ jobs:
   # stopgap for Linux users, not a release target.
   wine:
     if: needs.extras.outputs.run == 'true'
-    needs: [extras, windows]
+    needs: [extras, windows-targets]  # (its render_smoke_test.exe)
     runs-on: ubuntu-24.04
     continue-on-error: true
     steps:

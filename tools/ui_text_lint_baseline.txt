@@ -20,3 +20,4 @@ last-stop | apps/editor/core/views_briefing.inc | '. Play' | a part of a text: t
 word:enable | apps/editor/core/views_briefing.inc | 'Enable Skip Tutorial button.' | the briefing action as StarEdit and the game show it
 word:enabled | apps/editor/core/views_map_strings.inc | 'Skip tutorial enabled' | the briefing action as StarEdit and the game show it
 full-stop | apps/editor/core/views_toolstrip.inc | 'Not available: no terrain is selected.' | the second sentence of a tooltip (the first is the tool's tip)
+title-case | apps/editor/core/map_commands.inc | 'Test in Hyperion (&Use Map Settings)' | Use Map Settings is the game's name of the game type

@@ -48,7 +48,8 @@ MAPS = {"small": "(2)Boxer.scm", "medium": "(2)Bottleneck.scm", "large": "(8)Kil
 # The test programs that need no game data (as build.yml runs them on Linux), with their arguments ({tmp}: a new folder).
 TESTS = [("trigger_test", ["{tmp}/trigger_test"]), ("render_smoke_test", ["{tmp}/render_smoke.png"]), ("settings_test", ["{tmp}"]),
          ("commands_test", []), ("help_test", []), ("platform_test", ["{tmp}"]), ("kit_test", []), ("pathing_regions_test", []),
-         ("map_preview_test", ["{tmp}/map_preview"])]
+         ("map_preview_test", ["{tmp}/map_preview"]), ("creep_test", []), ("import_ee2_test", []),
+         ("import_ee3_classic_test", []), ("import_ee3_blocks_test", []), ("media_test", ["{tmp}/media_test"])]
 # Symbols that come from a font, not from the icon set (arrows other than the text's "->" one, shapes, dingbats, the
 # private-use glyph fonts), as \xNNNN in a wide string literal (UI text; a character constant in the code is not one).
 FONT_SYMBOL = re.compile(r"\\x(?:219[013-9A-Fa-f]|21[A-F][0-9A-Fa-f]|(?!2318|2325|232[BbF6]|238[Bb])23[0-9A-Fa-f]{2}|25[A-F][0-9A-Fa-f]|"

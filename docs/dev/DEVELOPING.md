@@ -330,11 +330,12 @@ release of a tag. The jobs of build.yml:
 
 | Job | What it does |
 |---|---|
-| windows | The UI text and translation table checks; `StarDraft 2.exe` with MSVC and Ninja (Ninja Multi-Config: the files go to `build/Release/`, as with Visual Studio's generator); the check that `StarDraft 2.pdb` matches the exe (`tools/ci/pdb_check.py`); the snapshots (also of the exe alone in a folder) and `sdl_snapshots.py --jobs 3`; then all the other targets. Its `StarDraft 2.exe` and `StarDraft 2.pdb` are the release's files. |
+| windows | The UI text and translation table checks; `StarDraft 2.exe` with MSVC and Ninja (Ninja Multi-Config: the files go to `build/Release/`, as with Visual Studio's generator); the check that `StarDraft 2.pdb` matches the exe (`tools/ci/pdb_check.py`); the snapshots (also of the exe alone in a folder) and `sdl_snapshots.py --jobs 3`. Its `StarDraft 2.exe` and `StarDraft 2.pdb` are the release's files. |
+| windows-targets | All the other targets with MSVC (compiled, not run), beside the job windows, so that they do not wait for its snapshots. A release needs it to pass. |
 | linux | GCC: all targets, the desktop files and the thumbnailer, the tests that need no game data, the snapshots of stardraft-next, the kit demo and the editor. |
 | linux-clang | Clang: all targets; the kit's tests with AddressSanitizer and UndefinedBehaviorSanitizer. |
 | linux-appimage | The AppImage (Ubuntu 22.04, GCC 12). |
-| macos | The app, its checks and tests, the snapshots and the disk image (signed and notarized when the secrets are there). |
+| macos | The app, its checks and tests, the snapshots and the disk image (signed when the secrets are there; notarized too for a release's commit, a tag or a run by hand). |
 | extras | Whether the three below run: on `port/kit`, tags and runs by hand (Actions > Build > Run workflow), and on a push to `master` only for a commit pushed with its release tag (or a `ci-test-*` tag) or a change to `packaging/`, `cmake/`, `CMakeLists.txt`, `tools/ci/linux_appimage.sh`, `src/render/`, `shaders/` or `build.yml`. |
 | linux-appimage-run, flatpak, wine | Only when the job extras says so. Each night `.github/workflows/nightly.yml` starts build.yml on `master` (a run by hand) when no run had them for its newest commit. |
 | release-test-macos | Only on `port/kit`, the `port/t-*` branches and runs by hand. |
@@ -348,11 +349,12 @@ runner.
 - A newer push to a branch stops the older run of that branch. Runs of `master` and of tags always go to their end.
 - Compiler caches: sccache on Windows (the editor has `/Z7`: the debug information is in each .obj, so sccache can keep
   it; the linker still writes `StarDraft 2.pdb`), ccache on Linux, macOS and the AppImage. Each job keeps its cache with
-  actions/cache (`sccache-windows-`, `ccache-linux-gcc-`, `ccache-linux-clang-`, `ccache-appimage-`, `ccache-macos-`
+  actions/cache (`sccache-windows-`, `sccache-wintargets-` (it can also start from `sccache-windows-`), `ccache-linux-gcc-`, `ccache-linux-clang-`, `ccache-appimage-`, `ccache-macos-`
   and the run's id). A run takes the newest cache that GitHub lets it see: its own branch's, else `master`'s. Only the
   pushes to `master`, `port/kit` and the `port/ci-*` branches save a cache, and after their run
   `.github/workflows/caches.yml` removes the branch's older ones of each kind, also of the dependency caches (`deps-`
-  and the hash of `CMakeLists.txt`): a run reads only the newest. GitHub keeps 10 GB for each repository and removes
+  and the hashes of `cmake/patch_sdl.cmake` and `CMakeLists.txt`). A run reads the dependency cache of its own
+  files, else the newest one with the same `patch_sdl.cmake` (FetchContent then fetches only what changed). GitHub keeps 10 GB for each repository and removes
   the oldest. The step "The compiler cache" shows the hits and misses. The
   build's commit (`build_info.h`) and time (`__DATE__`, `__TIME__`) are only in `apps/common/build_stamp.cpp` and
   `apps/editor/build_time.cpp`, so the cache keeps `main_sdl.cpp` when none of its files changed.

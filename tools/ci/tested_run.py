@@ -18,7 +18,7 @@ import time
 
 REPO = os.environ.get("GITHUB_REPOSITORY", "stardraft-editor/stardraft")
 # The jobs whose files a release has, or that test them: each one must have passed (not skipped).
-REQUIRED = {"windows", "macos", "linux-appimage", "linux", "linux-clang"}
+REQUIRED = {"windows", "windows-targets", "macos", "linux-appimage", "linux", "linux-clang"}
 # Not waited for: linux-data (now in data.yml; its runner is usually off); wine only reports (continue-on-error).
 # (The job extras only decides whether the heavy extras run: it must pass.)
 IGNORED = {"linux-data", "wine"}
