@@ -318,7 +318,7 @@ public:
         prefs::flag(L"OpenLastSession", flag), v.openSession = flag;
         v.tintIcons = tintIconsOn();
         v.diagnostics = diagnosticsOn();
-        v.immersive = shellState().funMode, v.immersiveUnlocked = shellState().immersiveUnlocked();
+        v.immersive = shellState().funMode, v.immersiveUnlocked = kImmersiveMode && shellState().immersiveUnlocked();
         v.smoothZoom = shellState().smoothZoom, v.smoothPan = shellState().smoothPan, v.keyHints = shellState().keyHints;
         flag = true;
         prefs::flag(L"AskStartLocations", flag), v.askStartLocations = flag;

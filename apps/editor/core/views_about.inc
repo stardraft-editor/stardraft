@@ -237,7 +237,7 @@ public:
         // it on. Unlocked, a click changes nothing (Program options has the option).
         if (popStart && !toggled && now - popStart >= 120) {
             toggled = now;
-            if (!shellState().immersiveUnlocked() && logoClicks >= kCraftClicks) {
+            if (kImmersiveMode && !shellState().immersiveUnlocked() && logoClicks >= kCraftClicks) {
                 logoClicks = 0;
                 shellState().funUnlocked = true;
                 command(ID_OPT_FUNMODE);  // (locked: the mode is off, so this turns it on)

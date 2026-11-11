@@ -794,13 +794,13 @@ void OptionsView::paint(draw::Canvas& c) {
             parts_["tinticons"] = cr;
         }
         y += rowH;
-        label(L"Immersive mode");
-        {
+        if (kImmersiveMode) {
+            label(L"Immersive mode");
             const draw::Rect cr{fx, y, fx + scale(24) + c.measure(immersive_.label()), y + rowH};
             place(immersive_, cr, true);
             parts_["immersive"] = cr;
+            y += rowH;
         }
-        y += rowH;
         label(L"Status bar");
         {
             const draw::Rect cr{fx, y, fx + scale(24) + c.measure(keyHints_.label()), y + rowH};

@@ -85,15 +85,20 @@ bool getAppSetting(const wchar_t* name, int& v) {
     gSavedSettings[name] = v;
     return true;
 }
-// The table's options: saved, or read. False: tests (nothing is saved or read).
+// The table's options: saved, or read. False: tests (nothing is saved or read). A build without Immersive mode
+// (kImmersiveMode) does not read or save its two settings.
+static bool settingUsed(const AppSetting& a) {
+    return kImmersiveMode || (std::wcscmp(a.name, L"FunMode") != 0 && std::wcscmp(a.name, L"ImmersiveUnlocked") != 0);
+}
 bool saveSettingsTable() {
     if (gSelfTest || gSettingsOff) return false;
-    for (const AppSetting& a : appSettings()) putAppSetting(a.name, a.get());
+    for (const AppSetting& a : appSettings())
+        if (settingUsed(a)) putAppSetting(a.name, a.get());
     return true;
 }
 bool loadSettingsTable() {
     if (gSelfTest || gSettingsOff) return false;
     for (const AppSetting& a : appSettings())
-        if (int v = 0; getAppSetting(a.name, v)) a.set(v);
+        if (int v = 0; settingUsed(a) && getAppSetting(a.name, v)) a.set(v);
     return true;
 }

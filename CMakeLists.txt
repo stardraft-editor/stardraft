@@ -436,6 +436,7 @@ endif()
 # Direct3D 12 on Windows (Vulkan when asked: STARDRAFT_GPU_DRIVER=vulkan), Vulkan on Linux, Metal on macOS. Off: the
 # library and its tests build without SDL3.
 option(STARDRAFT_RENDERER "Build the GPU renderer (SDL3) and its tools" ON)
+option(STARDRAFT_IMMERSIVE "Immersive mode (Program options; off: no option, About's logo does not unlock it)" ON)
 if(STARDRAFT_RENDERER)
     option(STARDRAFT_SDL_DEBUG_IME "SDL logs the input method's calls on macOS (cmake/patch_sdl.cmake)" OFF)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
@@ -784,7 +785,7 @@ if(STARDRAFT_RENDERER)
     add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/core/html_view.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
                    apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/res/lang/fr.cpp apps/common/build_stamp.cpp apps/editor/build_time.cpp ${STARDRAFT_BUILD_TIME})
     target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}"
-                               STARDRAFT_PUBLIC_BUILD=${publicBuild})
+                               STARDRAFT_PUBLIC_BUILD=${publicBuild} STARDRAFT_IMMERSIVE=$<BOOL:${STARDRAFT_IMMERSIVE}>)
     target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)
     # Edit > Tools > Simulate (experimental: apps/editor/sdl_simulation.inc)

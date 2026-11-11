@@ -595,6 +595,7 @@ bool commandMapEdit(AppState& app, int id) {
         setMessage(app.dragObjects ? L"A drag moves units, doodads, sprites and locations" : L"A drag does not move units, doodads, sprites or locations");
         break;
     case ID_OPT_FUNMODE:
+        if (!kImmersiveMode) break;
         if (app.funMode) app.funUnlocked = true;  // (on from before the lock: it stays unlocked when it goes off)
         app.funMode = !app.funMode;
         setMessage(app.funMode ? L"Immersive mode on" : L"Immersive mode off");

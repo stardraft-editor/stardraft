@@ -10,6 +10,14 @@ constexpr bool kRampBridgeTools = false;
 constexpr bool kRampBridgeTools = true;
 #endif
 
+// Immersive mode (Program options, core/fun_mode.inc): off in a build with -DSTARDRAFT_IMMERSIVE=OFF (a test build
+// without it): no option, About's logo does not unlock it, and its settings stay as they are in the settings file.
+#if defined(STARDRAFT_IMMERSIVE) && !STARDRAFT_IMMERSIVE
+constexpr bool kImmersiveMode = false;
+#else
+constexpr bool kImmersiveMode = true;
+#endif
+
 // --- Ids -----------------------------------------------------------------------------------------
 
 enum : int {
