@@ -1398,7 +1398,7 @@ void mapZoomAt(AppState& app, float x, float y, float factor) {
     mapZoomGlideStop();
     app.gameView = false;  // (a zoom ends View > In-game view)
     const float wx = app.camX + x / app.zoom, wy = app.camY + y / app.zoom;
-    app.zoom = std::clamp(app.zoom * factor, 1.0f / 16, 4.0f);
+    app.zoom = std::clamp(app.zoom * factor, 1.0f / 16, 16.0f);
     app.camX = wx - x / app.zoom, app.camY = wy - y / app.zoom;
     clampCamera();
     app.dirty = true;
@@ -1531,7 +1531,7 @@ void mapPeekCancel(AppState& app) {
     app.dirty = true;
 }
 
-void mapZoomGlideTo(AppState& app, float x, float y, float factor, float most = 4.0f) {
+void mapZoomGlideTo(AppState& app, float x, float y, float factor, float most = 16.0f) {
     if (app.zoom <= 0 || !(factor > 0)) return;
     app.gameView = false;  // (a zoom ends View > In-game view)
     gViewGlide.on = false;  // (the wheel during a glide of the view: the zoom goes on from where the view is)

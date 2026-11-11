@@ -52,12 +52,24 @@ bool ctrlClickPicksTile(const AppState& app, float wx, float wy) {
 }
 
 // The drag under way: the keys that it reads while it goes on, and what its press chose (that stays after the key is up).
+// The mode's objects have a selection (units, doodads, sprites, locations): only then Add and Remove marks show.
+bool modeHasSelection(const AppState& app) {
+    switch (app.mode) {
+    case Mode::Units: return !app.ed->selection().empty();
+    case Mode::Doodads: return !app.selDoodads.empty();
+    case Mode::Sprites: return !app.selSprites.empty();
+    case Mode::Locations: return !app.ed->selectedLocations().empty();
+    default: return false;
+    }
+}
+
 UiIcon dragModMark(AppState& app, float wx, float wy, bool shift, bool ctrl) {
     switch (app.drag) {
     case Drag::TerrainSelect:
         if (app.terrainSelOp == 2 && !app.dragMoved && ctrlClickPicksTile(app, app.dragWX, app.dragWY)) return UiIcon::Pipette;
+        if (!app.hasTerrainSel) return kNoModMark;  // (nothing to add to or take from)
         return app.terrainSelOp == 1 ? UiIcon::Add : app.terrainSelOp == 2 ? UiIcon::Remove : kNoModMark;
-    case Drag::BoxSelect: return shift || ctrl ? UiIcon::Add : kNoModMark;
+    case Drag::BoxSelect: return (shift || ctrl) && modeHasSelection(app) ? UiIcon::Add : kNoModMark;
     case Drag::Tiles: return gTiles->scatter && !gTilesPasteDrag && tilesStampOn() ? UiIcon::Jumble : kNoModMark;
     case Drag::Shape:
         if (gShape.tool == TRamp) return gShape.unramp ? shapeShiftMark(TRamp) : kNoModMark;
@@ -65,7 +77,8 @@ UiIcon dragModMark(AppState& app, float wx, float wy, bool shift, bool ctrl) {
     case Drag::LocCreate: {
         const Rect r = previewLocationRect(wx, wy);
         if (r.right - r.left >= 8 && r.bottom - r.top >= 8) return shift || ctrl ? UiIcon::MirrorTopBottom : kNoModMark;
-        return app.locToggle >= 0 && app.ed->locationUsed(app.locToggle) ? itemSelectMark(true, app.ed->locationSelected(app.locToggle)) : kNoModMark;
+        if (app.locToggle < 0 || !app.ed->locationUsed(app.locToggle) || !modeHasSelection(app)) return kNoModMark;
+        return itemSelectMark(true, app.ed->locationSelected(app.locToggle));
     }
     default: return kNoModMark;
     }
@@ -84,11 +97,11 @@ UiIcon terrainModMark(AppState& app, float wx, float wy, bool shift, bool ctrl) 
         }
         return shapeShiftMark(tool);
     }
-    if (tool == TWand || tool == TLasso) return ctrl ? (app.hasTerrainSel ? UiIcon::Remove : kNoModMark) : shift ? UiIcon::Add : kNoModMark;
+    if (tool == TWand || tool == TLasso) return !app.hasTerrainSel ? kNoModMark : ctrl ? UiIcon::Remove : shift ? UiIcon::Add : kNoModMark;
     if (app.terrainRect && !(gTiles->solid && ctrl && tool != TSelect)) {  // (tilesMouseDown)
         if (tool == TSelect) {
             if (app.terrainPasting && ed.hasTileClipboard()) return kNoModMark;
-            if (shift) return UiIcon::Add;
+            if (shift) return app.hasTerrainSel ? UiIcon::Add : kNoModMark;
             if (!ctrl) return kNoModMark;
             if (ctrlClickPicksTile(app, wx, wy)) return UiIcon::Pipette;
             return app.hasTerrainSel ? UiIcon::Remove : kNoModMark;
@@ -100,7 +113,7 @@ UiIcon terrainModMark(AppState& app, float wx, float wy, bool shift, bool ctrl) 
     }
     if (!ed.canPaintTerrain()) return kNoModMark;
     if (tool == TSelect && !app.terrainPasting) {
-        if (shift) return UiIcon::Add;
+        if (shift) return app.hasTerrainSel ? UiIcon::Add : kNoModMark;
         if (ctrl && app.hasTerrainSel) return UiIcon::Remove;
     }
     if (ctrl) return UiIcon::Pipette;
@@ -146,19 +159,19 @@ UiIcon mapModMark(AppState& app, int sx, int sy, unsigned mods) {
     const int tool = currentTool(app);
     switch (app.mode) {
     case Mode::Units: {
-        if ((!shift && !ctrl) || tool == UFill || tool == USpray || tool == UReplace || app.palette >= 0) return kNoModMark;
+        if ((!shift && !ctrl) || tool == UFill || tool == USpray || tool == UReplace || app.palette >= 0 || ed.selection().empty()) return kNoModMark;
         const int hit = ed.unitAt(int(wx), int(wy));
         if (hit >= 0 && shift && !ctrl && ed.isSelected(hit)) return kNoModMark;  // (Shift keeps a selected unit; only Ctrl takes it out)
         return itemSelectMark(hit >= 0, hit >= 0 && ed.isSelected(hit));
     }
     case Mode::Terrain: return shift || ctrl ? terrainModMark(app, wx, wy, shift, ctrl) : kNoModMark;
     case Mode::Doodads: {
-        if ((!shift && !ctrl) || tool == DFill || tool == DSpray || app.palette >= 0 || app.pastingItems) return kNoModMark;
+        if ((!shift && !ctrl) || tool == DFill || tool == DSpray || app.palette >= 0 || app.pastingItems || app.selDoodads.empty()) return kNoModMark;
         const int hit = ed.doodadAt(int(wx), int(wy));
         return itemSelectMark(hit >= 0, std::find(app.selDoodads.begin(), app.selDoodads.end(), hit) != app.selDoodads.end());
     }
     case Mode::Sprites: {
-        if ((!shift && !ctrl) || app.palette >= 0 || app.pastingItems) return kNoModMark;
+        if ((!shift && !ctrl) || app.palette >= 0 || app.pastingItems || app.selSprites.empty()) return kNoModMark;
         const int hit = mapSpriteAt(ed, int(wx), int(wy));
         return itemSelectMark(hit >= 0, std::find(app.selSprites.begin(), app.selSprites.end(), hit) != app.selSprites.end());
     }
@@ -168,7 +181,8 @@ UiIcon mapModMark(AppState& app, int sx, int sy, unsigned mods) {
         const int edges = locationEdgesAt(wx, wy), inside = ed.locationAt(int(wx), int(wy));
         if (alt && !edges) return adds ? UiIcon::Add : UiIcon::Select;
         if (!adds) return kNoModMark;
-        return inside >= 0 ? itemSelectMark(true, ed.locationSelected(inside)) : UiIcon::MirrorTopBottom;
+        if (inside < 0) return UiIcon::MirrorTopBottom;  // (Shift + drag: an inverted location)
+        return ed.selectedLocations().empty() ? kNoModMark : itemSelectMark(true, ed.locationSelected(inside));
     }
     default: return kNoModMark;
     }

@@ -30,8 +30,10 @@ std::vector<KeyHint> mapKeyHints(const AppState& app) {
         else if (tool == TDiamond || tool == TDiamondFill) add(L"Shift", L"Equal sides", draw::kShift);
         else if (tool == TRamp) add(L"Shift+drag", L"Remove ramp", draw::kShift);
         else if (tool == TSelect || tool == TWand || tool == TLasso) {
-            add(L"Shift", L"Add to selection", draw::kShift);
-            add(L"Ctrl", L"Remove from selection", draw::kCtrl);
+            if (app.hasTerrainSel) {  // (with no selection, Shift and Ctrl have nothing to add to or take from)
+                add(L"Shift", L"Add to selection", draw::kShift);
+                add(L"Ctrl", L"Remove from selection", draw::kCtrl);
+            }
         } else if (tool == TFill) {
             add(L"Shift+click", L"Fill all of this terrain", draw::kShift);
         } else if (tool == TBrush && tiles && tilesStampOn()) {
@@ -44,7 +46,7 @@ std::vector<KeyHint> mapKeyHints(const AppState& app) {
         break;
     }
     case Mode::Units:
-        if (app.palette < 0 && tool == UPlace) {
+        if (app.palette < 0 && tool == UPlace && !app.ed->selection().empty()) {
             add(L"Shift", L"Add to selection", draw::kShift);
             add(L"Ctrl", L"Add or remove", draw::kCtrl);
         }
@@ -52,20 +54,20 @@ std::vector<KeyHint> mapKeyHints(const AppState& app) {
         if (tool == USpray) add(L"Alt+wheel", L"Brush size", draw::kAlt);
         break;
     case Mode::Doodads:
-        if (app.palette < 0 && tool == DPlace) add(L"Shift+click", L"Add or remove", draw::kShift);  // (selectItemAt: Ctrl too)
+        if (app.palette < 0 && tool == DPlace && !app.selDoodads.empty()) add(L"Shift+click", L"Add or remove", draw::kShift);  // (selectItemAt: Ctrl too)
         add(L"Alt+click", L"Use this doodad", draw::kAlt);
         if (objectSprayOn()) add(L"Alt+wheel", L"Brush size", draw::kAlt);
         else if (app.palette >= 0) add(L"Alt+wheel", L"Next doodad", draw::kAlt);
         break;
     case Mode::Sprites:
-        if (app.palette < 0) add(L"Shift+click", L"Add or remove", draw::kShift);
+        if (app.palette < 0 && !app.selSprites.empty()) add(L"Shift+click", L"Add or remove", draw::kShift);
         add(L"Alt+click", L"Use this sprite", draw::kAlt);
         break;
     case Mode::Locations:
         if (tool == LErase) break;
         add(L"Shift+drag", L"Inverted location", draw::kShift);
         add(L"Alt+drag", L"Select in a box", draw::kAlt);
-        add(L"Shift+click", L"Add or remove", draw::kShift);
+        if (!app.ed->selectedLocations().empty()) add(L"Shift+click", L"Add or remove", draw::kShift);
         break;
     default: break;
     }
