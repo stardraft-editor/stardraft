@@ -182,6 +182,7 @@ add_library(stardraft
     src/mods/cmbw.cpp
     src/mods/hyperion.cpp
     src/mods/terrain_rules.cpp
+    src/mods/tile_match.cpp
     src/tileset.cpp
     src/terrain.cpp
     src/isom.cpp
@@ -371,6 +372,8 @@ if(cmbw_probes)
     target_link_libraries(cmbw_neighbor_repair PRIVATE stardraft)
     add_executable(cmbw_isom_copies tools/plugins/cmbw/probes/cmbw_isom_copies.cpp)  # the mod tiles that copy a game border tile (most pixels the same): the base of copy-based rules
     target_link_libraries(cmbw_isom_copies PRIVATE stardraft)
+    add_executable(cmbw_auto_match tools/plugins/cmbw/probes/cmbw_auto_match.cpp)  # Rectangle match by a program: template tiles to the mod tiles that look most like them
+    target_link_libraries(cmbw_auto_match PRIVATE stardraft)
     add_executable(cmbw_auto_rows tools/plugins/cmbw/probes/cmbw_auto_rows.cpp)  # which game rect each set's groups stand for on the maps
     target_link_libraries(cmbw_auto_rows PRIVATE stardraft)
 endif()

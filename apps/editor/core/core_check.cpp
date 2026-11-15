@@ -84,6 +84,7 @@
 #include "stardraft/process.h"  // runProcess (core/hyperion.inc: Hyperion's map check)
 #include "stardraft/mods/hyperion.h"  // Hyperion's player colors (core/views_players.inc)
 #include "stardraft/mods/terrain_rules.h"
+#include "stardraft/mods/tile_match.h"
 #include "stardraft/pathing.h"
 #include "stardraft/pathing_regions.h"
 #include "stardraft/portraits.h"  // the briefing's portraits (core/views_briefing.inc)
