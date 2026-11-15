@@ -548,7 +548,7 @@ public:
         overlayPick_.setTip(L"Overlays on Template tiles and Mod tiles: tile heights; matched tiles (a green check); suggested tiles (an amber dot: sure; a ring: not sure); on Mod tiles, other terrains' tiles (a gray cross). One or more can be on");
         cmpAccept_.setTip(L"The suggestion into the selected template tile, then the next tile with a suggestion is selected. Key: Ctrl+A");
         cmpAlt_.setTip(L"Show the next best mod tile for the selected template tile instead (round to the first again). Key: Ctrl+F");
-        cmpAll_.setTip(L"Every suggestion into its template tile (the tiles that are not matched yet). One undo step. Key: Ctrl+Shift+A");
+        cmpAll_.setTip(L"Every suggestion with more than 80% pixel match into its template tile (the tiles that are not matched yet). One undo step. Key: Ctrl+Shift+A");
         overlayPick_.onOpen = [this] {
             if (std::chrono::steady_clock::now() - ovClosed_ < std::chrono::milliseconds(250)) return;  // (the click that closed it)
             openOverlays();
@@ -694,6 +694,7 @@ public:
         if (matchMode_ && ctrl && e.key == static_cast<draw::Key>('A')) return acceptSuggestions(false), true;  // (Ctrl+A: as Enter)
         if (matchMode_ && e.mods == (draw::kCtrl | draw::kShift) && e.key == static_cast<draw::Key>('A')) return acceptSuggestions(false, true), true;
         if (matchMode_ && ctrl && e.key == static_cast<draw::Key>('F')) return nextAlternative(), true;
+        if (matchMode_ && e.mods == (draw::kCtrl | draw::kShift) && e.key == static_cast<draw::Key>('K')) return keepOriginal(), true;
         if (e.key == static_cast<draw::Key>('L') && ctrl) return nextNull(), true;
         if (e.key == draw::Key::Delete && !e.mods) return setNull(), true;
         if (e.key == draw::Key::F2 && !e.mods) return renameTerrain(sel_), true;
@@ -2697,8 +2698,9 @@ private:
                                   item(L"Match by offset", L"Ctrl+Shift+M", [this] { matchByOffset(); }, own), sep,
                                   item(L"Accept selected suggestions", L"Ctrl+A", [this] { acceptSuggestions(false); }, own && matchMode_),
                                   item(L"Accept sure suggestions", L"Shift+Enter", [this] { acceptSuggestions(true); }, own && matchMode_),
-                                  item(L"Accept all suggestions", L"Ctrl+Shift+A", [this] { acceptSuggestions(false, true); }, own && matchMode_),
-                                  item(L"Find alternative suggestion", L"Ctrl+F", [this] { nextAlternative(); }, own && matchMode_), sep,
+                                  item(L"Accept all suggestions over 80% match", L"Ctrl+Shift+A", [this] { acceptSuggestions(false, true); }, own && matchMode_),
+                                  item(L"Find alternative suggestion", L"Ctrl+F", [this] { nextAlternative(); }, own && matchMode_),
+                                  item(L"Keep the original tiles", L"Ctrl+Shift+K", [this] { keepOriginal(); }, own && matchMode_), sep,
                                   check(L"Linked rows", L"", linkRows_, [this] { toggleLinkRows(); }), sep,
                                   item(L"Restore removed pieces", L"", [this] { restoreRemoved(); },
                                        !shapeKey_.empty() && (!hiddenOf(shapeKey_).empty() || !cutOf(shapeKey_).empty())), sep,
@@ -4117,6 +4119,7 @@ private:
         return L" " + std::to_wstring(sugg_.size()) + L" suggestions (" + std::to_wstring(sure) + L" sure): Ctrl+A or Enter accepts the selected ones, Shift+Enter the sure ones.";
     }
     // The suggestions in the selected block (sureOnly: the sure ones everywhere) into their tiles; one undo step.
+    static constexpr float kAllMatch = 0.8f;  // (Accept all: the suggestions with more pixel match than this only)
     void acceptSuggestions(bool sureOnly, bool all = false) {
         if (!matchMode_ || sel_ < 0 || sel_ >= int(rules().terrains.size())) return;
         updateSuggestions();
@@ -4125,9 +4128,10 @@ private:
             const auto s = sugg_.find(m.v);
             if (s == sugg_.end()) continue;
             if (!all && (sureOnly ? s->second.confidence < kSure : !(matchSelOn_ && matchInSel(m.row, m.col)))) continue;
+            if (all && (!matchTs_ || stardraft::tilematch::pixelMatch(*matchTs_, m.v, tileset_, s->second.mod) < kAllMatch)) continue;  // (all: the near ones only)
             puts.push_back({&m, s->second.mod});
         }
-        if (puts.empty()) return setMessage(all ? L"No suggestions" : sureOnly ? L"No sure suggestions" : matchSelOn_ ? L"No suggestions in the selected block" : L"Select a block of template tiles first");
+        if (puts.empty()) return setMessage(all ? L"No suggestions with more than 80% pixel match" : sureOnly ? L"No sure suggestions" : matchSelOn_ ? L"No suggestions in the selected block" : L"Select a block of template tiles first");
         if (!remember()) return;
         const int fromRow = matchSelTop() + matchSelRows() - 1, fromCol = matchSelLeft() + matchSelCols() - 1;
         for (const auto& [m, v] : puts) matchPutTile(*m, v);
@@ -4215,6 +4219,31 @@ private:
         revealShown();
         setMessage(L"Suggestion " + std::to_wstring(at + 1) + L" of " + std::to_wstring(list.size()) + L": " + std::to_wstring(s->second.mod >> 4) + L"." +
                    std::to_wstring(s->second.mod & 15) + L". Ctrl+F: the next one, Ctrl+A: accept it");
+        invalidate();
+    }
+    // Keep the original tiles (Ctrl+Shift+K): each selected template tile gets the mod's tile with its picture (the game's own
+    // tile, which the mod has too: ceilings and the like); one undo step. A tile the mod has no picture for stays.
+    void keepOriginal() {
+        if (!matchMode_ || !matchTs_ || sel_ < 0 || sel_ >= int(rules().terrains.size())) return;
+        if (!matchSelOn_) return setMessage(L"Select template tiles first");
+        std::vector<std::pair<const MatchCell*, uint16_t>> puts;
+        int none = 0;
+        for (const MatchCell& m : matchCells_) {
+            if (!matchInSel(m.row, m.col)) continue;
+            const uint16_t v = stardraft::tilematch::samePicture(*matchTs_, m.v, tileset_);
+            if (v == 0xFFFF) ++none;
+            else puts.push_back({&m, v});
+        }
+        if (puts.empty()) return setMessage(none ? L"The mod's tileset has no tile with this picture" : L"No template tiles selected");
+        if (!remember()) return;
+        const int fromRow = matchSelTop() + matchSelRows() - 1, fromCol = matchSelLeft() + matchSelCols() - 1;
+        for (const auto& [m, v] : puts) matchPutTile(*m, v);
+        target_ = -1;
+        changed();
+        updateSuggestions();
+        selectNextSuggestion(fromRow, fromCol);
+        setMessage(L"Kept " + std::to_wstring(puts.size()) + (puts.size() == 1 ? L" original tile" : L" original tiles") +
+                   (none ? L"; " + std::to_wstring(none) + L" with no tile of the same picture in the mod's tileset" : L"") + L". Ctrl+Z: undo.");
         invalidate();
     }
     // The compare pane's Accept suggestion: the suggestion of the selected block's first template tile; one undo step.
@@ -4326,7 +4355,7 @@ private:
     stardraft::kit::Button newTerrain_;    stardraft::kit::CheckBox refShow_;
     stardraft::kit::Button cmpAccept_{L"Accept suggestion", stardraft::kit::Tone::Primary, [this] { acceptOne(), focus(); }};  // (Enter stays the view's)
     stardraft::kit::Button cmpAlt_{L"Find alternative", stardraft::kit::Tone::Normal, [this] { nextAlternative(), focus(); }};
-    stardraft::kit::Button cmpAll_{L"Accept all suggestions", stardraft::kit::Tone::Normal, [this] { acceptSuggestions(false, true), focus(); }};  // (the compare pane's)
+    stardraft::kit::Button cmpAll_{L"Accept all over 80% match", stardraft::kit::Tone::Normal, [this] { acceptSuggestions(false, true), focus(); }};  // (the compare pane's)
     // The headers' choices: the rects shown, the tile groups shown, what a click on a tile puts in (they follow the keys).
     isomrules::HeaderPick minePick_, pairPick_;
     // Overlays on Mod tiles (one or more on): the heights (as Ctrl+E), this terrain's matched tiles (a green mark),
@@ -5956,7 +5985,11 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
             if (!matchPlaceAt(e.pt, row, col)) return true;
             if (!matchInSel(row, col)) matchSelectBlock(row, col, row, col);
             const bool one = matchSelCols() * matchSelRows() == 1;
-            if (shellContextMenuAt(*this, e.pt, {one ? L"Accept suggestion" : L"Accept suggestions in the selected block"}) == 1) acceptSuggestions(false);
+            switch (shellContextMenuAt(*this, e.pt, {one ? L"Accept suggestion" : L"Accept suggestions in the selected block", one ? L"Keep the original tile" : L"Keep the original tiles"})) {
+            case 1: acceptSuggestions(false); break;
+            case 2: keepOriginal(); break;
+            default: break;
+            }
             return true;
         }
         if (e.kind == draw::MouseKind::Down && e.button == 0) {  // (a tile: selected; a drag: the block)

@@ -6,6 +6,7 @@
 //   cmbw_auto_match match <install> <era> <base era> <base ground> <base terrain> <stand-in> <ground> <first mod group>
 //                   <last mod group> <id> <name> <out .isom> [<rules .isom> to add to]
 #include <algorithm>
+#include <chrono>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -467,7 +468,10 @@ int main(int argc, char** argv) {
         };
         std::printf("known %zu, slots %zu\n", in.known.size(), in.slots.size());
         for (const auto& [a, b] : in.known) std::printf("  known %u:%u (%s) -> %u:%u (%s)\n", a >> 4, a & 15, mean(bts, a).c_str(), b >> 4, b & 15, mean(ts, b).c_str());
-        for (const auto& s : tilematch::suggest(in))
+        const auto t0 = std::chrono::steady_clock::now();
+        const auto sugs = tilematch::suggest(in);
+        std::printf("suggest: %lld ms, %zu suggestions\n", (long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count(), sugs.size());
+        for (const auto& s : sugs)
             std::printf("  %s %u:%u (%s) -> %u:%u (%s) score %.2f conf %.2f\n", s.confidence >= 0.5f ? "SURE" : "    ", s.tmpl >> 4, s.tmpl & 15, mean(bts, s.tmpl).c_str(), s.mod >> 4,
                         s.mod & 15, mean(ts, s.mod).c_str(), s.score, s.confidence);
         return 0;

@@ -1,6 +1,11 @@
 #include "stardraft/mods/tile_match.h"
 
 #include <algorithm>
+#include <atomic>
+#include <climits>
+#include <functional>
+#include <numeric>
+#include <thread>
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -73,6 +78,22 @@ Tile tileOf(const Tileset& t, uint16_t v) {
     return o;
 }
 
+// f(i) for each i in [0, n), on the processor's cores (each i writes only its own row of a table).
+void parallelFor(size_t n, const std::function<void(size_t)>& f) {
+    const size_t k = std::min<size_t>(n, std::clamp<size_t>(std::thread::hardware_concurrency(), 1, 8));
+    if (k <= 1 || n < 8) {
+        for (size_t i = 0; i < n; ++i) f(i);
+        return;
+    }
+    std::atomic<size_t> next{0};
+    std::vector<std::thread> threads;
+    for (size_t t = 0; t < k; ++t)
+        threads.emplace_back([&] {
+            for (size_t i; (i = next++) < n;) f(i);
+        });
+    for (auto& t : threads) t.join();
+}
+
 float corr(const std::array<float, kN * kN>& a, const std::array<float, kN * kN>& b) {
     double s = 0;
     for (size_t i = 0; i < a.size(); ++i) s += double(a[i]) * b[i];
@@ -138,6 +159,43 @@ float seam(const Tile& a, const Tile& b, int dir) {
 
 }  // namespace
 
+uint16_t samePicture(const Tileset& a, uint16_t va, const Tileset& b) {
+    auto pixel = [](const Tileset& t, int mt, int px, int py) {  // (0xRRGGBB; -1: no picture there)
+        const uint32_t e = t.megatiles[size_t(mt)][size_t((py / 8) * 4 + px / 8)];
+        if ((e >> 1) >= t.minitiles.size()) return -1;
+        const Rgb c = t.palette[t.minitiles[e >> 1][size_t((py % 8) * 8 + ((e & 1) ? 7 - px % 8 : px % 8))]];
+        return int(c.r) << 16 | int(c.g) << 8 | int(c.b);
+    };
+    const int ma = a.megatileFor(va);
+    if (ma <= 0 || size_t(ma) >= a.megatiles.size()) return 0xFFFF;
+    std::array<int, kN * kN> want{};
+    for (int y = 0; y < kN; ++y)
+        for (int x = 0; x < kN; ++x) want[size_t(y * kN + x)] = pixel(a, ma, x, y);
+    // (the error: the mean colour difference a pixel, r + g + b; the same picture in two palettes: a few steps)
+    constexpr long kMaxMean = 24;
+    std::unordered_map<int, long> err;  // (by megatile: many tiles share one)
+    auto errorOf = [&](uint16_t v, long budget) {
+        const int mb = b.megatileFor(v);
+        if (mb <= 0 || size_t(mb) >= b.megatiles.size()) return LONG_MAX;
+        if (const auto it = err.find(mb); it != err.end()) return it->second;
+        long e = 0;
+        for (int i = 0; i < kN * kN && e <= budget; ++i) {
+            const int p = pixel(b, mb, i % kN, i / kN), q = want[size_t(i)];
+            if (p < 0 || q < 0) e += p == q ? 0 : 765;
+            else e += std::abs((p >> 16) - (q >> 16)) + std::abs(((p >> 8) & 255) - ((q >> 8) & 255)) + std::abs((p & 255) - (q & 255));
+        }
+        return err[mb] = e <= budget ? e : LONG_MAX;
+    };
+    long best = kMaxMean * kN * kN;
+    uint16_t at = 0xFFFF;
+    if (const long e = errorOf(va, best); e <= best) best = e, at = va;
+    for (size_t g = 0; g < b.groups.size() && best > 0; ++g)
+        for (int s = 0; s < 16; ++s)
+            if (const uint16_t v = uint16_t(g * 16 + size_t(s)); v != va)
+                if (const long e = errorOf(v, best - 1); e < best) best = e, at = v;
+    return at;
+}
+
 float pixelMatch(const Tileset& a, uint16_t va, const Tileset& b, uint16_t vb) {
     const Tile x = tileOf(a, va), y = tileOf(b, vb);
     return x.ok && y.ok ? std::clamp(corr(x.norm, y.norm), 0.f, 1.f) : 0.f;
@@ -184,17 +242,28 @@ std::vector<Suggestion> suggest(const Input& in) {
     // (the matched pairs' own scores, the same signals: how well a right match scores here (sure needs about that))
     std::vector<float> knownScore;
     for (const auto& [t, m] : in.known) knownScore.push_back(like(tmplTile(t), modTile(m)));
-    for (size_t i = 0; i < open.size(); ++i)
-        for (size_t j = 0; j < cands.size(); ++j) base[i * cands.size() + j] = like(tmplTile(open[i]), modTile(cands[j]));
+    // (the tiles made first, here: the table's rows then go on the processor's cores)
+    {  // (the candidates' tiles at once, on the cores: most of them are new)
+        std::vector<Tile> made(cands.size());
+        parallelFor(cands.size(), [&](size_t j) { made[j] = tileOf(M, cands[j]); });
+        for (size_t j = 0; j < cands.size(); ++j) mt.emplace(cands[j], std::move(made[j]));
+    }
+    std::vector<const Tile*> ot, ct;
+    for (uint16_t v : open) ot.push_back(&tmplTile(v));
+    for (uint16_t v : cands) ct.push_back(&modTile(v));
+    const size_t nc = cands.size();
+    parallelFor(open.size(), [&](size_t i) {
+        for (size_t j = 0; j < nc; ++j) base[i * nc + j] = like(*ot[i], *ct[j]);
+    });
     if (in.wMask != 0) {  // (the tiles as their two sides by colour: the matches say which mod side is which template side)
         std::vector<const Tile*> ts, ms;
         for (uint16_t v : in.slots) ts.push_back(&tmplTile(v));
         for (const auto& [t, m] : in.known) ts.push_back(&tmplTile(t)), ms.push_back(&modTile(m));
         for (uint16_t v : cands) ms.push_back(&modTile(v));
         const auto tc = twoColors(ts), mc = twoColors(ms);
-        std::unordered_map<uint16_t, std::array<float, kN * kN>> tSide, mSide;
-        for (uint16_t v : open) tSide[v] = sidesOf(tmplTile(v), tc);
-        for (uint16_t v : cands) mSide[v] = sidesOf(modTile(v), mc);
+        std::vector<std::array<float, kN * kN>> tSide(open.size()), mSide(nc);
+        parallelFor(open.size(), [&](size_t i) { tSide[i] = sidesOf(*ot[i], tc); });
+        parallelFor(nc, [&](size_t j) { mSide[j] = sidesOf(*ct[j], mc); });
         double pol = 0;
         for (const auto& [t, m] : in.known) pol += corr(sidesOf(tmplTile(t), tc), sidesOf(modTile(m), mc));
         const float sign = pol < 0 ? -1.f : 1.f;
@@ -202,8 +271,9 @@ std::vector<Suggestion> suggest(const Input& in) {
             size_t n = 0;
             for (const auto& [t, m] : in.known) knownScore[n++] += in.wMask * sign * corr(sidesOf(tmplTile(t), tc), sidesOf(modTile(m), mc));
         }
-        for (size_t i = 0; i < open.size(); ++i)
-            for (size_t j = 0; j < cands.size(); ++j) base[i * cands.size() + j] += in.wMask * sign * corr(tSide[open[i]], mSide[cands[j]]);
+        parallelFor(open.size(), [&](size_t i) {
+            for (size_t j = 0; j < nc; ++j) base[i * nc + j] += in.wMask * sign * corr(tSide[i], mSide[j]);
+        });
     }
     std::map<std::tuple<uint16_t, uint16_t, int>, float> modSeams;
     auto modSeam = [&](uint16_t a, uint16_t b, int dir) {
@@ -251,8 +321,9 @@ std::vector<Suggestion> suggest(const Input& in) {
     if (in.wColor != 0) {
         size_t n = 0;
         for (const auto& [t, m] : in.known) knownScore[n++] -= colorOff(tmplTile(t), modTile(m));
-        for (size_t i = 0; i < open.size(); ++i)
-            for (size_t j = 0; j < cands.size(); ++j) base[i * cands.size() + j] -= colorOff(tmplTile(open[i]), modTile(cands[j]));
+        parallelFor(open.size(), [&](size_t i) {
+            for (size_t j = 0; j < nc; ++j) base[i * nc + j] -= colorOff(*ot[i], *ct[j]);
+        });
     }
     // (sure: the best far ahead of the next (the margin) and as good as the matches score (the level): a slot's typical
     // candidate (its mean) is 0, a typical match (the matches' median) is 1)
@@ -297,7 +368,112 @@ std::vector<Suggestion> suggest(const Input& in) {
         if (asked) sc += in.wLayout * float(votes / asked);
         return sc;
     };
-    while (!open.empty()) {
+    // (the weights in use (no seams, no layout): a score is the table's; each slot's candidates sorted once, best first,
+    // so the best one not taken is the first one not taken; the same choices as the general pass below, much sooner)
+    const bool fast = in.wSeam == 0 && in.wLayout == 0;
+    if (fast) {
+        const size_t no = open.size();
+        std::vector<char> usedC(nc, 0), isOpen(no, 1);
+        std::vector<int> cIx(65536, -1);
+        for (size_t j = 0; j < nc; ++j) cIx[cands[j]] = int(j);
+        std::vector<std::vector<uint32_t>> order(no);
+        std::vector<size_t> head(no, 0);
+        parallelFor(no, [&](size_t i) {
+            auto& o = order[i];
+            o.resize(nc);
+            std::iota(o.begin(), o.end(), 0u);
+            const float* r = &base[i * nc];
+            std::sort(o.begin(), o.end(), [r](uint32_t a, uint32_t b) { return r[a] > r[b] || (r[a] == r[b] && a < b); });  // (ties: the lower one, as below)
+        });
+        auto row = [&](size_t i) { return &base[i * nc]; };
+        auto top2 = [&](size_t i, int& j1, float& b1, float& b2) {  // (slot i's best candidate not taken, and the next one's score)
+            const auto& o = order[i];
+            size_t& h = head[i];
+            while (h < nc && usedC[o[h]]) ++h;
+            j1 = -1, b1 = b2 = -1e9f;
+            if (h == nc) return;
+            j1 = int(o[h]), b1 = row(i)[j1];
+            for (size_t k = h + 1; k < nc; ++k)
+                if (!usedC[o[k]]) {
+                    b2 = row(i)[o[k]];
+                    break;
+                }
+        };
+        struct PairIx {
+            size_t a, b;
+        };
+        std::vector<PairIx> pix;
+        for (const auto& p : in.pairs)
+            if (const auto ia = slotIx.find(p[0]), ib = slotIx.find(p[1]); p[0] != p[1] && ia != slotIx.end() && ib != slotIx.end()) pix.push_back({ia->second, ib->second});
+        for (size_t left = no; left > 0;) {
+            std::map<int, int> halfSteps;
+            std::map<int, std::set<int>> starts;
+            for (const auto& p : in.pairs)
+                if (const auto l = known.find(p[0]), r = known.find(p[1]); l != known.end() && r != known.end() && r->second != l->second) {
+                    const int d = int(r->second) - int(l->second);
+                    ++halfSteps[d];
+                    if (d == 1) starts[d].insert(l->second & 1);
+                }
+            if (halfSteps.empty()) halfSteps = {{1, 1}, {16, 1}};
+            std::vector<char> inPair(no, 0);
+            for (const PairIx& q : pix)
+                if (isOpen[q.a] && isOpen[q.b]) inPair[q.a] = inPair[q.b] = 1;
+            size_t bestSlot = 0;
+            int bestJ = -1;
+            float best = -1e9f, second = -1e9f;
+            for (size_t i = 0; i < no; ++i) {
+                if (!isOpen[i] || inPair[i]) continue;
+                int j1;
+                float b1, b2;
+                top2(i, j1, b1, b2);
+                if (j1 >= 0 && b1 > best) best = b1, second = b2, bestSlot = i, bestJ = j1;
+            }
+            const PairIx* bp = nullptr;
+            int bpJ = -1, bpStep = 0;
+            float pairBest = -1e9f, pairSecond = -1e9f;
+            for (const PairIx& q : pix) {
+                if (!isOpen[q.a] || !isOpen[q.b]) continue;
+                int jb;
+                float bb1, bb2;
+                top2(q.b, jb, bb1, bb2);
+                if (jb < 0) continue;
+                float p1 = -1e9f, p2 = -1e9f;
+                int m1 = -1, s1 = 0;
+                const auto& o = order[q.a];
+                for (size_t k = head[q.a]; k < nc; ++k) {
+                    const uint32_t j = o[k];
+                    if (usedC[j]) continue;
+                    const float ra = row(q.a)[j];
+                    if ((ra + bb1) / 2 < p2) break;  // (no later one can be among the two best)
+                    for (const auto& [d, n] : halfSteps) {
+                        const int c2 = int(cands[j]) + d;
+                        if (c2 < 0 || c2 > 0xFFFF) continue;
+                        const int j2 = cIx[size_t(c2)];
+                        if (j2 < 0 || usedC[size_t(j2)]) continue;
+                        if (const auto st = starts.find(d); st != starts.end() && !st->second.count(cands[j] & 1)) continue;
+                        const float sc = (ra + row(q.b)[j2]) / 2;
+                        if (sc > p1 || (sc == p1 && (int(j) < m1 || (int(j) == m1 && d < s1)))) p2 = p1, p1 = sc, m1 = int(j), s1 = d;  // (ties: the lower one, as below)
+                        else if (sc > p2) p2 = sc;
+                    }
+                }
+                if (m1 >= 0 && p1 > pairBest) pairBest = p1, pairSecond = p2, bp = &q, bpJ = m1, bpStep = s1;
+            }
+            if (bp && (pairBest >= best || bestJ < 0)) {
+                const size_t j2 = size_t(cIx[size_t(int(cands[size_t(bpJ)]) + bpStep)]);
+                const uint16_t a = open[bp->a], b = open[bp->b], l = cands[size_t(bpJ)], r = cands[j2];
+                const float lv = std::min(level(a, row(bp->a)[bpJ]), level(b, row(bp->b)[j2]));
+                const float conf = pairSecond > -1e8f ? std::min(lv, std::clamp((pairBest - pairSecond) * 2.f, 0.f, 1.f)) : 0.f;
+                out.push_back({a, l, pairBest, conf}), out.push_back({b, r, pairBest, conf});
+                known[a] = l, known[b] = r, usedC[size_t(bpJ)] = usedC[j2] = 1, isOpen[bp->a] = isOpen[bp->b] = 0, left -= 2;
+                continue;
+            }
+            if (bestJ < 0) break;
+            const float lv = level(open[bestSlot], row(bestSlot)[bestJ]);
+            out.push_back({open[bestSlot], cands[size_t(bestJ)], best, second > -1e8f ? std::min(lv, std::clamp((best - second) * 2.f, 0.f, 1.f)) : 0.f});
+            known[open[bestSlot]] = cands[size_t(bestJ)], usedC[size_t(bestJ)] = 1, isOpen[bestSlot] = 0, --left;
+        }
+    }
+    while (!fast && !open.empty()) {
         std::map<int, std::map<int, int>> steps;  // (template step -> mod step -> how often)
         for (const auto& [x, a] : known)
             if (const auto rx = sameRect.find(x); rx != sameRect.end())

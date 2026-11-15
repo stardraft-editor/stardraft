@@ -52,4 +52,9 @@ std::vector<Suggestion> suggest(const Input& in);
 // shapes count, not the colours); 1: the same picture, 0: nothing alike (or a tile with no picture).
 float pixelMatch(const Tileset& a, uint16_t va, const Tileset& b, uint16_t vb);
 
+// The tile of b with the same picture as tile va of a: each pixel's colour within a few steps of the other's (the same
+// picture in another tileset's palette), the nearest one (the same tile number when it is as near); 0xFFFF: none.
+// (Keep the original: a mod that has the game's tiles too.)
+uint16_t samePicture(const Tileset& a, uint16_t va, const Tileset& b);
+
 }  // namespace stardraft::tilematch
