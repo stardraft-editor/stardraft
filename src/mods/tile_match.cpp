@@ -138,6 +138,11 @@ float seam(const Tile& a, const Tile& b, int dir) {
 
 }  // namespace
 
+float pixelMatch(const Tileset& a, uint16_t va, const Tileset& b, uint16_t vb) {
+    const Tile x = tileOf(a, va), y = tileOf(b, vb);
+    return x.ok && y.ok ? std::clamp(corr(x.norm, y.norm), 0.f, 1.f) : 0.f;
+}
+
 std::vector<Suggestion> suggest(const Input& in) {
     std::vector<Suggestion> out;
     if (!in.tmplTs || !in.modTs || in.known.empty()) return out;
@@ -173,10 +178,14 @@ std::vector<Suggestion> suggest(const Input& in) {
     for (size_t i = 0; i < open.size(); ++i) slotIx[open[i]] = i;
     for (size_t i = 0; i < cands.size(); ++i) candIx[cands[i]] = i;
     std::vector<float> base(open.size() * cands.size(), 0.f);
+    auto like = [&](const Tile& a, const Tile& b) {
+        return in.wLike * (0.3f * corr(a.norm, b.norm) + corr(a.shape, b.shape)) + (in.wEdge != 0 ? in.wEdge * corr(a.edge, b.edge) : 0.f);
+    };
+    // (the matched pairs' own scores, the same signals: how well a right match scores here (sure needs about that))
+    std::vector<float> knownScore;
+    for (const auto& [t, m] : in.known) knownScore.push_back(like(tmplTile(t), modTile(m)));
     for (size_t i = 0; i < open.size(); ++i)
-        for (size_t j = 0; j < cands.size(); ++j)
-            base[i * cands.size() + j] = in.wLike * (0.3f * corr(tmplTile(open[i]).norm, modTile(cands[j]).norm) + corr(tmplTile(open[i]).shape, modTile(cands[j]).shape)) +
-                                         (in.wEdge != 0 ? in.wEdge * corr(tmplTile(open[i]).edge, modTile(cands[j]).edge) : 0.f);
+        for (size_t j = 0; j < cands.size(); ++j) base[i * cands.size() + j] = like(tmplTile(open[i]), modTile(cands[j]));
     if (in.wMask != 0) {  // (the tiles as their two sides by colour: the matches say which mod side is which template side)
         std::vector<const Tile*> ts, ms;
         for (uint16_t v : in.slots) ts.push_back(&tmplTile(v));
@@ -189,6 +198,10 @@ std::vector<Suggestion> suggest(const Input& in) {
         double pol = 0;
         for (const auto& [t, m] : in.known) pol += corr(sidesOf(tmplTile(t), tc), sidesOf(modTile(m), mc));
         const float sign = pol < 0 ? -1.f : 1.f;
+        {
+            size_t n = 0;
+            for (const auto& [t, m] : in.known) knownScore[n++] += in.wMask * sign * corr(sidesOf(tmplTile(t), tc), sidesOf(modTile(m), mc));
+        }
         for (size_t i = 0; i < open.size(); ++i)
             for (size_t j = 0; j < cands.size(); ++j) base[i * cands.size() + j] += in.wMask * sign * corr(tSide[open[i]], mSide[cands[j]]);
     }
@@ -230,15 +243,35 @@ std::vector<Suggestion> suggest(const Input& in) {
         ca[size_t(ch)] = den > 1e-6 ? float((n * sxy - sx * sy) / den) : 0.f;
         cb[size_t(ch)] = float((sy - ca[size_t(ch)] * sx) / n);
     }
-    for (size_t i = 0; i < open.size() && in.wColor != 0; ++i) {
-        const Tile& a = tmplTile(open[i]);
-        for (size_t j = 0; j < cands.size(); ++j) {
-            const Tile& b = modTile(cands[j]);
-            double d = 0;
-            for (int k = 0; k < 64 * 3; ++k) d += std::abs(ca[size_t(k % 3)] * a.blocks[size_t(k)] + cb[size_t(k % 3)] - b.blocks[size_t(k)]);
-            base[i * cands.size() + j] -= in.wColor * float(d / (64 * 3)) / 16.f;
-        }
+    auto colorOff = [&](const Tile& a, const Tile& b) {
+        double d = 0;
+        for (int k = 0; k < 64 * 3; ++k) d += std::abs(ca[size_t(k % 3)] * a.blocks[size_t(k)] + cb[size_t(k % 3)] - b.blocks[size_t(k)]);
+        return in.wColor * float(d / (64 * 3)) / 16.f;
+    };
+    if (in.wColor != 0) {
+        size_t n = 0;
+        for (const auto& [t, m] : in.known) knownScore[n++] -= colorOff(tmplTile(t), modTile(m));
+        for (size_t i = 0; i < open.size(); ++i)
+            for (size_t j = 0; j < cands.size(); ++j) base[i * cands.size() + j] -= colorOff(tmplTile(open[i]), modTile(cands[j]));
     }
+    // (sure: the best far ahead of the next (the margin) and as good as the matches score (the level): a slot's typical
+    // candidate (its mean) is 0, a typical match (the matches' median) is 1)
+    float knownLevel = 0;
+    if (!knownScore.empty()) {
+        std::nth_element(knownScore.begin(), knownScore.begin() + long(knownScore.size() / 2), knownScore.end());
+        knownLevel = knownScore[knownScore.size() / 2];
+    }
+    std::unordered_map<uint16_t, float> slotMean;
+    for (size_t i = 0; i < open.size(); ++i) {
+        double sum = 0;
+        for (size_t j = 0; j < cands.size(); ++j) sum += base[i * cands.size() + j];
+        slotMean[open[i]] = float(sum / double(cands.size()));
+    }
+    auto level = [&](uint16_t slot, float sc) {
+        if (knownScore.empty()) return 0.f;
+        const float lo = slotMean.at(slot);
+        return knownLevel > lo ? std::clamp((sc - lo) / (knownLevel - lo), 0.f, 1.f) : 0.f;
+    };
 
     std::map<uint16_t, uint16_t> known = in.known;
     std::set<uint16_t> used = usedMods;
@@ -327,8 +360,10 @@ std::vector<Suggestion> suggest(const Input& in) {
             if (m1 && b1 > pairBest) pairBest = b1, pairSecond = b2, bestPair = &p, bestPairMod = m1, bestStep = s1;
         }
         if (bestPair && (pairBest >= best || !bestMod)) {
-            const float conf = pairSecond > -1e8f ? std::clamp((pairBest - pairSecond) * 2.f, 0.f, 1.f) : 0.f;  // (no other choice: not sure)
             const uint16_t r = uint16_t(int(bestPairMod) + bestStep);
+            const float lv = std::min(level((*bestPair)[0], base[slotIx.at((*bestPair)[0]) * cands.size() + candIx.at(bestPairMod)]),
+                                      level((*bestPair)[1], base[slotIx.at((*bestPair)[1]) * cands.size() + candIx.at(r)]));
+            const float conf = pairSecond > -1e8f ? std::min(lv, std::clamp((pairBest - pairSecond) * 2.f, 0.f, 1.f)) : 0.f;  // (no other choice: not sure)
             out.push_back({(*bestPair)[0], bestPairMod, pairBest, conf}), out.push_back({(*bestPair)[1], r, pairBest, conf});
             known[(*bestPair)[0]] = bestPairMod, known[(*bestPair)[1]] = r, used.insert(bestPairMod), used.insert(r);
             const auto a = (*bestPair)[0], b = (*bestPair)[1];
@@ -336,9 +371,21 @@ std::vector<Suggestion> suggest(const Input& in) {
             continue;
         }
         if (!bestMod) break;
-        out.push_back({open[bestSlot], bestMod, best, second > -1e8f ? std::clamp((best - second) * 2.f, 0.f, 1.f) : 0.f});
+        const float lv = level(open[bestSlot], base[slotIx.at(open[bestSlot]) * cands.size() + candIx.at(bestMod)]);
+        out.push_back({open[bestSlot], bestMod, best, second > -1e8f ? std::min(lv, std::clamp((best - second) * 2.f, 0.f, 1.f)) : 0.f});
         known[open[bestSlot]] = bestMod, used.insert(bestMod);
         open.erase(open.begin() + long(bestSlot));
+    }
+    // (each suggestion's alternatives: its slot's next best candidates by likeness, sides and colours, any not matched)
+    for (Suggestion& s : out) {
+        const auto si = slotIx.find(s.tmpl);
+        if (si == slotIx.end()) continue;
+        std::vector<std::pair<float, uint16_t>> rank;
+        for (size_t j = 0; j < cands.size(); ++j)
+            if (cands[j] != s.mod) rank.push_back({base[si->second * cands.size() + j], cands[j]});
+        const size_t n = std::min<size_t>(8, rank.size());
+        std::partial_sort(rank.begin(), rank.begin() + long(n), rank.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+        for (size_t k = 0; k < n; ++k) s.alts.push_back(rank[k].second);
     }
     return out;
 }

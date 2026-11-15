@@ -26,6 +26,7 @@ void setMessage(const std::wstring& m);  // (the program's status bar)
 inline void isomProgramMessage(const std::wstring& m) { setMessage(m); }  // (the view's own setMessage hides it)
 void shellSetTerrainOverride(const std::filesystem::path& file);  // (the host: Program options > Plugins' override)
 int shellContextMenuAt(draw::View& from, draw::Point at, const std::vector<std::wstring>& items);  // (the host)
+bool shellPopupMenuAt(draw::View& from, draw::Point at, std::vector<stardraft::kit::MenuItem> items, const std::wstring& on, stardraft::kit::MenuOptions opts);  // (the host: check items too)
 
 namespace isomrules {
 
@@ -544,6 +545,15 @@ public:
         minePick_.setItems({{L"All tile groups"}, {L"This terrain's groups"}}), minePick_.setValue(0);
         minePick_.onChange = [this](int v) { if ((v == 1) != palMine_) togglePalMine(); };
         minePick_.setTip(L"The tile groups shown: all, or this terrain's (its pieces' rows and the rows its maps use). Key: Ctrl+G");
+        overlayPick_.setTip(L"Overlays on Template tiles and Mod tiles: tile heights; matched tiles (a green check); suggested tiles (an amber dot: sure; a ring: not sure); on Mod tiles, other terrains' tiles (a gray cross). One or more can be on");
+        cmpAccept_.setTip(L"The suggestion into the selected template tile, then the next tile with a suggestion is selected. Key: Ctrl+A");
+        cmpAlt_.setTip(L"Show the next best mod tile for the selected template tile instead (round to the first again). Key: Ctrl+F");
+        cmpAll_.setTip(L"Every suggestion into its template tile (the tiles that are not matched yet). One undo step. Key: Ctrl+Shift+A");
+        overlayPick_.onOpen = [this] {
+            if (std::chrono::steady_clock::now() - ovClosed_ < std::chrono::milliseconds(250)) return;  // (the click that closed it)
+            openOverlays();
+        };
+        syncOverlays();
         modePick_.setItems({{L"Canvas puzzle"}, {L"Rectangle match"}}), modePick_.setValue(0);
         modePick_.setTip(L"Canvas puzzle: the slots on the terrain canvas. Rectangle match: the template's rects and their variants in a grid; click one, then a tile pair in Tiles");
         modePick_.onChange = [this](int v) {
@@ -553,7 +563,7 @@ public:
             invalidate();
         };
         for (draw::View* v : std::initializer_list<draw::View*>{&bar_, &era_, &row_, &refPick_, &refShow_, &refOpacity_, &search_,
-                                                               &sideBar_, &newTerrain_, &ground_, &palBar_, &matchBar_, &minePick_, &pairPick_, &modePick_, &newPage_})
+                                                               &sideBar_, &newTerrain_, &cmpAccept_, &cmpAlt_, &cmpAll_, &ground_, &palBar_, &matchBar_, &minePick_, &pairPick_, &overlayPick_, &modePick_, &newPage_})
             add(*v, {0, 0, 0, 0});
         newPage_.pic = [this](const isomrules::ArchetypeThumb& a) {
             const auto it = archPics_.find(archKey(a.era, a.ground, a.terrain));
@@ -606,11 +616,13 @@ public:
         if (int v = 0; prefs::number(L"Layout/IsomTileIds", v, 0, 2)) tileIds_ = v;
         if (int v = 0; prefs::number(L"Layout/IsomRectFrames", v, 0, 1)) frames_ = v != 0;
         if (int v = 0; prefs::number(L"Layout/IsomHeights", v, 0, 1)) heights_ = v != 0;
+        if (int v = 0; prefs::number(L"Layout/IsomOverlays", v, 0, 7)) ovMine_ = (v & 1) != 0, ovSugg_ = (v & 2) != 0, ovOthers_ = (v & 4) != 0;
+        syncOverlays();
         if (int v = 0; prefs::number(L"Layout/IsomLinkRows", v, 0, 1)) linkRows_ = v != 0;
         if (sandbox_) matchMode_ = true, modePick_.setValue(1);  // (the Archetype sandbox: Rectangle match only)
         if (!doc_.tilesets.empty() && pendingFile_.empty()) return rebuild();
-        // (the file asked for, or the file saved last; the sandbox starts empty: File > Load opens a saved one)
-        if (std::wstring last = pendingFile_.wstring(); !last.empty() || (!sandbox_ && !gSettingsOff && prefs::text(fileKey(), last) && !last.empty())) {
+        // (the file asked for, or the file saved or loaded last)
+        if (std::wstring last = pendingFile_.wstring(); !last.empty() || (!gSettingsOff && prefs::text(fileKey(), last) && !last.empty())) {
             pendingFile_.clear();
             std::error_code ec;
             stardraft::terrainrules::Rules r;
@@ -679,6 +691,9 @@ public:
         const bool ctrl = e.mods == draw::kCtrl;  // (the window's letter keys: Ctrl+ only)
         if (!ctrl || (e.key != draw::Key::Left && e.key != draw::Key::Right && e.key != draw::Key::Up && e.key != draw::Key::Down)) nudgeSlot_ = -1;
         if (matchMode_ && e.key == draw::Key::Enter && (!e.mods || e.mods == draw::kShift)) return acceptSuggestions(e.mods == draw::kShift), true;
+        if (matchMode_ && ctrl && e.key == static_cast<draw::Key>('A')) return acceptSuggestions(false), true;  // (Ctrl+A: as Enter)
+        if (matchMode_ && e.mods == (draw::kCtrl | draw::kShift) && e.key == static_cast<draw::Key>('A')) return acceptSuggestions(false, true), true;
+        if (matchMode_ && ctrl && e.key == static_cast<draw::Key>('F')) return nextAlternative(), true;
         if (e.key == static_cast<draw::Key>('L') && ctrl) return nextNull(), true;
         if (e.key == draw::Key::Delete && !e.mods) return setNull(), true;
         if (e.key == draw::Key::F2 && !e.mods) return renameTerrain(sel_), true;
@@ -2680,8 +2695,10 @@ private:
                                   item(L"Clear all rects", L"", [this] { clearTerrain(); }, own),
                                   item(L"Copy tiles from\x2026", L"", [this] { copyFrom(); }, own),
                                   item(L"Match by offset", L"Ctrl+Shift+M", [this] { matchByOffset(); }, own), sep,
-                                  item(L"Accept selected suggestions", L"Enter", [this] { acceptSuggestions(false); }, own && matchMode_),
-                                  item(L"Accept sure suggestions", L"Shift+Enter", [this] { acceptSuggestions(true); }, own && matchMode_), sep,
+                                  item(L"Accept selected suggestions", L"Ctrl+A", [this] { acceptSuggestions(false); }, own && matchMode_),
+                                  item(L"Accept sure suggestions", L"Shift+Enter", [this] { acceptSuggestions(true); }, own && matchMode_),
+                                  item(L"Accept all suggestions", L"Ctrl+Shift+A", [this] { acceptSuggestions(false, true); }, own && matchMode_),
+                                  item(L"Find alternative suggestion", L"Ctrl+F", [this] { nextAlternative(); }, own && matchMode_), sep,
                                   check(L"Linked rows", L"", linkRows_, [this] { toggleLinkRows(); }), sep,
                                   item(L"Restore removed pieces", L"", [this] { restoreRemoved(); },
                                        !shapeKey_.empty() && (!hiddenOf(shapeKey_).empty() || !cutOf(shapeKey_).empty())), sep,
@@ -3418,6 +3435,7 @@ private:
         std::string err;
         if (!stardraft::terrainrules::load(f, r, err)) return shellErrorBox(widen(err), L"Load terrain rules");
         doc_ = std::move(r), file_ = modsOwn(f) ? std::filesystem::path() : f, dirty_ = false;  // (the mod's own file: Save asks for another)
+        if (!gSettingsOff && !file_.empty()) prefs::setText(fileKey(), f.wstring());  // (the next open opens it)
         openEra(era());  // (a tileset the file has no rules for: the ones in use now)
         setMessage(L"Loaded " + f.filename().wstring());
     }
@@ -3723,6 +3741,7 @@ private:
     int matchRow0_ = 0, matchCol0_ = 0, matchRow1_ = 0, matchCol1_ = 0;
     bool matchSelOn_ = false, matchDrag_ = false;
     int matchHoverRow_ = -1, matchHoverCol_ = -1;  // (the Tiles tile under the mouse: its palette row and column)
+    int matchHoverTmpl_ = -1;  // (the Template tiles tile under the mouse: its tile; -1: none)
     // Rectangle match, Mod tiles: a block selected there (a click, a drag), palette rows and columns; Ctrl+click on a
     // template tile picks it (the template's block of its shape from that tile gets its tiles).
     bool modSelOn_ = false, modDrag_ = false, matchCtrl_ = false;
@@ -3855,6 +3874,31 @@ private:
         }
         matchTotal_ = i * cell + 2 * pad;
     }
+    // The overlay marks: 5 x 5 pixel art ('#': the mark's color), with a black outline around (7 x 7 pixels in all),
+    // each pixel px x px (the screen scale only); (x, y): the top left corner. Matched: a green check; suggested: an amber dot (sure) or ring
+    // (not sure); other terrains' tiles: a gray cross.
+    enum class Mark { Check, Dot, Ring, Cross };
+    static constexpr draw::Color kMarkGreen = 0x8AC97F, kMarkAmber = 0x3FB8F0, kMarkGray = 0xB4B4B4;  // (COLORREF)
+    static int markPixel(int) { return std::max(1, scale(1)); }  // (one size for every tile size: 7 x 7 at 100%)
+    void pixelMark(draw::Canvas& c, int x, int y, int px, Mark k, draw::Color col) const {
+        static const char* const kArt[4][5] = {
+            {"....#", "...##", "#.##.", "###..", ".#..."},  // (Check)
+            {".###.", "#####", "#####", "#####", ".###."},  // (Dot)
+            {".###.", "#...#", "#...#", "#...#", ".###."},  // (Ring)
+            {"#...#", ".#.#.", "..#..", ".#.#.", "#...#"},  // (Cross)
+        };
+        const auto& art = kArt[int(k)];
+        auto on = [&](int ax, int ay) { return ax >= 0 && ay >= 0 && ax < 5 && ay < 5 && art[ay][ax] == '#'; };
+        for (int py = 0; py < 7; ++py)
+            for (int pxi = 0; pxi < 7; ++pxi) {
+                const int ax = pxi - 1, ay = py - 1;
+                bool edge = false;
+                for (int dy = -1; dy <= 1 && !edge; ++dy)
+                    for (int dx = -1; dx <= 1 && !edge; ++dx) edge = on(ax + dx, ay + dy);
+                if (!edge) continue;
+                c.fill({x + pxi * px, y + py * px, x + (pxi + 1) * px, y + (py + 1) * px}, on(ax, ay) ? col : draw::Color(0x000000));
+            }
+    }
     void paintMatch(draw::Canvas& c) {
         const auto* t = terrain();
         matchLayout();
@@ -3876,18 +3920,15 @@ private:
             if (m.r.bottom < matchArea_.top || m.r.top > matchArea_.bottom) continue;
             const draw::Rect r{m.r.left + 1, m.r.top + 1, m.r.right, m.r.bottom};
             drawFrom(c, matchTs_, m.v, r);
+            if (heights_) paintTileHeights(c, m.v, r, matchTs_);  // (the Overlays: as over Mod tiles)
             bool matched = !m.targets.empty();
             for (const MatchTarget& x : m.targets) matched = matched && !isomrules::nullHalf(matchTile(x));
-            if (matched) {  // (mapped: a small mark in its corner)
-                const int d = std::max(scale(4), (r.right - r.left) / 5);
-                c.fill({r.right - d - scale(1), r.top + scale(1), r.right - scale(1), r.top + scale(1) + d}, draw::Color(0x8AC97F));  // (COLORREF: a green)
-                c.frame({r.right - d - scale(1), r.top + scale(1), r.right - scale(1), r.top + scale(1) + d}, 0x000000, 1);
-            } else if (const auto s = sugg_.find(m.v); s != sugg_.end()) {  // (a suggestion: its mod tile in the lower right quarter, an amber frame)
-                const int w = (r.right - r.left) / 2, h = (r.bottom - r.top) / 2;
-                const draw::Rect chip{r.right - w, r.bottom - h, r.right, r.bottom};
-                drawTile(c, s->second.mod, chip);
-                c.frame(chip, 0x000000, 1);
-                c.frame(r, draw::Color(0x3FB8F0), s->second.confidence >= kSure ? scale(2) : 1);  // (COLORREF: an amber)
+            if (matched) {
+                const int px = markPixel(r.width());
+                if (ovMine_) pixelMark(c, r.right - 7 * px, r.top, px, Mark::Check, kMarkGreen);  // (mapped: a check, top right)
+            } else if (const auto s = sugg_.find(m.v); ovSugg_ && s != sugg_.end()) {  // (a suggestion: a dot (sure) or a ring, bottom right)
+                const int px = markPixel(r.width());
+                pixelMark(c, r.right - 7 * px, r.bottom - 7 * px, px, s->second.confidence >= kSure ? Mark::Dot : Mark::Ring, kMarkAmber);
             }
         }
         if (matchSelOn_) {  // (the selected block)
@@ -3897,6 +3938,66 @@ private:
         }
         c.popClip();
     }
+    // The compare pane (Rectangle match, under Template tiles and Mod tiles): the selected template tile and a mod tile
+    // side by side, large: the one under the mouse in Mod tiles, else the one it is matched to, else its suggestion.
+    draw::Rect cmp_{0, 0, 0, 0};
+    bool cmpOn_ = false;  // (layout: Template tiles and Mod tiles side by side in Rectangle match)
+    int cmpH() const { return cmpOn_ ? scale(180) : 0; }
+    void paintCompare(draw::Canvas& c) {
+        if (cmp_.width() <= 0) return;
+        c.fill(cmp_, 0x151515);
+        c.fill({cmp_.left, cmp_.top, cmp_.right, cmp_.top + 1}, kBorder);
+        const int pad = scale(8), lh = scale(20);
+        const int bw = scale(170), bh = scale(stardraft::kit::kButtonH), bx = cmp_.right - pad - bw;
+        auto place = [&](stardraft::kit::Button& b, draw::Rect r) { if (b.frame() != r) b.setFrame(r); };
+        const draw::Rect none{0, 0, 0, 0};
+        // (Accept all suggestions: at the pane's right, while there are suggestions)
+        place(cmpAll_, !sugg_.empty() && bx > cmp_.left + pad ? draw::Rect{bx, cmp_.bottom - pad - bh, bx + bw, cmp_.bottom - pad} : none);
+        const MatchCell* selCell = selectedCell();
+        const MatchCell* sel = selCell;
+        const bool hasSugg = selCell && sugg_.count(selCell->v);
+        auto button = [&](draw::Rect r) {  // (the selected tile's: Accept suggestion, Find alternative)
+            const bool on = r.width() > 0 && hasSugg;
+            place(cmpAccept_, on ? r : none);
+            place(cmpAlt_, on ? draw::Rect{r.left, r.top - bh - pad / 2, r.right, r.top - pad / 2} : none);
+        };
+        const draw::Color text = 0xE0E0E0, dim = 0x9A9A9A;  // (the pane is dark in both themes)
+        if (!sel) return button({0, 0, 0, 0}), c.text({cmp_.left + pad, cmp_.top + pad, cmp_.right - pad, cmp_.top + pad + lh}, L"Select a template tile, then point to a mod tile to compare them", dim, draw::kMiddle);
+        auto tile = [](uint16_t v) { return std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15); };
+        uint16_t mod = kNullId;
+        std::wstring what;
+        if (matchHoverRow_ >= 0 && palGroupAt(matchHoverRow_) >= 0) mod = uint16_t(palGroupAt(matchHoverRow_) * 16 + matchHoverCol_), what = L"under the mouse";
+        if (mod == kNullId)
+            for (const MatchTarget& x : sel->targets)
+                if (const uint16_t v = matchTile(x); mod == kNullId && !isomrules::nullHalf(v)) mod = v, what = L"matched";
+        if (mod == kNullId)
+            if (const auto s = sugg_.find(sel->v); s != sugg_.end()) {
+                mod = s->second.mod, what = s->second.confidence >= kSure ? L"suggested, sure" : L"suggested, not sure";
+                if (const auto a = altAt_.find(sel->v); a != altAt_.end() && a->second.first > 0)
+                    what = L"suggestion " + std::to_wstring(a->second.first + 1) + L" of " + std::to_wstring(a->second.second.size());
+            }
+        const int size = std::max(scale(32), std::min(cmp_.height() - 2 * pad - lh, (cmp_.width() - 3 * pad) / 2));
+        const int x0 = cmp_.left + pad, x1 = x0 + size + pad, y = cmp_.top + pad + lh;
+        c.text({x0, cmp_.top + pad, x0 + size, y}, L"Template " + tile(sel->v), text, draw::kMiddle);
+        drawFrom(c, matchTs_, sel->v, {x0, y, x0 + size, y + size});
+        c.frame({x0 - 1, y - 1, x0 + size + 1, y + size + 1}, kBorder, 1);
+        const int x2 = x1 + size + pad;
+        if (mod == kNullId) return button({0, 0, 0, 0}), c.text({x1, cmp_.top + pad, cmp_.right - pad, y}, L"Mod: point to a tile", dim, draw::kMiddle);
+        // (the label: what it is (a suggestion, the match, the tile under the mouse), the tile, how alike the two are)
+        const bool isSugg = what.rfind(L"suggest", 0) == 0;
+        const int pct = matchTs_ ? int(std::lround(100 * stardraft::tilematch::pixelMatch(*matchTs_, sel->v, tileset_, mod))) : 0;
+        std::wstring label = isSugg ? L"Suggestion " + tile(mod) : L"Mod " + tile(mod);
+        label += L" \x00b7 " + std::to_wstring(pct) + L"% pixel match";
+        if (isSugg) {
+            if (what.rfind(L"suggestion ", 0) == 0) label += L" (" + what.substr(11) + L")";  // ("2 of 8")
+            else label += what == L"suggested, sure" ? L" (sure)" : L" (not sure)";
+        } else label += L" (" + what + L")";
+        c.text({x1, cmp_.top + pad, cmp_.right - pad, y}, label, text, draw::kMiddle | draw::kEllipsis);
+        drawTile(c, mod, {x1, y, x1 + size, y + size});
+        c.frame({x1 - 1, y - 1, x1 + size + 1, y + size + 1}, kBorder, 1);
+        // (the selected tile has a suggestion: Accept suggestion and Find alternative beside the mod tile)
+        button(x2 + bw <= bx - pad ? draw::Rect{x2, y + size - bh, x2 + bw, y + size} : none);
+    }
     // The selected block's shape over Tiles at the mouse: where a click stamps it.
     void paintMatchGhost(draw::Canvas& c) {
         if (!matchMode_ || palette_.width() <= 0) return;
@@ -3905,6 +4006,32 @@ private:
             c.pushClip(palette_);
             const int x = palX(modLeft()), y = palette_.top + modTop() * cell - palScroll_;
             c.frame({x, y, x + modCols() * cell + 1, y + modRows() * cell + 1}, 0xFFFFFF, scale(2));
+            c.popClip();
+        }
+        if (const uint16_t v = shownMod(); v != kNullId && palIndexOf(v >> 4) >= 0) {  // (the selected template tile's: its match (green) or suggestion (amber))
+            const MatchCell* m = selectedCell();
+            const bool matched = m && std::any_of(m->targets.begin(), m->targets.end(), [&](const MatchTarget& x) { return !isomrules::nullHalf(matchTile(x)); });
+            c.pushClip(palette_);
+            const int x = palX(v & 15), y = palette_.top + palIndexOf(v >> 4) * cell - palScroll_;
+            c.frame({x - scale(2), y - scale(2), x + cell + scale(3), y + cell + scale(3)}, matched ? kMarkGreen : kMarkAmber, scale(3));
+            c.popClip();
+        }
+        if (matchHoverTmpl_ >= 0) {  // (the template tile under the mouse: its mod tiles framed, green: mapped, amber: suggested)
+            c.pushClip(palette_);
+            auto mark = [&](uint16_t v, draw::Color col) {
+                if (isomrules::nullHalf(v)) return;
+                const int i = palIndexOf(v >> 4);
+                if (i < 0) return;
+                const int x = palX(v & 15), y = palette_.top + i * cell - palScroll_;
+                c.frame({x - scale(1), y - scale(1), x + cell + scale(2), y + cell + scale(2)}, col, scale(3));
+            };
+            bool any = false;
+            for (const MatchCell& m : matchCells_)
+                if (m.v == uint16_t(matchHoverTmpl_))
+                    for (const MatchTarget& x : m.targets)
+                        if (const uint16_t v = matchTile(x); !isomrules::nullHalf(v)) mark(v, draw::Color(0x8AC97F)), any = true;  // (COLORREF: a green)
+            if (!any)
+                if (const auto s = sugg_.find(uint16_t(matchHoverTmpl_)); s != sugg_.end()) mark(s->second.mod, draw::Color(0x3FB8F0));
             c.popClip();
         }
         if (!matchSelOn_ || matchHoverRow_ < 0 || !matchCtrl_) return;  // (the block's shape where Ctrl+click puts it)
@@ -3966,13 +4093,14 @@ private:
         auto inside = [&](const MatchCell& m) {
             return std::any_of(m.targets.begin(), m.targets.end(), [&](const MatchTarget& x) { return sg >= 0 && (x.g == sg || x.g == sg + 1); });
         };
-        bool insideKnown = false;
+        // (the edges likewise only once one edge tile is matched: the inside's matches say nothing of the ground's colours)
+        bool insideKnown = false, edgeKnown = false;
         for (const MatchCell& m : matchCells_)
             for (const MatchTarget& x : m.targets)
-                if (inside(m) && !isomrules::nullHalf(matchTile(x))) insideKnown = true;
+                if (!isomrules::nullHalf(matchTile(x))) (inside(m) ? insideKnown : edgeKnown) = true;
         std::map<std::pair<uint16_t, int>, std::array<uint16_t, 2>> halves;
         for (const MatchCell& m : matchCells_) {
-            if (insideKnown || !inside(m)) in.slots.push_back(m.v);
+            if (inside(m) ? insideKnown : edgeKnown) in.slots.push_back(m.v);
             for (const MatchTarget& x : m.targets) {
                 halves[{x.g, x.k}][size_t(x.h)] = m.v;
                 if (const uint16_t v = matchTile(x); !isomrules::nullHalf(v) && !in.known.count(m.v)) in.known[m.v] = v;
@@ -3981,31 +4109,132 @@ private:
         for (const auto& [k, h] : halves)
             if (h[0] && h[1]) in.pairs.push_back(h);
         for (const auto& s : stardraft::tilematch::suggest(in)) sugg_[s.tmpl] = s;
+        altAt_.clear(), altConf_.clear();
     }
     std::wstring suggestionHint() const {
         if (sugg_.empty()) return {};
         const size_t sure = size_t(std::count_if(sugg_.begin(), sugg_.end(), [](const auto& s) { return s.second.confidence >= kSure; }));
-        return L" " + std::to_wstring(sugg_.size()) + L" suggestions (" + std::to_wstring(sure) + L" sure): Enter accepts the selected ones, Shift+Enter the sure ones.";
+        return L" " + std::to_wstring(sugg_.size()) + L" suggestions (" + std::to_wstring(sure) + L" sure): Ctrl+A or Enter accepts the selected ones, Shift+Enter the sure ones.";
     }
     // The suggestions in the selected block (sureOnly: the sure ones everywhere) into their tiles; one undo step.
-    void acceptSuggestions(bool sureOnly) {
+    void acceptSuggestions(bool sureOnly, bool all = false) {
         if (!matchMode_ || sel_ < 0 || sel_ >= int(rules().terrains.size())) return;
         updateSuggestions();
         std::vector<std::pair<const MatchCell*, uint16_t>> puts;
         for (const MatchCell& m : matchCells_) {
             const auto s = sugg_.find(m.v);
             if (s == sugg_.end()) continue;
-            if (sureOnly ? s->second.confidence < kSure : !(matchSelOn_ && matchInSel(m.row, m.col))) continue;
+            if (!all && (sureOnly ? s->second.confidence < kSure : !(matchSelOn_ && matchInSel(m.row, m.col)))) continue;
             puts.push_back({&m, s->second.mod});
         }
-        if (puts.empty()) return setMessage(sureOnly ? L"No sure suggestions" : matchSelOn_ ? L"No suggestions in the selected block" : L"Select a block of template tiles first");
+        if (puts.empty()) return setMessage(all ? L"No suggestions" : sureOnly ? L"No sure suggestions" : matchSelOn_ ? L"No suggestions in the selected block" : L"Select a block of template tiles first");
         if (!remember()) return;
+        const int fromRow = matchSelTop() + matchSelRows() - 1, fromCol = matchSelLeft() + matchSelCols() - 1;
         for (const auto& [m, v] : puts) matchPutTile(*m, v);
         target_ = -1;
         changed();
         updateSuggestions();
+        if (!sureOnly && !all) selectNextSuggestion(fromRow, fromCol);
         setMessage(L"Accepted " + std::to_wstring(puts.size()) + (puts.size() == 1 ? L" suggestion" : L" suggestions") + L". Ctrl+Z: undo." + suggestionHint());
         invalidate();
+    }
+    // The next template tile with a suggestion after (row, col) (by rows, then from the top), selected and scrolled into
+    // view; none left: the selection stays.
+    void selectNextSuggestion(int row, int col) {
+        const MatchCell* first = nullptr;
+        for (const MatchCell& m : matchCells_) {
+            if (!sugg_.count(m.v)) continue;
+            if (!first) first = &m;
+            if (m.row > row || (m.row == row && m.col > col)) { first = &m; break; }
+        }
+        if (!first) return;
+        const int r = first->row, c = first->col;
+        matchRow0_ = matchRow1_ = r, matchCol0_ = matchCol1_ = c, matchSelOn_ = true;
+        matchRowInView(r), revealShown();
+    }
+    // Template tiles scrolled so row r is in view (no scroll when it is).
+    void matchRowInView(int r) {
+        const int cell = std::max(1, palCell()), pad = scale(8), y = pad + r * cell, page = matchArea_.height();
+        if (y < matchScroll_ || y + cell > matchScroll_ + page) matchScroll_ = std::clamp(y - page / 3, 0, std::max(0, matchTotal_ - page));
+    }
+    // The mod tile the selected template tile shows (its match, else its suggestion), and Mod tiles scrolled to it when
+    // it is not in view; kNullId: none.
+    uint16_t shownMod() const {
+        const MatchCell* m = selectedCell();
+        if (!m) return kNullId;
+        for (const MatchTarget& x : m->targets)
+            if (const uint16_t v = matchTile(x); !isomrules::nullHalf(v)) return v;
+        const auto s = sugg_.find(m->v);
+        return s != sugg_.end() ? s->second.mod : kNullId;
+    }
+    void revealShown() {
+        const uint16_t v = shownMod();
+        const int i = v == kNullId ? -1 : palIndexOf(v >> 4);
+        if (i < 0) return;
+        const int cell = std::max(1, palCell()), y = i * cell, page = palette_.height();
+        if (y < palScroll_ || y + cell > palScroll_ + page) palScroll_ = std::clamp(y - page / 3, 0, palScrollMax());
+    }
+    // The template tile of rect piece k's half (the canvas's slot) selected in Template tiles, in view.
+    void selectTemplateOf(int k, int half) {
+        for (const MatchCell& m : matchCells_)
+            for (const MatchTarget& x : m.targets)
+                if (x.h == half && matchPiece(x.g, x.k) == k) {
+                    matchRow0_ = matchRow1_ = m.row, matchCol0_ = matchCol1_ = m.col, matchSelOn_ = true;
+                    return matchRowInView(m.row), revealShown(), invalidate();
+                }
+    }
+    // Find alternative suggestion (Ctrl+F): the selected template tile's suggestion becomes its next alternative (round
+    // to the first again); an alternative is never sure. Until the next change (the suggestions are made again).
+    std::map<uint16_t, std::pair<int, std::vector<uint16_t>>> altAt_;  // (template tile -> the one shown (0: the first), the list)
+    std::map<uint16_t, float> altConf_;  // (template tile -> its first suggestion's confidence)
+    const MatchCell* selectedCell() const {
+        if (matchSelOn_)
+            for (const MatchCell& m : matchCells_)
+                if (m.row == matchSelTop() && m.col == matchSelLeft()) return &m;
+        return nullptr;
+    }
+    void nextAlternative() {
+        if (!matchMode_) return;
+        updateSuggestions();
+        const MatchCell* m = selectedCell();
+        const auto s = m ? sugg_.find(m->v) : sugg_.end();
+        if (s == sugg_.end()) return setMessage(m ? L"This template tile has no suggestion" : L"Select a template tile first");
+        auto& [at, list] = altAt_[m->v];
+        if (list.empty()) {  // (the first, then the alternatives that no other template tile is suggested)
+            std::set<uint16_t> others;
+            for (const auto& [k, o] : sugg_)
+                if (k != m->v) others.insert(o.mod);
+            list.push_back(s->second.mod), altConf_[m->v] = s->second.confidence;
+            for (uint16_t a : s->second.alts)
+                if (!others.count(a)) list.push_back(a);
+        }
+        if (list.size() < 2) return setMessage(L"No other suggestion for this tile");
+        at = (at + 1) % int(list.size());
+        s->second.mod = list[size_t(at)];
+        s->second.confidence = at == 0 ? altConf_[m->v] : 0.f;  // (back to the first: its own confidence)
+        revealShown();
+        setMessage(L"Suggestion " + std::to_wstring(at + 1) + L" of " + std::to_wstring(list.size()) + L": " + std::to_wstring(s->second.mod >> 4) + L"." +
+                   std::to_wstring(s->second.mod & 15) + L". Ctrl+F: the next one, Ctrl+A: accept it");
+        invalidate();
+    }
+    // The compare pane's Accept suggestion: the suggestion of the selected block's first template tile; one undo step.
+    void acceptOne() {
+        if (!matchMode_ || !matchSelOn_ || sel_ < 0 || sel_ >= int(rules().terrains.size())) return;
+        updateSuggestions();
+        for (const MatchCell& m : matchCells_) {
+            if (m.row != matchSelTop() || m.col != matchSelLeft()) continue;
+            const auto s = sugg_.find(m.v);
+            if (s == sugg_.end() || !remember()) return;
+            const uint16_t v = s->second.mod;
+            const int fromRow = m.row, fromCol = m.col;
+            matchPutTile(m, v);
+            target_ = -1;
+            changed();
+            updateSuggestions();
+            selectNextSuggestion(fromRow, fromCol);
+            setMessage(L"Accepted the suggestion " + std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15) + L". Ctrl+Z: undo." + suggestionHint());
+            return invalidate();
+        }
     }
     // The mod's tile v into each half template cell m is (the piece tagged with its variant); no undo step of its own.
     void matchPutTile(const MatchCell& m, uint16_t v) {
@@ -4095,8 +4324,43 @@ private:
     static uint64_t archKey(int e, uint16_t g, uint16_t t) { return uint64_t(e) << 32 | uint64_t(g) << 16 | t; }
     std::filesystem::path pendingFile_;  // (useFile)
     stardraft::kit::Button newTerrain_;    stardraft::kit::CheckBox refShow_;
+    stardraft::kit::Button cmpAccept_{L"Accept suggestion", stardraft::kit::Tone::Primary, [this] { acceptOne(), focus(); }};  // (Enter stays the view's)
+    stardraft::kit::Button cmpAlt_{L"Find alternative", stardraft::kit::Tone::Normal, [this] { nextAlternative(), focus(); }};
+    stardraft::kit::Button cmpAll_{L"Accept all suggestions", stardraft::kit::Tone::Normal, [this] { acceptSuggestions(false, true), focus(); }};  // (the compare pane's)
     // The headers' choices: the rects shown, the tile groups shown, what a click on a tile puts in (they follow the keys).
     isomrules::HeaderPick minePick_, pairPick_;
+    // Overlays on Mod tiles (one or more on): the heights (as Ctrl+E), this terrain's matched tiles (a green mark),
+    // the suggested tiles (an amber dot), other terrains' tiles (a gray mark).
+    isomrules::HeaderPick overlayPick_;
+    bool ovMine_ = true, ovSugg_ = true, ovOthers_ = false;
+    std::chrono::steady_clock::time_point ovClosed_{};  // (the menu closed by a click outside it: when)
+    void syncOverlays() {
+        std::wstring on;
+        auto add = [&](bool b, const wchar_t* n) { if (b) on += (on.empty() ? L"" : L", ") + std::wstring(n); };
+        add(heights_, L"Height"), add(ovMine_, L"Matched"), add(ovSugg_, L"Suggested"), add(ovOthers_, L"Other terrains");
+        overlayPick_.setItems({{on.empty() ? std::wstring(L"Overlays: none") : L"Overlays: " + on}}), overlayPick_.setValue(0);
+    }
+    void openOverlays() {
+        using Item = stardraft::kit::MenuItem;
+        auto check = [this](const wchar_t* label, std::wstring keys, bool on, std::function<void()> flip) {
+            Item it;
+            it.label = label, it.shortcut = std::move(keys), it.checked = on;
+            it.run = [this, flip = std::move(flip)] {  // (the list opens again: more can be turned on or off)
+                flip(), syncOverlays(), invalidate();
+                if (!gSettingsOff) prefs::setNumber(L"Layout/IsomOverlays", (ovMine_ ? 1 : 0) | (ovSugg_ ? 2 : 0) | (ovOthers_ ? 4 : 0));
+                openOverlays();
+            };
+            return it;
+        };
+        std::vector<Item> items = {check(L"Height", L"Ctrl+E", heights_, [this] { toggleHeights(); }),
+                                   check(L"Matched tiles", {}, ovMine_, [this] { ovMine_ = !ovMine_; }),
+                                   check(L"Suggested tiles", {}, ovSugg_, [this] { ovSugg_ = !ovSugg_; }),
+                                   check(L"Other terrains' tiles", {}, ovOthers_, [this] { ovOthers_ = !ovOthers_; })};
+        const draw::Rect f = overlayPick_.frame();
+        stardraft::kit::MenuOptions opts;
+        opts.closed = [this](bool outside) { if (outside) ovClosed_ = std::chrono::steady_clock::now(); };
+        shellPopupMenuAt(*this, {f.left, f.bottom}, std::move(items), L"the overlays", std::move(opts));
+    }
     void syncButtons() {
         if (minePick_.value() != (palMine_ ? 1 : 0)) minePick_.setValue(palMine_ ? 1 : 0);
     }
@@ -4596,25 +4860,26 @@ private:
     }
     bool heights_ = false;  // (the terrain canvas's height overlay: each minitile's VF4 height; Ctrl+E)
     void toggleHeights() {
-        heights_ = !heights_, prefs::setNumber(L"Layout/IsomHeights", heights_ ? 1 : 0), invalidate();
+        heights_ = !heights_, prefs::setNumber(L"Layout/IsomHeights", heights_ ? 1 : 0), syncOverlays(), invalidate();
         setMessage(heights_ ? L"Height overlay: low (blue), middle (yellow), high (red); not walkable: dark" : L"Height overlay: off");
     }
     // The height of minitile `m` (0-15) of tile v: 0 no tile; 1-3 low, middle, high; +3 not walkable.
-    int heightKind(uint16_t v, int m) const {
-        const int mega = v == kNullId ? -1 : tileset_.megatileFor(v);
-        if (mega <= 0 || size_t(mega) >= tileset_.minitileFlags.size()) return 0;
-        const uint16_t f = tileset_.minitileFlags[size_t(mega)][size_t(m)];
+    int heightKind(uint16_t v, int m, const stardraft::Tileset* ts = nullptr) const {  // (ts: another tileset's tile; null: this one's)
+        const stardraft::Tileset& t = ts ? *ts : tileset_;
+        const int mega = v == kNullId ? -1 : t.megatileFor(v);
+        if (mega <= 0 || size_t(mega) >= t.minitileFlags.size()) return 0;
+        const uint16_t f = t.minitileFlags[size_t(mega)][size_t(m)];
         return ((f & 4) ? 3 : (f & 2) ? 2 : 1) + ((f & 1) ? 0 : 3);
     }
     static constexpr draw::Color kHeightColors[7] = {0, 0xFF8040, 0x30C8E8, 0x2850F0, 0x804020, 0x186474, 0x142878};  // (COLORREF)
     static uint8_t heightAlpha(int k) { return k > 3 ? 150 : 110; }
     // The height overlay of one tile in r (a cell of the Tiles): its 4 x 4 minitiles, runs of one color on each row.
-    void paintTileHeights(draw::Canvas& c, uint16_t v, draw::Rect r) {
+    void paintTileHeights(draw::Canvas& c, uint16_t v, draw::Rect r, const stardraft::Tileset* ts = nullptr) {
         for (int my = 0; my < 4; ++my)
             for (int mx = 0; mx < 4;) {
-                const int k = heightKind(v, my * 4 + mx);
+                const int k = heightKind(v, my * 4 + mx, ts);
                 int end = mx + 1;
-                while (end < 4 && heightKind(v, my * 4 + end) == k) ++end;
+                while (end < 4 && heightKind(v, my * 4 + end, ts) == k) ++end;
                 if (k)
                     c.fill({r.left + r.width() * mx / 4, r.top + r.height() * my / 4, r.left + r.width() * end / 4, r.top + r.height() * (my + 1) / 4},
                            kHeightColors[k], heightAlpha(k));
@@ -4997,6 +5262,22 @@ void IsomRulesView::paintSide(draw::Canvas& c) {
 
 void IsomRulesView::layout() {
     const int pad = scale(8), barH = scale(stardraft::kit::kButtonH), W = width(), H = height(), headH = scale(34), barW = scale(stardraft::kit::kScrollBarW);
+    // (the tiles' size can change (a column resized): the row at the top of Mod tiles and Template tiles stays there)
+    const int oldCell = laidOut_ ? palCell() : 0;
+    const struct Keep {
+        IsomRulesView& v;
+        int oldCell, pad;
+        ~Keep() {
+            const int cell = v.palCell();
+            if (oldCell <= 0 || cell <= 0 || cell == oldCell) return;
+            auto keep = [&](int& scroll, int off) {  // (off: the grid's top margin)
+                const double row = double(scroll - off) / oldCell;
+                scroll = std::max(0, int(row * cell + off + 0.5));
+            };
+            if (v.palette_.height() > 0) keep(v.palScroll_, 0), v.palScroll_ = std::min(v.palScroll_, v.palScrollMax());
+            if (v.matchArea_.height() > 0) keep(v.matchScroll_, pad);  // (paintMatch keeps it in range)
+        }
+    } keepRows{*this, oldCell, pad};
     laidOut_ = true;
     const int menuH = scale(28);  // (the menu bar, as the main window's)
     bar_.setFrame({0, 0, W, menuH});
@@ -5037,7 +5318,7 @@ void IsomRulesView::layout() {
     }
     // (Rectangle match: Template tiles as wide as 16 tiles of Mod tiles' size, its group numbers' margin and a gap; the two
     // columns side by side share their room: Mod tiles has the margin, 16 tiles, its minimap (2 tiles) and its bar)
-    matchCell_ = 0;
+    matchCell_ = 0, cmpOn_ = false;
     if (matchMode_ && sandbox_ && colShown_[kColRects] && colShown_[kColExample] && colShown_[kColTiles]) {
         draw::Rect &eh = colHead_[kColExample], &eb = colBody_[kColExample], &th = colHead_[kColTiles], &tb = colBody_[kColTiles];
         const int margin = scale(38), total = eb.width() + tb.width();
@@ -5046,6 +5327,7 @@ void IsomRulesView::layout() {
         const int cell = std::max(scale(8), (total - 2 * margin - pad - scale(2) - 2 * barW) / 34);
         int ew = std::min(margin + 16 * cell + pad + barW, total - minColW(false));
         matchCell_ = cell;
+        cmpOn_ = eb.right == tb.left || tb.right == eb.left;  // (the compare pane under both: only side by side)
         if (eb.right == tb.left && ew > 0) {
             eh.right = eb.right = eh.left + ew, th.left = tb.left = eh.right;
             std::erase_if(edges_, [](const Edge& ed) { return ed.a == kColExample && ed.b == kColTiles; });  // (its width is set: no drag)
@@ -5060,6 +5342,8 @@ void IsomRulesView::layout() {
         minePick_.setFrame(t.width() > 0 ? draw::Rect{std::max(t.left + scale(60), t.right - pad - bw), by, t.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
         const int pr = minePick_.frame().left - pad;  // (the pick's width when there is room for it; else in Edit and Ctrl+T only)
         pairPick_.setFrame(t.width() > 0 && pr - scale(120) >= t.left + scale(60) ? draw::Rect{pr - scale(120), by, pr, by + barH} : draw::Rect{0, 0, 0, 0});
+        const int orr = pairPick_.frame().left - pad, ow = scale(150);  // (Overlays: left of it, when there is room)
+        overlayPick_.setFrame(matchMode_ && pairPick_.frame().width() > 0 && orr - ow >= t.left + scale(80) ? draw::Rect{orr - ow, by, orr, by + barH} : draw::Rect{0, 0, 0, 0});
     }
     const draw::Rect none{0, 0, 0, 0};
     {  // Terrains: the search, the list with its bar, New terrain at the bottom.
@@ -5098,8 +5382,8 @@ void IsomRulesView::layout() {
                                    // and its opacity, then the reference); the template's tiles here; no checklist)
                 const draw::Rect& rb = colBody_[kColRects];
                 strip_ = modeBar_ = none, ground_.setFrame(none);
-                matchArea_ = {b.left, b.top, b.right - barW, b.bottom};
-                matchBar_.setFrame({b.right - barW, b.top, b.right, b.bottom});
+                matchArea_ = {b.left, b.top, b.right - barW, b.bottom - cmpH()};
+                matchBar_.setFrame({b.right - barW, b.top, b.right, b.bottom - cmpH()});
                 refRow_ = {rb.left, rb.bottom - 2 * barH - 2 * pad, rb.right, rb.bottom};
                 puzzle_ = {rb.left, rb.top, rb.right, refRow_.top}, check_ = {0, 0, 0, 0};
                 const int ry = refRow_.top + pad / 2;
@@ -5125,9 +5409,16 @@ void IsomRulesView::layout() {
             const int py = b.top + pad * 2 + barH;
             int mmW = 2 * std::max(scale(8), (b.right - barW - b.left - scale(38) - scale(2)) / 18);  // (the minimap: between the tiles and their bar, as wide as 2 columns of tiles)
             if (matchCell_ > 0) mmW = std::max(2 * matchCell_, b.width() - barW - scale(38) - scale(2) - 16 * matchCell_);  // (Rectangle match: the tiles at the shared size, the minimap the rest)
-            palette_ = {b.left, py, b.right - barW - mmW, b.bottom}, palBar_.setFrame({b.right - barW, py, b.right, b.bottom});
-            minimap_ = {palette_.right, py, b.right - barW, b.bottom};
+            const int bottom = b.bottom - cmpH();  // (Rectangle match: the compare pane under it)
+            palette_ = {b.left, py, b.right - barW - mmW, bottom}, palBar_.setFrame({b.right - barW, py, b.right, bottom});
+            minimap_ = {palette_.right, py, b.right - barW, bottom};
         } else palette_ = minimap_ = none, palBar_.setFrame(none), row_.setFrame(none);
+    }
+    cmp_ = none;
+    if (cmpH() <= 0) cmpAccept_.setFrame(none), cmpAlt_.setFrame(none), cmpAll_.setFrame(none);  // (paintCompare places them)
+    if (cmpH() > 0) {
+        const draw::Rect &eb = colBody_[kColExample], &tb = colBody_[kColTiles];
+        cmp_ = {std::min(eb.left, tb.left), eb.bottom - cmpH(), std::max(eb.right, tb.right), eb.bottom};
     }
 }
 
@@ -5224,7 +5515,9 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
     }
     // The puzzle: the examples, fit to the area; NULL holes framed red, the target orange, the hovered piece's places.
     c.fill(puzzle_, 0x151515);
-    if (matchMode_ && t && matchArea_.width() > 0) c.fill(matchArea_, 0x151515), paintMatch(c);
+    if (matchMode_ && t && matchArea_.width() > 0) c.fill(matchArea_, 0x151515), paintMatch(c), paintCompare(c);
+    else if (cmpAccept_.frame().width() > 0 || cmpAlt_.frame().width() > 0 || cmpAll_.frame().width() > 0)
+        cmpAccept_.setFrame({0, 0, 0, 0}), cmpAlt_.setFrame({0, 0, 0, 0}), cmpAll_.setFrame({0, 0, 0, 0});
     if (puzzle_.width() > 0 && picture_ && (t || std_ >= 0)) {
         const bool refShown = refOn_ && refPicture_ != nullptr, refAlone = refShown && refOpacity_.value() >= 100;
         int ox = 0, oy = 0;
@@ -5295,6 +5588,18 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         if (t)
             for (const Place& p : places_)  // (the rect under the mouse in the Rects column: its places)
             if (listHover_ >= 0 && p.piece >= 0 && p.piece < int(t->t.pieces.size()) && t->t.pieces[size_t(p.piece)][0] == listHover_) c.frame(rectOf(p), 0xFFFFFF, scale(2));
+        if (t && matchMode_ && !refAlone) {  // (Rectangle match: where the selected template tiles (blue) and the one under the mouse (white) are on the canvas)
+            auto mark = [&](const MatchCell& m, draw::Color col) {
+                for (const MatchTarget& x : m.targets)
+                    if (const int pi = matchPiece(x.g, x.k); pi >= 0)
+                        for (const Place& p : places_)
+                            if (p.piece == pi) c.frame(halfOf(rectOf(p), x.h), col, scale(2));
+            };
+            for (const MatchCell& m : matchCells_) {
+                if (matchSelOn_ && matchInSel(m.row, m.col)) mark(m, kAccent);
+                if (matchHoverTmpl_ >= 0 && m.v == uint16_t(matchHoverTmpl_)) mark(m, 0xFFFFFF);
+            }
+        }
         if (hoverPlace_ >= 0 && hoverPlace_ < int(places_.size()) && brushValue() < 0 && !refAlone &&
             (places_[size_t(hoverPlace_)].piece != target_ || (!wide_ && hoverHalf_ != targetHalf_))) {  // (the cursor: the slot under the mouse; pair mode 2x1; the selected one: its blue frame only)
             const draw::Rect r = rectOf(places_[size_t(hoverPlace_)]);
@@ -5534,6 +5839,30 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
             for (int k = 0; k < 16; ++k)
                 if (tileset_.megatileFor(uint16_t(g << 4 | k)) > 0) paintTileHeights(c, uint16_t(g << 4 | k), tileAt(k, y));
     }
+    if (matchMode_ && (ovMine_ || ovSugg_ || ovOthers_)) {  // (the Overlays: marks on the mod tiles)
+        std::set<uint16_t> mine, others, sugg;
+        if (const auto* r = rulesOrNull())
+            for (size_t i = 0; i < r->terrains.size(); ++i)
+                for (const auto& q : r->terrains[i].t.pieces)
+                    for (int h = 1; h <= 2; ++h)
+                        if (!isomrules::nullHalf(q[size_t(h)])) (int(i) == sel_ ? mine : others).insert(q[size_t(h)]);
+        std::set<uint16_t> sure;
+        for (const auto& [k, sg] : sugg_) sugg.insert(sg.mod), sg.confidence >= kSure ? void(sure.insert(sg.mod)) : void();
+        for (int i = std::max(0, palScroll_ / cell); i < rows && (i * cell - palScroll_) < palette_.height(); ++i) {
+            const int g = palGroupAt(i);
+            if (g < 0) continue;
+            const int y = palette_.top + i * cell - palScroll_;
+            for (int k = 0; k < 16; ++k) {
+                const uint16_t v = uint16_t(g << 4 | k);
+                const draw::Rect r = tileAt(k, y);
+                const int px = markPixel(r.width());
+                if (ovOthers_ && others.count(v)) pixelMark(c, r.left, r.top, px, Mark::Cross, kMarkGray);  // (other terrains': a cross, top left)
+                if (ovMine_ && mine.count(v)) pixelMark(c, r.right - 7 * px, r.top, px, Mark::Check, kMarkGreen);  // (as Template tiles: a check, top right)
+                if (ovSugg_ && sugg.count(v))  // (as Template tiles: a dot (sure) or a ring, bottom right)
+                    pixelMark(c, r.right - 7 * px, r.bottom - 7 * px, px, sure.count(v) ? Mark::Dot : Mark::Ring, kMarkAmber);
+            }
+        }
+    }
     for (int k = 0; k <= 16; k += 2) c.fill({palX(k), palette_.top, palX(k) + 1, std::min(palette_.bottom, palette_.top + rows * cell - palScroll_ + 1)}, kBorderHot);
     auto rowY = [&](int g) { const int i = palIndexOf(g); return i < 0 ? INT_MIN : palette_.top + i * cell - palScroll_; };
     if (t && target_ >= 0 && target_ < int(t->t.pieces.size()))
@@ -5584,6 +5913,12 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
             }
             if (e.kind == draw::MouseKind::Move || e.kind == draw::MouseKind::Up) return true;
         }
+        if (hr >= 0 && e.kind == draw::MouseKind::Down && e.button == 1) {  // (right-click > Accept: as Ctrl+click)
+            if (!matchSelOn_) return setMessage(L"Select template tiles first, then right-click a mod tile"), true;
+            const std::wstring what = matchSelCols() * matchSelRows() == 1 ? L"Accept for the selected template tile" : L"Accept for the selected template tiles";
+            if (shellContextMenuAt(*this, e.pt, {what}) == 1) matchStamp(hr, hc);
+            return true;
+        }
         if (hr >= 0 && e.kind == draw::MouseKind::Down && e.button == 0) {
             if (ctrl) return matchStamp(hr, hc), true;
             modSelOn_ = true, modDrag_ = true, modG0_ = modG1_ = palGroupAt(hr), modC0_ = modC1_ = hc;
@@ -5601,12 +5936,27 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         }
         if (e.kind == draw::MouseKind::Move || e.kind == draw::MouseKind::Up) return true;
     }
+    if (matchMode_ && e.kind == draw::MouseKind::Move) {  // (the template tile under the mouse: its mod tiles framed in Mod tiles)
+        const int ci = matchArea_.contains(e.pt) ? matchCellAt(e.pt) : -1;
+        if (const int v = ci < 0 ? -1 : int(matchCells_[size_t(ci)].v); v != matchHoverTmpl_) matchHoverTmpl_ = v, invalidate();
+    }
     // (Rectangle match: its grid has the canvas's place; a drag begun elsewhere (the minimap, a column edge, painting)
     // still ends here)
     if (matchMode_ && t && matchArea_.contains(e.pt) && !mmDrag_ && dragEdge_ < 0 && !painting_ && (e.kind != draw::MouseKind::Down || edgeAt(e.pt) < 0)) {
         if (e.kind == draw::MouseKind::Wheel) {
             matchScroll_ = std::clamp(matchScroll_ - int(draw::wheelDistance(e, float(scale(60)))), 0, std::max(0, matchTotal_ - matchArea_.height()));
+            matchLayout();  // (the tile under the mouse is another now)
+            const int ci = matchCellAt(e.pt);
+            matchHoverTmpl_ = ci < 0 ? -1 : int(matchCells_[size_t(ci)].v);
             invalidate();
+            return true;
+        }
+        if (e.kind == draw::MouseKind::Down && e.button == 1) {  // (right-click: Accept the suggestions; a tile outside the block selects it first)
+            int row = 0, col = 0;
+            if (!matchPlaceAt(e.pt, row, col)) return true;
+            if (!matchInSel(row, col)) matchSelectBlock(row, col, row, col);
+            const bool one = matchSelCols() * matchSelRows() == 1;
+            if (shellContextMenuAt(*this, e.pt, {one ? L"Accept suggestion" : L"Accept suggestions in the selected block"}) == 1) acceptSuggestions(false);
             return true;
         }
         if (e.kind == draw::MouseKind::Down && e.button == 0) {  // (a tile: selected; a drag: the block)
@@ -5619,8 +5969,10 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
             if (matchPlaceAt(e.pt, row, col)) {
                 matchSelectBlock(row, col, row, col), matchDrag_ = true;
                 if (host()) host()->capture(*this, true);
-                if (const int ci = matchCellAt(e.pt); ci >= 0 && !matchCells_[size_t(ci)].targets.empty())  // (a mapped tile: its mod tile in view in Tiles, framed)
+                if (const int ci = matchCellAt(e.pt); ci >= 0 && !matchCells_[size_t(ci)].targets.empty()) {  // (a mapped tile: its mod tile in view in Tiles, framed)
                     if (const uint16_t v = matchTile(matchCells_[size_t(ci)].targets.front()); !isomrules::nullHalf(v)) showRow(v >> 4, v);
+                    else revealShown();  // (its suggestion)
+                }
             }
             return true;
         }
@@ -5773,6 +6125,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         return -1;
     };
     if (e.kind == draw::MouseKind::Leave) {
+        if (matchHoverTmpl_ >= 0) matchHoverTmpl_ = -1, invalidate();
         if (idHover_ >= 0 || hoverEdge_ >= 0 || palHover_ >= 0 || hoverPlace_ >= 0 || checkHover_ >= 0)
             idHover_ = -1, hoverEdge_ = -1, palHover_ = -1, hoverPlace_ = -1, hover_ = -1, checkHover_ = -1, listHover_ = -1, invalidate();
         return false;
@@ -5866,6 +6219,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         }
         setTarget(k, half);
         slotFocus(true);
+        if (matchMode_ && k >= 0) selectTemplateOf(k, half);  // (Rectangle match: its template tile selected)
         if (e.mods & draw::kCtrl) {  // (its tiles in the palette: the half clicked)
             const auto& q = t->t.pieces[size_t(target_)];
             if (isomrules::nullHalf(q[size_t(1 + half)])) setMessage(L"Rect " + std::to_wstring(q[0]) + L": half is NULL");

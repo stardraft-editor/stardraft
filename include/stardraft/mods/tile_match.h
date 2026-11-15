@@ -42,9 +42,14 @@ struct Suggestion {
     uint16_t tmpl = 0, mod = 0;
     float score = 0;       // (higher: better)
     float confidence = 0;  // 0..1: how far it is ahead of the slot's next best mod tile
+    std::vector<uint16_t> alts;  // (the slot's next best mod tiles, best first: matched ones left out)
 };
 
 // A suggestion for each slot with no match yet (the best first), each mod tile once. None without a match.
 std::vector<Suggestion> suggest(const Input& in);
+
+// How alike two tiles are pixel by pixel, 0..1: both in gray, each with its brightness and contrast made the same (the
+// shapes count, not the colours); 1: the same picture, 0: nothing alike (or a tile with no picture).
+float pixelMatch(const Tileset& a, uint16_t va, const Tileset& b, uint16_t vb);
 
 }  // namespace stardraft::tilematch

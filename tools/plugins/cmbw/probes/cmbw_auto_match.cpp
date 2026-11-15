@@ -422,6 +422,56 @@ int main(int argc, char** argv) {
         }
         return 0;
     }
+    // live <install> <rules .isom> <terrain id>: the suggestions as the editor makes them on the file's terrain (its
+    // matched tiles known, every other edge tile a slot), each with its mod tile's group and the two tiles' mean colours
+    if (mode == "live") {
+        if (argc < 5) return std::fprintf(stderr, "usage: live <install> <rules .isom> <terrain id>\n"), 2;
+        terrainrules::Rules r;
+        if (!terrainrules::load(argv[3], r, err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+        if (r.tilesets.empty()) return std::fprintf(stderr, "no tilesets\n"), 1;
+        const terrainrules::Terrain* t = nullptr;
+        for (const auto& x : r.tilesets[0].terrains)
+            if (x.t.id == std::atoi(argv[4])) t = &x;
+        if (!t) return std::fprintf(stderr, "no terrain\n"), 1;
+        Tileset ts, bts;
+        if (!ts.load(data, r.tilesets[0].era, err) || !bts.load(data, uint16_t(t->baseEra), err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+        const auto tg = targetsOf(ts, bts, t->t, t->baseGround, t->baseTerrain);
+        const int sg = solidTileGroup(ts, t->t.standIn);
+        tilematch::Input in;
+        in.tmplTs = &bts, in.modTs = &ts;
+        std::map<std::pair<uint16_t, int>, std::array<uint16_t, 2>> h;
+        for (const auto& x : tg) {
+            if (x.g == sg || x.g == sg + 1) continue;
+            h[{x.g, x.k}][size_t(x.h)] = x.tv;
+            uint16_t v = 0;
+            for (const auto& p : t->t.pieces)
+                if (const auto it = t->variantOf.find(p); p[0] == x.g && it != t->variantOf.end() && it->second == x.k && !terrainrules::nullHalf(p[size_t(1 + x.h)]))
+                    v = p[size_t(1 + x.h)];
+            if (v) in.known[x.tv] = v;
+            in.slots.push_back(x.tv);
+        }
+        for (const auto& [k, v] : h)
+            if (v[0] && v[1]) in.pairs.push_back(v);
+        auto mean = [](const Tileset& s, uint16_t v) {
+            const int mt = s.megatileFor(v);
+            double c[3] = {0, 0, 0};
+            if (mt > 0)
+                for (int m = 0; m < 16; ++m)
+                    for (int k = 0; k < 64; ++k) {
+                        const Rgb p = s.palette[s.minitiles[s.megatiles[size_t(mt)][size_t(m)] >> 1][size_t(k)]];
+                        c[0] += p.r, c[1] += p.g, c[2] += p.b;
+                    }
+            char buf[32];
+            std::snprintf(buf, sizeof buf, "%3.0f %3.0f %3.0f", c[0] / 1024, c[1] / 1024, c[2] / 1024);
+            return std::string(buf);
+        };
+        std::printf("known %zu, slots %zu\n", in.known.size(), in.slots.size());
+        for (const auto& [a, b] : in.known) std::printf("  known %u:%u (%s) -> %u:%u (%s)\n", a >> 4, a & 15, mean(bts, a).c_str(), b >> 4, b & 15, mean(ts, b).c_str());
+        for (const auto& s : tilematch::suggest(in))
+            std::printf("  %s %u:%u (%s) -> %u:%u (%s) score %.2f conf %.2f\n", s.confidence >= 0.5f ? "SURE" : "    ", s.tmpl >> 4, s.tmpl & 15, mean(bts, s.tmpl).c_str(), s.mod >> 4,
+                        s.mod & 15, mean(ts, s.mod).c_str(), s.score, s.confidence);
+        return 0;
+    }
     // bench <install> <era> [seeds] [window]: every built-in mod terrain of the tileset as an answer key: its template rects
     // (the tileset's own game border), a few of its rects as the matches, the suggestions for the rest; right: a mod
     // tile the terrain has in that rect's half (any variant)

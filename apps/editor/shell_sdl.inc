@@ -168,6 +168,11 @@ int sdlMenuPick(draw::View& from, draw::Point at, const std::vector<std::wstring
     gHost->waitUntil([pick] { return pick->closed; });
     return pick->index;
 }
+// A menu of kit items (check items too) at `at` of `from`, with Report feedback on `on` (the Custom isom terrain
+// editor's Overlays).
+bool shellPopupMenuAt(draw::View& from, draw::Point at, std::vector<kit::MenuItem> items, const std::wstring& on, kit::MenuOptions opts) {
+    return sdlPopupMenu(from, at, std::move(items), on, std::move(opts));
+}
 // A context menu at the mouse (the Tiles panel's favorites), with Report feedback: the item from 1, 0 for none.
 int shellContextMenu(const std::vector<std::wstring>& items) {
     if (!gRoot || !gHost) return 0;
