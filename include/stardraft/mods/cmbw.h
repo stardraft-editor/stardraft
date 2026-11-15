@@ -39,6 +39,9 @@ void useInstall(const std::filesystem::path& install);
 // A terrain rules file (.isom, mods/terrain_rules.h) put over the built-in rules and the mod's own file when a
 // tileset loads (Program options > Plugins: ISOM terrain rules override); empty: none.
 void useTerrainOverride(const std::filesystem::path& file);
+// Off: the tilesets that load from now on have no built-in isometric terrains (the built-in rows, their repairs and the
+// mod's own terrains.isom): only the override's (Program options > Plugins > Built-in ISOM terrains). Default on.
+void useBuiltinTerrains(bool on);
 // On: the tilesets this thread loads leave the override out (the default rules: the shipped file and the built-in ones).
 void skipTerrainOverride(bool on);
 // On: the tilesets this thread loads leave the built-in repaired rows out (the repair probe starts from the rows themselves).
@@ -47,6 +50,9 @@ void skipRepairedRules(bool on);
 // Opens `data` on the CMBW files of `install` (findInstall): the loose mpq folder first, then the 1.16.1 MPQs
 // (patch_rt, BrooDat, StarDat). Unit types and sprites then come from the .datex files.
 bool open(GameData& data, const std::filesystem::path& install, std::string& error);
+// The game's own files only (its 1.16.1 MPQs beside the mod's install, none of the mod's): the original tilesets, for
+// comparing the mod's art with the game's.
+bool openGame(GameData& data, const std::filesystem::path& install, std::string& error);
 // The game's own tile groups of a tileset (era 0-7): its .cv5 in the StarCraft MPQs beside the install, without the
 // mod's (the mod's tileset adds groups past them, some with the game's edge codes). 0: not known.
 size_t gameTileGroups(int era);

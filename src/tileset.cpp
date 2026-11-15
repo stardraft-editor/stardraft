@@ -21,9 +21,15 @@ bool Tileset::load(const GameData& data, uint16_t era, std::string& error) {
     minitileFlags.clear();
     std::string base = std::string("TileSet\\") + tilesetName(era);
     Bytes cv5, vx4, vr4, wpe, vf4;
-    if (!data.readFile(base + ".cv5", cv5, error) || !data.readFile(base + ".vx4ex", vx4, error) ||
-        !data.readFile(base + ".vr4", vr4, error) || !data.readFile(base + ".wpe", wpe, error) ||
-        !data.readFile(base + ".vf4", vf4, error))
+    // (.vx4ex: Remastered's megatiles, 32-bit minitile references; .vx4: the 1.16.1 files', 16-bit)
+    bool wide = true;
+    if (!data.readFile(base + ".cv5", cv5, error)) return false;
+    if (!data.readFile(base + ".vx4ex", vx4, error)) {
+        std::string narrowError;
+        if (!data.readFile(base + ".vx4", vx4, narrowError)) return false;
+        wide = false;
+    }
+    if (!data.readFile(base + ".vr4", vr4, error) || !data.readFile(base + ".wpe", wpe, error) || !data.readFile(base + ".vf4", vf4, error))
         return false;
     if (wpe.size() < 1024) {
         error = base + ".wpe is too small";
@@ -34,7 +40,7 @@ bool Tileset::load(const GameData& data, uint16_t era, std::string& error) {
         const Bytes& file;
         const char* ext;
         size_t record;
-    } records[] = {{cv5, ".cv5", 52}, {vx4, ".vx4ex", 64}, {vr4, ".vr4", 64}, {vf4, ".vf4", 32}};
+    } records[] = {{cv5, ".cv5", 52}, {vx4, wide ? ".vx4ex" : ".vx4", size_t(wide ? 64 : 32)}, {vr4, ".vr4", 64}, {vf4, ".vf4", 32}};
     for (const auto& r : records)
         if (r.file.size() % r.record) {
             error = base + r.ext + " is " + std::to_string(r.file.size()) + " bytes, not a multiple of " +
@@ -54,9 +60,9 @@ bool Tileset::load(const GameData& data, uint16_t era, std::string& error) {
         for (int k = 0; k < 16; ++k) g.megatiles[k] = readU16(cv5, o + 20 + 2 * k);
     }
 
-    megatiles.resize(vx4.size() / 64);
+    megatiles.resize(vx4.size() / (wide ? 64 : 32));
     for (size_t i = 0; i < megatiles.size(); ++i)
-        for (int k = 0; k < 16; ++k) megatiles[i][k] = readU32(vx4, i * 64 + 4 * k);
+        for (int k = 0; k < 16; ++k) megatiles[i][k] = wide ? readU32(vx4, i * 64 + 4 * k) : readU16(vx4, i * 32 + 2 * k);
 
     minitiles.resize(vr4.size() / 64);
     for (size_t i = 0; i < minitiles.size(); ++i) std::memcpy(minitiles[i].data(), vr4.data() + i * 64, 64);

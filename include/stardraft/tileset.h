@@ -84,6 +84,9 @@ struct Tileset {
     // keep the ids and the ISOM values that come from them).
     static constexpr uint16_t kModVariantIds = kModTerrainIds + 48;
     std::vector<ModTerrain> modTerrains;
+    // The ids the built-in mod terrains have when they are left out (Program options > Plugins > Built-in ISOM terrains
+    // off): a new terrain takes none of them, so it does not replace one when they are on again.
+    std::vector<uint16_t> reservedTerrainIds;
     const ModTerrain* modTerrain(uint16_t id) const {
         for (const ModTerrain& m : modTerrains)
             if (m.id == id) return &m;

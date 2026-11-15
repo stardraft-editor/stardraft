@@ -344,6 +344,7 @@ public:
             v.cmbwOpen = !inUse.empty();
             v.cmbwNext = !gCmbwNext.empty() && gCmbwNext != mod ? gCmbwNext.wstring() : std::wstring();
             v.overrideOn = gTerrainOverrideOn, v.overrideFile = gTerrainOverride.wstring();
+            v.builtinTerrains = gBuiltinTerrains;
             v.passagesOn = passagesOn(), v.passagesFile = passagesFile().wstring();
         }
         v.mapsWithSD2 = sdlMapsOpenWithUs();  // (Windows: .scm and .scx open with StarDraft 2; shell_sdl_win.inc)
@@ -612,6 +613,30 @@ void sdlPassagesFrame() {
 // The window's title ("*terrains.isom - Custom Isom Terrain Editor": the asterisk, unsaved changes).
 void shellSetIsomRulesTitle(const std::wstring& title) {
     if (SDL_Window* w = gHost ? gHost->sdlWindow(gIsomRulesView) : nullptr) SDL_SetWindowTitle(w, narrow(title).c_str());
+}
+// Tools > Cosmonarchy > Archetype sandbox (the same view with rules of its own; one window, beside the map).
+bool gIsomSandboxOpen = false;
+void shellShowIsomSandboxWindow() {
+    if (!gRoot || !gHost) return;
+    if (gIsomSandboxOpen) {
+        if (SDL_Window* w = gHost->sdlWindow(gIsomSandboxView)) SDL_RaiseWindow(w);
+        return;
+    }
+    gIsomSandboxOpen = true;
+    const draw::Point sz = IsomRulesView::size();
+    draw::WindowSpec spec{draw::WindowKind::Dialog, draw::Rect(0, 0, std::min(sz.x, gRoot->width()), std::min(sz.y, gRoot->height())), L"Archetype sandbox"};
+    spec.resizable = true;
+    gHost->openWindow(*gRoot, gIsomSandboxView, spec, [] { gIsomSandboxOpen = false; });
+    SDL_Window* win = gHost->sdlWindow(gIsomSandboxView);
+    if (win) sdlNoMinimizeButton(win);
+    restoreWindowPlace(win, L"Layout/IsomSandboxWindow");
+}
+void sdlIsomSandboxFrame() {
+    static WindowPlace place{L"Layout/IsomSandboxWindow"};
+    if (gIsomSandboxOpen && gHost) keepWindowPlace(gHost->sdlWindow(gIsomSandboxView), place);
+}
+void shellSetIsomSandboxTitle(const std::wstring& title) {
+    if (SDL_Window* w = gIsomSandboxOpen && gHost ? gHost->sdlWindow(gIsomSandboxView) : nullptr) SDL_SetWindowTitle(w, narrow(title).c_str());
 }
 
 void sdlCampaignFollow() {

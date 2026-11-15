@@ -1316,19 +1316,16 @@ def check_isom_canvas(output):
 
 
 def check_isom_canvas_remove(output):
-    """None when Remove from canvas takes one tile at a time: the left tile (1 tile of the picture changes, the right
-    tile stays a place), then the right tile (2 changed, the place goes); and Restore removed pieces brings them back."""
-    m = re.search(r"remove test: places (\d+), left tile [\d,]+ removed: places (\d+), tiles changed (\d+), "
-                  r"right tile removed: places (\d+), tiles changed (\d+), "
+    """None when Remove from canvas takes the whole rect at a place (its 2 tiles change, the place goes) and Restore
+    removed pieces brings it back."""
+    m = re.search(r"remove test: places (\d+), rect [\d,]+ removed: places (\d+), tiles changed (\d+), "
                   r"restored: places (\d+), tiles changed (\d+), removed (\d+)", output)
     if not m:
         line = next((l for l in output.splitlines() if l.startswith("remove test:")), "no remove test line")
         return line
-    before, afterLeft, changedLeft, afterRight, changedRight, back, changedBack, left = (int(g) for g in m.groups())
-    if changedLeft != 1 or afterLeft != before:
-        return f"the left tile's removal changed {changedLeft} tiles (not 1), places {afterLeft} of {before}"
-    if changedRight != 2 or afterRight != before - 1:
-        return f"the right tile's removal changed {changedRight} tiles (not 2), places {afterRight} (not {before - 1})"
+    before, after, changed, back, changedBack, left = (int(g) for g in m.groups())
+    if changed != 2 or after != before - 1:
+        return f"the rect's removal changed {changed} tiles (not 2), places {after} (not {before - 1})"
     if back != before or changedBack != 0 or left != 0:
         return f"the restore gave {back} of {before} places, {changedBack} tiles still changed, {left} still removed"
     return None

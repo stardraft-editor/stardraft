@@ -57,6 +57,7 @@ void setMessage(const std::wstring& m);
 // one list.
 void shellWarningBox(const std::wstring& text, const std::wstring& title);
 void isomRulesShow();  // (core/views_isom_rules.inc: Tools > Cosmonarchy > Custom isom terrain editor)
+void isomSandboxShow();  // (core/views_isom_rules.inc: Tools > Cosmonarchy > Archetype sandbox)
 void passagesShow();   // (core/views_passages.inc: Tools > Cosmonarchy > Ramp and bridge mapper)
 
 void cmbwCheckCommentsCommand() {
@@ -112,6 +113,7 @@ void cmbwUseFolderSetting() {
 // the tilesets that load after it is set: maps opened from then on.
 fs::path gTerrainOverride;
 bool gTerrainOverrideOn = false;
+bool gBuiltinTerrains = true;  // (Program options > Plugins > Built-in ISOM terrains: cmbwToggleBuiltinTerrains)
 void cmbwApplyTerrainOverride() { stardraft::cmbw::useTerrainOverride(gTerrainOverrideOn ? gTerrainOverride : fs::path()); }
 struct {
     fs::path f, override;
@@ -152,6 +154,18 @@ void cmbwUseTerrainOverrideSetting() {
     if (prefs::text(L"TerrainOverride", saved)) gTerrainOverride = fs::path(saved);
     prefs::number(L"TerrainOverrideOn", on), gTerrainOverrideOn = on != 0 && !gTerrainOverride.empty();
     cmbwApplyTerrainOverride();
+    int64_t builtin = 1;
+    prefs::number(L"BuiltinTerrains", builtin), gBuiltinTerrains = builtin != 0;
+    stardraft::cmbw::useBuiltinTerrains(gBuiltinTerrains);
+}
+// Program options > Plugins > Built-in ISOM terrains: off, the maps opened from then on have only the override's
+// isometric terrains (the Archetype sandbox's); the setting BuiltinTerrains.
+void cmbwToggleBuiltinTerrains() {
+    gBuiltinTerrains = !gBuiltinTerrains;
+    if (!gSettingsOff) prefs::setNumber(L"BuiltinTerrains", gBuiltinTerrains ? 1 : 0);
+    stardraft::cmbw::useBuiltinTerrains(gBuiltinTerrains);
+    setMessage(gBuiltinTerrains ? L"Built-in ISOM terrains on: maps that open from now on have them (also open maps when the override file is saved)"
+                                : L"Built-in ISOM terrains off: maps that open from now on have only the override's terrains (also open maps when the override file is saved)");
 }
 
 // The mod's files, opened at the first use (nullptr and `err`: no Cosmonarchy install).

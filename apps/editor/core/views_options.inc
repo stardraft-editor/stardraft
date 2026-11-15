@@ -56,6 +56,7 @@ struct OptionsValues {
     std::wstring cmbwFolder;      // Mods: the Cosmonarchy install in use, else the one it opens from
     std::wstring cmbwNext;        // ... the one used from the next start ("": the same)
     bool cmbwOpen = false;        // ... the mod's data is open (a new folder: from the next start; else at once)
+    bool builtinTerrains = true;  // ... Built-in ISOM terrains: the built-in rows and the mod's own file (off: the override's only)
     bool overrideOn = false;      // ... ISOM terrain rules override: a terrain rules file over the built-in rules
     std::wstring overrideFile;    // ... its file ("": none chosen)
     bool passagesOn = false;      // ... Ramp and bridge mappings: a passages file (the Ramp and bridge mapper's) for the tools
@@ -256,6 +257,9 @@ public:
         pluginGroup_.onChange = [this](stardraft::kit::RadioButton& b) {
             host_.command(ID_GAME_MODE + (&b == &cmbwPlugin_ ? 1 : &b == &hyperionPlugin_ ? 2 : 0));
         };
+        builtin_.setLabel(L"Built-in ISOM terrains");
+        builtin_.setTip(L"The isometric terrains that come with the program and the mod. Clear it to use only the terrains of the override file");
+        builtin_.onChange = [this](bool) { host_.command(ID_OPT_BUILTINTERRAINS); };
         override_.setLabel(L"ISOM terrain rules override");
         override_.setTip(L"Terrain rules from a file (Tools > Cosmonarchy > Custom isom terrain editor) in place of the built-in ones");
         override_.onChange = [this](bool) { host_.command(ID_OPT_TERRAINOVERRIDE); };
@@ -268,7 +272,7 @@ public:
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&lastSession_), static_cast<draw::View*>(&tintIcons_), static_cast<draw::View*>(&diagnostics_), static_cast<draw::View*>(&immersive_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&noPlugin_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&hyperionPlugin_), static_cast<draw::View*>(&override_), static_cast<draw::View*>(&passages_),
+        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&lastSession_), static_cast<draw::View*>(&tintIcons_), static_cast<draw::View*>(&diagnostics_), static_cast<draw::View*>(&immersive_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&noPlugin_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&hyperionPlugin_), static_cast<draw::View*>(&builtin_), static_cast<draw::View*>(&override_), static_cast<draw::View*>(&passages_),
                         static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_), static_cast<draw::View*>(&smoothZoom_), static_cast<draw::View*>(&smoothPan_),
                         static_cast<draw::View*>(&keyHints_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
@@ -520,7 +524,7 @@ private:
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3], gpuSeg_[4];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, hyperionBrowse_, overrideBrowse_, passagesBrowse_, check_, restart_, reset_, maps_, close_;
     stardraft::kit::ScrollBar bar_;  // at the content's right when it is taller than its room
-    stardraft::kit::CheckBox lastProject_, lastSession_, tintIcons_, diagnostics_, immersive_, askStart_, manyStarts_, override_, passages_, updates_, previews_, smoothZoom_, smoothPan_, keyHints_;
+    stardraft::kit::CheckBox lastProject_, lastSession_, tintIcons_, diagnostics_, immersive_, askStart_, manyStarts_, builtin_, override_, passages_, updates_, previews_, smoothZoom_, smoothPan_, keyHints_;
     // Plugins: one at a time (made in this order: the arrow keys go through them so)
     stardraft::kit::RadioGroup pluginGroup_;
     stardraft::kit::RadioButton noPlugin_{L"No plugin", pluginGroup_, true}, cmbwPlugin_{L"Cosmonarchy BW (CMBW)", pluginGroup_},
@@ -580,6 +584,7 @@ void OptionsView::sync(const OptionsValues& v) {
         for (int i = 0; i < 4; ++i) gpuSeg_[i].setTone(kGpuValue[i] == v.gpuDriver ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
     if (stardraft::kit::RadioButton& b = v.gameMode == 1 ? cmbwPlugin_ : v.gameMode == 2 ? hyperionPlugin_ : noPlugin_; !b.on()) pluginGroup_.select(b);
+    builtin_.setOn(v.builtinTerrains);
     override_.setOn(v.overrideOn);
     if (const std::wstring f = v.overrideFile.empty() ? std::wstring(L"\x2014") : v.overrideFile; overrideFile_.text() != f) overrideFile_.setText(f);
     passages_.setOn(v.passagesOn);
@@ -992,6 +997,9 @@ void OptionsView::paint(draw::Canvas& c) {
              : v.cmbwOpen        ? std::wstring(L"The Prerelease or Release folder. A new folder is used after a restart.")
                                  : std::wstring(L"The Prerelease or Release folder"));
         y += scale(20);
+        // Built-in ISOM terrains (off: the override's terrains only, the maps opened from then on).
+        checkRow(y, builtin_, "plugin.builtin");
+        y += rowH;
         // ISOM terrain rules override: a terrain rules file over the built-in rules (the maps opened from then on).
         checkRow(y, override_, "plugin.override");
         y += rowH;

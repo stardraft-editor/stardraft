@@ -254,6 +254,7 @@ bool sdlRuns(int id) {
     case ID_OPT_HYPERIONFOLDER:
     case ID_OPT_TERRAINOVERRIDE:
     case ID_OPT_TERRAINOVERRIDEFILE:
+    case ID_OPT_BUILTINTERRAINS:
     case ID_OPT_PASSAGES:
     case ID_OPT_PASSAGESFILE:
     case ID_SCEN_CHECK:
@@ -333,7 +334,7 @@ bool simLocksCommand(int id) {
 bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
     if ((id == ID_CMBW_REPAIRISOM || id == ID_CMBW_CHECKCOMMENTS) && !modTab()) return false;  // (a Cosmonarchy map's tab only)
-    if ((id == ID_CMBW_ISOMRULES || id == ID_CMBW_PASSAGES) && !cmbwMode()) return false;  // (the mod loaded)
+    if ((id == ID_CMBW_ISOMRULES || id == ID_CMBW_ISOMSANDBOX || id == ID_CMBW_PASSAGES) && !cmbwMode()) return false;  // (the mod loaded)
     if (id >= ID_HYP_CHECK && id <= ID_HYP_TESTUMS && (!hyperionMode() || !docOpen())) return false;  // (the plugin loaded, a map open)
     if ((id == ID_VIEW_HD || id == ID_VIEW_HD2 || id == ID_VIEW_CARBOT) && cmbwMode()) return false;  // (SD art only: cmbwKeepSd)
     if (simBarShown() && simLocksCommand(id)) return false;
@@ -1631,6 +1632,7 @@ void commandSdl(int id) {
     case ID_OPT_CMBWFOLDER: shellChooseCmbwFolder(); return;
     case ID_OPT_HYPERIONFOLDER: shellChooseHyperionFolder(); return;
     case ID_OPT_TERRAINOVERRIDE: shellToggleTerrainOverride(); return;
+    case ID_OPT_BUILTINTERRAINS: cmbwToggleBuiltinTerrains(); return;  // (core/cmbw.inc; the check box shows the new value)
     case ID_OPT_TERRAINOVERRIDEFILE: shellChooseTerrainOverride(); return;
     case ID_OPT_PASSAGES: passagesToggle(); return;  // (core/views_passages.inc)
     case ID_OPT_PASSAGESFILE: passagesChoose(); return;

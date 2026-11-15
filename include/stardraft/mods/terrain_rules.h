@@ -13,17 +13,20 @@
 // tiles of that rect (borrowed: the set paints like the game there until the mod's tiles come). A NULL half is a hole.
 //
 // The file (little-endian):
-//   "SDTR", u16 version (2), u16 tilesets
+//   "SDTR", u16 version (2, or 4 when a terrain has a base), u16 tilesets
 //   per tileset: u8 era, u32 groups, u64 fingerprint (the tileset's groups: a file made for other groups is not used),
 //                u16 terrains
 //   per terrain: u16 id, u8 flags (1 fill, 2 made from maps, 4 draft), u16 stand-in, u16 ground, u16 ground template,
 //                u16 variant of, u32 fill key, u32 set pieces, u32 gap pieces, string name (u16 bytes, UTF-8),
 //                u32 pieces, each u16 game group, u16 left tile, u16 right tile (0 and 1: the null tile)
+//   version 3, after each terrain's pieces: u8 base tileset (255: none), u16 base ground, u16 base terrain; version 4
+//                then u16 variant tags, each u16 group, u16 left tile, u16 right tile, u8 the base's variant
 //   (version 1 had a u8 kind before the flags; it is read and ignored)
 
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -34,6 +37,13 @@ namespace stardraft::terrainrules {
 
 struct Terrain {
     Tileset::ModTerrain t;  // (emptyBlocks is not kept)
+    // The game border it is made from (the Archetype sandbox's template: any tileset's; the engine uses the border of the
+    // same shapes in its own tileset, t's stand-in and ground template); baseEra -1: none.
+    int baseEra = -1;
+    uint16_t baseGround = 0, baseTerrain = 0;
+    // A piece's vanilla variant (Rectangle match: the base rect's variant it was matched to), by the piece itself
+    // ({group, left tile, right tile}); a piece with none takes a free one in order.
+    std::map<std::array<uint16_t, 3>, uint8_t> variantOf;
 };
 struct TilesetRules {
     uint8_t era = 0;
@@ -45,7 +55,7 @@ struct Rules {
     std::vector<TilesetRules> tilesets;
 };
 
-constexpr uint16_t kVersion = 2;
+constexpr uint16_t kVersion = 4;  // (written only when a terrain has a base or variant tags; else 2)
 
 // The families of the game's borders, by their rects (the same in every tileset): a patch (14 rects: Rocky Ground on
 // Dirt), a blend (24, texture on texture: Grass on Dirt), a pavement (24, flat, one stack link id: Asphalt on Dirt), a
@@ -60,6 +70,10 @@ const char* familyName(Family f);
 struct TemplateRect {
     uint16_t group = 0;
     std::string role;
+    // Its shape: the corners of each place the game puts it (which of the 6 are the terrain, by parity; places with a
+    // third terrain left out), then "/" and its cliff row. The same in every tileset for the rect of the same place in
+    // an archetype's border (research/terrain-builder/archetypes): rects of two tilesets' borders pair by it.
+    std::string shape;
     int dir = -1;
     float fill = 0;
     int row = 0;

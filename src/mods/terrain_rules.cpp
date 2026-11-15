@@ -83,12 +83,18 @@ std::vector<TemplateRect> templateRects(const Tileset& t, uint16_t ground, uint1
         TemplateRect r;
         r.group = g;
         float weight[6] = {}, n = 0;
+        std::set<std::string> shapes;  // (each place's corners: parity, then 1 terrain / 0 ground; places with a third terrain left out)
         for (const IsomTiles::Rect& rc : tiles->rectsOf(g)) {
             const auto L = table->corners(rc.left), R = table->corners(rc.right);
             const uint16_t pts[6] = {L[0], L[1], L[2], L[3], rc.parity ? R[1] : R[2], rc.parity ? R[2] : R[3]};
             for (int i = 0; i < 6; ++i) weight[i] += pts[i] == terrain ? 1.0f : 0.0f;
             n += 1;
+            bool other = false;
+            std::string k = std::to_string(rc.parity) + ":";
+            for (int i = 0; i < 6; ++i) other = other || (pts[i] != terrain && pts[i] != ground), k += pts[i] == terrain ? '1' : '0';
+            if (!other) shapes.insert(k);
         }
+        for (const std::string& k : shapes) r.shape += (r.shape.empty() ? "" : ",") + k;
         if (n > 0) {
             float cx = 0, cy = 0, fill = 0;
             const bool odd = tiles->rectsOf(g).front().parity != 0;
@@ -104,6 +110,7 @@ std::vector<TemplateRect> templateRects(const Tileset& t, uint16_t ground, uint1
         }
         const uint16_t top = tiles->stackTop(g), bottom = tiles->stackBottom(g);
         r.row = top && bottom ? 2 : bottom ? 1 : top ? 3 : 0;  // (a bottom link: a row under it, so this is the top)
+        r.shape += "/" + std::to_string(r.row);
         std::string role = r.fill <= 0.01f ? "outside" : r.fill >= 5.99f ? "inside" : r.fill < 2.5f ? "corner" : r.fill <= 3.5f ? "edge" : "inner corner";
         if (r.dir >= 0) role += std::string(" ") + kDirs[r.dir];
         if (r.row) role += r.row == 1 ? " top" : r.row == 2 ? " middle" : " bottom";
@@ -226,7 +233,10 @@ TilesetRules rulesOf(const Tileset& t) {
 std::vector<uint8_t> write(const Rules& r) {
     Out o;
     for (char c : std::string("SDTR")) o.u8(uint8_t(c));
-    o.u16(kVersion), o.u16(uint16_t(r.tilesets.size()));
+    bool bases = false;  // (version 3 only when it is needed: other builds read 2)
+    for (const TilesetRules& ts : r.tilesets)
+        for (const Terrain& x : ts.terrains) bases = bases || x.baseEra >= 0 || !x.variantOf.empty();
+    o.u16(bases ? kVersion : 2), o.u16(uint16_t(r.tilesets.size()));
     for (const TilesetRules& ts : r.tilesets) {
         o.u8(ts.era), o.u32(ts.groups), o.u64(ts.fingerprint), o.u16(uint16_t(ts.terrains.size()));
         for (const Terrain& x : ts.terrains) {
@@ -236,6 +246,11 @@ std::vector<uint8_t> write(const Rules& r) {
             o.u32(uint32_t(m.setPieces)), o.u32(uint32_t(m.gapPieces)), o.str(m.name);
             o.u32(uint32_t(m.pieces.size()));
             for (const auto& p : m.pieces) o.u16(p[0]), o.u16(p[1]), o.u16(p[2]);
+            if (bases) {
+                o.u8(x.baseEra >= 0 ? uint8_t(x.baseEra) : 255), o.u16(x.baseGround), o.u16(x.baseTerrain);
+                o.u16(uint16_t(x.variantOf.size()));
+                for (const auto& [p, k] : x.variantOf) o.u16(p[0]), o.u16(p[1]), o.u16(p[2]), o.u8(k);
+            }
         }
     }
     return o.b;
@@ -247,7 +262,7 @@ bool read(const std::vector<uint8_t>& bytes, Rules& r, std::string& err) {
     if (bytes.size() < 8 || std::string(bytes.begin(), bytes.begin() + 4) != "SDTR") return err = "not a terrain rules file", false;
     in.at = 4;
     const uint16_t version = in.u16();
-    if (version != 1 && version != kVersion) return err = "terrain rules version " + std::to_string(version) + " (this program reads 1 and 2)", false;
+    if (version < 1 || version > kVersion) return err = "terrain rules version " + std::to_string(version) + " (this program reads 1 to 4)", false;
     const uint16_t sets = in.u16();
     for (uint16_t s = 0; s < sets && in.ok; ++s) {
         TilesetRules ts;
@@ -266,6 +281,17 @@ bool read(const std::vector<uint8_t>& bytes, Rules& r, std::string& err) {
             if (!in.need(size_t(pieces) * 6)) break;
             m.pieces.resize(pieces);
             for (auto& p : m.pieces) p[0] = in.u16(), p[1] = in.u16(), p[2] = in.u16();
+            if (version >= 3) {
+                const uint8_t be = in.u8();
+                x.baseEra = be == 255 ? -1 : int(be), x.baseGround = in.u16(), x.baseTerrain = in.u16();
+                const uint16_t tags = version >= 4 ? in.u16() : 0;
+                if (!in.need(size_t(tags) * 7)) break;
+                for (uint16_t k = 0; k < tags; ++k) {
+                    std::array<uint16_t, 3> p{};
+                    p[0] = in.u16(), p[1] = in.u16(), p[2] = in.u16();
+                    x.variantOf[p] = in.u8();
+                }
+            }
             ts.terrains.push_back(std::move(x));
         }
         r.tilesets.push_back(std::move(ts));

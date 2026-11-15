@@ -909,6 +909,7 @@ int main(int argc, char** argv) {
         host.setModifierHook([] {  // the modifier key's mark at the mouse (core/map_mod_mark.inc), with no move of the mouse
             if (gRoot && gState.mouseIn) ++gRoot->map.modRepaints, gRoot->map.invalidate();
             if (gRoot && gState.keyHints) gRoot->status.invalidate();  // (the held key's hint is bright: core/tool_hints.inc)
+            isomSandboxModifiers();  // (Rectangle match: the Ctrl+click block's shape in Mod tiles)
         });
         host.setRightClickHook(sdlWindowRightClick);  // Report feedback in the dialogs and pop-outs (sdl_menus.inc)
 #ifdef __APPLE__
@@ -1001,6 +1002,7 @@ int main(int argc, char** argv) {
             gpustart::shown(gHost ? gHost->presentedFrames() : 0);  // (the driver showed the window)
             sdlFloatPaletteFrame();  // (the floating palette's place as the user moves it: sdl_palette_float.inc)
             sdlIsomRulesFrame();  // (the Custom isom terrain editor's place and size: sdl_options.inc)
+            sdlIsomSandboxFrame();  // (the Archetype sandbox's)
             sdlPassagesFrame();   // (the Ramp and bridge mapper's window place)
             sdlPalettePanelsFrame();  // (the palette panels of the active tab show, and their places: sdl_palette_panels.inc)
             mapLayersFrame();  // (the map's layers: core/map_layers.inc)
@@ -1175,6 +1177,60 @@ int main(int argc, char** argv) {
                 if (name == "*") std::printf("%s", gIsomRulesView.terrainNames().c_str());  // (<era>/*: the list)
                 if (removeTest) std::printf("%s\n", gIsomRulesView.removeStripTest().c_str());
                 std::printf("%s\n", gIsomRulesView.state().c_str());
+            } else if (dialogArg.rfind("isomsandbox", 0) == 0) {  // isomsandbox[:<era>[/<row>]]: the Archetype sandbox on that tileset (--cmbw); its list printed
+                shown = &gIsomSandboxView;
+                gIsomSandboxView.setAsync(false);
+                std::string name = dialogArg.size() > 12 ? dialogArg.substr(12) : std::string();
+                if (const size_t at = name.find('@'); at != std::string::npos) {  // (...@<file>: those rules)
+                    gIsomSandboxView.useFile(std::filesystem::u8path(name.substr(at + 1)));
+                    name.resize(at);
+                }
+                int era = -1;
+                if (!name.empty() && std::isdigit(static_cast<unsigned char>(name[0]))) era = name[0] - '0', name = name.size() > 2 ? name.substr(2) : std::string();
+                int newArch = 0;  // (<era>/+<archetype>: a new terrain of that archetype, as New terrain makes it)
+                if (name.size() > 1 && name[0] == '+') newArch = std::atoi(name.c_str() + 1), name.clear();
+                // (<era>/new[:<archetype>:<tileset>]: the New terrain page, that tileset's border of that archetype picked)
+                int pageArch = -1, pageEra = -1;
+                std::wstring matchName, matchLast;  // (<era>/match:<tileset>:<template terrain>:<tile>: a terrain of it, its first rect that tile pair, then Match by offset)
+                int matchEra = -1, matchTile = 0;
+                if (name.rfind("match:", 0) == 0) {
+                    const size_t a = name.find(':', 6), b = a != std::string::npos ? name.rfind(':') : a;
+                    if (a != std::string::npos && b > a)
+                        matchEra = std::atoi(name.c_str() + 6), matchName = widen(name.substr(a + 1, b - a - 1)), matchTile = std::atoi(name.c_str() + b + 1),
+                        matchLast = widen(name.substr(b + 1));
+                    name.clear();
+                }
+                if (name.rfind("new", 0) == 0) {
+                    pageArch = 0;
+                    if (const size_t c = name.find(':', 4); name.size() > 4) pageArch = std::atoi(name.c_str() + 4), pageEra = c != std::string::npos ? std::atoi(name.c_str() + c + 1) : -1;
+                    name.clear();
+                }
+                gIsomSandboxView.showFirst(era, name);
+                gIsomSandboxView.open();
+                if (newArch && !gIsomSandboxView.newTerrainTest(newArch)) std::printf("no game border of archetype %d\n", newArch);
+                if (matchEra >= 0 && matchName.rfind(L"ref=", 0) == 0) {  // (match:<tileset>:ref=<template>:<border>... as refcheck)
+                    const std::wstring rest = matchName.substr(4);
+                    int gridFrom = -1, gridTo = -1;
+                    if (const size_t bar = matchLast.find(L'|'); bar != std::wstring::npos) {  // (...|rm: then Rectangle match; |grid:<from>:<to>: a grid match too)
+                        const std::wstring opt = matchLast.substr(bar + 1);
+                        matchLast.resize(bar);
+                        gIsomSandboxView.setMatchModeTest(true);
+                        if (opt.rfind(L"grid=", 0) == 0 && opt.find(L'-', 5) != std::wstring::npos)  // (|grid=<from>-<to>)
+                            gridFrom = std::stoi(opt.substr(5)), gridTo = std::stoi(opt.substr(opt.find(L'-', 5) + 1));
+                    }
+                    if (gridFrom >= 0) {
+                        std::printf("%s\n", gIsomSandboxView.refCheckOf(matchEra, rest, matchLast).c_str());
+                        std::printf("%s\n", gIsomSandboxView.matchGridTest(gridFrom, gridTo).c_str());
+                    } else
+                    std::printf("%s\n", gIsomSandboxView.refCheckOf(matchEra, rest, matchLast).c_str());
+                } else if (matchEra >= 0) std::printf("match: %s\n", narrow(gIsomSandboxView.matchTestOf(matchEra, matchName, uint16_t(matchTile))).c_str());
+                if (pageArch == 0) gIsomSandboxView.showNewPage();
+                else if (pageArch > 0 && !gIsomSandboxView.newPageTest(pageArch, pageEra, dialogArg.find('!') != std::string::npos)) std::printf("no border of archetype %d in tileset %d\n", pageArch, pageEra);
+                else if (pageArch > 0 && dialogArg.size() > 2 && dialogArg.compare(dialogArg.size() - 2, 2, "!m") == 0)  // (...!m: then Match by offset from the first rect)
+                    std::printf("match: %s\n", narrow(gIsomSandboxView.matchTest()).c_str());
+                gIsomSandboxView.useDefaultLayout();
+                std::printf("%s", gIsomSandboxView.sideText().c_str());
+                std::printf("%s\n", gIsomSandboxView.state().c_str());
             } else if (dialogArg.rfind("passages:", 0) == 0) {  // passages:<file>[|<row>]: the Ramp and bridge mapper with that file, on the tileset of its first mapping (--cmbw: the mod's)
                 std::string f = dialogArg.substr(9);
                 int row = 0;

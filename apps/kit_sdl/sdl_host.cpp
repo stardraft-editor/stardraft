@@ -696,7 +696,15 @@ void SdlHost::retire(SDL_WindowID id) {
         Win& w = *wins_[i];
         if (w.root && w.router->focused()) w.router->setFocus(nullptr);  // (the view that had the focus is told)
         if (captureWin_ == id) SDL_CaptureMouse(false), captureWin_ = 0;
-        if (w.sdl) SDL_HideWindow(w.sdl);
+        if (w.sdl) {
+            // (the window with the keyboard: its opener takes it first, so the system does not give it to another
+            // program's window and put the program's windows behind it)
+            const Win* parent = w.parent ? findWin(w.parent) : nullptr;
+            if (parent && parent->sdl && (w.kind == WindowKind::Dialog || w.kind == WindowKind::Tool) && (SDL_GetWindowFlags(w.sdl) & SDL_WINDOW_INPUT_FOCUS) &&
+                !(SDL_GetWindowFlags(parent->sdl) & (SDL_WINDOW_MINIMIZED | SDL_WINDOW_HIDDEN)))
+                SDL_RaiseWindow(parent->sdl);
+            SDL_HideWindow(w.sdl);
+        }
         if (w.id == modal_) modal_ = 0;
         if (w.root) w.root->attach(nullptr);
         retired_.push_back(std::move(wins_[i]));

@@ -1470,7 +1470,7 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
         auto edgesOf = [&](uint16_t v) -> const Edges& {
             auto [it, fresh] = kept.try_emplace({tileset_, v});
             if (fresh) {
-                it->second.ok = tileset_->megatileFor(v) >= 0;
+                it->second.ok = tileset_->megatileFor(v) > 0;  // (megatile 0: the blank tile, no picture)
                 for (int d = 0; d < 4 && it->second.ok; ++d)
                     for (int i = 0; i < 32; ++i) {
                         const int x = d == 0 ? 0 : d == 1 ? 31 : i, y = d == 2 ? 0 : d == 3 ? 31 : i;
@@ -1535,8 +1535,10 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
                 }
                 std::pair<uint16_t, uint16_t> best{tile.tiles[k], tile.tiles[k + 1]};
                 double bestScore = now;
-                for (const auto& p : it->second)
+                for (const auto& p : it->second) {
+                    if (!edgesOf(p.first).ok || !edgesOf(p.second).ok) continue;  // (a piece with no picture: no edges to meet)
                     if (const double sc = seam(p.first, p.second, 2 * rx, ry); sc < bestScore) bestScore = sc, best = p;
+                }
                 if (bestScore < now * 0.6)
                     tile.tiles[k] = mtxm.tiles[k] = best.first, tile.tiles[k + 1] = mtxm.tiles[k + 1] = best.second;
             }

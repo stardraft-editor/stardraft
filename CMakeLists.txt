@@ -359,6 +359,18 @@ if(cmbw_probes)
     target_link_libraries(cmbw_neighbors PRIVATE stardraft)
     add_executable(cmbw_set_status tools/plugins/cmbw/probes/cmbw_set_status.cpp)  # which brush sets are terrains in the isometric list
     target_link_libraries(cmbw_set_status PRIVATE stardraft)
+    add_executable(cmbw_seam_measure tools/plugins/cmbw/probes/cmbw_seam_measure.cpp)  # the seam check and today's rules against the maps' tile pairs
+    target_link_libraries(cmbw_seam_measure PRIVATE stardraft)
+    add_executable(cmbw_reskin_check tools/plugins/cmbw/probes/cmbw_reskin_check.cpp)  # each mod tile's minitile flags against the game tile of its rect
+    target_link_libraries(cmbw_reskin_check PRIVATE stardraft)
+    add_executable(cmbw_reskin_show tools/plugins/cmbw/probes/cmbw_reskin_show.cpp)  # a mod terrain beside a game border that may be its source, piece by piece
+    target_link_libraries(cmbw_reskin_show PRIVATE stardraft)
+    add_executable(cmbw_neighbor_check tools/plugins/cmbw/probes/cmbw_neighbor_check.cpp)  # the maps' neighbouring mod tiles against the pairs their template makes
+    target_link_libraries(cmbw_neighbor_check PRIVATE stardraft)
+    add_executable(cmbw_neighbor_repair tools/plugins/cmbw/probes/cmbw_neighbor_repair.cpp)  # moves mod tiles to the rects their neighbours on the maps fit; a rules file to look at
+    target_link_libraries(cmbw_neighbor_repair PRIVATE stardraft)
+    add_executable(cmbw_isom_copies tools/plugins/cmbw/probes/cmbw_isom_copies.cpp)  # the mod tiles that copy a game border tile (most pixels the same): the base of copy-based rules
+    target_link_libraries(cmbw_isom_copies PRIVATE stardraft)
     add_executable(cmbw_auto_rows tools/plugins/cmbw/probes/cmbw_auto_rows.cpp)  # which game rect each set's groups stand for on the maps
     target_link_libraries(cmbw_auto_rows PRIVATE stardraft)
 endif()
