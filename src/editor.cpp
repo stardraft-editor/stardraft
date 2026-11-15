@@ -2140,7 +2140,14 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
     std::mt19937 rng(seed);
     std::set<std::pair<int, int>> done;  // stack tops already re-rolled
     int changed = 0;
+    std::vector<std::pair<int, int>> modRects;  // (a mod terrain's rects: its pieces placed again, below)
     for (auto [rx, ry] : rects) {
+        // A mod terrain's rect: its variants are the pieces of its set (a pair of tiles each; a group can have the halves
+        // of two rects), and the rows of a wall keep one: the pieces as the brush places them, from another seed.
+        if (mod && rx * 2 + 1 < w && isom_.modRect(rx, ry, tile.tiles[size_t(ry) * w + rx * 2], tile.tiles[size_t(ry) * w + rx * 2 + 1])) {
+            modRects.push_back({rx, ry});
+            continue;
+        }
         // Climb to the top of a cliff stack: its variant is what the pieces below repeat.
         int top = ry;
         while (top > 0 && stacked(rx * 2, top)) --top;
@@ -2180,13 +2187,33 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
             }
         }
     }
-    if (!changed) return 0;  // no undo step
-    beginEdit();             // in a stroke (a brush drag): the stroke's one step
     auto pack = [](const TerrainLayer& t) {
         Bytes out;
         for (uint16_t v : t.tiles) appendU16(out, v);
         return out;
     };
+    if (!modRects.empty()) {  // (on a copy of the tiles: no undo step when nothing changes)
+        Chk part;
+        for (SectionName n : {SectionName("DIM "), SectionName("ERA ")})
+            if (const Section* sec = chk_.find(n)) part.set(n, sec->data);
+        part.set("TILE", pack(tile)), part.set("MTXM", pack(mtxm));
+        isom_.rerollPieces(part, modRects, uint32_t(rng()));
+        const TerrainLayer nt = readTerrain(part, "TILE"), nm = readTerrain(part, "MTXM");
+        // (a protected tile or one under a doodad stays, and so does its rect column: the rows of a block keep one variant)
+        const size_t n = std::min({tile.tiles.size(), nt.tiles.size(), nm.tiles.size()});
+        std::set<int> kept;
+        for (size_t i = 0; i < n; ++i)
+            if ((nt.tiles[i] != tile.tiles[i] || nm.tiles[i] != mtxm.tiles[i]) &&
+                (tileProtected(int(i % size_t(w)), int(i / size_t(w))) || mtxm.tiles[i] != tile.tiles[i]))
+                kept.insert(int(i % size_t(w)) / 2);
+        for (size_t i = 0; i < n; ++i) {
+            if (nt.tiles[i] == tile.tiles[i] && nm.tiles[i] == mtxm.tiles[i]) continue;
+            if (kept.count(int(i % size_t(w)) / 2)) continue;
+            tile.tiles[i] = nt.tiles[i], mtxm.tiles[i] = nm.tiles[i], ++changed;
+        }
+    }
+    if (!changed) return 0;  // no undo step
+    beginEdit();             // in a stroke (a brush drag): the stroke's one step
     chk_.set("TILE", pack(tile));
     chk_.set("MTXM", pack(mtxm));
     commit(true);

@@ -229,6 +229,16 @@ public:
     // tileFromIsom with the map's table: in the rect of a mod's terrain, the mod's pieces for the rect of its template
     // (and the template's tiles) are from the ISOM too.
     bool tileFromIsom(const Chk& chk, const struct TerrainLayer& tile, int tx, int ty) const;
+    // New variants for the mod's pieces in `rects` and the two rows above and below each (a wall's rows): their pieces
+    // placed again as a store places them, from another seed (`salt`), so the rows of a block keep one variant. The
+    // tiles changed.
+    int rerollPieces(Chk& chk, const std::vector<std::pair<int, int>>& rects, uint32_t salt) const;
+    // Is rect (rx, ry), with these tiles, one of a mod's terrains (both tiles are its pieces: rerollPieces)?
+    bool modRect(int rx, int ry, uint16_t left, uint16_t right) const {
+        uint16_t gl = 0, gr = 0, tag = 0;
+        return table_ && table_->hasExtras() && gameTile_.count(left) && gameTile_.count(right) && rectTemplate(rx, ry, gl, gr, tag) && tag &&
+               tag <= pieces_.size();
+    }
 
     int rectCols() const { return rectCols_; }
     int rectRows() const { return rectRows_; }
@@ -265,6 +275,10 @@ private:
     // The tiles of `rects` from the copy of the map the terrain core made them on (`work`, the templates' tiles), with
     // the mod's pieces for them in the rects of a mod's terrain.
     void putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& rects) const;
+    // The copy of the map the terrain core works on: the game's tiles in place of the mod's pieces in the rects of a mod's
+    // terrain (DIM, ERA, TILE, MTXM).
+    Chk gameCopy(const Chk& chk) const;
+    mutable uint32_t pieceSalt_ = 0;  // (putPieces' seed: 0, except in rerollPieces)
     // One of a rect's mod pieces (`h`: the place's hash): one that the mod's maps have beside the pieces already placed
     // around it in `tile` (above, a row up to the left and to the right: Tileset::pieceNeighbors); fewer of those
     // neighbors when none fits all, any piece when none fits one.

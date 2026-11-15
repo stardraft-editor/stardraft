@@ -201,6 +201,18 @@ float pixelMatch(const Tileset& a, uint16_t va, const Tileset& b, uint16_t vb) {
     return x.ok && y.ok ? std::clamp(corr(x.norm, y.norm), 0.f, 1.f) : 0.f;
 }
 
+std::set<int> searchGroups(const Input& in) {
+    std::set<int> near;
+    if (!in.modTs) return near;
+    const int n = int(in.modTs->groups.size());
+    if (in.onlyGroups.empty())
+        for (const auto& [t, m] : in.known)
+            for (int g = std::max(0, int(m >> 4) - in.window); g <= std::min(n - 1, int(m >> 4) + in.window); ++g) near.insert(g);
+    for (int g : in.onlyGroups)  // (a search space: only its groups)
+        if (g >= 0 && g < n) near.insert(g);
+    return near;
+}
+
 std::vector<Suggestion> suggest(const Input& in) {
     std::vector<Suggestion> out;
     if (!in.tmplTs || !in.modTs || in.known.empty()) return out;
@@ -208,11 +220,8 @@ std::vector<Suggestion> suggest(const Input& in) {
     const Tileset& M = *in.modTs;
     // (the candidates: the mod's tiles in the matched tile groups and a window around them)
     std::set<uint16_t> usedMods;
-    std::set<int> near;  // (the candidates' groups: a window around each matched one, not all between them)
-    for (const auto& [t, m] : in.known) {
-        usedMods.insert(m);
-        for (int g = std::max(0, int(m >> 4) - in.window); g <= std::min(int(M.groups.size()) - 1, int(m >> 4) + in.window); ++g) near.insert(g);
-    }
+    for (const auto& [t, m] : in.known) usedMods.insert(m);
+    const std::set<int> near = searchGroups(in);  // (the candidates' groups: a window around each matched one, not all between them)
     std::vector<uint16_t> cands;
     for (int g : near)
         for (int s = 0; s < 16; ++s)
@@ -235,14 +244,11 @@ std::vector<Suggestion> suggest(const Input& in) {
     std::unordered_map<uint16_t, size_t> slotIx, candIx;
     for (size_t i = 0; i < open.size(); ++i) slotIx[open[i]] = i;
     for (size_t i = 0; i < cands.size(); ++i) candIx[cands[i]] = i;
-    std::vector<float> base(open.size() * cands.size(), 0.f);
+    // (each signal on its own first, raw: likeness, sides, colours; then their weights (learned from the matches, below),
+    // then the table)
     auto like = [&](const Tile& a, const Tile& b) {
-        return in.wLike * (0.3f * corr(a.norm, b.norm) + corr(a.shape, b.shape)) + (in.wEdge != 0 ? in.wEdge * corr(a.edge, b.edge) : 0.f);
+        return 0.3f * corr(a.norm, b.norm) + corr(a.shape, b.shape) + (in.wEdge != 0 ? in.wEdge / std::max(in.wLike, 1e-6f) * corr(a.edge, b.edge) : 0.f);
     };
-    // (the matched pairs' own scores, the same signals: how well a right match scores here (sure needs about that))
-    std::vector<float> knownScore;
-    for (const auto& [t, m] : in.known) knownScore.push_back(like(tmplTile(t), modTile(m)));
-    // (the tiles made first, here: the table's rows then go on the processor's cores)
     {  // (the candidates' tiles at once, on the cores: most of them are new)
         std::vector<Tile> made(cands.size());
         parallelFor(cands.size(), [&](size_t j) { made[j] = tileOf(M, cands[j]); });
@@ -251,28 +257,38 @@ std::vector<Suggestion> suggest(const Input& in) {
     std::vector<const Tile*> ot, ct;
     for (uint16_t v : open) ot.push_back(&tmplTile(v));
     for (uint16_t v : cands) ct.push_back(&modTile(v));
-    const size_t nc = cands.size();
-    parallelFor(open.size(), [&](size_t i) {
-        for (size_t j = 0; j < nc; ++j) base[i * nc + j] = like(*ot[i], *ct[j]);
+    const size_t nc = cands.size(), no = open.size();
+    std::vector<std::pair<uint16_t, uint16_t>> knownList(in.known.begin(), in.known.end());
+    for (const auto& [t, m] : knownList) tmplTile(t), modTile(m);  // (made here: the threads below only read)
+    const bool learn = in.learn && knownList.size() >= 24;
+    std::vector<float> rL(no * nc), rM(no * nc, 0.f), rC(no * nc, 0.f);  // (raw: likeness, sides, colour distance)
+    std::vector<float> kL(knownList.size()), kM(knownList.size(), 0.f), kC(knownList.size(), 0.f);
+    parallelFor(no, [&](size_t i) {
+        for (size_t j = 0; j < nc; ++j) rL[i * nc + j] = like(*ot[i], *ct[j]);
     });
-    if (in.wMask != 0) {  // (the tiles as their two sides by colour: the matches say which mod side is which template side)
+    for (size_t n = 0; n < knownList.size(); ++n) kL[n] = like(tmplTile(knownList[n].first), modTile(knownList[n].second));
+    // (the sides: the tiles as their two sides by colour: the matches say which mod side is which template side)
+    std::array<std::array<float, 3>, 2> tc{}, mc{};
+    float sign = 1.f;
+    const bool useMask = in.wMask != 0 || learn;
+    std::vector<std::array<float, kN * kN>> mSide;
+    if (useMask) {
         std::vector<const Tile*> ts, ms;
         for (uint16_t v : in.slots) ts.push_back(&tmplTile(v));
-        for (const auto& [t, m] : in.known) ts.push_back(&tmplTile(t)), ms.push_back(&modTile(m));
+        for (const auto& [t, m] : knownList) ts.push_back(&tmplTile(t)), ms.push_back(&modTile(m));
         for (uint16_t v : cands) ms.push_back(&modTile(v));
-        const auto tc = twoColors(ts), mc = twoColors(ms);
-        std::vector<std::array<float, kN * kN>> tSide(open.size()), mSide(nc);
-        parallelFor(open.size(), [&](size_t i) { tSide[i] = sidesOf(*ot[i], tc); });
+        tc = twoColors(ts), mc = twoColors(ms);
+        std::vector<std::array<float, kN * kN>> tSide(no);
+        mSide.resize(nc);
+        parallelFor(no, [&](size_t i) { tSide[i] = sidesOf(*ot[i], tc); });
         parallelFor(nc, [&](size_t j) { mSide[j] = sidesOf(*ct[j], mc); });
         double pol = 0;
-        for (const auto& [t, m] : in.known) pol += corr(sidesOf(tmplTile(t), tc), sidesOf(modTile(m), mc));
-        const float sign = pol < 0 ? -1.f : 1.f;
-        {
-            size_t n = 0;
-            for (const auto& [t, m] : in.known) knownScore[n++] += in.wMask * sign * corr(sidesOf(tmplTile(t), tc), sidesOf(modTile(m), mc));
-        }
-        parallelFor(open.size(), [&](size_t i) {
-            for (size_t j = 0; j < nc; ++j) base[i * nc + j] += in.wMask * sign * corr(tSide[i], mSide[j]);
+        for (size_t n = 0; n < knownList.size(); ++n)
+            pol += kM[n] = corr(sidesOf(tmplTile(knownList[n].first), tc), sidesOf(modTile(knownList[n].second), mc));
+        sign = pol < 0 ? -1.f : 1.f;
+        for (float& v : kM) v *= sign;
+        parallelFor(no, [&](size_t i) {
+            for (size_t j = 0; j < nc; ++j) rM[i * nc + j] = sign * corr(tSide[i], mSide[j]);
         });
     }
     std::map<std::tuple<uint16_t, uint16_t, int>, float> modSeams;
@@ -285,7 +301,6 @@ std::vector<Suggestion> suggest(const Input& in) {
     std::multimap<uint16_t, uint16_t> rightOf, leftOf;
     std::map<uint16_t, std::set<uint16_t>> sameRect;
     {
-        std::map<uint16_t, std::set<uint16_t>> byLeft;  // (a rect's variants: pairs whose left tiles are in one group and right tiles in one group)
         for (const auto& p : in.pairs) rightOf.emplace(p[0], p[1]), leftOf.emplace(p[1], p[0]);
         for (const auto& p : in.pairs)
             for (const auto& q : in.pairs)
@@ -295,11 +310,11 @@ std::vector<Suggestion> suggest(const Input& in) {
                             if (a != b) sameRect[a].insert(b);
     }
     // (colours: the template's colours to the mod's, a line a channel fitted on the matched tiles (their blocks at the
-    // same places); a candidate's colour score: how near its blocks are to its slot's blocks put through that, 1: the same)
+    // same places); a candidate's colour distance: how far its blocks are from its slot's blocks put through that)
     std::array<float, 3> ca{1, 1, 1}, cb{0, 0, 0};
     for (int ch = 0; ch < 3; ++ch) {
         double n = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
-        for (const auto& [t, m] : in.known) {
+        for (const auto& [t, m] : knownList) {
             const Tile& a = tmplTile(t);
             const Tile& b = modTile(m);
             if (!a.ok || !b.ok) continue;
@@ -316,15 +331,81 @@ std::vector<Suggestion> suggest(const Input& in) {
     auto colorOff = [&](const Tile& a, const Tile& b) {
         double d = 0;
         for (int k = 0; k < 64 * 3; ++k) d += std::abs(ca[size_t(k % 3)] * a.blocks[size_t(k)] + cb[size_t(k % 3)] - b.blocks[size_t(k)]);
-        return in.wColor * float(d / (64 * 3)) / 16.f;
+        return float(d / (64 * 3)) / 16.f;
     };
-    if (in.wColor != 0) {
-        size_t n = 0;
-        for (const auto& [t, m] : in.known) knownScore[n++] -= colorOff(tmplTile(t), modTile(m));
-        parallelFor(open.size(), [&](size_t i) {
-            for (size_t j = 0; j < nc; ++j) base[i * nc + j] -= colorOff(*ot[i], *ct[j]);
+    const bool useColor = in.wColor != 0 || learn;
+    if (useColor) {
+        for (size_t n = 0; n < knownList.size(); ++n) kC[n] = colorOff(tmplTile(knownList[n].first), modTile(knownList[n].second));
+        parallelFor(no, [&](size_t i) {
+            for (size_t j = 0; j < nc; ++j) rC[i * nc + j] = colorOff(*ot[i], *ct[j]);
         });
     }
+    // (the weights, learned from the matches: each matched template tile against the candidates, as if open; the
+    // weights that rank its own mod tile highest (the mean of 1 / its place) win. The set default unless one is clearly
+    // better: a terrain of flat textures leans on colour, one of sharp edges on the shapes)
+    float wl = in.wLike, wm = in.wMask, wc = in.wColor;
+    if (learn) {
+        const size_t ns = std::min<size_t>(48, knownList.size()), stride = knownList.size() / ns;
+        std::vector<size_t> pick;
+        for (size_t k = 0; k < ns; ++k) pick.push_back(k * stride);
+        std::vector<float> sL(ns * nc), sM(ns * nc), sC(ns * nc), sOwnC(ns);
+        // (the colour map of each tested match fitted without it: else colour looks better than it is)
+        std::array<std::array<double, 5>, 3> all{};  // (a channel's n, sx, sy, sxx, sxy over every match)
+        auto addPair = [&](std::array<std::array<double, 5>, 3>& acc, const Tile& a, const Tile& b, double k) {
+            if (!a.ok || !b.ok) return;
+            for (int ch = 0; ch < 3; ++ch)
+                for (int q = 0; q < 64; ++q) {
+                    const double x = a.blocks[size_t(q * 3 + ch)], y = b.blocks[size_t(q * 3 + ch)];
+                    auto& v = acc[size_t(ch)];
+                    v[0] += k, v[1] += k * x, v[2] += k * y, v[3] += k * x * x, v[4] += k * x * y;
+                }
+        };
+        for (const auto& [t, m] : knownList) addPair(all, tmplTile(t), modTile(m), 1);
+        parallelFor(ns, [&](size_t s) {
+            const Tile& t = tmplTile(knownList[pick[s]].first);
+            auto acc = all;
+            addPair(acc, t, modTile(knownList[pick[s]].second), -1);
+            std::array<float, 3> a3{1, 1, 1}, b3{0, 0, 0};
+            for (int ch = 0; ch < 3; ++ch) {
+                const auto& v = acc[size_t(ch)];
+                if (v[0] < 2) continue;
+                const double den = v[0] * v[3] - v[1] * v[1];
+                a3[size_t(ch)] = den > 1e-6 ? float((v[0] * v[4] - v[1] * v[2]) / den) : 0.f;
+                b3[size_t(ch)] = float((v[2] - a3[size_t(ch)] * v[1]) / v[0]);
+            }
+            auto off = [&](const Tile& b) {
+                double d = 0;
+                for (int k = 0; k < 64 * 3; ++k) d += std::abs(a3[size_t(k % 3)] * t.blocks[size_t(k)] + b3[size_t(k % 3)] - b.blocks[size_t(k)]);
+                return float(d / (64 * 3)) / 16.f;
+            };
+            const auto ts = sidesOf(t, tc);
+            for (size_t j = 0; j < nc; ++j) sL[s * nc + j] = like(t, *ct[j]), sM[s * nc + j] = sign * corr(ts, mSide[j]), sC[s * nc + j] = off(*ct[j]);
+            sOwnC[s] = off(modTile(knownList[pick[s]].second));
+        });
+        auto mrr = [&](float a, float m, float c) {
+            double sum = 0;
+            for (size_t s = 0; s < ns; ++s) {
+                const size_t n = pick[s];
+                const float own = a * kL[n] + m * kM[n] - c * sOwnC[s];
+                int rank = 1;
+                for (size_t j = 0; j < nc; ++j) rank += a * sL[s * nc + j] + m * sM[s * nc + j] - c * sC[s * nc + j] > own;
+                sum += 1.0 / rank;
+            }
+            return sum / double(ns);
+        };
+        double best = mrr(wl, wm, wc) + 0.02;  // (the default wins ties and near ties)
+        for (float a : {0.5f, 1.f, 2.f})
+            for (float m : {0.f, 0.5f, 1.f, 2.f})
+                for (float c : {0.f, 0.5f, 1.f, 2.f, 4.f})
+                    if (const double r = mrr(a, m, c); r > best) best = r, wl = a, wm = m, wc = c;
+    }
+    if (in.learned) *in.learned = {wl, wm, wc};
+    std::vector<float> base(no * nc);
+    parallelFor(no, [&](size_t i) {
+        for (size_t j = 0; j < nc; ++j) base[i * nc + j] = wl * rL[i * nc + j] + wm * rM[i * nc + j] - wc * rC[i * nc + j];
+    });
+    std::vector<float> knownScore(knownList.size());
+    for (size_t n = 0; n < knownList.size(); ++n) knownScore[n] = wl * kL[n] + wm * kM[n] - wc * kC[n];
     // (sure: the best far ahead of the next (the margin) and as good as the matches score (the level): a slot's typical
     // candidate (its mean) is 0, a typical match (the matches' median) is 1)
     float knownLevel = 0;
@@ -372,7 +453,6 @@ std::vector<Suggestion> suggest(const Input& in) {
     // so the best one not taken is the first one not taken; the same choices as the general pass below, much sooner)
     const bool fast = in.wSeam == 0 && in.wLayout == 0;
     if (fast) {
-        const size_t no = open.size();
         std::vector<char> usedC(nc, 0), isOpen(no, 1);
         std::vector<int> cIx(65536, -1);
         for (size_t j = 0; j < nc; ++j) cIx[cands[j]] = int(j);

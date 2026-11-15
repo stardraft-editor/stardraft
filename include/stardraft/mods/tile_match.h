@@ -30,12 +30,21 @@ struct Input {
     std::map<uint16_t, uint16_t> known;  // the matches so far: template tile -> mod tile
     std::set<uint16_t> taken;            // mod tiles not to suggest (other terrains')
     int window = 8;                      // tile groups around the matched ones that are candidates
+    std::set<int> onlyGroups;            // the search space: set, the candidates are these groups' tiles only (no window)
     // The template's rects: each variant's tile pair (left, right): a rect's halves join (seams), and the steps between
     // the tiles of one rect (its halves, its variants) are its layout.
     std::vector<std::array<uint16_t, 2>> pairs;
     // (the signals' weights, as measured: likeness, sides, colours and the pairs gave the most right; seams (a rect's
     // halves join cleanly in the mod), layout (steps within a rect) and edges (where the gray changes) on top gave fewer)
     float wLike = 1, wMask = 1, wColor = 1, wSeam = 0, wLayout = 0, wEdge = 0;
+    // Learn the likeness, sides and colour weights from the matches (24 or more): the ones that rank each matched tile's
+    // own mod tile highest among the candidates (its colour map fitted without it), in place of the three above when
+    // clearly better. Off: measured (cmbw_auto_match seed, LEARN=1) it gave no more right than the weights above.
+    bool learn = false;
+    struct Weights {
+        float like = 1, mask = 1, color = 1;
+    };
+    Weights* learned = nullptr;  // (set: the weights used)
 };
 
 struct Suggestion {
@@ -47,6 +56,8 @@ struct Suggestion {
 
 // A suggestion for each slot with no match yet (the best first), each mod tile once. None without a match.
 std::vector<Suggestion> suggest(const Input& in);
+// The mod tile groups suggest() takes its candidates from: onlyGroups when set, else a window around each matched tile's.
+std::set<int> searchGroups(const Input& in);
 
 // How alike two tiles are pixel by pixel, 0..1: both in gray, each with its brightness and contrast made the same (the
 // shapes count, not the colours); 1: the same picture, 0: nothing alike (or a tile with no picture).

@@ -1166,35 +1166,103 @@ int IsomGrid::invalidDiamonds() const {
     return n;
 }
 
+Chk IsomGrid::gameCopy(const Chk& chk) const {
+    Chk copy;
+    // (a piece as the game's tile it stands for: only in a rect of a mod's terrain, by the ISOM as it is now; the same
+    // tiles placed elsewhere stay as they are)
+    std::vector<uint8_t> modRect(size_t(rectCols_) * rectRows_, 0);
+    for (int ry = 0; ry < rectRows_; ++ry)
+        for (int rx = 0; rx < rectCols_; ++rx) {
+            const uint16_t* q = &isom_[(size_t(ry) * rectCols_ + rx) * 4];
+            uint16_t gl = 0, gr = 0, tag = 0;
+            modRect[size_t(ry) * rectCols_ + rx] = table_->templateRect(uint16_t(q[0] >> 4), uint16_t(q[2] >> 4), gl, gr, tag) && tag;
+        }
+    // (the ground beside a mod terrain's border that is its template's ground there (rectTemplate: LevelMask): that ground's
+    // tiles, as the template has them. The game picks a border's tiles by the tiles beside it too, and an edge of the
+    // template's ground and the map's own (Asphalt and Dirt) has the shape of the border's: beside the map's own ground
+    // the game would pick that edge)
+    std::vector<uint16_t> band(size_t(rectCols_) * rectRows_ * 2, 0);
+    if (tiles_ && tileset_) {
+        const LevelMask mask(*this);
+        // (a terrain's height: its inside's elevation (VF4); a mod terrain's, its template's. Only where the template's
+        // ground is as high as the map's: below a cliff the game's ground under the cliff is another level, and the faces
+        // there are the template's own)
+        auto height = [&](uint16_t t) {
+            if (uint16_t gt = 0, gtag = 0; table_->modTerrain(t, gt, gtag)) t = gt;
+            const auto& gs = tiles_->groups(0, t, t);
+            const int mt = gs.empty() ? -1 : tileset_->megatileFor(uint16_t(gs[0] << 4));
+            return mt > 0 && size_t(mt) < tileset_->minitileFlags.size() ? tileset_->minitileFlags[size_t(mt)][5] & 6 : -1;
+        };
+        std::map<std::pair<uint16_t, uint16_t>, bool> level;
+        for (int ry = 0; ry < rectRows_; ++ry)
+            for (int rx = 0; rx < rectCols_; ++rx) {
+                uint16_t gl = 0, gr = 0, tag = 0, ground = 0;
+                if (modRect[size_t(ry) * rectCols_ + rx] || !rectTemplate(rx, ry, gl, gr, tag, &ground) || !ground || gl != gr) continue;
+                const auto lv = level.try_emplace({gl, ground}, false);
+                if (lv.second) lv.first->second = height(gl) >= 0 && height(gl) == height(ground);
+                if (!lv.first->second) continue;
+                const auto& gs = tiles_->groups((rx + ry) & 1, gl, gl);
+                if (gs.empty() || size_t(gs[0]) + 1 >= tileset_->groups.size()) continue;
+                band[(size_t(ry) * rectCols_ + rx) * 2] = uint16_t(gs[0] << 4), band[(size_t(ry) * rectCols_ + rx) * 2 + 1] = uint16_t((gs[0] + 1) << 4);
+            }
+    }
+    auto take = [&](SectionName name, bool tiles) {
+        const Section* s = chk.find(name);
+        if (!s) return;
+        Bytes d = s->data;
+        const Section* tileSec = chk.find("TILE");
+        for (size_t i = 0; tiles && i + 1 < d.size(); i += 2) {
+            const size_t t = i / 2, x = mapWidth_ ? t % size_t(mapWidth_) : 0, y = mapWidth_ ? t / size_t(mapWidth_) : 0;
+            if (y >= size_t(rectRows_) || x / 2 >= size_t(rectCols_)) continue;
+            if (const uint16_t b = band[(y * rectCols_ + x / 2) * 2 + (x & 1)]) {
+                // (not under a doodad: MTXM as TILE there)
+                if (tileSec && i + 1 < tileSec->data.size() && tileSec->data[i] == d[i] && tileSec->data[i + 1] == d[i + 1]) d[i] = uint8_t(b), d[i + 1] = uint8_t(b >> 8);
+                continue;
+            }
+            if (!modRect[y * rectCols_ + x / 2]) continue;
+            if (auto it = gameTile_.find(uint16_t(d[i] | d[i + 1] << 8)); it != gameTile_.end()) d[i] = uint8_t(it->second), d[i + 1] = uint8_t(it->second >> 8);
+        }
+        copy.set(name, std::move(d));
+    };
+    take("DIM ", false), take("ERA ", false), take("TILE", true), take("MTXM", true);
+    return copy;
+}
+
+int IsomGrid::rerollPieces(Chk& chk, const std::vector<std::pair<int, int>>& rects, uint32_t salt) const {
+    if (!table_ || !table_->hasExtras() || !tileset_ || rects.empty()) return 0;
+    const TerrainLayer before = readTerrain(chk, "TILE");
+    // (each rect, and up to two rows above and below while they are pieces of its terrain: the rows of its block)
+    auto pieceRect = [&](int rx, int ry, uint16_t& tag) {
+        uint16_t gl = 0, gr = 0;
+        const size_t k = size_t(ry) * mapWidth_ + 2 * size_t(rx);
+        return rx >= 0 && ry >= 0 && rx < rectCols_ && ry < rectRows_ && 2 * rx + 1 < mapWidth_ && k + 1 < before.tiles.size() &&
+               gameTile_.count(before.tiles[k]) && gameTile_.count(before.tiles[k + 1]) && rectTemplate(rx, ry, gl, gr, tag) && tag;
+    };
+    std::vector<uint8_t> mask(size_t(rectCols_) * rectRows_, 0);
+    for (auto [rx, ry] : rects) {
+        uint16_t tag = 0, t = 0;
+        if (!pieceRect(rx, ry, tag)) continue;
+        mask[size_t(ry) * rectCols_ + rx] = 1;
+        for (int dir : {-1, 1})
+            for (int y = ry + dir; std::abs(y - ry) <= 2 && pieceRect(rx, y, t) && t == tag; y += dir) mask[size_t(y) * rectCols_ + rx] = 1;
+    }
+    const Chk work = gameCopy(chk);
+    pieceSalt_ = salt | 1u;
+    putPieces(chk, work, mask);
+    pieceSalt_ = 0;
+    const TerrainLayer after = readTerrain(chk, "TILE");
+    int n = 0;
+    for (size_t i = 0; i < before.tiles.size() && i < after.tiles.size(); ++i) n += before.tiles[i] != after.tiles[i];
+    return n;
+}
+
 bool IsomGrid::store(Chk& chk, std::string& error) {
     std::vector<uint8_t> touched(dirtyRects_.size(), 0);  // every rect changed by this store
     // A mod's terrains (IsomTerrainTable::withExtras): the terrain core makes the tiles of their templates, on a copy of
     // the map with the game's shapes and tiles in place of the mod's; then their rects take the mod's pieces for those.
     const bool own = table_ && table_->hasExtras();
     Chk copy;
-    if (own) {
-        // (a piece as the game's tile it stands for: only in a rect of a mod's terrain, by the ISOM before this store; the
-        // same tiles placed elsewhere stay as they are)
-        std::vector<uint8_t> modRect(size_t(rectCols_) * rectRows_, 0);
-        for (int ry = 0; ry < rectRows_; ++ry)
-            for (int rx = 0; rx < rectCols_; ++rx) {
-                const uint16_t* q = &isom_[(size_t(ry) * rectCols_ + rx) * 4];
-                uint16_t gl = 0, gr = 0, tag = 0;
-                modRect[size_t(ry) * rectCols_ + rx] = table_->templateRect(uint16_t(q[0] >> 4), uint16_t(q[2] >> 4), gl, gr, tag) && tag;
-            }
-        auto take = [&](SectionName name, bool tiles) {
-            const Section* s = chk.find(name);
-            if (!s) return;
-            Bytes d = s->data;
-            for (size_t i = 0; tiles && i + 1 < d.size(); i += 2) {
-                const size_t t = i / 2, x = mapWidth_ ? t % size_t(mapWidth_) : 0, y = mapWidth_ ? t / size_t(mapWidth_) : 0;
-                if (y >= size_t(rectRows_) || !modRect[y * rectCols_ + x / 2]) continue;
-                if (auto it = gameTile_.find(uint16_t(d[i] | d[i + 1] << 8)); it != gameTile_.end()) d[i] = uint8_t(it->second), d[i + 1] = uint8_t(it->second >> 8);
-            }
-            copy.set(name, std::move(d));
-        };
-        take("DIM ", false), take("ERA ", false), take("TILE", true), take("MTXM", true);
-    }
+    if (own) copy = gameCopy(chk);
     Chk& work = own ? copy : chk;
     size_t lastBreaks = 0;
     for (int pass = 0;; ++pass) {
@@ -1399,6 +1467,7 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
             const size_t k = size_t(ry) * mapWidth_ + 2 * rx;
             uint16_t l = wt.tiles[k], r = wt.tiles[k + 1], ml = wm.tiles[k], mr = wm.tiles[k + 1];
             uint16_t gl = 0, gr = 0, tag = 0, ground = 0;
+            if (pieceSalt_ && (!gameTile_.count(tile.tiles[k]) || !gameTile_.count(tile.tiles[k + 1]))) continue;  // (rerollPieces: only a rect with a piece now)
             if (rectTemplate(rx, ry, gl, gr, tag, &ground) && tag && tag <= pieces_.size()) {
                 tagOf[size_t(ry) * rectCols_ + rx] = tag;
                 const auto& by = pieces_[tag - 1u];
@@ -1412,11 +1481,28 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
                     if (auto u = by.find(ug); u == by.end() || u->second.empty()) break;
                     top = ry - up;
                 }
-                uint32_t h = uint32_t(2 * rx) * 73856093u ^ uint32_t(top) * 19349663u;
+                uint32_t h = uint32_t(2 * rx) * 73856093u ^ uint32_t(top) * 19349663u ^ pieceSalt_ * 2654435761u;
                 h ^= h >> 13, h *= 0x5bd1e995u, h ^= h >> 15;
                 // (no piece for the game's rect: its tiles, as inside a terrain of edges only; under a cliff a level
                 // higher: the ground's own tiles, not its template's)
-                if (auto it = by.find(uint16_t(l >> 4)); it != by.end() && !it->second.empty()) {
+                // (rerollPieces: the group of the piece there now (shapes have more than one group, and which one is
+                // right depends on the tiles above), another of its variants)
+                auto it = by.find(uint16_t(l >> 4));
+                if (pieceSalt_) {  // (the list of this terrain's set that has the piece there now)
+                    const std::pair<uint16_t, uint16_t> now{tile.tiles[k], tile.tiles[k + 1]};
+                    it = std::find_if(by.begin(), by.end(), [&](const auto& g) { return std::find(g.second.begin(), g.second.end(), now) != g.second.end(); });
+                    if (it == by.end()) continue;
+                }
+                // (a border rect whose game tiles are another border's, as where a stand-in needs a strip of its ground's
+                // template between it and the ground and an inner corner has no room for it: a piece of the rect's own
+                // shape; a solid rect (the ground under a cliff) keeps the ground)
+                if ((it == by.end() || it->second.empty()) && tiles_ && gl != gr)
+                    for (uint16_t g : tiles_->groups((rx + ry) & 1, gl, gr))
+                        if (auto o = by.find(g); o != by.end() && !o->second.empty()) {
+                            it = o;
+                            break;
+                        }
+                if (it != by.end() && !it->second.empty()) {
                     // (under a piece of the same terrain: the next row of its block, one group down at the same subtiles,
                     // when this rect has it: the rows of a wall stay one variant also where the maps give no rule)
                     const uint16_t ul = top < ry ? tile.tiles[k - size_t(mapWidth_)] : 0, ur = top < ry ? tile.tiles[k + 1 - size_t(mapWidth_)] : 0;

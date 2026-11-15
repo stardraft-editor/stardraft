@@ -242,7 +242,12 @@ int main(int argc, char** argv) {
         Tileset ts;
         if (!ts.load(data, uint16_t(std::atoi(argv[3])), err)) return 1;
         const auto* tb = IsomTerrainTable::forEra(uint16_t(std::atoi(argv[3])));
-        for (uint16_t i = 1; tb && i <= tb->terrainCount(); ++i) std::printf("%u %s %d\n", i, tb->terrainName(i), solidTileGroup(ts, i));
+        for (uint16_t i = 1; tb && i <= tb->terrainCount(); ++i) {
+            const int g = solidTileGroup(ts, i);
+            const int mt = g >= 0 ? ts.megatileFor(uint16_t(g << 4)) : -1;
+            const unsigned f = mt > 0 && size_t(mt) < ts.minitileFlags.size() ? ts.minitileFlags[size_t(mt)][5] : 0;
+            std::printf("%u %s %d cv5h %u vf4 %x\n", i, tb->terrainName(i), g, g >= 0 ? unsigned(ts.groups[size_t(g)].groundHeight) : 0u, f);
+        }
         return 0;
     }
     if (mode == "groups") {  // groups <install> <era> <g0> <g1>: each group's tiles and mean colour
@@ -251,6 +256,9 @@ int main(int argc, char** argv) {
         for (int g = std::atoi(argv[4]); g <= std::atoi(argv[5]); ++g) {
             int n = 0;
             double r = 0, gg = 0, b = 0;
+            std::string subs;  // (the subtiles with art: x, else .)
+            for (int s = 0; s < 16; ++s) subs += ts.megatileFor(uint16_t(g * 16 + s)) > 0 ? 'x' : '.';
+            std::printf("%s ", subs.c_str());
             for (int s = 0; s < 16; ++s) {
                 const int mt = ts.megatileFor(uint16_t(g * 16 + s));
                 if (mt <= 0) continue;
@@ -385,6 +393,7 @@ int main(int argc, char** argv) {
                 if (const char* e = std::getenv("W_COLOR")) in.wColor = float(std::atof(e));
                 if (const char* e = std::getenv("W_MASK")) in.wMask = float(std::atof(e));
                 if (const char* e = std::getenv("W_LIKE")) in.wLike = float(std::atof(e));
+                if (const char* e = std::getenv("LEARN")) in.learn = std::atoi(e) != 0;
                 in.pairs = pairs;
                 std::set<uint16_t> seedRects;
                 for (int k = 0; k < nSeeds; ++k) seedRects.insert(rects[(first + size_t(k) * 5) % rects.size()]);  // (seeds spread out)
@@ -502,6 +511,7 @@ int main(int argc, char** argv) {
             if (const char* e = std::getenv("W_SEAM")) in.wSeam = float(std::atof(e));
             if (const char* e = std::getenv("W_MASK")) in.wMask = float(std::atof(e));
             if (const char* e = std::getenv("W_LIKE")) in.wLike = float(std::atof(e));
+            if (const char* e = std::getenv("LEARN")) in.learn = std::atoi(e) != 0;
             std::map<uint16_t, std::pair<uint16_t, int>> rectOf;  // (template tile -> its rect, half)
             std::vector<uint16_t> withTruth;
             for (const auto& r : rects) {
@@ -556,6 +566,45 @@ int main(int argc, char** argv) {
     }
     // strip <install> <rules .isom> <terrain id> <rects to keep> <out .isom>: the terrain with only its first edge rects'
     // tiles (the seeds of a suggestions test), the others and the inside NULL
+    // seedfile <install> <era> <terrain name> <seed rects> <out .isom>: a rules file for the mapper with the mod's built-in
+    // terrain of that name, its template the game border it is made from, only a few of its edge rects (spread over
+    // them, each variant in its place) and its inside kept: a demo of the suggestions on a terrain the mod has
+    if (mode == "seedfile" && argc >= 7) {
+        const uint16_t era = uint16_t(std::atoi(argv[3]));
+        cmbw::skipTerrainOverride(true);
+        Tileset ts;
+        if (!ts.load(data, era, err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+        terrainrules::TilesetRules all = terrainrules::rulesOf(ts);
+        terrainrules::Terrain x;
+        bool found = false;
+        for (const auto& t : all.terrains)
+            if (t.t.name == argv[4] && !t.t.variantOf) x = t, found = true;
+        if (!found) return std::fprintf(stderr, "no terrain %s\n", argv[4]), 1;
+        const auto [g, s] = terrainrules::templateOf(ts, x.t);
+        x.baseEra = era, x.baseGround = g, x.baseTerrain = s, x.t.draft = true;
+        const int sg = solidTileGroup(ts, x.t.standIn);
+        std::vector<uint16_t> edges;
+        for (const auto& p : x.t.pieces)
+            if (p[0] != sg && p[0] != sg + 1 && terrainrules::stateOf(p) == terrainrules::PieceState::Own && std::find(edges.begin(), edges.end(), p[0]) == edges.end())
+                edges.push_back(p[0]);
+        const int n = std::max(1, std::atoi(argv[5]));
+        std::set<uint16_t> seeds;
+        for (int k = 0; k < n && !edges.empty(); ++k) seeds.insert(edges[size_t(k) * edges.size() / size_t(n)]);
+        std::map<uint16_t, uint8_t> nth;  // (a rect's pieces in order: variant 0, 1, ...)
+        for (auto& p : x.t.pieces) {
+            const bool keep = p[0] == sg || p[0] == sg + 1 || seeds.count(p[0]);
+            if (keep) x.variantOf[p] = nth[p[0]]++;
+            else p[1] = 0, p[2] = 1;
+        }
+        terrainrules::normalize(ts, x.t);
+        terrainrules::Rules r;
+        all.terrains = {x};
+        r.tilesets.push_back(all);
+        std::printf("%s: id %u, template %u/%u, %zu edge rects, seeds", x.t.name.c_str(), x.t.id, g, s, edges.size());
+        for (uint16_t q : seeds) std::printf(" %u", q);
+        std::printf("\n");
+        return terrainrules::save(argv[6], r, err) ? 0 : (std::fprintf(stderr, "%s\n", err.c_str()), 1);
+    }
     if (mode == "strip" && argc >= 7) {
         terrainrules::Rules r;
         if (!terrainrules::load(argv[3], r, err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
