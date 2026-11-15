@@ -37,7 +37,7 @@ namespace stardraft::terrainrules {
 
 struct Terrain {
     Tileset::ModTerrain t;  // (emptyBlocks is not kept)
-    // The game border it is made from (the Archetype sandbox's template: any tileset's; the engine uses the border of the
+    // The game border it is made from (the Mod terrain mapper's template: any tileset's; the engine uses the border of the
     // same shapes in its own tileset, t's stand-in and ground template); baseEra -1: none.
     int baseEra = -1;
     uint16_t baseGround = 0, baseTerrain = 0;

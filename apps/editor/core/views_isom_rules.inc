@@ -20,8 +20,8 @@ bool cmbwIsTerrainOverride(const std::filesystem::path& f);   // (core/cmbw.inc:
 bool cmbwReloadTerrainRules(const std::filesystem::path& f);  // (f is the override in use: the open map loads its rules again)
 void shellShowIsomRulesWindow();  // (the host: the window, once)
 void shellSetIsomRulesTitle(const std::wstring& title);  // (the host: the window's title)
-void shellShowIsomSandboxWindow();  // (the host: the Archetype sandbox's window, once)
-void shellSetIsomSandboxTitle(const std::wstring& title);
+void shellShowTerrainMapperWindow();  // (the host: the Mod terrain mapper's window, once)
+void shellSetTerrainMapperTitle(const std::wstring& title);
 void setMessage(const std::wstring& m);  // (the program's status bar)
 inline void isomProgramMessage(const std::wstring& m) { setMessage(m); }  // (the view's own setMessage hides it)
 void shellSetTerrainOverride(const std::filesystem::path& file);  // (the host: Program options > Plugins' override)
@@ -269,7 +269,7 @@ struct ArchetypeThumb {
     uint16_t ground = 0, terrain = 0;
 };
 
-// The Archetype sandbox's New terrain page, in the place of the terrain canvas: the tileset, the template (every game
+// The Mod terrain mapper's New terrain page, in the place of the terrain canvas: the tileset, the template (every game
 // border of every tileset, searchable, each painted with the same strokes; its archetype, rects and room for random
 // variants under it), the border (the bordering terrain) and the name (the border's name is added in parentheses).
 // A click picks a template (onPick); Create (onCreate) or Cancel (onCancel). The owner gives the pictures (pic), each
@@ -511,10 +511,10 @@ private:
 class IsomRulesView final : public draw::View {
 public:
     ~IsomRulesView() { *alive_ = false; }
-    // sandbox: Tools > Cosmonarchy > Archetype sandbox: rules of its own (none at first, not the rules in use), the list
+    // mapper: Tools > Cosmonarchy > Mod terrain mapper: rules of its own (none at first, not the rules in use), the list
     // by archetype (the game borders that tile the same way in every tileset), its own file.
-    explicit IsomRulesView(bool sandbox = false)
-        : sandbox_(sandbox), newTerrain_(L"New terrain\x2026", stardraft::kit::Tone::Normal, [this] { newTerrain(); }) {
+    explicit IsomRulesView(bool mapper = false)
+        : mapper_(mapper), newTerrain_(L"New terrain\x2026", stardraft::kit::Tone::Normal, [this] { newTerrain(); }) {
         std::vector<stardraft::kit::DropdownItem> eras;
         for (int e = 0; e < 8; ++e) eras.push_back({isomrules::tilesetTitle(e)});
         era_.setItems(eras), era_.setValue(0);
@@ -588,7 +588,7 @@ public:
         newPage_.onCancel = [this] { closeNewPage(); };
     }
     static draw::Point size() { return {scale(1500), scale(900)}; }
-    std::wstring windowName() const { return sandbox_ ? L"Archetype sandbox" : L"Custom isom terrain editor"; }
+    std::wstring windowName() const { return mapper_ ? L"Mod terrain mapper" : L"Custom isom terrain editor"; }
 
     // Off: the work is done at once, on this thread (a snapshot's run).
     void setAsync(bool on) { async_ = on; }
@@ -619,7 +619,7 @@ public:
         if (int v = 0; prefs::number(L"Layout/IsomOverlays", v, 0, 7)) ovMine_ = (v & 1) != 0, ovSugg_ = (v & 2) != 0, ovOthers_ = (v & 4) != 0;
         syncOverlays();
         if (int v = 0; prefs::number(L"Layout/IsomLinkRows", v, 0, 1)) linkRows_ = v != 0;
-        if (sandbox_) matchMode_ = true, modePick_.setValue(1);  // (the Archetype sandbox: Rectangle match only)
+        if (mapper_) matchMode_ = true, modePick_.setValue(1);  // (the Mod terrain mapper: Rectangle match only)
         if (!doc_.tilesets.empty() && pendingFile_.empty()) return rebuild();
         // (the file asked for, or the file saved or loaded last)
         if (std::wstring last = pendingFile_.wstring(); !last.empty() || (!gSettingsOff && prefs::text(fileKey(), last) && !last.empty())) {
@@ -635,7 +635,7 @@ public:
     // The tileset and terrain that open() shows first, in place of the open map's tileset and its first terrain (a
     // snapshot's isomrules:[<era>/]<name>: no canvas of another terrain before it). Era -1: the open map's.
     void showFirst(int era, const std::string& name) { firstEra_ = era, firstName_ = name; }
-    // The rules file that open() opens (a snapshot's isomsandbox:...@<file>), in place of the one saved last.
+    // The rules file that open() opens (a snapshot's terrainmapper:...@<file>), in place of the one saved last.
     void useFile(const std::filesystem::path& f) { pendingFile_ = f; }
     bool dirty() const { return dirty_; }
     // Another tileset (a snapshot's isomrules:<era>/<name>).
@@ -649,7 +649,7 @@ public:
             if (v >= 0) out += "isom terrain: " + rules().terrains[size_t(v)].t.name + " | " + narrow(isomrules::familyName(familyOfValue(v))) + "\n";
         return out;
     }
-    // The sidebar as text, a line a row: a header ("# <text>") or a row's name (a snapshot's isomsandbox).
+    // The sidebar as text, a line a row: a header ("# <text>") or a row's name (a snapshot's terrainmapper).
     std::string sideText() {
         std::string out;
         for (const SideRow& r : sideRows_)
@@ -884,7 +884,7 @@ private:
         tileset_ = std::move(o.tileset);
         mmColors_.clear(), mmBmp_.reset();  // (the minimap: this tileset's colors, made again)
         if (!rulesOrNull() || o.plain) {
-            if (sandbox_) o.rules.terrains.clear();  // (the sandbox: only the terrains made in it)
+            if (mapper_) o.rules.terrains.clear();  // (the mapper: only the terrains made in it)
             setRules(std::move(o.rules));
         }
         for (auto& x : rules().terrains) stardraft::terrainrules::normalize(tileset_, x.t);  // (every template rect present, the engine's order)
@@ -907,7 +907,7 @@ private:
         const std::string first = std::exchange(firstName_, std::string());
         if (first.empty() || !selectByName(first)) {
             if (!shown_.empty()) selectValue(shown_[0]);
-            else rebuild();  // (no terrains: the sandbox at first)
+            else rebuild();  // (no terrains: the mapper at first)
         }
         loadRefTilesets();  // (after the first example's job: it does not wait for them)
         if (pageOn_) {  // (the New terrain page's tileset changed: its grounds, its pick in this tileset)
@@ -915,7 +915,7 @@ private:
             if (newPage_.picked()) pagePicked(pickThumb_);
         }
         invalidate();
-        if (file_.empty() && !copyAsked_ && !gSettingsOff && host() && !sandbox_) {  // (no rules file: the rules in use are the mod's; a copy to change)
+        if (file_.empty() && !copyAsked_ && !gSettingsOff && host() && !mapper_) {  // (no rules file: the rules in use are the mod's; a copy to change)
             copyAsked_ = true;
             std::shared_ptr<bool> alive = alive_;
             host()->timer(1, [this, alive] {
@@ -1129,7 +1129,7 @@ private:
                 }
             if (match[i] || viaUser) shown_.push_back(int(i));
         }
-        for (size_t k = 0; k < stdPairs_.size() && !sandbox_; ++k) {  // (the game's own: -1 - k; not in the sandbox: New terrain picks one)
+        for (size_t k = 0; k < stdPairs_.size() && !mapper_; ++k) {  // (the game's own: -1 - k; not in the mapper: New terrain picks one)
             std::wstring n = stdName(int(k)) + L" game";
             std::transform(n.begin(), n.end(), n.begin(), ::towlower);
             if (q.empty() || n.find(q) != std::wstring::npos) shown_.push_back(-1 - int(k));
@@ -1154,10 +1154,10 @@ private:
         return isomrules::archetypeOf(int(era()), a, b);
     }
     // The sidebar's rows: the terrains by family (cliffs first), each family a header with its count, then the game's
-    // borders; the shown terrain's row in view. The sandbox: by archetype, each with its terrains, then its game borders.
+    // borders; the shown terrain's row in view. The mapper: by archetype, each with its terrains, then its game borders.
     void buildSideRows() {
         sideRows_.clear();
-        if (sandbox_) {
+        if (mapper_) {
             int y = 0;
             for (int k : {1, 2, 3, 4, 5, 6, 7, 8, 9, 0}) {
                 std::vector<int> mine, games;
@@ -1222,7 +1222,7 @@ private:
         const auto& m = rules().terrains[size_t(v)].t;
         for (size_t k = m.setPieces; k + m.gapPieces < m.pieces.size(); ++k)
             if (!isomrules::nullHalf(m.pieces[k][1])) return m.pieces[k][1];
-        if (sandbox_) {  // (the sandbox's: its own tiles only (an edge's, when its inside has none yet); none yet: no picture, not its stand-in's)
+        if (mapper_) {  // (the mapper's: its own tiles only (an edge's, when its inside has none yet); none yet: no picture, not its stand-in's)
             for (size_t k = 0; k < m.setPieces && k < m.pieces.size(); ++k)
                 if (!isomrules::nullHalf(m.pieces[k][1])) return m.pieces[k][1];
             return 0;
@@ -1338,7 +1338,7 @@ private:
                                                                                          : std::make_pair(a.first * 64, a.second * 32);
     }
     static Brush spotBrush(int i) { return Brush{Brush::Diamond, spotKind(i) == 2 ? float(kTopSize) : spotKind(i) == 1 ? 0.5f : 1.0f}; }
-    // The Archetype sandbox's thin shapes, in the thin shapes' row under the shape (the same for every terrain, so a
+    // The Mod terrain mapper's thin shapes, in the thin shapes' row under the shape (the same for every terrain, so a
     // mapping shows on the shapes the small brushes make): three diamonds of the 1 brush, and with the 0.5 brush a line
     // down to the right, a line up to the right, a line across, a line down and a spot alone.
     static std::vector<std::pair<int, int>> thinShowcase() {
@@ -1382,11 +1382,11 @@ private:
         in->cut = cutOf(in->extraKey);
         if (!moreRects_.count(cacheId))  // (another terrain of the same template and rects, now or in an earlier run: its spots)
             if (const auto known = knownExtra(in->extraKey)) moreRects_[cacheId] = *known;
-        // (the sandbox's canvas: the shape's own spots only, as the brush paints them; the search's extra spots (thin strokes
+        // (the mapper's canvas: the shape's own spots only, as the brush paints them; the search's extra spots (thin strokes
         // that make a rect show) put places where no brush stroke would)
-        if (const auto it = moreRects_.find(cacheId); it != moreRects_.end() && !sandbox_) in->extra = it->second;
-        in->extend = !moreRects_.count(cacheId) && !sandbox_;  // (a terrain's first example: the search before it shows, one picture)
-        if (sandbox_) in->extra = thinShowcase();  // (the sandbox: no search, the same thin shapes under every terrain's shape)
+        if (const auto it = moreRects_.find(cacheId); it != moreRects_.end() && !mapper_) in->extra = it->second;
+        in->extend = !moreRects_.count(cacheId) && !mapper_;  // (a terrain's first example: the search before it shows, one picture)
+        if (mapper_) in->extra = thinShowcase();  // (the mapper: no search, the same thin shapes under every terrain's shape)
         in->pins = pins_;
         uint16_t root = on.t.ground;  // (a game terrain under its grounds)
         for (int n = 0; n < 16 && root >= stardraft::Tileset::kModTerrainIds; ++n)
@@ -2281,7 +2281,7 @@ private:
         const int c = refPick_.value();
         if (c >= 2 && c < int(refEntries_.size())) return refEntries_[size_t(c)].era >= 0 ? c : -1;
         if (c != 0 || !t) return -1;
-        if (t->baseEra >= 0)  // (a terrain made from another border (the sandbox's): that border)
+        if (t->baseEra >= 0)  // (a terrain made from another border (the mapper's): that border)
             for (size_t k = 0; k < refEntries_.size(); ++k)
                 if (refEntries_[k].era == t->baseEra && refEntries_[k].ground == t->baseGround && refEntries_[k].terrain == t->baseTerrain) return int(k);
         const uint16_t ground = t->t.groundTemplate ? t->t.groundTemplate : t->t.ground, terrain = t->t.standIn;
@@ -2323,7 +2323,7 @@ private:
             if (!game || borders.empty()) continue;
             refs.push_back({isomrules::tilesetTitle(e)}), refs.back().heading = true, refEntries_.push_back({});
             for (const auto& [g, t] : borders) {
-                const int arch = sandbox_ ? isomrules::archetypeOf(e, g, t) : 0;
+                const int arch = mapper_ ? isomrules::archetypeOf(e, g, t) : 0;
                 refs.push_back({widen(game->terrainName(t)) + L" (" + widen(game->terrainName(g)) + L")" +
                                 (arch ? L"  \x00b7  " + isomrules::archetypeName(arch) : std::wstring())});
                 if (e == int(era())) refs.back().image = terrainPic(tileset_, t);
@@ -2373,7 +2373,7 @@ private:
         auto& m = rules().terrains[size_t(sel_)].t;
         if (target_ >= int(m.pieces.size())) return;
         const size_t k = size_t(target_);
-        if (!sandbox_ && k >= m.setPieces && k < m.pieces.size() - m.gapPieces) return setMessage(L"Fill pieces cannot be NULL");  // (the sandbox's inside: NULL until it is decided)
+        if (!mapper_ && k >= m.setPieces && k < m.pieces.size() - m.gapPieces) return setMessage(L"Fill pieces cannot be NULL");  // (the mapper's inside: NULL until it is decided)
         if (!remember()) return;
         auto p = m.pieces[k];
         if (wide_) p[1] = 0, p[2] = 1;
@@ -2426,7 +2426,7 @@ private:
         auto& m = rules().terrains[size_t(sel_)].t;
         const size_t k = size_t(target_);
         if (k >= m.pieces.size()) return;
-        if (!sandbox_ && k >= m.setPieces && k < m.pieces.size() - m.gapPieces) return setMessage(L"Fill pieces cannot be NULL");  // (the sandbox's inside: NULL until it is decided)
+        if (!mapper_ && k >= m.setPieces && k < m.pieces.size() - m.gapPieces) return setMessage(L"Fill pieces cannot be NULL");  // (the mapper's inside: NULL until it is decided)
         auto p = m.pieces[k];
         const auto was = p;
         if (wide_) p[1] = 0, p[2] = 1;
@@ -3006,7 +3006,7 @@ private:
             stds.push_back({int(k), stardraft::terrainrules::familyOf(rects, tileset_), rects.size()});
         }
         std::stable_sort(stds.begin(), stds.end(), [](const Std& a, const Std& b) { return int(a.f) > int(b.f); });  // (cliffs first, patches last)
-        if (sandbox_)  // (the sandbox: by archetype)
+        if (mapper_)  // (the mapper: by archetype)
             std::stable_sort(stds.begin(), stds.end(), [this](const Std& a, const Std& b) {
                 auto k = [this](int i) {
                     const int x = archetypeOfValue(-1 - i);
@@ -3019,7 +3019,7 @@ private:
         modelOf.clear();
         for (const Std& d : stds) {
             const int arch = archetypeOfValue(-1 - d.k);
-            models.push_back({stdName(d.k) + L"  \x00b7  " + (sandbox_ ? std::to_wstring(arch) + L" " + isomrules::archetypeName(arch) : isomrules::familyName(d.f)) +
+            models.push_back({stdName(d.k) + L"  \x00b7  " + (mapper_ ? std::to_wstring(arch) + L" " + isomrules::archetypeName(arch) : isomrules::familyName(d.f)) +
                               L"  \x00b7  " + std::to_wstring(d.rects) + L" Rects"});
             models.back().image = chip(swatchOf(-1 - d.k)), modelOf.push_back(-1 - d.k);
         }
@@ -3050,9 +3050,9 @@ private:
         return dlg;
     }
 public:
-    // The sandbox's New terrain page (a snapshot's isomsandbox:<era>/new[:<archetype>:<tileset>]: picked as a click does).
+    // The mapper's New terrain page (a snapshot's terrainmapper:<era>/new[:<archetype>:<tileset>]: picked as a click does).
     void showNewPage() {
-        if (!sandbox_) return;
+        if (!mapper_) return;
         pageOn_ = true, pageGroundId_ = 0;
         newPage_.reset(), newPage_.setEra(int(era())), setPageGrounds();
         loadArchPics();
@@ -3098,7 +3098,7 @@ public:
     }
     // The snapshot's ...!m: the shown terrain's first rect takes its template's game tiles (offset 0), then Match by
     // offset; the message it leaves.
-    // (sandboxtest: a terrain of tileset e's template named n, its first rect the tiles v, v+1, then Match by offset)
+    // (mappertest: a terrain of tileset e's template named n, its first rect the tiles v, v+1, then Match by offset)
     std::wstring matchTestOf(int e, const std::wstring& n, uint16_t v) {
         showNewPage();
         if (!newPage_.pickTestName(e, n)) return L"no template " + n;
@@ -3113,7 +3113,7 @@ public:
             }
         return L"no first rect";
     }
-    // (sandboxtest: each rect of the canvas: the reference's left groups at its places; a rect with more than one is
+    // (mappertest: each rect of the canvas: the reference's left groups at its places; a rect with more than one is
     // a place where the canvas and the reference disagree)
     std::string refCheck() {
         const auto* t = terrain();
@@ -3135,7 +3135,7 @@ public:
             }
         return out + "\n  rects with more than one reference group: " + std::to_string(bad);
     }
-    // (the snapshot's isomsandbox:<era>/refcheck:<tileset>:<template terrain>:<border>: a terrain of that template on that
+    // (the snapshot's terrainmapper:<era>/refcheck:<tileset>:<template terrain>:<border>: a terrain of that template on that
     // border, the reference on, then refCheck)
     std::string refCheckOf(int e, const std::wstring& n, const std::wstring& border) {
         showNewPage();
@@ -3345,7 +3345,7 @@ private:
         });
     }
     void newTerrain() {
-        if (sandbox_) return showNewPage();
+        if (mapper_) return showNewPage();
         if (loading_) return setMessage(L"Tileset loading");
         auto& ts = rules();
         std::vector<int> modelOf;
@@ -3363,7 +3363,7 @@ private:
         addTerrain(dlg.name(), fromStd, modelIx, tplGround, tplTerrain, groundIds_[size_t(dlg.ground())]);
     }
 public:
-    // The snapshot's isomsandbox:<era>/+<archetype>: a new terrain on this tileset's first game border of that archetype
+    // The snapshot's terrainmapper:<era>/+<archetype>: a new terrain on this tileset's first game border of that archetype
     // (its own ground), every rect NULL, as New terrain makes it. False: no such border.
     bool newTerrainTest(int archetype) {
         for (size_t i = 0; i < stdPairs_.size(); ++i)
@@ -3385,7 +3385,7 @@ private:
         if (id >= stardraft::Tileset::kModVariantIds) return shellErrorBox(L"No free terrain id in this tileset.", L"New terrain"), false;
         stardraft::terrainrules::Terrain x;
         if (base) x.baseEra = base->era, x.baseGround = base->ground, x.baseTerrain = base->terrain;
-        x.t.id = id, x.t.name = narrow(name), x.t.standIn = tplTerrain, x.t.ground = ground, x.t.draft = sandbox_;  // (the sandbox's: a draft until its tiles are checked)
+        x.t.id = id, x.t.name = narrow(name), x.t.standIn = tplTerrain, x.t.ground = ground, x.t.draft = mapper_;  // (the mapper's: a draft until its tiles are checked)
         const isomrules::ModTerrain* gm = tileset_.modTerrain(ground);
         (void)gm;
         x.t.groundTemplate = ground == tplGround ? 0 : tplGround;  // (another bordering terrain: the template's ground stays)
@@ -3399,8 +3399,8 @@ private:
             };
             for (const auto& r : stardraft::terrainrules::templateRects(tileset_, tplGround, tplTerrain))
                 for (int n = slots(r.group); n > 0; --n) x.t.pieces.push_back({r.group, 0, 1});
-            // (the sandbox's: its inside too, as rows to change (fill pieces), NULL as its edges: no tiles guessed)
-            if (const int sg = sandbox_ ? stardraft::solidTileGroup(tileset_, tplTerrain) : -1; sg >= 0) {
+            // (the mapper's: its inside too, as rows to change (fill pieces), NULL as its edges: no tiles guessed)
+            if (const int sg = mapper_ ? stardraft::solidTileGroup(tileset_, tplTerrain) : -1; sg >= 0) {
                 x.t.fill = true, x.t.setPieces = x.t.pieces.size(), x.t.gapPieces = 0;
                 x.t.fillKey = 0xFFFE0000u | id;  // (its own inside: a key no other terrain has (0: not known))
                 for (uint16_t g : {uint16_t(sg), uint16_t(sg + 1)})
@@ -3458,7 +3458,7 @@ private:
                 ShellFilePick d;
                 d.title = L"Save terrain rules";
                 d.filters = {{L"Terrain rules (*.isom)", L"*.isom"}};
-                d.defaultExtension = L"isom", d.fileName = sandbox_ ? L"sandbox" : L"terrains", d.save = true;
+                d.defaultExtension = L"isom", d.fileName = mapper_ ? L"mapper" : L"terrains", d.save = true;
                 d.initialDir = shellDocumentsFolder() / "StarDraft";
                 std::error_code ec;
                 std::filesystem::create_directories(d.initialDir, ec);
@@ -3473,7 +3473,7 @@ private:
         if (!stardraft::terrainrules::save(f, doc_, err)) return shellErrorBox(widen(err), L"Save terrain rules"), false;
         const bool first = file_.empty();
         file_ = f, dirty_ = false;
-        if (first && !gSettingsOff && !sandbox_ && !cmbwIsTerrainOverride(f) &&  // (the first save of these rules: the maps can use them; not the sandbox's)
+        if (first && !gSettingsOff && !mapper_ && !cmbwIsTerrainOverride(f) &&  // (the first save of these rules: the maps can use them; not the mapper's)
             msgbox::ask(*this, L"Save terrain rules",
                         L"Use " + f.filename().wstring() + L" as the ISOM terrain rules override? Maps then paint with its rules.\r\n"
                         L"Options > Program options > Plugins can change this later.",
@@ -3481,7 +3481,7 @@ private:
             shellSetTerrainOverride(f);
         if (!gSettingsOff) prefs::setText(fileKey(), f.wstring());  // (the next open opens it)
         // (the file the maps use (ISOM terrain rules override): the open map takes the new rules now)
-        setMessage(L"Saved " + f.filename().wstring() + (!sandbox_ && cmbwReloadTerrainRules(f) ? L"; the open map uses the new rules" : L""));
+        setMessage(L"Saved " + f.filename().wstring() + (!mapper_ && cmbwReloadTerrainRules(f) ? L"; the open map uses the new rules" : L""));
         invalidate();
         return true;
     }
@@ -3520,7 +3520,7 @@ private:
             for (const auto& r : tmpl_) in.insert(r.group);
             for (size_t k = 0; k < t->t.setPieces && k < t->t.pieces.size(); ++k)
                 if (const uint16_t g = t->t.pieces[k][0]; !in.count(g)) in.insert(g), rows.push_back({g, L"Other " + std::to_wstring(g), int(k), 0});
-            if (sandbox_)  // (the sandbox: its inside too (the fill pieces), a row each, to change)
+            if (mapper_)  // (the mapper: its inside too (the fill pieces), a row each, to change)
                 for (size_t k = t->t.setPieces; k + t->t.gapPieces < t->t.pieces.size(); ++k)
                     if (const uint16_t g = t->t.pieces[k][0]; !in.count(g)) {
                         int more = -1;  // (its variants: the other fill pieces of the group)
@@ -3596,7 +3596,7 @@ private:
         }
         drawTile(c, gameTile(group), left), drawTile(c, gameTile(uint32_t(group) + 1), right);
     }
-    // The reference of a terrain with a base border (the sandbox's template, any tileset): not a painting of the base on
+    // The reference of a terrain with a base border (the mapper's template, any tileset): not a painting of the base on
     // its own ground (another ground fills or opens thin spots another way, so its rects would not be the canvas's), but
     // the canvas's own places, each with the base's tiles of the rect of the same shape (its variant: the place's piece's
     // number among its rect's pieces; the inside: the base's inside), the base's ground elsewhere. Null: no base, or its
@@ -3712,7 +3712,7 @@ private:
     }
 
     stardraft::kit::Dropdown era_{{}, -1}, ground_{{}, -1}, row_{{}, -1}, refPick_{{}, -1}, modePick_{{}, -1};
-    // Rectangle match (the sandbox's other mode): the template's rects (and the inside) a row each, each of its vanilla
+    // Rectangle match (the mapper's other mode): the template's rects (and the inside) a row each, each of its vanilla
     // variants as its tile pair with the mod's pair of that variant's slot beside it; a click selects that slot, a click
     // in Tiles puts the mod's pair in, and the next empty slot is selected.
     bool matchMode_ = false;
@@ -3724,7 +3724,7 @@ private:
     // Rectangle match's columns: Terrains, the terrain canvas (in the Rects column: puzzle_), the template's tiles (in the
     // Example column: matchArea_), Tiles.
     draw::Rect matchArea_{0, 0, 0, 0};
-    bool matchColumns() const { return matchMode_ && sandbox_ && colBody_[kColRects].width() > 0 && colBody_[kColExample].width() > 0; }
+    bool matchColumns() const { return matchMode_ && mapper_ && colBody_[kColRects].width() > 0 && colBody_[kColExample].width() > 0; }
     struct MatchTarget {
         uint16_t g;
         int k, h;
@@ -4338,10 +4338,10 @@ private:
         status_ = m, invalidate();
         isomProgramMessage(m);
     }
-    const bool sandbox_ = false;  // (Tools > Cosmonarchy > Archetype sandbox)
+    const bool mapper_ = false;  // (Tools > Cosmonarchy > Mod terrain mapper)
     std::vector<int> shotModelOf_;  // (newDialogShot's)
     std::vector<uint16_t> refIds_;  // (the reference painting's tiles in the crop: refPicture_'s)
-    // The sandbox's New terrain page (in the canvas column while pageOn_), the paintings of the game borders (by era,
+    // The mapper's New terrain page (in the canvas column while pageOn_), the paintings of the game borders (by era,
     // ground, terrain; made once on the worker), and the page's pick: archetype, border, the template (stdPairs_ index).
     isomrules::ArchetypePage newPage_;
     bool pageOn_ = false, archPicsAsked_ = false;
@@ -4570,9 +4570,9 @@ private:
     static constexpr bool checkTodo_ = false;  // (the checklist: every rect; a to-do filter: not for now)
     stardraft::terrainrules::Rules doc_;  // (the rules being edited: each tileset opened, or the loaded file's)
     std::filesystem::path file_;
-    const wchar_t* fileKey() const { return sandbox_ ? L"Layout/IsomSandboxFile" : L"Layout/IsomRulesFile"; }
-    // (a key of the view's own: the sandbox's start with "Sandbox")
-    std::wstring prefKey(const wchar_t* k) const { return (sandbox_ ? L"Sandbox" : L"") + std::wstring(k); }
+    const wchar_t* fileKey() const { return mapper_ ? L"Layout/TerrainMapperFile" : L"Layout/IsomRulesFile"; }
+    // (a key of the view's own: the mapper's start with "TerrainMapper")
+    std::wstring prefKey(const wchar_t* k) const { return (mapper_ ? L"TerrainMapper" : L"") + std::wstring(k); }
     bool dirty_ = false;
     bool wide_ = true;  // (a pick fills both halves: the tile and the next one in its row (the default); off: one tile, the half; Ctrl+T)
     void toggleWidth() {
@@ -5239,7 +5239,7 @@ void IsomRulesView::paintSide(draw::Canvas& c) {
     if (sideTotal_ != sideBarTotal_ || side_.height() != sideBarPage_) sideBar_.setRange(sideTotal_, side_.height()), sideBarTotal_ = sideTotal_, sideBarPage_ = side_.height();
     sideBar_.setPos(sideScroll_);
     c.pushClip(side_);
-    if (sandbox_ && sideRows_.empty() && !loading_)  // (no terrains yet)
+    if (mapper_ && sideRows_.empty() && !loading_)  // (no terrains yet)
         c.text({side_.left + scale(12), side_.top + scale(12), side_.right - scale(12), side_.top + scale(120)},
                search_.text().empty() ? L"No terrains yet. Click New terrain to start one: pick a template (a game border of any tileset) and a border, then put tiles in its rects from the tile grid."
                                       : L"No terrains match the search.",
@@ -5279,7 +5279,7 @@ void IsomRulesView::paintSide(draw::Canvas& c) {
         const auto [done, total] = stardraft::terrainrules::completeness(tileset_, m);
         c.text({x, y + scale(4), side_.right - pad - (m.draft ? scale(40) : 0), y + scale(22)}, widen(m.name), selected ? kText : kText, draw::kMiddle | draw::kEllipsis);
         if (m.draft) c.text({side_.right - pad - scale(38), y + scale(4), side_.right - pad, y + scale(22)}, L"Draft", kDraft, draw::kMiddle | draw::kRight);
-        c.text({x, y + scale(22), side_.right - pad, y + scale(36)}, (sandbox_ ? isomrules::archetypeName(archetypeOfValue(r.value)) : isomrules::familyName(familyOfValue(r.value))) + L"  \x00b7  " + std::to_wstring(done) + L"/" + std::to_wstring(total) + L" Rects",
+        c.text({x, y + scale(22), side_.right - pad, y + scale(36)}, (mapper_ ? isomrules::archetypeName(archetypeOfValue(r.value)) : isomrules::familyName(familyOfValue(r.value))) + L"  \x00b7  " + std::to_wstring(done) + L"/" + std::to_wstring(total) + L" Rects",
                kDim, draw::kMiddle | draw::kEllipsis);
         const int bx0 = x, bx1 = side_.right - pad, by = y + r.h - scale(5);  // (the progress: done of total)
         c.fill({bx0, by, bx1, by + scale(2)}, kBorder);
@@ -5348,7 +5348,7 @@ void IsomRulesView::layout() {
     // (Rectangle match: Template tiles as wide as 16 tiles of Mod tiles' size, its group numbers' margin and a gap; the two
     // columns side by side share their room: Mod tiles has the margin, 16 tiles, its minimap (2 tiles) and its bar)
     matchCell_ = 0, cmpOn_ = false;
-    if (matchMode_ && sandbox_ && colShown_[kColRects] && colShown_[kColExample] && colShown_[kColTiles]) {
+    if (matchMode_ && mapper_ && colShown_[kColRects] && colShown_[kColExample] && colShown_[kColTiles]) {
         draw::Rect &eh = colHead_[kColExample], &eb = colBody_[kColExample], &th = colHead_[kColTiles], &tb = colBody_[kColTiles];
         const int margin = scale(38), total = eb.width() + tb.width();
         // (one tile size for both, the largest that gives each its 16 columns: Template tiles its margin, 16 tiles, a gap
@@ -5388,7 +5388,7 @@ void IsomRulesView::layout() {
     check_ = colBody_[kColRects];  // Rects: the checklist.
     {  // Example: the Bordering box and the terrain's line, the example, the target's strip, the reference row.
         const draw::Rect& b = colBody_[kColExample];
-        // (the sandbox's New terrain page: the whole column, header and all)
+        // (the mapper's New terrain page: the whole column, header and all)
         // (and the Rects column beside it: no terrain's rects while it shows)
         draw::Rect pageRect = b.width() > 0 ? draw::Rect{b.left, colHead_[kColExample].top, b.right, b.bottom} : none;
         if (const draw::Rect& r = colBody_[kColRects]; r.width() > 0 && pageRect.width() > 0 && (r.right == pageRect.left || r.left == pageRect.right))
@@ -5399,7 +5399,7 @@ void IsomRulesView::layout() {
         if (b.width() > 0 && !pageOn_) {
             ground_.setFrame({b.left + scale(90), b.top + scale(4), std::min(b.right - pad, b.left + scale(300)), b.top + scale(4) + barH});
             // (the mode: Canvas puzzle or Rectangle match, at the row's right when there is room)
-            modePick_.setFrame(none);  // (the Archetype sandbox has Rectangle match only: no mode to pick)
+            modePick_.setFrame(none);  // (the Mod terrain mapper has Rectangle match only: no mode to pick)
             const int refH = barH + pad;
             refRow_ = {b.left, b.bottom - refH, b.right, b.bottom};
             strip_ = {b.left, refRow_.top - scale(84), b.right, refRow_.top};
@@ -5505,14 +5505,14 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         c.fill(sb, kPanel), c.fill({0, sb.top, W, sb.top + 1}, kBorder);
         const std::wstring file = file_.empty() ? std::wstring(L"Untitled") : file_.filename().wstring();
         // (the file edited: its whole path; its name alone when the path does not fit)
-        std::wstring shown = file_.empty() ? std::wstring(sandbox_ ? L"Sandbox (no file: Save as to keep it)" : L"Rules in use (no file: Save as to keep them)") : file_.wstring();
+        std::wstring shown = file_.empty() ? std::wstring(mapper_ ? L"Mod terrain mapper (no file: Save as to keep it)" : L"Rules in use (no file: Save as to keep them)") : file_.wstring();
         if (c.measure(shown) + 2 * pad > W / 2 && !file_.empty()) shown = file;
         shown += cmbwIsTerrainOverride(file_) ? L"  \x00b7  used by maps" : L"";
         const int fw = std::min(W / 2, c.measure(shown) + 2 * pad);
         c.text({sb.right - fw, sb.top, sb.right - pad, sb.bottom}, shown, kText, draw::kMiddle | draw::kRight | draw::kEllipsis);
         // (the title bar, as Windows programs show a file: an asterisk while it has unsaved changes)
         if (const std::wstring title = (dirty_ ? L"*" : L"") + file + L" - " + windowName(); title != title_)
-            title_ = title, sandbox_ ? shellSetIsomSandboxTitle(title) : shellSetIsomRulesTitle(title);
+            title_ = title, mapper_ ? shellSetTerrainMapperTitle(title) : shellSetIsomRulesTitle(title);
         c.text({pad, sb.top, sb.right - fw - pad, sb.bottom}, status_.empty() ? std::wstring(L"Ready") : status_, kDim, draw::kMiddle | draw::kEllipsis);
     }
     const auto* t = terrain();
@@ -5527,8 +5527,8 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         draw::Color tone = kDim;
         if (col == kColTerrains) right = verifiedText();
         else if (col == kColExample && t && matchArea_.width() <= 0)
-            right = sandbox_ && t->baseEra >= 0 ? L"Template: " + borderTitle(t->baseEra, t->baseGround, t->baseTerrain)
-                                                : (sandbox_ ? isomrules::archetypeName(archetypeOfValue(sel_)) : isomrules::familyName(family_)) + L" \x00b7 " + templateName();
+            right = mapper_ && t->baseEra >= 0 ? L"Template: " + borderTitle(t->baseEra, t->baseGround, t->baseTerrain)
+                                                : (mapper_ ? isomrules::archetypeName(archetypeOfValue(sel_)) : isomrules::familyName(family_)) + L" \x00b7 " + templateName();
         if (!right.empty()) c.text({h.left + pad, h.top, h.right - pad, h.bottom}, right, tone, draw::kMiddle | draw::kRight | draw::kEllipsis);
     }
     if (side_.width() > 0) paintSide(c);
@@ -6326,23 +6326,23 @@ std::wstring IsomRulesView::tip(draw::Point p) {
 }
 
 IsomRulesView gIsomRulesView;
-IsomRulesView gIsomSandboxView(true);
-void isomSandboxModifiers() { gIsomSandboxView.modifiersChanged(); }  // (main_sdl.cpp: the host's modifier hook)
+IsomRulesView gTerrainMapperView(true);
+void terrainMapperModifiers() { gTerrainMapperView.modifiersChanged(); }  // (main_sdl.cpp: the host's modifier hook)
 
 // Tools > Cosmonarchy > Custom isom terrain editor.
 void isomRulesShow() {
     gIsomRulesView.open();
     shellShowIsomRulesWindow();
 }
-// Tools > Cosmonarchy > Archetype sandbox: the same editor with rules of its own, its list by archetype.
-void isomSandboxShow() {
-    gIsomSandboxView.open();
-    shellShowIsomSandboxWindow();
+// Tools > Cosmonarchy > Mod terrain mapper: the same editor with rules of its own, its list by archetype.
+void terrainMapperShow() {
+    gTerrainMapperView.open();
+    shellShowTerrainMapperWindow();
 }
 // The program's end: the window's worker stops (before the windows and the game data go).
 void isomRulesShutdown() {
-    gIsomSandboxView.shutdown();
+    gTerrainMapperView.shutdown();
     gIsomRulesView.shutdown();
 }
 // Quit: the editors' unsaved rules ask first (false: the quit stops).
-bool isomRulesConfirmQuit() { return gIsomRulesView.confirmClose() && gIsomSandboxView.confirmClose(); }
+bool isomRulesConfirmQuit() { return gIsomRulesView.confirmClose() && gTerrainMapperView.confirmClose(); }

@@ -666,7 +666,7 @@ int main(int argc, char** argv) {
     }
 
     // retemplate: cmbw_neighbor_repair retemplate <install> <out .isom> <era> <terrain name> <ground> <terrain> [rules .isom | -]
-    // The archetype sandbox's mapping, done by geometry: the terrain gets another template (game terrain <terrain> on
+    // The mod terrain mapper's mapping, done by geometry: the terrain gets another template (game terrain <terrain> on
     // game ground <ground>), and each rect of the new template takes the tiles of the old template's rect with the same
     // corner shapes (geomKey) and cliff row (else the same corner shapes in any row); a rect with none stays NULL. The
     // rules file holds that terrain only. Prints the rects matched, matched in another row, and left NULL.

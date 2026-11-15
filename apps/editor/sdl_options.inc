@@ -614,29 +614,29 @@ void sdlPassagesFrame() {
 void shellSetIsomRulesTitle(const std::wstring& title) {
     if (SDL_Window* w = gHost ? gHost->sdlWindow(gIsomRulesView) : nullptr) SDL_SetWindowTitle(w, narrow(title).c_str());
 }
-// Tools > Cosmonarchy > Archetype sandbox (the same view with rules of its own; one window, beside the map).
-bool gIsomSandboxOpen = false;
-void shellShowIsomSandboxWindow() {
+// Tools > Cosmonarchy > Mod terrain mapper (the same view with rules of its own; one window, beside the map).
+bool gTerrainMapperOpen = false;
+void shellShowTerrainMapperWindow() {
     if (!gRoot || !gHost) return;
-    if (gIsomSandboxOpen) {
-        if (SDL_Window* w = gHost->sdlWindow(gIsomSandboxView)) SDL_RaiseWindow(w);
+    if (gTerrainMapperOpen) {
+        if (SDL_Window* w = gHost->sdlWindow(gTerrainMapperView)) SDL_RaiseWindow(w);
         return;
     }
-    gIsomSandboxOpen = true;
+    gTerrainMapperOpen = true;
     const draw::Point sz = IsomRulesView::size();
-    draw::WindowSpec spec{draw::WindowKind::Dialog, draw::Rect(0, 0, std::min(sz.x, gRoot->width()), std::min(sz.y, gRoot->height())), L"Archetype sandbox"};
+    draw::WindowSpec spec{draw::WindowKind::Dialog, draw::Rect(0, 0, std::min(sz.x, gRoot->width()), std::min(sz.y, gRoot->height())), L"Mod terrain mapper"};
     spec.resizable = true;
-    gHost->openWindow(*gRoot, gIsomSandboxView, spec, [] { gIsomSandboxOpen = false; });
-    SDL_Window* win = gHost->sdlWindow(gIsomSandboxView);
+    gHost->openWindow(*gRoot, gTerrainMapperView, spec, [] { gTerrainMapperOpen = false; });
+    SDL_Window* win = gHost->sdlWindow(gTerrainMapperView);
     if (win) sdlNoMinimizeButton(win);
-    restoreWindowPlace(win, L"Layout/IsomSandboxWindow");
+    restoreWindowPlace(win, L"Layout/TerrainMapperWindow");
 }
-void sdlIsomSandboxFrame() {
-    static WindowPlace place{L"Layout/IsomSandboxWindow"};
-    if (gIsomSandboxOpen && gHost) keepWindowPlace(gHost->sdlWindow(gIsomSandboxView), place);
+void sdlTerrainMapperFrame() {
+    static WindowPlace place{L"Layout/TerrainMapperWindow"};
+    if (gTerrainMapperOpen && gHost) keepWindowPlace(gHost->sdlWindow(gTerrainMapperView), place);
 }
-void shellSetIsomSandboxTitle(const std::wstring& title) {
-    if (SDL_Window* w = gIsomSandboxOpen && gHost ? gHost->sdlWindow(gIsomSandboxView) : nullptr) SDL_SetWindowTitle(w, narrow(title).c_str());
+void shellSetTerrainMapperTitle(const std::wstring& title) {
+    if (SDL_Window* w = gTerrainMapperOpen && gHost ? gHost->sdlWindow(gTerrainMapperView) : nullptr) SDL_SetWindowTitle(w, narrow(title).c_str());
 }
 
 void sdlCampaignFollow() {

@@ -334,7 +334,7 @@ bool simLocksCommand(int id) {
 bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
     if ((id == ID_CMBW_REPAIRISOM || id == ID_CMBW_CHECKCOMMENTS) && !modTab()) return false;  // (a Cosmonarchy map's tab only)
-    if ((id == ID_CMBW_ISOMRULES || id == ID_CMBW_ISOMSANDBOX || id == ID_CMBW_PASSAGES) && !cmbwMode()) return false;  // (the mod loaded)
+    if ((id == ID_CMBW_ISOMRULES || id == ID_CMBW_TERRAINMAPPER || id == ID_CMBW_PASSAGES) && !cmbwMode()) return false;  // (the mod loaded)
     if (id >= ID_HYP_CHECK && id <= ID_HYP_TESTUMS && (!hyperionMode() || !docOpen())) return false;  // (the plugin loaded, a map open)
     if ((id == ID_VIEW_HD || id == ID_VIEW_HD2 || id == ID_VIEW_CARBOT) && cmbwMode()) return false;  // (SD art only: cmbwKeepSd)
     if (simBarShown() && simLocksCommand(id)) return false;

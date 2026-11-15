@@ -1,6 +1,6 @@
 // Rectangle match done by a program: for a game border (the template, any tileset's) and a range of the mod's tile
 // groups, each template tile gets the mod tile that looks most like it (both in gray, each tile's brightness and
-// contrast made the same: the shapes count, not the colours). Writes a terrain rules file the Archetype sandbox opens.
+// contrast made the same: the shapes count, not the colours). Writes a terrain rules file the Mod terrain mapper opens.
 // usage:
 //   cmbw_auto_match dump <install> <rules .isom>
 //   cmbw_auto_match match <install> <era> <base era> <base ground> <base terrain> <stand-in> <ground> <first mod group>
@@ -123,7 +123,7 @@ struct Target {
     uint16_t tv; // (the template's tile)
 };
 
-// The targets: as the sandbox's matchLayout makes them.
+// The targets: as the mapper's matchLayout makes them.
 std::vector<Target> targetsOf(const Tileset& ts, const Tileset& bts, const Tileset::ModTerrain& m, uint16_t bg0, uint16_t bt0) {
     const auto [g, s] = terrainrules::templateOf(ts, m);
     const auto own = terrainrules::templateRects(ts, g, s);

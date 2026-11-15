@@ -57,7 +57,7 @@ void setMessage(const std::wstring& m);
 // one list.
 void shellWarningBox(const std::wstring& text, const std::wstring& title);
 void isomRulesShow();  // (core/views_isom_rules.inc: Tools > Cosmonarchy > Custom isom terrain editor)
-void isomSandboxShow();  // (core/views_isom_rules.inc: Tools > Cosmonarchy > Archetype sandbox)
+void terrainMapperShow();  // (core/views_isom_rules.inc: Tools > Cosmonarchy > Mod terrain mapper)
 void passagesShow();   // (core/views_passages.inc: Tools > Cosmonarchy > Ramp and bridge mapper)
 
 void cmbwCheckCommentsCommand() {
@@ -159,7 +159,7 @@ void cmbwUseTerrainOverrideSetting() {
     stardraft::cmbw::useBuiltinTerrains(gBuiltinTerrains);
 }
 // Program options > Plugins > Built-in ISOM terrains: off, the maps opened from then on have only the override's
-// isometric terrains (the Archetype sandbox's); the setting BuiltinTerrains.
+// isometric terrains (the Mod terrain mapper's); the setting BuiltinTerrains.
 void cmbwToggleBuiltinTerrains() {
     gBuiltinTerrains = !gBuiltinTerrains;
     if (!gSettingsOff) prefs::setNumber(L"BuiltinTerrains", gBuiltinTerrains ? 1 : 0);
