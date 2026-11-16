@@ -390,9 +390,10 @@ bool IsomGrid::load(const Chk& chk, std::string& error) {
         error = std::string("no ISOM terrain table for tileset ") + tilesetName(era_);
         return false;
     }
-    pieces_.clear(), gameTile_.clear();
+    pieces_.clear(), gameTile_.clear(), pieceVariant_.clear();
     if (table_->hasExtras() && tileset_)
         for (const auto& m : tileset_->modTerrains) {
+            pieceVariant_.push_back(m.pieceVariant);
             auto& by = pieces_.emplace_back();
             for (size_t i = 0; i < m.pieces.size(); ++i) {
                 const auto& [g, l, r] = m.pieces[i];
@@ -1506,8 +1507,28 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
                     // (under a piece of the same terrain: the next row of its block, one group down at the same subtiles,
                     // when this rect has it: the rows of a wall stay one variant also where the maps give no rule)
                     const uint16_t ul = top < ry ? tile.tiles[k - size_t(mapWidth_)] : 0, ur = top < ry ? tile.tiles[k + 1 - size_t(mapWidth_)] : 0;
-                    const auto next = std::find(it->second.begin(), it->second.end(), std::pair<uint16_t, uint16_t>{uint16_t(ul + 16), uint16_t(ur + 16)});
-                    const auto [pl, pr] = top < ry && next != it->second.end() ? *next : pickPiece(it->second, tile, rx, ry, h);
+                    auto next = it->second.end();
+                    // (the variant of the piece right above, as the rules file has it, when the game's rects stack (its stack
+                    // links: the rows of a block): this rect's piece of that variant; else one group down at the same
+                    // subtiles, as the built-in sets have their rows)
+                    bool paired = false;
+                    if (ry > 0 && tiles_ && tag <= pieceVariant_.size() && !pieceVariant_[tag - 1u].empty()) {
+                        const auto& kv = pieceVariant_[tag - 1u];
+                        const std::pair<uint16_t, uint16_t> up{tile.tiles[k - size_t(mapWidth_)], tile.tiles[k + 1 - size_t(mapWidth_)]};
+                        int above = -1;
+                        uint16_t ag = 0;
+                        for (const auto& [g, list] : by)
+                            if (above < 0 && std::find(list.begin(), list.end(), up) != list.end())
+                                if (const auto f = kv.find({g, up.first, up.second}); f != kv.end()) above = f->second, ag = g;
+                        const uint16_t link = above >= 0 ? tiles_->stackBottom(ag) : 0;
+                        if (link && link == tiles_->stackTop(it->first)) {
+                            paired = true;
+                            for (auto p = it->second.begin(); p != it->second.end() && next == it->second.end(); ++p)
+                                if (const auto f = kv.find({it->first, p->first, p->second}); f != kv.end() && f->second == above) next = p;
+                        }
+                    }
+                    if (next == it->second.end()) next = std::find(it->second.begin(), it->second.end(), std::pair<uint16_t, uint16_t>{uint16_t(ul + 16), uint16_t(ur + 16)});
+                    const auto [pl, pr] = (top < ry || paired) && next != it->second.end() ? *next : pickPiece(it->second, tile, rx, ry, h);
                     l = ml = pl, r = mr = pr;
                 } else if (uint16_t gt = 0, gtag = 0; ground && table_->modTerrain(ground, gt, gtag)) {  // (a mod terrain: its fill)
                     const int par = (rx + ry) & 1;
@@ -1600,9 +1621,24 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
                 const size_t k = size_t(ry) * mapWidth_ + 2 * rx;
                 if (tile.tiles[k] == 0 && tile.tiles[k + 1] == 1) continue;  // (the null tile: a gap in the set, kept in sight)
                 // (a row of a block's column, under its row above or over its row below: the wall stays one piece)
-                auto continues = [&](size_t upper, size_t lower) {
-                    return tile.tiles[lower] == uint16_t(tile.tiles[upper] + 16) && tile.tiles[lower + 1] == uint16_t(tile.tiles[upper + 1] + 16) &&
-                           tile.tiles[upper] >= 16;
+                // (the variants as the rules file has them: the same variant of two stacked rects; else one group down at the
+                // same subtiles)
+                auto variantOf = [&](size_t at, uint16_t& group) -> int {  // (the piece's variant and its game group; -1: not known)
+                    if (tag > pieceVariant_.size() || pieceVariant_[tag - 1u].empty()) return -1;
+                    const std::pair<uint16_t, uint16_t> p{tile.tiles[at], tile.tiles[at + 1]};
+                    for (const auto& [g, list] : pieces_[tag - 1u])
+                        if (std::find(list.begin(), list.end(), p) != list.end())
+                            if (const auto f = pieceVariant_[tag - 1u].find({g, p.first, p.second}); f != pieceVariant_[tag - 1u].end()) return group = g, f->second;
+                    return -1;
+                };
+                auto continues = [&](size_t upper, size_t lower) {  // (and only rects that stack: the game's stack links)
+                    if (tile.tiles[lower] == uint16_t(tile.tiles[upper] + 16) && tile.tiles[lower + 1] == uint16_t(tile.tiles[upper + 1] + 16) && tile.tiles[upper] >= 16)
+                        return true;
+                    uint16_t gu = 0, gd = 0;
+                    const int a = variantOf(upper, gu);
+                    if (a < 0 || a != variantOf(lower, gd) || !tiles_) return false;
+                    const uint16_t link = tiles_->stackBottom(gu);
+                    return link && link == tiles_->stackTop(gd);
                 };
                 if ((ry > 0 && continues(k - size_t(mapWidth_), k)) || (ry + 1 < mapHeight_ && continues(k, k + size_t(mapWidth_)))) continue;
                 const double now = seam(tile.tiles[k], tile.tiles[k + 1], 2 * rx, ry);

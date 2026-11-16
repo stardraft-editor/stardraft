@@ -226,7 +226,10 @@ uint64_t fingerprint(const Tileset& t) {
 TilesetRules rulesOf(const Tileset& t) {
     TilesetRules r;
     r.era = uint8_t(t.era & 7), r.groups = uint32_t(t.groups.size()), r.fingerprint = fingerprint(t);
-    for (const Tileset::ModTerrain& m : t.modTerrains) r.terrains.push_back({m});
+    for (const Tileset::ModTerrain& m : t.modTerrains) {
+        r.terrains.push_back({m});
+        r.terrains.back().variantOf = m.pieceVariant;  // (each piece's variant, as a rules file gave it: kept on a save)
+    }
     return r;
 }
 
@@ -324,6 +327,7 @@ bool apply(Tileset& t, const Rules& r, std::string* why) {
         for (const Terrain& x : ts.terrains) {
             if (x.t.variantOf) continue;  // (a variant is made from its terrain: below)
             Tileset::ModTerrain m = x.t;
+            m.pieceVariant = x.variantOf;  // (the rows of a block: one variant)
             normalize(t, m);  // (a file's terrain in the engine's order, every template rect present)
             bool replaced = false;
             for (Tileset::ModTerrain& o : t.modTerrains)
@@ -331,7 +335,7 @@ bool apply(Tileset& t, const Rules& r, std::string* why) {
             if (!replaced) t.modTerrains.push_back(m);
             // (its variants: its set again on another ground, the same pieces)
             for (Tileset::ModTerrain& v : t.modTerrains)
-                if (v.variantOf == m.id) v.pieces = m.pieces, v.setPieces = m.setPieces, v.gapPieces = m.gapPieces;
+                if (v.variantOf == m.id) v.pieces = m.pieces, v.setPieces = m.setPieces, v.gapPieces = m.gapPieces, v.pieceVariant = m.pieceVariant;
         }
         return true;
     }

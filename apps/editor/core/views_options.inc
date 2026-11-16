@@ -56,7 +56,7 @@ struct OptionsValues {
     std::wstring cmbwFolder;      // Mods: the Cosmonarchy install in use, else the one it opens from
     std::wstring cmbwNext;        // ... the one used from the next start ("": the same)
     bool cmbwOpen = false;        // ... the mod's data is open (a new folder: from the next start; else at once)
-    bool builtinTerrains = true;  // ... Built-in ISOM terrains: the built-in rows and the mod's own file (off: the override's only)
+    bool builtinTerrains = false;  // ... Built-in ISOM terrains: the built-in rows and the mod's own file (off, the default: the override's only)
     bool overrideOn = false;      // ... ISOM terrain rules override: a terrain rules file over the built-in rules
     std::wstring overrideFile;    // ... its file ("": none chosen)
     bool passagesOn = false;      // ... Ramp and bridge mappings: a passages file (the Ramp and bridge mapper's) for the tools

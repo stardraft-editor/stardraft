@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -78,6 +79,9 @@ struct Tileset {
         uint16_t variantOf = 0;  // a variant: that terrain's set on another ground with its ground's tiles (the brush picks it)
         bool fromMaps = false;  // made from the maps (src/mods/cmbw_auto_terrains.inc), not a hand-made row
         bool draft = false;     // not checked by a person yet (the built-in rows: all of them; the terrain rules file keeps the flag)
+        // Each piece's variant of its rect (a terrain rules file's; empty: not known): the rows of a block are one
+        // variant, as the game's rows of a block are one subtile.
+        std::map<std::array<uint16_t, 3>, uint8_t> pieceVariant;
     };
     static constexpr uint16_t kModTerrainIds = 64;
     // A mod's variants (ModTerrain::variantOf) from here on: the rows before them may grow without moving them (saved maps

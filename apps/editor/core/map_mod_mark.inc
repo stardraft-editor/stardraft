@@ -130,6 +130,7 @@ UiIcon altWheelMark(AppState& app, float wx, float wy, bool ctrl) {
     if (app.mode != Mode::Terrain || ctrl || modeLayerHidden() || app.pasting || wx < 0 || wy < 0) return kNoModMark;
     const int tx = int(wx) / 32, ty = int(wy) / 32;
     if (app.ed->doodadAt(tx * 32 + 16, ty * 32 + 16) >= 0) return kNoModMark;  // (setTileVariation does not change it)
+    if (ModVariations mv; modVariations(*app.ed, tx, ty, mv)) return mv.values.size() > 1 ? UiIcon::Shuffle : kNoModMark;  // (a mod terrain's rect)
     return tileVariations(*app.ed, mapTileAt(*app.ed, tx, ty)).subs.size() > 1 ? UiIcon::Shuffle : kNoModMark;
 }
 

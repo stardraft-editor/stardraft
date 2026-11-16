@@ -321,6 +321,7 @@ private:
     // game's tile for each tile of a piece (the terrain core reads the stack connections of the tiles above).
     std::vector<std::map<uint16_t, std::vector<std::pair<uint16_t, uint16_t>>>> pieces_;
     std::unordered_map<uint16_t, uint16_t> gameTile_;
+    std::vector<std::map<std::array<uint16_t, 3>, uint8_t>> pieceVariant_;  // (per tag: ModTerrain::pieceVariant)
     // A mod terrain a level higher: per rect, the border it is around (rectTemplate), made once for a pass over the map
     // (LevelMask: writeIsom, stackBreaks, putPieces; the shapes do not change during one) instead of a search per rect.
     struct LevelRect {

@@ -1206,6 +1206,8 @@ int main(int argc, char** argv) {
                     if (const size_t c = name.find(':', 4); name.size() > 4) pageArch = std::atoi(name.c_str() + 4), pageEra = c != std::string::npos ? std::atoi(name.c_str() + c + 1) : -1;
                     name.clear();
                 }
+                int dupStep = -1;  // (<name>!dup<step>: the Duplicate with offset wizard for it, at that step (0 to 2))
+                if (const size_t d = name.find("!dup"); d != std::string::npos) dupStep = std::atoi(name.c_str() + d + 4), name.resize(d);
                 gTerrainMapperView.showFirst(era, name);
                 gTerrainMapperView.open();
                 if (newArch && !gTerrainMapperView.newTerrainTest(newArch)) std::printf("no game border of archetype %d\n", newArch);
@@ -1232,6 +1234,12 @@ int main(int argc, char** argv) {
                 gTerrainMapperView.useDefaultLayout();
                 std::printf("%s", gTerrainMapperView.sideText().c_str());
                 std::printf("%s\n", gTerrainMapperView.state().c_str());
+                static std::unique_ptr<isomrules::DuplicateDialog> dupShot;  // (now: the file's rules are in)
+                if (dupStep >= 0 && !name.empty()) {  // (its terrain: the name after the tileset's "<era>/")
+                    const std::string t = name.find('/') != std::string::npos ? name.substr(name.find('/') + 1) : name;
+                    if (!gTerrainMapperView.selectByName(t)) std::printf("no terrain named %s\n", t.c_str());
+                }
+                if (dupStep >= 0 && (dupShot = gTerrainMapperView.dupDialogShot(dupStep))) shown = dupShot.get();
             } else if (dialogArg.rfind("passages:", 0) == 0) {  // passages:<file>[|<row>]: the Ramp and bridge mapper with that file, on the tileset of its first mapping (--cmbw: the mod's)
                 std::string f = dialogArg.substr(9);
                 int row = 0;

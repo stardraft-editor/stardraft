@@ -154,7 +154,7 @@ void cmbwUseTerrainOverrideSetting() {
     if (prefs::text(L"TerrainOverride", saved)) gTerrainOverride = fs::path(saved);
     prefs::number(L"TerrainOverrideOn", on), gTerrainOverrideOn = on != 0 && !gTerrainOverride.empty();
     cmbwApplyTerrainOverride();
-    int64_t builtin = 1;
+    int64_t builtin = 0;  // (not set yet: off; the mod terrains come from a terrain rules file (the Mod terrain mapper's))
     prefs::number(L"BuiltinTerrains", builtin), gBuiltinTerrains = builtin != 0;
     stardraft::cmbw::useBuiltinTerrains(gBuiltinTerrains);
 }
