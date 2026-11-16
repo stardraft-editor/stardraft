@@ -233,26 +233,22 @@ private:
 };
 
 // Duplicate with offset, in a window on one page: the bordering terrain of the copy (a list at the left, each its tile
-// and name), the offset (its edge tiles n tile rows down (up: less than 0) in Mod tiles, the same columns: the source's
-// rows as Mod tiles has them, 16 tiles a row, beside the rows n on, the edge tiles framed) and the name at the bottom.
-// Up / Down: a row up or down; Ctrl+Up / Down: the next offset where every edge tile is a tile no other terrain uses;
-// Left / Right: the border list or the rows; Enter: Create; Esc: Cancel. The owner draws the tiles (drawTile) and says
-// what is at an offset (info).
+// and name) and, at the right, every Mod tiles row as Mod tiles shows them (the row's offset from the source's first
+// row, its number, its 16 tiles): the source's first edge tile is framed white, and a click on a tile puts the copy's
+// first tile there; the copy's edge tiles are the source's moved as far (rows and columns). The name at the bottom.
+// Up / Down: the copy a row up or down; Left / Right: the border list or the tiles; Enter: Create; Esc: Cancel. The
+// owner draws the tiles (drawTile).
 class DuplicateDialog final : public draw::View {
 public:
     struct Border {
         std::wstring name;
         uint16_t tile = 0;  // (its picture: a tile of its inside)
     };
-    struct Info {
-        int shared = 0, lost = 0;  // (edge tiles there that other terrains use; with no picture there: NULL)
-    };
-    // rows: the Mod tiles rows the source's edge tiles are in (in order); edge: those tiles; [nMin, nMax]: the offsets that
-    // keep every row in the tileset; n: the one picked first.
-    DuplicateDialog(std::wstring source, std::vector<Border> borders, std::vector<int> rows, std::set<uint16_t> edge, int nMin, int nMax, int n)
-        : source_(std::move(source)), borders_(std::move(borders)), rows_(std::move(rows)), edge_(std::move(edge)), nMin_(nMin), nMax_(nMax),
-          n_(std::clamp(n, nMin, nMax)), create_(L"Create", stardraft::kit::Tone::Primary, [this] { create(); }),
-          cancel_(L"Cancel", stardraft::kit::Tone::Normal, [this] { finish(false); }) {
+    // rows: the Mod tiles rows the source's edge tiles are in (in order); first: its first edge tile; groups: the
+    // tileset's rows.
+    DuplicateDialog(std::wstring source, std::vector<Border> borders, std::vector<int> rows, uint16_t first, int groups)
+        : source_(std::move(source)), borders_(std::move(borders)), rows_(std::move(rows)), first_(first), groups_(std::max(1, groups)),
+          create_(L"Create", stardraft::kit::Tone::Primary, [this] { create(); }), cancel_(L"Cancel", stardraft::kit::Tone::Normal, [this] { finish(false); }) {
         name_.onChange = [this] { named_ = true, invalidate(); };
         name_.onEnter = [this] { if (!enterHeld_) create(); };
         name_.onEscape = [this] { finish(false); };
@@ -261,13 +257,12 @@ public:
     std::function<void(draw::Canvas&, uint16_t, draw::Rect)> drawTile;
     std::function<std::wstring(int border)> nameFor;  // (the name the copy gets on a border, until one is typed)
     std::function<bool(uint16_t)> isTile;              // (a tile value with a picture)
-    std::function<bool(uint16_t)> usedElsewhere;       // (a tile another terrain uses)
     void autoName() {
         if (!named_ && nameFor) name_.setText(nameFor(border_)), named_ = false;
     }
     bool created() const { return created_; }
     int border() const { return border_; }
-    int offset() const { return n_; }
+    int offset() const { return d_; }  // (in tiles: 16 a row)
     std::wstring name() const { return name_.text(); }
     static draw::Point size() { return {scale(1000), scale(640)}; }
 
@@ -279,7 +274,7 @@ public:
         name_.setFrame({pad + scale(56), by + (bh - fh) / 2, std::min(cancel_.frame().left - scale(16), pad + scale(56) + scale(380)), by + (bh - fh) / 2 + fh});
         const int top = pad + scale(34), bottom = by - scale(14);
         borders_r_ = {pad, top + scale(24), pad + scale(220), bottom};
-        rows_r_ = {borders_r_.right + scale(16), top + scale(24), std::min(width() - pad, borders_r_.right + scale(16) + scale(52) + 16 * scale(30)), bottom};
+        rows_r_ = {borders_r_.right + scale(16), top + scale(24), std::min(width() - pad, borders_r_.right + scale(16) + scale(96) + 16 * scale(30)), bottom};
         revealBorder(), revealTarget();
     }
     void paint(draw::Canvas& c) override {
@@ -290,8 +285,8 @@ public:
         c.text({pad, pad, width() - pad, pad + scale(22)}, L"Duplicate " + source_ + L" with offset", th.text, draw::kMiddle | draw::kEllipsis);
         c.text({borders_r_.left, borders_r_.top - scale(24), borders_r_.right, borders_r_.top - scale(4)}, L"Border", active_ == 0 ? th.text : th.dim, draw::kMiddle);
         c.text({rows_r_.left, rows_r_.top - scale(24), rows_r_.right, rows_r_.top - scale(4)},
-               L"Offset: " + std::wstring(n_ > 0 ? L"+" : L"") + std::to_wstring(n_) + (std::abs(n_) == 1 ? L" row" : L" rows") + L"  \x00b7  click a row for the copy",
-               active_ == 1 ? th.text : th.dim, draw::kMiddle | draw::kEllipsis);
+               L"Offset: " + offsetText() + L"  \x00b7  white: the source's first tile; click the row of its place in the copy", active_ == 1 ? th.text : th.dim,
+               draw::kMiddle | draw::kEllipsis);
         c.text({pad, name_.frame().top, pad + scale(52), name_.frame().bottom}, L"Name", th.dim, draw::kMiddle);
         hits_.clear();
         paintBorders(c), paintRows(c);
@@ -303,15 +298,16 @@ public:
                 return invalidate(), true;
             }
             if (rows_r_.contains(e.pt)) {  // (the wheel: the list scrolls)
-                rScroll_ = std::clamp(rScroll_ - int(e.wheel * float(3 * cell())), 0, std::max(0, groupsCount() * cell() - rows_r_.height()));
+                rScroll_ = std::clamp(rScroll_ - int(e.wheel * float(3 * cell())), 0, std::max(0, groups_ * cell() - rows_r_.height()));
                 return invalidate(), true;
             }
             return false;
         }
         if ((e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick) && e.button == 0) {
-            if (rows_r_.contains(e.pt) && !rows_.empty()) {  // (a row: the copy's first row there)
-                active_ = 1, n_ = std::clamp(rowAt(e.pt.y) - rows_.front(), nMin_, nMax_);
-                return focus(), invalidate(), true;
+            if (rows_r_.contains(e.pt)) {  // (a tile: the copy's first tile there)
+                const int cl = cell(), x = e.pt.x - (rows_r_.left + lw());
+                if (x >= 0 && x < 16 * cl) setTarget(rowAt(e.pt.y) * 16 + int(first_) % 16);  // (its row: the first tile's column always)
+                return active_ = 1, focus(), invalidate(), true;
             }
             for (const auto& [r, k] : hits_)
                 if (r.contains(e.pt) && borders_r_.contains(e.pt)) return active_ = 0, border_ = k, autoName(), focus(), invalidate(), true;
@@ -323,12 +319,10 @@ public:
         if (!e.down) return false;
         if (e.key == draw::Key::Enter && !e.mods) return e.repeat ? true : (create(), true);
         if (e.key == draw::Key::Escape && !e.mods) return finish(false), true;
-        if (e.key == draw::Key::Up || e.key == draw::Key::Down) {
+        if (!e.mods && (e.key == draw::Key::Up || e.key == draw::Key::Down)) {
             const int d = e.key == draw::Key::Up ? -1 : 1;
-            if (active_ == 1 && e.mods == draw::kCtrl) return nextFree(d), true;
-            if (e.mods) return false;
             if (active_ == 0 && !borders_.empty()) border_ = std::clamp(border_ + d, 0, int(borders_.size()) - 1), autoName(), revealBorder(), invalidate();
-            if (active_ == 1) step(d);
+            if (active_ == 1) setTarget(int(first_) + d_ + 16 * d);
             return true;
         }
         if (!e.mods && (e.key == draw::Key::Left || e.key == draw::Key::Right)) return active_ = e.key == draw::Key::Left ? 0 : 1, invalidate(), true;
@@ -336,22 +330,26 @@ public:
     }
 
 private:
-    static constexpr draw::Color kWarn = 0x0A78FF;  // (orange: NULL or used tiles there; COLORREF)
     int rowB() const { return scale(32); }
-    Info info(int n) const {
-        Info in;
-        for (uint16_t v : edge_) {
-            const int nv = int(v) + 16 * n;
-            if (nv < 16 || nv > 0xFFFF || (isTile && !isTile(uint16_t(nv)))) ++in.lost;
-            else if (usedElsewhere && usedElsewhere(uint16_t(nv))) ++in.shared;
-        }
-        return in;
+    int lw() const { return scale(96); }
+    int cell() const { return std::clamp((rows_r_.width() - scale(100)) / 16, scale(12), scale(30)); }
+    std::wstring offsetText() const {  // ("+48 rows", "+2 rows, -3 columns")
+        auto num = [](int v, const wchar_t* one, const wchar_t* many) { return (v > 0 ? L"+" : L"") + std::to_wstring(v) + L" " + (std::abs(v) == 1 ? one : many); };
+        const int t = int(first_) + d_, rowsOff = t / 16 - int(first_) / 16, cols = t % 16 - int(first_) % 16;
+        if (!cols) return num(rowsOff, L"row", L"rows");
+        return num(rowsOff, L"row", L"rows") + L", " + num(cols, L"column", L"columns");
     }
-    void step(int d) { n_ = std::clamp(n_ + d, nMin_, nMax_), revealTarget(), invalidate(); }
-    void nextFree(int d) {  // (the next offset that way where every edge tile is a tile no other terrain uses)
-        for (int n = n_ + d; n >= nMin_ && n <= nMax_; n += d)
-            if (const Info in = info(n); !in.lost && !in.shared) return void((n_ = n, revealTarget(), invalidate()));
+    void setTarget(int t) {  // (the copy's first tile at tile value t)
+        if (t < 16 || t >= groups_ * 16) return;
+        d_ = t - int(first_), revealTarget(), invalidate();
     }
+    void revealTarget() {
+        if (rows_r_.height() <= 0) return;
+        const int top = ((int(first_) + d_) / 16) * cell();
+        if (top < rScroll_ || top + cell() > rScroll_ + rows_r_.height()) rScroll_ = top - rows_r_.height() / 3;
+        rScroll_ = std::clamp(rScroll_, 0, std::max(0, groups_ * cell() - rows_r_.height()));
+    }
+    int rowAt(int y) const { return (y - rows_r_.top + rScroll_) / std::max(1, cell()); }
     void revealBorder() {
         if (borders_r_.height() <= 0 || border_ < 0) return;
         const int top = border_ * rowB();
@@ -376,38 +374,37 @@ private:
         if (borders_.empty()) c.text(borders_r_, L"No other bordering terrain.", th.dim, draw::kMiddle | draw::kCenter);
         c.popClip();
     }
-    // Every Mod tiles row, as Mod tiles shows them (the row's number, its 16 tiles), in view only: the source's rows
-    // marked white at the left, the copy's (the source's n on) blue, their edge tiles framed (orange: no tile there;
-    // gray: another terrain uses it). A click on a row puts the copy's first row there.
-    int cell() const { return std::clamp((rows_r_.width() - scale(56)) / 16, scale(12), scale(30)); }
-    int groupsCount() const { return std::max(1, nMax_ + (rows_.empty() ? 0 : rows_.back()) + 1); }
-    void revealTarget() {
-        if (rows_r_.height() <= 0 || rows_.empty()) return;
-        const int top = (rows_.front() + n_) * cell(), bottom = (rows_.back() + n_ + 1) * cell();
-        if (top < rScroll_) rScroll_ = top;
-        if (bottom > rScroll_ + rows_r_.height()) rScroll_ = std::min(top, bottom - rows_r_.height());
-        rScroll_ = std::clamp(rScroll_, 0, std::max(0, groupsCount() * cell() - rows_r_.height()));
-    }
-    int rowAt(int y) const { return (y - rows_r_.top + rScroll_) / std::max(1, cell()); }
     void paintRows(draw::Canvas& c) {
         const auto& th = stardraft::kit::theme();
         c.fill(rows_r_, th.panel);
         c.pushClip(rows_r_);
-        const int cl = cell(), lw = scale(52), x0 = rows_r_.left;
+        const int cl = cell(), x0 = rows_r_.left, firstRow = int(first_) / 16;
         const std::set<int> src(rows_.begin(), rows_.end());
-        for (int g = std::max(0, rScroll_ / cl); g < groupsCount() && g * cl - rScroll_ < rows_r_.height(); ++g) {
+        auto cellRect = [&](int v) {
+            const int y = rows_r_.top + (v / 16) * cl - rScroll_, x = x0 + lw() + (v % 16) * cl;
+            return draw::Rect{x, y, x + cl, y + cl};
+        };
+        for (int g = std::max(0, rScroll_ / cl); g < groups_ && g * cl - rScroll_ < rows_r_.height(); ++g) {
             const int y = rows_r_.top + g * cl - rScroll_;
-            const bool isSrc = !rows_.empty() && g == rows_.front(), isDst = !rows_.empty() && g == rows_.front() + n_;
-            if (isSrc) c.fill({x0, y + 1, x0 + scale(4), y + cl - 1}, 0xFFFFFF);  // (the source's first row)
-            c.text({x0 + scale(10), y, x0 + lw - scale(4), y + cl}, std::to_wstring(g), isDst ? th.text : th.dim, draw::kMiddle | draw::kRight);
+            if (src.count(g)) c.fill({x0, y, x0 + scale(4), y + cl}, 0xFFFFFF);  // (a row of the source's edge tiles)
+            const int off = g - firstRow;
+            c.text({x0 + scale(8), y, x0 + scale(52), y + cl}, (off > 0 ? L"+" : L"") + std::to_wstring(off), off ? th.dim : th.text, draw::kMiddle | draw::kRight);
+            c.text({x0 + scale(54), y, x0 + lw() - scale(4), y + cl}, std::to_wstring(g), th.dim, draw::kMiddle | draw::kRight);
             for (int k = 0; k < 16; ++k) {
-                const draw::Rect r{x0 + lw + k * cl, y, x0 + lw + (k + 1) * cl, y + cl};
                 const uint16_t v = uint16_t(g * 16 + k);
-                const bool tile = g > 0 && (!isTile || isTile(v));
-                if (drawTile && tile) drawTile(c, v, r);
+                const draw::Rect r = cellRect(v);
+                if (drawTile && g > 0 && (!isTile || isTile(v))) drawTile(c, v, r);
                 else c.fill(r, 0x000000);
             }
-            if (isDst) c.frame({x0 + lw - 1, y, x0 + lw + 16 * cl + 1, y + cl}, th.accent, std::max(2, scale(3)));  // (the copy's first row)
+        }
+        // (the first tile's row: a white bar; the copy's: a blue one; the first tile itself framed in each)
+        const draw::Rect a = cellRect(first_), b = cellRect(int(first_) + d_);
+        const int gx0 = x0 + lw() - 1, gx1 = x0 + lw() + 16 * cl + 1;
+        c.frame({gx0, a.top - 1, gx1, a.bottom + 1}, 0xFFFFFF, std::max(2, scale(2)));
+        c.frame({a.left, a.top, a.right, a.bottom}, 0xFFFFFF, 1);
+        if (d_) {
+            c.frame({gx0, b.top - 1, gx1, b.bottom + 1}, th.accent, std::max(2, scale(3)));
+            c.frame({b.left, b.top, b.right, b.bottom}, th.accent, 1);
         }
         c.popClip();
     }
@@ -422,8 +419,8 @@ private:
     std::wstring source_;
     std::vector<Border> borders_;
     std::vector<int> rows_;
-    std::set<uint16_t> edge_;
-    int nMin_ = 0, nMax_ = 0, n_ = 0;
+    uint16_t first_ = 16;
+    int groups_ = 1, d_ = 0;
     int border_ = 0, bScroll_ = 0, rScroll_ = 0, active_ = 1;
     draw::Rect borders_r_{0, 0, 0, 0}, rows_r_{0, 0, 0, 0};
     std::vector<std::pair<draw::Rect, int>> hits_;
@@ -1256,22 +1253,27 @@ private:
                 for (int h = 1; h <= 2; ++h)
                     if (const uint16_t v = p[size_t(h)]; !isomrules::nullHalf(v)) edge.insert(v), rowSet.insert(v >> 4);
         const std::vector<int> rows(rowSet.begin(), rowSet.end());
-        auto used = std::make_shared<std::set<uint16_t>>();  // (the tiles other terrains use)
-        for (const auto& o : rules().terrains)
-            if (o.t.id != src.t.id)
-                for (const auto& p : o.t.pieces)
-                    for (int h = 1; h <= 2; ++h)
-                        if (!isomrules::nullHalf(p[size_t(h)])) used->insert(p[size_t(h)]);
         auto isTile = [this](uint16_t v) { return v >= 16 && tileset_.megatileFor(v) > 0; };
-        const int groups = int(tileset_.groups.size());
-        const int nMin = rows.empty() ? 0 : 1 - rows.front(), nMax = rows.empty() ? 0 : groups - 1 - rows.back();
-        int pick = 0;  // (the first offset down where every edge tile is a tile no other terrain uses)
-        for (int n = 1; n <= nMax && !pick; ++n)
-            if (std::all_of(edge.begin(), edge.end(), [&](uint16_t v) { const int nv = int(v) + 16 * n; return nv <= 0xFFFF && isTile(uint16_t(nv)) && !used->count(uint16_t(nv)); }))
-                pick = n;
-        auto dlg = std::make_unique<isomrules::DuplicateDialog>(widen(src.t.name), std::move(borders), rows, std::move(edge), nMin, nMax, pick);
+        // (its first edge tile, the one the user places: the first of the run of rows (no row between them empty of its
+        // tiles) that has most of its edge tiles: a few tiles from another set (rows away) do not move it)
+        uint16_t first = edge.empty() ? uint16_t(16) : *edge.begin();
+        {
+            std::map<int, int> perRow;
+            for (uint16_t v : edge) ++perRow[v >> 4];
+            int best = -1, bestStart = -1, runStart = -1, runCount = 0, prev = -10;
+            for (const auto& [r, n] : perRow) {
+                if (r != prev + 1) runStart = r, runCount = 0;
+                runCount += n, prev = r;
+                if (runCount > best) best = runCount, bestStart = runStart;
+            }
+            for (uint16_t v : edge)
+                if ((v >> 4) >= bestStart) {
+                    first = v;
+                    break;
+                }
+        }
+        auto dlg = std::make_unique<isomrules::DuplicateDialog>(widen(src.t.name), std::move(borders), rows, first, int(tileset_.groups.size()));
         dlg->isTile = isTile;
-        dlg->usedElsewhere = [used](uint16_t v) { return used->count(v) > 0; };
         dlg->drawTile = [this](draw::Canvas& c, uint16_t v, draw::Rect r) { drawTile(c, v, r); };
         const std::wstring srcName = widen(src.t.name), was = L"(" + groundName(src.t.ground) + L")";
         dlg->nameFor = [this, srcName, was, ids = borderIds](int b) {  // (the old ground's name in it becomes the new one's, else the new one's in brackets)
@@ -1294,7 +1296,7 @@ private:
         if (!dlg.created() || dlg.border() < 0 || dlg.border() >= int(borderIds.size())) return;
         createDuplicate(i, borderIds[size_t(dlg.border())], dlg.offset(), dlg.name());
     }
-    void createDuplicate(int i, uint16_t ground, int n, const std::wstring& name) {
+    void createDuplicate(int i, uint16_t ground, int d, const std::wstring& name) {  // (d: the edge tiles' offset, in tiles)
         if (loading_ || i < 0 || i >= int(rules().terrains.size()) || name.empty()) return;
         const stardraft::terrainrules::Terrain src = rules().terrains[size_t(i)];
         const int sg = stardraft::solidTileGroup(tileset_, src.t.standIn);
@@ -1313,7 +1315,7 @@ private:
             if (!inside(p[0]))
                 for (int h = 1; h <= 2; ++h)
                     if (const uint16_t v = p[size_t(h)]; !isomrules::nullHalf(v)) {
-                        const int nv = int(v) + n * 16;
+                        const int nv = int(v) + d;
                         if (nv >= 16 && nv <= 0xFFFF && tileset_.megatileFor(uint16_t(nv)) > 0) p[size_t(h)] = uint16_t(nv);
                         else p[size_t(h)] = uint16_t(h - 1), ++lost;  // (no tile there: NULL)
                     }
@@ -1327,10 +1329,10 @@ private:
         {  // (its shifting starts at the source's tiles: a step back reaches them, and the ones made NULL come back)
             const auto& t = rules().terrains.back();
             shift_ = {};
-            shift_.id = t.t.id, shift_.pieces = src.t.pieces, shift_.shown = t.t.pieces, shift_.n = n;
+            shift_.id = t.t.id, shift_.pieces = src.t.pieces, shift_.shown = t.t.pieces, shift_.n = d / 16;
             for (const auto& [k, v] : src.variantOf) shift_.variantOf[k] = v;
         }
-        setMessage(name + L": edge tiles " + (n > 0 ? L"+" : L"") + std::to_wstring(n) + L" groups" + (lost ? L" \x00b7 " + std::to_wstring(lost) + L" NULL" : L""));
+        setMessage(name + L": edge tiles " + (d > 0 ? L"+" : L"") + std::to_wstring(d) + L" tiles" + (lost ? L" \x00b7 " + std::to_wstring(lost) + L" NULL" : L""));
     }
     // A snapshot's: the wizard for the selected terrain at step `step` (its values: kept, the dialog refers to them).
     std::unique_ptr<isomrules::DuplicateDialog> duplicateDialogShot(int step) {
