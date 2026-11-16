@@ -1675,6 +1675,7 @@ private:
         std::vector<uint16_t> ids;  // (the crop's tiles, row by row; kNullId: a NULL half)
         std::vector<uint16_t> refIds;  // (the reference's tiles in the crop, row by row: its own tileset's)
         std::unique_ptr<draw::Bitmap> picture, reference;
+        bool refPainted = false;  // (the reference: the canvas's corners painted by the game (addReference), not placeReference's)
     };
     static constexpr uint16_t kNullId = 0xFFFF;
     static constexpr int kHalfSpot = 10000;  // (a spot of the example's shape painted with the 0.5 brush: i + kHalfSpot, on the grid of 32 x 16)
@@ -1717,7 +1718,7 @@ private:
         }
         in->era = era(), in->data = data, in->gameGroups = gameGroups(era());
         in->refEra = era();
-        if (const int ref = refOf(t); ref >= 0 && refOn_)
+        if (const int ref = refOf(t); ref >= 0)  // (painted also while it does not show: it is ready when it does)
             in->refEra = uint8_t(refEntries_[size_t(ref)].era), in->refGround = refEntries_[size_t(ref)].ground, in->refTerrain = refEntries_[size_t(ref)].terrain;
         in->refGroups = gameGroups(in->refEra);
         if (!t) {  // (a standard terrain: the game's border, read only)
@@ -1789,8 +1790,9 @@ private:
                 if (const auto* t = terrain())
                     for (const Place& p : places_)
                         if (p.piece >= 0 && p.piece < int(t->t.pieces.size())) visibleGroups_.insert(t->t.pieces[size_t(p.piece)][0]);
-                picture_ = std::move(out->picture), refPicture_ = std::move(out->reference), refIds_ = std::move(out->refIds);
-                if (auto own = placeReference()) refPicture_ = std::move(own), refIds_.clear();  // (a terrain with a base: its template's tiles in the canvas's own rects)
+                picture_ = std::move(out->picture), refPicture_ = std::move(out->reference), refIds_ = std::move(out->refIds), refPainted_ = out->refPainted;
+                if (!refPainted_)  // (a terrain with a base, not painted: its template's tiles in the canvas's own rects)
+                    if (auto own = placeReference()) refPicture_ = std::move(own), refIds_.clear();
                 invalidate();
             });
         });
@@ -1835,12 +1837,30 @@ private:
             }
             return g;
         };
-        auto addReference = [&](const std::vector<std::pair<int, int>>& shape) {
+        // (`from`: the canvas; the reference is then its corners as the game's: the terrain's corners the reference's
+        // terrain, all others its ground, painted by the game's tile rules. The same rects as the canvas, and the
+        // variants of the walls as the game puts them together. Else: the shape painted on the reference's ground)
+        auto addReference = [&](const std::vector<std::pair<int, int>>& shape, const Editor* from = nullptr) {
             if (!in.refTerrain || !out.picture) return;
             progress(kStepReference);
             Editor* on = gameMap(in.refEra, in.refGround, in.refGroups);
             if (!on) return;
-            paintGame(on, in.refGround, in.refTerrain, shape);
+            bool painted = false;
+            if (from && t && on->newMap(W, H, in.refEra, in.refGround, err)) {
+                std::srand(1);
+                const IsomGrid& src = from->isomGrid();
+                int ox = 0, oy = 0;
+                on->isomGrid().cornerAtPixel(0, 0, ox, oy);  // (pasteTerrain's origin at pixel (0, 0))
+                Editor::TerrainClip clip;
+                for (int y = -1; y <= src.rectRows() + 1; ++y)
+                    for (int x = -1; x <= src.rectCols() + 1; ++x)
+                        if (src.isCorner(x, y)) clip.corners.push_back({x - ox, y - oy, src.terrainAt(x, y) == t->t.id ? in.refTerrain : in.refGround});
+                clip.width = W * 32, clip.height = H * 32;
+                on->setTerrainCopies({clip, {}});
+                painted = on->pasteTerrain(0, 0, false);
+            }
+            if (!painted) paintGame(on, in.refGround, in.refTerrain, shape);
+            out.refPainted = painted;
             out.reference = pictureOf(on, out.crop);
             {
                 const stardraft::TerrainLayer l = stardraft::readTerrain(on->chk(), "TILE");
@@ -2469,6 +2489,22 @@ private:
                         if (P[i][0] == g && isFill(i)) vs.push_back(i);
                 return vs;
             };
+            // (how piece i leads piece k, the next row of i's block, as the map's brush (isom.cpp putPieces) takes it: 2, the
+            // same variant of the rules file where the game's rects stack; else 1, its tiles one group down at the same
+            // subtiles; 0: not)
+            const stardraft::IsomTiles* stackOf = stardraft::IsomTiles::forTileset(ed->tileset());
+            auto leads = [&](size_t i, size_t k) -> int {
+                if (stackOf && !isomrules::anyNull(P[i]) && !isomrules::anyNull(P[k]))
+                    if (const auto a = t->variantOf.find(P[i]), b = t->variantOf.find(P[k]); a != t->variantOf.end() && b != t->variantOf.end() && a->second == b->second)
+                        if (const uint16_t link = stackOf->stackBottom(P[i][0]); link && link == stackOf->stackTop(P[k][0])) return 2;
+                return continues(P[i], P[k]) ? 1 : 0;
+            };
+            auto leaderOf = [&](size_t k) {  // (the piece that leads k, the brush's way first)
+                size_t best = SIZE_MAX;
+                for (size_t i = 0; i < P.size(); ++i)
+                    if (i != k && leads(i, k) && (best == SIZE_MAX || leads(i, k) > leads(best, k))) best = i;
+                return best;
+            };
             // (the places in turn, top down; a pinned place (Show variant, Make Unique) keeps its variant)
             std::vector<std::pair<int, int>> order;
             std::map<std::pair<int, int>, uint16_t> rectAt;
@@ -2493,9 +2529,7 @@ private:
             std::map<size_t, int> uses;
             for (size_t k = 0; k < P.size(); ++k) {
                 if (isFill(k) || isomrules::anyNull(P[k])) continue;
-                size_t leader = SIZE_MAX;
-                for (size_t i = 0; i < P.size() && leader == SIZE_MAX; ++i)
-                    if (i != k && continues(P[i], P[k])) leader = i;
+                const size_t leader = leaderOf(k);
                 if (leader == SIZE_MAX) continue;
                 for (const auto& p : order) {
                     const std::pair<int, int> below{p.first, p.second + 1};
@@ -2523,8 +2557,11 @@ private:
                         const auto me = chosen.find({tx, ty}), up = chosen.find({tx, ty - 1});
                         if (me == chosen.end() || up == chosen.end() || pinnedAt.count({tx, ty})) continue;
                         if (isFill(me->second)) continue;  // (a fill piece: no block, as the brush)
+                        size_t link = SIZE_MAX;  // (the same variant first; else one group down)
                         for (size_t i = 0; i < P.size(); ++i)
-                            if (P[i][0] == P[me->second][0] && continues(P[up->second], P[i])) { me->second = i; break; }
+                            if (P[i][0] == P[me->second][0] && leads(up->second, i) && (link == SIZE_MAX || leads(up->second, i) > leads(up->second, link)))
+                                link = i;
+                        if (link != SIZE_MAX) me->second = link;
                     }
             };
             follow();
@@ -2541,9 +2578,7 @@ private:
                         const auto c = chosen.find(p);
                         return c != chosen.end() && P[c->second][0] == rect && !pinnedAt.count(p) && uses[c->second] > 1;
                     };
-                    size_t leader = SIZE_MAX;
-                    for (size_t i = 0; i < P.size() && leader == SIZE_MAX; ++i)
-                        if (i != k && continues(P[i], P[k])) leader = i;
+                    const size_t leader = leaderOf(k);
                     for (const auto& [p, c] : chosen) {
                         const std::pair<int, int> below{p.first, p.second + 1};
                         if (leader != SIZE_MAX ? spare(p, P[leader][0]) && chosen.count(below) && P[chosen[below]][0] == P[k][0] : spare(p, P[k][0])) {
@@ -2599,7 +2634,7 @@ private:
             }
         progress(kStepPicture);
         out.picture = isomrules::tilesBitmap(ed->tileset(), part, x1 - x0 + 1, y1 - y0 + 1);
-        addReference(shape);
+        addReference(shape, ed);
     }
     // A family's shape: diamonds of 1, in steps of 64 to the side and 32 up or down from the middle (the places that show
     // the most rects of walls and of blends: a search over all the mod's terrains found the same few each time; More
@@ -2618,7 +2653,7 @@ private:
         refOn_ = !refOn_;
         refShow_.setOn(refOn_);
         if (refOn_ && refOf(terrain()) < 0) setMessage(L"No reference border: select one in the Reference list");
-        if (refOn_ && !refPicture_) return rebuild();  // (it paints only while it shows)
+        if (refOn_ && !refPicture_) return rebuild();  // (none yet: a build paints it)
         invalidate();
     }
     void stepOpacity(int dir) {
@@ -4036,7 +4071,7 @@ private:
                 foreground([this, e, ts, ok, alive] {
                     if (!*alive || baseTsEra_ != e || !ok) return;
                     baseTs_ = std::move(*ts), baseTsReady_ = true;
-                    if (const auto* t = terrain(); t && t->baseEra == e && refOn_)  // (the reference: its tiles now)
+                    if (const auto* t = terrain(); t && t->baseEra == e && refOn_ && !refPainted_)  // (the reference: its tiles now)
                         if (auto own = placeReference()) refPicture_ = std::move(own), refIds_.clear();
                     invalidate();
                 });
@@ -4979,6 +5014,7 @@ private:
     const bool mapper_ = false;  // (Tools > Cosmonarchy > Mod terrain mapper)
     std::vector<int> shotModelOf_;  // (newDialogShot's)
     std::vector<uint16_t> refIds_;  // (the reference painting's tiles in the crop: refPicture_'s)
+    bool refPainted_ = false;       // (refPicture_: the game's painting of the canvas's corners (addReference))
     // The mapper's New terrain page (in the canvas column while pageOn_), the paintings of the game borders (by era,
     // ground, terrain; made once on the worker), and the page's pick: archetype, border, the template (stdPairs_ index).
     isomrules::ArchetypePage newPage_;
