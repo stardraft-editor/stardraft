@@ -1814,7 +1814,7 @@ thread_local bool tSkipOverride = false;  // (skipTerrainOverride)
 thread_local bool tSkipRepaired = false;  // (skipRepairedRules)
 std::atomic<bool> gBuiltinTerrains{true};  // (useBuiltinTerrains)
 // `builtin` false (useBuiltinTerrains): the built-in terrains (the rows and the mod's own file, made first) are left
-// out, their ids kept as reserved; only the override's terrains stay.
+// out (their ids are free for the override's terrains); only the override's terrains stay.
 void applyTerrainFiles(Tileset& t, bool builtin) {
     std::filesystem::path override;
     if (!tSkipOverride) {
@@ -1822,10 +1822,7 @@ void applyTerrainFiles(Tileset& t, bool builtin) {
         override = gTerrainOverride;
     }
     for (const std::filesystem::path& f : {findInstall().empty() ? std::filesystem::path() : findInstall() / "mpq" / "terrains.isom", override}) {
-        if (!builtin && f == override) {
-            for (const Tileset::ModTerrain& m : t.modTerrains) t.reservedTerrainIds.push_back(m.id);
-            t.modTerrains.clear();
-        }
+        if (!builtin && f == override) t.modTerrains.clear();
         std::error_code ec;
         if (f.empty() || !std::filesystem::exists(f, ec)) continue;
         terrainrules::Rules r;
@@ -1902,7 +1899,7 @@ const std::vector<std::string>& colorNames() {
     return names;
 }
 
-const UnitDataLoader kLoader{&loadTypes, &loadSprites, &loadSettings, &loadTileset, &colorNames, &crigRenameLocation};
+const UnitDataLoader kLoader{&loadTypes, &loadSprites, &loadSettings, &loadTileset, &colorNames, &crigRenameLocation, &gameTileGroups};
 
 }  // namespace
 

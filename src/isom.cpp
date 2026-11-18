@@ -120,6 +120,8 @@ bool IsomTerrainTable::twinOnly(uint16_t a, uint16_t b) const {
     return twin;
 }
 
+static_assert(IsomTerrainTable::kMoreIds == Tileset::kMoreModTerrainIds && IsomTerrainTable::kMoreCount == Tileset::kMoreModTerrainCount, "one range of more ids");
+
 std::unique_ptr<IsomTerrainTable> IsomTerrainTable::withExtras(const IsomTerrainTable& game, const std::vector<Extra>& extras, uint16_t firstValue) {
     auto t = std::make_unique<IsomTerrainTable>(game.firstTransition_, game.pairs_, game.names_);
     t->game_ = &game;
@@ -150,9 +152,13 @@ std::unique_ptr<IsomTerrainTable> IsomTerrainTable::withExtras(const IsomTerrain
     for (const Extra& e : extras) t->ownNames_.push_back(e.name);
     for (size_t i = 0; i < extras.size(); ++i) {
         const Extra& e = extras[i];
-        // (its 15 shapes by its id: a terrain keeps them when others come before it; ids from 64, kExtraSlots of them)
-        if (e.id < 64 || e.id >= 64 + kExtraSlots) continue;
-        const uint16_t v = uint16_t(firstValue + 15 * (e.id - 64));
+        // (its 15 shapes by its id: a terrain keeps them when others come before it; ids from 64, kExtraSlots of them;
+        // the more ids (Tileset::kMoreModTerrainIds): theirs from the top of the 12-bit values down)
+        uint16_t v = 0;
+        if (e.id >= 64 && e.id < 64 + kExtraSlots) v = uint16_t(firstValue + 15 * (e.id - 64));
+        else if (e.id >= kMoreIds && e.id < kMoreIds + kMoreCount && 4096 - 15 * (e.id - kMoreIds + 1) >= firstValue + 15 * kExtraSlots)
+            v = uint16_t(4096 - 15 * (e.id - kMoreIds + 1));
+        else continue;
         // (its ground: a game terrain, or a mod terrain before it with a game terrain as its template ground)
         if (!e.id || game.isTerrain(e.id) || !game.isTerrain(e.templ) || !t->isTerrain(e.ground) || (e.groundTempl && !game.isTerrain(e.groundTempl)) ||
             (!game.isTerrain(e.ground) && !e.groundTempl))
@@ -180,7 +186,9 @@ std::unique_ptr<IsomTerrainTable> IsomTerrainTable::withExtras(const IsomTerrain
     });
     uint16_t w = uint16_t(firstValue + 15 * kExtraSlots);
     for (const Twin& tw : twins) {
-        if (w + 15 > 4096) break;  // (an ISOM value holds a shape in 12 bits)
+        // (an ISOM value holds a shape in 12 bits; the top: the more ids' shapes, a fixed line, so that a new terrain never
+        // takes a twin's values that saved maps have: room for 80 twins (the tilesets had 55 at most, 2026-11-16))
+        if (w + 15 > 4096 - 15 * kMoreCount) break;
         Pair p{uint16_t(w + 1), tw.e->id, tw.g, tw.e->templ, tw.e->groundTempl ? tw.e->groundTempl : tw.e->ground, tw.e->tag};
         p.twin = true;
         t->pairs_.push_back(p);
@@ -390,15 +398,17 @@ bool IsomGrid::load(const Chk& chk, std::string& error) {
         error = std::string("no ISOM terrain table for tileset ") + tilesetName(era_);
         return false;
     }
-    pieces_.clear(), gameTile_.clear(), pieceVariant_.clear();
+    pieces_.clear(), gameTile_.clear(), pieceVariant_.clear(), foreign_.clear();
     if (table_->hasExtras() && tileset_)
         for (const auto& m : tileset_->modTerrains) {
             pieceVariant_.push_back(m.pieceVariant);
+            foreign_.push_back(m.foreign() ? 1 : 0);
             auto& by = pieces_.emplace_back();
             for (size_t i = 0; i < m.pieces.size(); ++i) {
                 const auto& [g, l, r] = m.pieces[i];
                 by[g].push_back({l, r});
-                if (i + m.gapPieces < m.pieces.size()) {  // (a gap's null tile stands for no one game tile; so does a NULL half)
+                // (another tileset's template: its groups are not this tileset's, the map's own pass has none of its tiles)
+                if (i + m.gapPieces < m.pieces.size() && !m.foreign()) {  // (a gap's null tile stands for no one game tile; so does a NULL half)
                     if (l > 1) gameTile_.emplace(l, uint16_t(g << 4));
                     if (r > 1) gameTile_.emplace(r, uint16_t((g + 1) << 4));
                 }
@@ -867,7 +877,7 @@ bool IsomGrid::rectTileable(int rx, int ry) const {
         const auto& gs = tiles_->groups(par, gl, gr);
         // piecesOnly_: a rect of a mod's terrain must be one its set has a piece for (not a rect where its border meets
         // another terrain's), or the template's solid rect (a terrain of edges only: the template's own tiles inside it).
-        if (piecesOnly_ && tag && !gs.empty() && tag <= pieces_.size() && gl != gr)
+        if (piecesOnly_ && tag && !gs.empty() && tag <= pieces_.size() && gl != gr && !foreignTag(tag))
             return std::any_of(gs.begin(), gs.end(), [&](uint16_t g) { return pieces_[tag - 1u].count(g) != 0; });
         return !gs.empty();
     }
@@ -1322,6 +1332,7 @@ bool IsomGrid::store(Chk& chk, std::string& error) {
     if (own) {
         writeIsom(chk);
         putPieces(chk, work, touched);
+        putForeign(chk, touched);
     }
     return true;
 }
@@ -1455,7 +1466,8 @@ std::pair<uint16_t, uint16_t> pickModPiece(const Tileset& tileset, const std::ve
     return pick(all);
 }
 
-void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& rects) const {
+void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& rects, const IsomTiles* via, uint16_t onlyTag) const {
+    const IsomTiles* tl = via ? via : tiles_;  // (the tables of `work`'s tileset)
     const LevelMask mask(*this);
     TerrainLayer tile = readTerrain(chk, "TILE"), mtxm = readTerrain(chk, "MTXM");
     const TerrainLayer wt = readTerrain(work, "TILE"), wm = readTerrain(work, "MTXM");
@@ -1469,7 +1481,10 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
             uint16_t l = wt.tiles[k], r = wt.tiles[k + 1], ml = wm.tiles[k], mr = wm.tiles[k + 1];
             uint16_t gl = 0, gr = 0, tag = 0, ground = 0;
             if (pieceSalt_ && (!gameTile_.count(tile.tiles[k]) || !gameTile_.count(tile.tiles[k + 1]))) continue;  // (rerollPieces: only a rect with a piece now)
-            if (rectTemplate(rx, ry, gl, gr, tag, &ground) && tag && tag <= pieces_.size()) {
+            const bool templ = rectTemplate(rx, ry, gl, gr, tag, &ground);
+            // (another tileset's template: its own pass (onlyTag) puts its pieces; this one keeps the stand-in's tiles)
+            if (onlyTag && (!templ || tag != onlyTag)) continue;
+            if (templ && tag && tag <= pieces_.size() && foreignTag(tag) == (onlyTag != 0)) {
                 tagOf[size_t(ry) * rectCols_ + rx] = tag;
                 const auto& by = pieces_[tag - 1u];
                 // (the rows of a block stand one under the other: a rect under one with a piece of the same terrain
@@ -1497,7 +1512,7 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
                 // (a border rect whose game tiles are another border's, as where a stand-in needs a strip of its ground's
                 // template between it and the ground and an inner corner has no room for it: a piece of the rect's own
                 // shape; a solid rect (the ground under a cliff) keeps the ground)
-                if ((it == by.end() || it->second.empty()) && tiles_ && gl != gr)
+                if ((it == by.end() || it->second.empty()) && tiles_ && gl != gr && !onlyTag)
                     for (uint16_t g : tiles_->groups((rx + ry) & 1, gl, gr))
                         if (auto o = by.find(g); o != by.end() && !o->second.empty()) {
                             it = o;
@@ -1512,7 +1527,7 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
                     // links: the rows of a block): this rect's piece of that variant; else one group down at the same
                     // subtiles, as the built-in sets have their rows)
                     bool paired = false;
-                    if (ry > 0 && tiles_ && tag <= pieceVariant_.size() && !pieceVariant_[tag - 1u].empty()) {
+                    if (ry > 0 && tl && tag <= pieceVariant_.size() && !pieceVariant_[tag - 1u].empty()) {
                         const auto& kv = pieceVariant_[tag - 1u];
                         const std::pair<uint16_t, uint16_t> up{tile.tiles[k - size_t(mapWidth_)], tile.tiles[k + 1 - size_t(mapWidth_)]};
                         int above = -1;
@@ -1520,8 +1535,8 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
                         for (const auto& [g, list] : by)
                             if (above < 0 && std::find(list.begin(), list.end(), up) != list.end())
                                 if (const auto f = kv.find({g, up.first, up.second}); f != kv.end()) above = f->second, ag = g;
-                        const uint16_t link = above >= 0 ? tiles_->stackBottom(ag) : 0;
-                        if (link && link == tiles_->stackTop(it->first)) {
+                        const uint16_t link = above >= 0 ? tl->stackBottom(ag) : 0;
+                        if (link && link == tl->stackTop(it->first)) {
                             paired = true;
                             for (auto p = it->second.begin(); p != it->second.end() && next == it->second.end(); ++p)
                                 if (const auto f = kv.find({it->first, p->first, p->second}); f != kv.end() && f->second == above) next = p;
@@ -1530,7 +1545,9 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
                     if (next == it->second.end()) next = std::find(it->second.begin(), it->second.end(), std::pair<uint16_t, uint16_t>{uint16_t(ul + 16), uint16_t(ur + 16)});
                     const auto [pl, pr] = (top < ry || paired) && next != it->second.end() ? *next : pickPiece(it->second, tile, rx, ry, h);
                     l = ml = pl, r = mr = pr;
-                } else if (uint16_t gt = 0, gtag = 0; ground && table_->modTerrain(ground, gt, gtag)) {  // (a mod terrain: its fill)
+                } else if (onlyTag) {  // (no piece for that tileset's tiles: the stand-in's stay)
+                    continue;
+                } else if (uint16_t gt = 0, gtag = 0; ground && table_->modTerrain(ground, gt, gtag) && !foreignTag(gtag)) {  // (a mod terrain: its fill)
                     const int par = (rx + ry) & 1;
                     const auto& gs = tiles_->groups(par, gt, gt);
                     for (size_t n = 0; n < gs.size() && gtag && gtag <= pieces_.size(); ++n)
@@ -1636,9 +1653,9 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
                         return true;
                     uint16_t gu = 0, gd = 0;
                     const int a = variantOf(upper, gu);
-                    if (a < 0 || a != variantOf(lower, gd) || !tiles_) return false;
-                    const uint16_t link = tiles_->stackBottom(gu);
-                    return link && link == tiles_->stackTop(gd);
+                    if (a < 0 || a != variantOf(lower, gd) || !tl) return false;
+                    const uint16_t link = tl->stackBottom(gu);
+                    return link && link == tl->stackTop(gd);
                 };
                 if ((ry > 0 && continues(k - size_t(mapWidth_), k)) || (ry + 1 < mapHeight_ && continues(k, k + size_t(mapWidth_)))) continue;
                 const double now = seam(tile.tiles[k], tile.tiles[k + 1], 2 * rx, ry);
@@ -1649,7 +1666,7 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
                 if (fresh) {
                     std::set<std::pair<uint16_t, uint16_t>> seen;
                     for (const auto& [g, list] : pieces_[tag - 1u]) {
-                        const auto& rs = tiles_->rectsOf(uint16_t(g & ~1u));
+                        const auto& rs = tl->rectsOf(uint16_t(g & ~1u));
                         if (std::none_of(rs.begin(), rs.end(), [&](const IsomTiles::Rect& r) { return r.parity == par; })) continue;
                         for (const auto& p : list)
                             if (p != std::pair<uint16_t, uint16_t>{0, 1} && seen.insert(p).second) it->second.push_back(p);
@@ -1669,6 +1686,56 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
     for (uint16_t v : tile.tiles) appendU16(t, v);
     for (uint16_t v : mtxm.tiles) appendU16(m, v);
     chk.set("TILE", std::move(t)), chk.set("MTXM", std::move(m));
+}
+
+void IsomGrid::putForeign(Chk& chk, const std::vector<uint8_t>& rects) const {
+    if (!tileset_ || !templateTileset_) return;
+    for (size_t i = 0; i < foreign_.size() && i < tileset_->modTerrains.size(); ++i) {
+        if (!foreign_[i]) continue;
+        const Tileset::ModTerrain& m = tileset_->modTerrains[i];
+        const uint16_t tag = uint16_t(i + 1);
+        const Tileset* ft = templateTileset_(m.templateEra);
+        const IsomTiles* fi = ft ? IsomTiles::forTileset(*ft) : nullptr;
+        if (!fi) continue;
+        // (its rects of `rects`, and the window around them; the window's corner even, so its rects keep their parity)
+        const LevelMask levels(*this);  // (as putPieces reads the rects)
+        std::vector<uint8_t> mine(rects.size(), 0);
+        int x0 = rectCols_, y0 = rectRows_, x1 = -1, y1 = -1;
+        for (int ry = 0; ry < rectRows_; ++ry)
+            for (int rx = 0; rx < rectCols_; ++rx) {
+                const size_t k = size_t(ry) * rectCols_ + rx;
+                uint16_t gl = 0, gr = 0, t = 0;
+                if (k >= rects.size() || !rects[k] || !rectTemplate(rx, ry, gl, gr, t) || t != tag) continue;
+                mine[k] = 1, x0 = std::min(x0, rx), y0 = std::min(y0, ry), x1 = std::max(x1, rx), y1 = std::max(y1, ry);
+            }
+        if (x1 < 0) continue;
+        constexpr int kMargin = 4;  // (the rects around: the core picks a rect's tiles by its neighbors' too)
+        x0 = std::max(0, x0 - kMargin) & ~1, y0 = std::max(0, y0 - kMargin) & ~1;
+        x1 = std::min(rectCols_ - 1, x1 + kMargin), y1 = std::min(rectRows_ - 1, y1 + kMargin);
+        const int tw = std::min(mapWidth_ - 2 * x0, 2 * (x1 - x0 + 1)), th = std::min(mapHeight_ - y0, y1 - y0 + 1);
+        if (tw < 2 || th < 1) continue;
+        // (a map of that tileset: its ground everywhere, the template's terrain at the terrain's corners)
+        IsomGrid g;
+        Chk w;
+        std::string err;
+        if (!g.create(w, uint16_t(tw), uint16_t(th), m.templateEra, m.templateGround, *ft, err)) continue;
+        for (int cy = -1; cy <= g.rectRows_ + 1; ++cy)
+            for (int cx = -1; cx <= g.rectCols_ + 1; ++cx)
+                if (g.isCorner(cx, cy) && terrainAt(cx + x0, cy + y0) == m.id) g.setCorner(cx, cy, m.templateTerrain);
+        if (!g.store(w, err)) continue;
+        // (its tiles where they are on this map: the work putPieces reads)
+        const TerrainLayer gt = readTerrain(w, "TILE");
+        if (gt.tiles.size() < size_t(tw) * th) continue;
+        std::vector<uint16_t> at(size_t(mapWidth_) * mapHeight_, 0);
+        for (int ty = 0; ty < th; ++ty)
+            for (int tx = 0; tx < tw; ++tx) at[size_t(ty + y0) * mapWidth_ + 2 * x0 + tx] = gt.tiles[size_t(ty) * tw + tx];
+        Bytes dim, tiles;
+        appendU16(dim, uint16_t(mapWidth_)), appendU16(dim, uint16_t(mapHeight_));
+        for (uint16_t v : at) appendU16(tiles, v);
+        Chk work;
+        work.set("DIM ", std::move(dim)), work.set("TILE", tiles), work.set("MTXM", std::move(tiles));
+        putPieces(chk, work, mine, fi, tag);
+    }
 }
 
 void IsomGrid::encodeDirty() {
@@ -1819,6 +1886,7 @@ bool IsomGrid::tileFromIsom(const Chk& chk, const TerrainLayer& tile, int tx, in
     if (!rectTemplate(rx, ty, gl, gr, tag, &ground)) return true;  // (no rect of the game's: nothing to compare with)
     const size_t i = size_t(ty) * w + tx;
     const uint16_t v = tile.tiles[i];
+    if (foreignTag(tag)) return true;  // (another tileset's template: its own tables pick its pieces, this one's do not know them)
     if (tag && tag <= pieces_.size())
         for (uint16_t g : tiles_->groups(par, gl, gr))
             if (auto it = pieces_[tag - 1u].find(g); it != pieces_[tag - 1u].end())

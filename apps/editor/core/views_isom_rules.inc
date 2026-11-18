@@ -252,7 +252,8 @@ public:
         name_.onChange = [this] { named_ = true, invalidate(); };
         name_.onEnter = [this] { if (!enterHeld_) create(); };
         name_.onEscape = [this] { finish(false); };
-        add(name_, {}), add(cancel_, {}), add(create_, {});
+        rowsBar_.onScroll = [this](int pos) { rScroll_ = pos, invalidate(); };
+        add(name_, {}), add(cancel_, {}), add(create_, {}), add(rowsBar_, {});
     }
     std::function<void(draw::Canvas&, uint16_t, draw::Rect)> drawTile;
     std::function<std::wstring(int border)> nameFor;  // (the name the copy gets on a border, until one is typed)
@@ -274,7 +275,9 @@ public:
         name_.setFrame({pad + scale(56), by + (bh - fh) / 2, std::min(cancel_.frame().left - scale(16), pad + scale(56) + scale(380)), by + (bh - fh) / 2 + fh});
         const int top = pad + scale(34), bottom = by - scale(14);
         borders_r_ = {pad, top + scale(24), pad + scale(220), bottom};
-        rows_r_ = {borders_r_.right + scale(16), top + scale(24), std::min(width() - pad, borders_r_.right + scale(16) + scale(96) + 16 * scale(30)), bottom};
+        const int sb = scale(stardraft::kit::kScrollBarW);  // (the rows' scroll bar, right of them)
+        rows_r_ = {borders_r_.right + scale(16), top + scale(24), std::min(width() - pad - sb, borders_r_.right + scale(16) + scale(96) + 16 * scale(30)), bottom};
+        rowsBar_.setFrame({rows_r_.right, rows_r_.top, rows_r_.right + sb, rows_r_.bottom});
         revealBorder(), revealTarget();
     }
     void paint(draw::Canvas& c) override {
@@ -289,6 +292,7 @@ public:
                draw::kMiddle | draw::kEllipsis);
         c.text({pad, name_.frame().top, pad + scale(52), name_.frame().bottom}, L"Name", th.dim, draw::kMiddle);
         hits_.clear();
+        rowsBar_.setRange(groups_ * cell(), rows_r_.height()), rowsBar_.setPos(rScroll_);
         paintBorders(c), paintRows(c);
     }
     bool mouse(const draw::MouseEvent& e) override {
@@ -426,6 +430,7 @@ private:
     std::vector<std::pair<draw::Rect, int>> hits_;
     stardraft::kit::TextField name_;
     stardraft::kit::Button create_, cancel_;
+    stardraft::kit::ScrollBar rowsBar_;
     bool named_ = false, created_ = false, enterHeld_ = false, focused_ = false;
 };
 
@@ -465,6 +470,29 @@ struct ArchetypeThumb {
     int era = -1;
     uint16_t ground = 0, terrain = 0;
 };
+// A reversed template: a border seen from its ground's side (Substructure on Floor), for a terrain that no game border
+// puts on another (a tileset's bottom terrain: Substructure); its tileset has no border of it, so it is always made
+// from its own tileset's tiles (a foreign template).
+inline bool reversedTemplate(int era, uint16_t ground, uint16_t terrain) {
+    const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(era));
+    if (!game) return false;
+    bool fwd = false, back = false;
+    for (const auto& pr : game->pairs()) fwd = fwd || (pr.a == ground && pr.b == terrain), back = back || (pr.a == terrain && pr.b == ground);
+    return back && !fwd;
+}
+inline bool reversedTemplate(const ArchetypeThumb& a) { return reversedTemplate(a.era, a.ground, a.terrain); }
+// The New terrain page's templates of tileset e: each game border, then each border of a bottom terrain reversed.
+inline std::vector<ArchetypeThumb> templatesOf(int e) {
+    std::vector<ArchetypeThumb> out;
+    const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(e));
+    if (!game) return out;
+    std::set<uint16_t> upper;
+    for (const auto& pr : game->pairs())
+        if (game->isTerrain(pr.a) && game->isTerrain(pr.b)) out.push_back({e, pr.a, pr.b}), upper.insert(pr.b);
+    for (const auto& pr : game->pairs())
+        if (game->isTerrain(pr.a) && game->isTerrain(pr.b) && !upper.count(pr.a)) out.push_back({e, pr.b, pr.a});
+    return out;
+}
 
 // The Mod terrain mapper's New terrain page, in the place of the terrain canvas: the tileset, the template (every game
 // border of every tileset, searchable, each painted with the same strokes; its archetype, rects and room for random
@@ -506,9 +534,7 @@ public:
     void reset() {
         if (all_.empty())
             for (int e = 0; e < 8; ++e)
-                if (const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(e)))
-                    for (const auto& pr : game->pairs())
-                        if (game->isTerrain(pr.a) && game->isTerrain(pr.b)) all_.push_back({e, pr.a, pr.b});
+                for (const ArchetypeThumb& a : templatesOf(e)) all_.push_back(a);
         named_ = groundSet_ = false, sel_ = -1, scroll_ = 0, summary_.clear(), search_.setText(L""), name_.setText(L"");
         invalidate();
     }
@@ -731,9 +757,8 @@ public:
         refShow_.setTip(L"Render the reference border over the terrain canvas. Key: Ctrl+R");
         refOpacity_.setTip(L"Reference opacity; 100 % shows the reference alone. Keys: Ctrl+Shift+Up, Ctrl+Shift+Down");
         refOpacity_.onChange = [this](int) { invalidate(); };
-        row_.searchable = true, row_.wheelSteps = false;
-        row_.setTip(L"Scroll the palette to a group (number or terrain name). Ctrl+click a rect: its tile. Ctrl+M: next block of this terrain's groups");
-        row_.onChange = [this](int g) { showRow(g, -1); };
+        row_.setPlaceholder(L"Go to group: number or terrain name, Enter");
+        row_.onEnter = [this] { goToRow(); };
         palBar_.onScroll = [this](int pos) { palScroll_ = pos, invalidate(); };
         matchBar_.onScroll = [this](int pos) { matchScroll_ = pos, invalidate(); };
         pairPick_.setItems({{L"Tile pair"}, {L"Single tile"}}), pairPick_.setValue(0);
@@ -779,11 +804,13 @@ public:
             const auto it = archPics_.find(archKey(a.era, a.ground, a.terrain));
             return it != archPics_.end() ? it->second : nullptr;
         };
-        newPage_.available = [this](const isomrules::ArchetypeThumb& a) { return loading_ || tplFor(a) >= 0; };  // (loading: known when it is in)
+        // (loading: known when it is in; another tileset's border with none like it here: its own tiles (a foreign template))
+        newPage_.available = [this](const isomrules::ArchetypeThumb& a) { return loading_ || tplFor(a) >= 0 || a.era != int(era()) || isomrules::reversedTemplate(a); };
         newPage_.info = [this](const isomrules::ArchetypeThumb& a) {
             const int k = isomrules::archetypeOf(a.era, a.ground, a.terrain);
             std::wstring s = k ? isomrules::archetypeName(k) : std::wstring(L"No archetype");
-            if (tplFor(a) < 0) return s + L"  \x00b7  none like it in " + isomrules::tilesetTitle(int(era()));
+            if (isomrules::reversedTemplate(a)) s += L"  \x00b7  reversed";
+            else if (tplFor(a) < 0) return s + L"  \x00b7  none like it in " + isomrules::tilesetTitle(int(era()));
             if (const auto it = archInfo_.find(archKey(a.era, a.ground, a.terrain)); it != archInfo_.end())
                 s += L"  \x00b7  " + std::to_wstring(it->second.first) + L" rects  \x00b7  " + std::to_wstring(it->second.second) + L" variants";
             return s;
@@ -891,10 +918,27 @@ public:
                                   msgbox::Icon::Question);
         if (r == 0) return save(false);
         if (r != 1) return false;
-        doc_ = {}, dirty_ = false;  // (Don't save: the edits go; the next open starts from the rules in use)
+        // (Don't save: the edits go. Not now: the window still shows them (a file dialog after this paints it); the next
+        // open replaces them, or dropDiscarded starts again from the rules in use)
+        dirty_ = false, discarded_ = true;
         return true;
     }
-    bool closeRequested() override { return confirmClose(); }
+    bool discarded_ = false;  // (Don't save chosen: the rules in doc_ are edits to drop)
+    void dropDiscarded() {
+        if (!std::exchange(discarded_, false)) return;
+        // (back to the rules of the file as saved; no file: Save asks where, so empty rules never overwrite a file)
+        doc_ = {};
+        stardraft::terrainrules::Rules r;
+        std::string err;
+        if (!file_.empty() && stardraft::terrainrules::load(file_, r, err)) doc_ = std::move(r);
+        else file_.clear();
+        openEra(era());  // (openEra clears the selection before the rules go)
+    }
+    bool closeRequested() override {
+        if (!confirmClose()) return false;
+        dropDiscarded();
+        return true;
+    }
 
     void resized() override { layout(); }
     void paint(draw::Canvas& c) override;
@@ -904,7 +948,7 @@ public:
     bool key(const draw::KeyEvent& e) override {
         // (the search box has the keys: its typing and its text keys are its own; the Ctrl keys that it does not take
         // (Ctrl+E, Ctrl+S...) are the editor's)
-        if (!e.down || (search_.hasFocus() && !(e.mods & draw::kCtrl))) return false;
+        if (!e.down || ((search_.hasFocus() || row_.hasFocus()) && !(e.mods & draw::kCtrl))) return false;  // (Go to group too)
         if (pageOn_) return false;  // (the New terrain page: its own keys only, not the terrain's behind it)
         const bool ctrl = e.mods == draw::kCtrl;  // (the window's letter keys: Ctrl+ only)
         if (!ctrl || (e.key != draw::Key::Left && e.key != draw::Key::Right && e.key != draw::Key::Up && e.key != draw::Key::Down)) nudgeSlot_ = -1;
@@ -963,7 +1007,7 @@ public:
     std::string state() const {
         const auto* t = terrain();
         if (!t) return "isom rules: no terrain";
-        const auto [done, total] = stardraft::terrainrules::completeness(tileset_, t->t);
+        const auto [done, total] = stardraft::terrainrules::completeness(tplTs(t->t), t->t);
         int borrowed = 0;
         for (size_t k = 0; k < t->t.pieces.size(); ++k)
             if (k < t->t.setPieces || k + t->t.gapPieces >= t->t.pieces.size())
@@ -982,7 +1026,7 @@ public:
         // (a piece with no place whose rect's game group is no rect's left tile in StarEdit's tables (an odd group, as a
         // fill's right half): the brush's tiles never take it; only its seam pass can (isom.cpp putPieces: the pieces
         // of the even group's rects), when the group before it has rects. Counted apart)
-        const stardraft::IsomTiles* tiles = stardraft::IsomTiles::forTileset(tileset_);
+        const stardraft::IsomTiles* tiles = stardraft::IsomTiles::forTileset(tplTs(m));  // (the pieces' groups' tables)
         auto brushPlaces = [&](uint16_t g) { return !tiles || !tiles->rectsOf(g).empty(); };
         int variants = 0, variantsPlaced = 0, fills = 0, fillsPlaced = 0, never = 0, seamsOnly = 0;
         for (size_t k = 0; k < m.pieces.size(); ++k) {
@@ -1110,7 +1154,7 @@ private:
         if (gen != openGen_) return;  // (another tileset was asked for meanwhile)
         loading_ = false;
         if (!o.ok) {  // (no tiles: not the last tileset's under this one's name)
-            tileset_ = stardraft::Tileset(), pal_.clear(), chips_.clear(), palScroll_ = 0, jump_ = -1, row_.setItems({}), ground_.setItems({}), groundIds_.clear();
+            tileset_ = stardraft::Tileset(), pal_.clear(), chips_.clear(), palScroll_ = 0, jump_ = -1, rowNames_.clear(), setRowShown(-1), ground_.setItems({}), groundIds_.clear();
             invalidate();
             shellErrorBox(widen(o.err), windowName());
             return;
@@ -1121,16 +1165,14 @@ private:
             if (mapper_ || std::exchange(newDoc_, false)) o.rules.terrains.clear();  // (the mapper, File > New: only the terrains made in it)
             setRules(std::move(o.rules));
         }
-        for (auto& x : rules().terrains) stardraft::terrainrules::normalize(tileset_, x.t);  // (every template rect present, the engine's order)
+        for (auto& x : rules().terrains) normalizeOf(x.t);  // (every template rect present, the engine's order)
         const std::map<uint16_t, std::wstring> names = fillGrounds();  // (a terrain id -> its name: the rows' terrains)
         // (the rows: each group of the tileset, by its number and the terrain its tiles are)
         std::vector<std::wstring> of(tileset_.groups.size());
         for (const auto& [g, tr, other] : tileset_.groupTerrains)
             if (g < of.size() && names.count(tr))
                 of[g] = names.at(tr) + (other && names.count(other) ? L" / " + names.at(other) : L"");
-        std::vector<stardraft::kit::DropdownItem> rows;
-        for (size_t g = 0; g < tileset_.groups.size(); ++g) rows.push_back({std::to_wstring(g) + (of[g].empty() ? L"" : L"  " + of[g])});
-        row_.setItems(rows), row_.setValue(-1);
+        setRowShown(-1);
         rowNames_ = of, rowPics_.clear();
         stdPairs_.clear(), std_ = -1;
         stdPairs_ = bordersOf(era());
@@ -1211,15 +1253,12 @@ private:
         filter(), fillGrounds(), invalidate();
         setMessage(L"Renamed " + was + L" to " + name);
     }
-    // A free terrain id (not a terrain's, a variant's or a built-in one's while they are off); 0: none.
+    // A free terrain id (not a terrain's or a variant's); 0: none.
     uint16_t freeTerrainId() const {
         std::set<uint16_t> ids;
         for (const auto& o : rules().terrains) ids.insert(o.t.id);
         for (const auto& m : tileset_.modTerrains) ids.insert(m.id);
-        ids.insert(tileset_.reservedTerrainIds.begin(), tileset_.reservedTerrainIds.end());
-        uint16_t id = stardraft::Tileset::kModTerrainIds;
-        while (ids.count(id) && id < stardraft::Tileset::kModVariantIds) ++id;
-        return id < stardraft::Tileset::kModVariantIds ? id : 0;
+        return stardraft::Tileset::freeModTerrainId(ids);  // (180 in all)
     }
     // Duplicate with offset: a copy of terrain i on another bordering terrain, its edge tiles n tile groups further on
     // (a mod's sets of one art on each ground are often the same groups in the same order). The inside keeps its tiles.
@@ -1228,7 +1267,7 @@ private:
     std::unique_ptr<isomrules::DuplicateDialog> makeDuplicateDialog(int i, std::vector<uint16_t>& borderIds) {
         if (loading_ || i < 0 || i >= int(rules().terrains.size())) return nullptr;
         const stardraft::terrainrules::Terrain& src = rules().terrains[size_t(i)];
-        const int sg = stardraft::solidTileGroup(tileset_, src.t.standIn);
+        const int sg = insideGroup(src.t);
         auto inside = [&](uint16_t g) { return sg >= 0 && (g == sg || g == sg + 1); };
         // (the borders: each bordering terrain but its own; its picture a tile of its inside)
         std::vector<isomrules::DuplicateDialog::Border> borders;
@@ -1242,7 +1281,7 @@ private:
                 for (const auto& o : rules().terrains)
                     if (o.t.id == g)
                         for (const auto& p : o.t.pieces)
-                            if (!tile && !isomrules::nullHalf(p[1]) && stardraft::solidTileGroup(tileset_, o.t.standIn) == int(p[0])) tile = p[1];
+                            if (!tile && !isomrules::nullHalf(p[1]) && insideGroup(o.t) == int(p[0])) tile = p[1];
             borders.push_back({groundName(g), tile}), borderIds.push_back(g);
         }
         // (the source's edge tiles and the Mod tiles rows they are in)
@@ -1299,13 +1338,13 @@ private:
     void createDuplicate(int i, uint16_t ground, int d, const std::wstring& name) {  // (d: the edge tiles' offset, in tiles)
         if (loading_ || i < 0 || i >= int(rules().terrains.size()) || name.empty()) return;
         const stardraft::terrainrules::Terrain src = rules().terrains[size_t(i)];
-        const int sg = stardraft::solidTileGroup(tileset_, src.t.standIn);
+        const int sg = insideGroup(src.t);
         auto inside = [&](uint16_t g) { return sg >= 0 && (g == sg || g == sg + 1); };
         const uint16_t id = freeTerrainId();
-        if (!id) return shellErrorBox(L"No free terrain id in this tileset.", L"Duplicate with offset");
+        if (!id) return shellErrorBox(L"No free terrain id in this tileset (180 terrains).", L"Duplicate with offset");
         stardraft::terrainrules::Terrain x = src;
         x.t.id = id, x.t.ground = ground, x.t.draft = true;
-        const uint16_t tplGround = stardraft::terrainrules::templateOf(tileset_, src.t).first;
+        const uint16_t tplGround = src.t.foreign() ? (src.t.groundTemplate ? src.t.groundTemplate : src.t.ground) : stardraft::terrainrules::templateOf(tileset_, src.t).first;
         x.t.groundTemplate = ground == tplGround ? 0 : tplGround;
         x.t.name = narrow(name);
         int lost = 0;
@@ -1321,7 +1360,7 @@ private:
                     }
             if (const auto it = src.variantOf.find(old); it != src.variantOf.end()) x.variantOf[p] = it->second;
         }
-        stardraft::terrainrules::normalize(tileset_, x.t);  // (the engine's order: a piece made NULL goes to the gaps)
+        normalizeOf(x.t);  // (the engine's order: a piece made NULL goes to the gaps)
         rules().terrains.push_back(std::move(x));
         familyCache_.clear(), dirty_ = true;
         filter(), fillGrounds();
@@ -1351,7 +1390,7 @@ private:
         int n = 0;
     } shift_;
     bool shiftInside(const stardraft::terrainrules::Terrain& t, uint16_t g) const {
-        const int sg = stardraft::solidTileGroup(tileset_, t.t.standIn);
+        const int sg = insideGroup(t.t);
         return sg >= 0 && (g == sg || g == sg + 1);
     }
     // Every edge tile of the start n groups on is a tile (a step skips the offsets where one is not).
@@ -1460,9 +1499,10 @@ private:
         for (size_t i = 0; i < ts.terrains.size(); ++i) {
             std::wstring n = widen(ts.terrains[i].t.name);
             if (!q.empty() && !tileset_.groups.empty()) {  // (the label too: "draft", a family, "36/36")
-                const auto [done, total] = stardraft::terrainrules::completeness(tileset_, ts.terrains[i].t);
+                const stardraft::Tileset& tts = tplTs(ts.terrains[i].t);
+                const auto [done, total] = stardraft::terrainrules::completeness(tts, ts.terrains[i].t);
                 const auto [a, b] = stardraft::terrainrules::templateOf(tileset_, ts.terrains[i].t);
-                n += L" " + isomrules::familyName(stardraft::terrainrules::familyOf(stardraft::terrainrules::templateRects(tileset_, a, b), tileset_)) + L" " +
+                n += L" " + isomrules::familyName(stardraft::terrainrules::familyOf(stardraft::terrainrules::templateRects(tts, a, b), tts)) + L" " +
                      std::to_wstring(done) + L"/" + std::to_wstring(total) + (ts.terrains[i].t.draft ? L" Draft" : L" Verified");
             }
             std::transform(n.begin(), n.end(), n.begin(), ::towlower);
@@ -1495,7 +1535,8 @@ private:
         isomrules::Family f = isomrules::Family::Other;
         if (!tileset_.groups.empty()) {
             const auto [a, b] = v >= 0 ? stardraft::terrainrules::templateOf(tileset_, rules().terrains[size_t(v)].t) : stdPairs_[size_t(-1 - v)];
-            f = stardraft::terrainrules::familyOf(stardraft::terrainrules::templateRects(tileset_, a, b), tileset_);
+            const stardraft::Tileset& tts = v >= 0 ? tplTs(rules().terrains[size_t(v)].t) : tileset_;
+            f = stardraft::terrainrules::familyOf(stardraft::terrainrules::templateRects(tts, a, b), tts);
         }
         return familyCache_[key] = f;
     }
@@ -1503,7 +1544,8 @@ private:
     int archetypeOfValue(int v) const {
         if (tileset_.groups.empty() || isVariantRow(v)) return 0;
         const auto [a, b] = v >= 0 ? stardraft::terrainrules::templateOf(tileset_, rules().terrains[size_t(v)].t) : stdPairs_[size_t(-1 - v)];
-        return isomrules::archetypeOf(int(era()), a, b);
+        const bool other = v >= 0 && rules().terrains[size_t(v)].t.foreign();  // (another tileset's template: its archetype there)
+        return isomrules::archetypeOf(other ? int(rules().terrains[size_t(v)].t.templateEra) : int(era()), a, b);
     }
     // The sidebar's rows: the terrains by family (cliffs first), each family a header with its count, then the game's
     // borders; the shown terrain's row in view. The mapper: by archetype, each with its terrains, then its game borders.
@@ -1567,6 +1609,7 @@ private:
     // tile), a game border's terrain's solid tile. 0: none.
     uint16_t swatchOf(int v) const {
         if (tileset_.groups.empty()) return 0;
+        if (v < 0 ? size_t(-1 - v) >= stdPairs_.size() : v >= int(rules().terrains.size())) return 0;  // (a stale list value)
         if (v < 0) {
             const int g = stardraft::solidTileGroup(tileset_, stdPairs_[size_t(-1 - v)].second);
             return g >= 0 ? gameTile(uint32_t(g)) : 0;
@@ -1579,7 +1622,7 @@ private:
                 if (!isomrules::nullHalf(m.pieces[k][1])) return m.pieces[k][1];
             return 0;
         }
-        const int g = stardraft::solidTileGroup(tileset_, m.standIn);
+        const int g = stardraft::solidTileGroup(tileset_, m.standIn);  // (this tileset's tile: its stand-in's)
         return g >= 0 ? gameTile(uint32_t(g)) : 0;
     }
     // A terrain id's tile, for its picture: a game terrain's solid tile, or a terrain of the rules' swatch.
@@ -1626,18 +1669,83 @@ private:
                 if (groundIds_[k] == v->ground) ground_.setValue(int(k));
             return setMessage(widen(v->name) + L": a variant's bordering terrain is the brush's. Select " + widen(t->t.name) + L" to change its own");
         }
-        const uint16_t g = groundIds_[size_t(i)];
+        const uint16_t g = groundIds_[size_t(i)], wasGround = t->t.ground;
         if (!remember()) {  // (the box shows its ground again)
             for (size_t k = 0; k < groundIds_.size(); ++k)
                 if (groundIds_[k] == t->t.ground) ground_.setValue(int(k));
             return;
         }
-        const uint16_t tpl = stardraft::terrainrules::templateOf(tileset_, t->t).first;  // (the template stays: its ground)
+        const uint16_t tpl = t->t.foreign() ? (t->t.groundTemplate ? t->t.groundTemplate : t->t.ground)  // (another tileset's: the stand-in's ground here)
+                                             : stardraft::terrainrules::templateOf(tileset_, t->t).first;  // (the template stays: its ground)
         t->t.ground = g;
         t->t.groundTemplate = g == tpl ? 0 : tpl;
+        std::wstring note;
+        if (mapper_) note = rebaseOnGround(*t, wasGround, g);
         changed();
+        if (!note.empty()) setMessage(note);
     }
 
+    // The mapper's border change (setGround, t's ground g set): the name's "(...)" part names the new border, and the
+    // template is the one New terrain picks for that border (its level): another tileset's template gets a new stand-in;
+    // a template of this tileset's, the border of the same shapes at g's level, each piece moved to its rect of the
+    // same shape. A note for the status bar (empty: none).
+    std::wstring rebaseOnGround(stardraft::terrainrules::Terrain& t, uint16_t was, uint16_t g) {
+        auto label = [&](uint16_t id) {
+            for (size_t k = 0; k < groundIds_.size() && k < ground_.items().size(); ++k)
+                if (groundIds_[k] == id) return narrow(ground_.items()[k].label);
+            return std::string();
+        };
+        // (the name's last "(...)", its parentheses matched: renamed only when it names the old border)
+        const std::string oldName = label(was), newName = label(g), n = t.t.name;
+        if (!oldName.empty() && !newName.empty() && n.size() > 2 && n.back() == ')') {
+            int depth = 0;
+            size_t open = std::string::npos;
+            for (size_t k = n.size(); k-- > 0;) {
+                depth += n[k] == ')' ? 1 : n[k] == '(' ? -1 : 0;
+                if (depth == 0) {
+                    open = k;
+                    break;
+                }
+            }
+            if (open != std::string::npos && open > 0 && n[open - 1] == ' ' && n.substr(open + 1, n.size() - open - 2) == oldName)
+                t.t.name = n.substr(0, open) + "(" + newName + ")";
+        }
+        const int level = levelOf(g);
+        if (t.t.foreign()) {
+            const isomrules::ArchetypeThumb a{int(t.t.templateEra & 7), t.t.templateGround, t.t.templateTerrain};
+            const int i = standInFor(a, level);
+            if (i < 0) return L"No stand-in at this border's level: the template stays";
+            const auto [sg, st] = stdPairs_[size_t(i)];
+            t.t.standIn = st, t.t.groundTemplate = g == sg ? 0 : sg;
+            return {};
+        }
+        const auto [og, ot] = stardraft::terrainrules::templateOf(tileset_, t.t);
+        isomrules::ArchetypeThumb a{int(era()), og, ot};
+        if (t.baseEra >= 0) a = {t.baseEra, t.baseGround, t.baseTerrain};
+        const int i = tplFor(a, level);
+        if (i < 0) return L"No border of these shapes at this border's level: the template stays, some edges can paint wrongly";
+        const auto [ng, nt] = stdPairs_[size_t(i)];
+        if (ng != og || nt != ot) {  // (another template: each piece to the new template's rect of the same shape)
+            const auto fresh = stardraft::terrainrules::templateRects(tileset_, ng, nt), old = stardraft::terrainrules::templateRects(tileset_, og, ot);
+            std::map<uint16_t, uint16_t> to;  // (old group -> new group)
+            for (const auto& [n, o] : baseRectsOf(fresh, old)) to[o] = n;
+            if (const int os = stardraft::solidTileGroup(tileset_, ot), ns = stardraft::solidTileGroup(tileset_, nt); os >= 0 && ns >= 0)
+                to[uint16_t(os)] = uint16_t(ns), to[uint16_t(os + 1)] = uint16_t(ns + 1);
+            std::map<std::array<uint16_t, 3>, uint8_t> variants, tags;  // (the variant numbers, keyed by the pieces: moved with them)
+            for (auto& p : t.t.pieces) {
+                const auto it = to.find(p[0]);
+                const std::array<uint16_t, 3> was = p;
+                if (it != to.end()) p[0] = it->second;
+                if (const auto v = t.t.pieceVariant.find(was); v != t.t.pieceVariant.end()) variants[p] = v->second;
+                if (const auto v = t.variantOf.find(was); v != t.variantOf.end()) tags[p] = v->second;
+            }
+            t.t.pieceVariant = std::move(variants), t.variantOf = std::move(tags);
+            for (auto& [at, pin] : pins_)  // (the pins, by group: to the new rects; changed() normalizes and moves the target)
+                if (const auto it = to.find(pin.first); it != to.end()) pin.first = it->second;
+        }
+        t.t.standIn = nt, t.t.groundTemplate = g == ng ? 0 : ng;
+        return {};
+    }
     // The example: a new map of the tileset, its bordering terrain, then the terrain in the fixed shape of its kind (a
     // wall's, a path's: diamonds of 1 that show its edges, corners and joints), with the working rules;
     // each rect of the terrain with its piece. It paints on the worker; another terrain's picture goes at once, the same
@@ -1741,9 +1849,14 @@ private:
         in->extend = !moreRects_.count(cacheId) && !mapper_;  // (a terrain's first example: the search before it shows, one picture)
         if (mapper_) in->extra = thinShowcase();  // (the mapper: no search, the same thin shapes under every terrain's shape)
         in->pins = pins_;
-        uint16_t root = on.t.ground;  // (a game terrain under its grounds)
-        for (int n = 0; n < 16 && root >= stardraft::Tileset::kModTerrainIds; ++n)
-            if (const isomrules::ModTerrain* m = tileset_.modTerrain(root)) root = m->ground; else break;
+        uint16_t root = on.t.ground;  // (a game terrain under its grounds: the rules' terrains first (new ones too), then the tileset's)
+        for (int n = 0; n < 16 && root >= stardraft::Tileset::kModTerrainIds; ++n) {
+            const int r = indexOfId(root);
+            if (r >= 0) root = rules().terrains[size_t(r)].t.ground;
+            else if (const isomrules::ModTerrain* m = tileset_.modTerrain(root)) root = m->ground;
+            else break;
+        }
+        if (root >= stardraft::Tileset::kModTerrainIds) root = 1;  // (none found: the tileset's first terrain, not a map that cannot be made)
         in->root = root ? root : 1;
         // (each half of each piece of the terrain as a value that no tile uses: past the tileset's groups, else an empty
         // subtile; the painted map then tells which piece is in each rect, and its half; the picture puts the piece's own
@@ -2492,7 +2605,8 @@ private:
             // (how piece i leads piece k, the next row of i's block, as the map's brush (isom.cpp putPieces) takes it: 2, the
             // same variant of the rules file where the game's rects stack; else 1, its tiles one group down at the same
             // subtiles; 0: not)
-            const stardraft::IsomTiles* stackOf = stardraft::IsomTiles::forTileset(ed->tileset());
+            const stardraft::Tileset* pieceTs = t->t.foreign() ? ed->templateTileset(t->t.templateEra) : &ed->tileset();  // (the pieces' groups' tileset)
+            const stardraft::IsomTiles* stackOf = pieceTs ? stardraft::IsomTiles::forTileset(*pieceTs) : nullptr;
             auto leads = [&](size_t i, size_t k) -> int {
                 if (stackOf && !isomrules::anyNull(P[i]) && !isomrules::anyNull(P[k]))
                     if (const auto a = t->variantOf.find(P[i]), b = t->variantOf.find(P[k]); a != t->variantOf.end() && b != t->variantOf.end() && a->second == b->second)
@@ -2773,7 +2887,7 @@ private:
     void showRow(int g, int v) {
         if (g < 0 || g >= int(tileset_.groups.size())) return;
         jump_ = v >= 0 ? v : g << 4, jumpRow_ = v < 0;
-        row_.setValue(g);
+        setRowShown(g);
         scrollToRow(g);
         invalidate();
     }
@@ -2990,7 +3104,7 @@ private:
         target_ = k, targetHalf_ = half >= 0 ? half : isomrules::nullHalf(q[1]) ? 0 : 1;
         uint16_t v = q[size_t(1 + targetHalf_)];  // (its tile's row in view, or the other half's: the tiles near it)
         if (isomrules::nullHalf(v)) v = q[size_t(2 - targetHalf_)];
-        if (follow && !isomrules::nullHalf(v)) scrollToRow(v >> 4), row_.setValue(v >> 4);  // (the group picker follows the target)
+        if (follow && !isomrules::nullHalf(v)) scrollToRow(v >> 4), setRowShown(v >> 4);  // (the group picker follows the target)
         const std::vector<CheckRow> rows = checkRows();  // (the checklist shows the target's row)
         for (size_t i = 0; i < rows.size(); ++i)
             if (rows[i].group == q[0]) {
@@ -3011,7 +3125,7 @@ private:
         for (int g : starts)
             if (g > top + 1) { go = g; break; }
         palScroll_ = std::clamp(std::max(0, palIndexOf(go)) * cell - scale(4), 0, palScrollMax());
-        row_.setValue(go);
+        setRowShown(go);
         setMessage(L"Groups " + std::to_wstring(go) + L"+: this terrain");
         invalidate();
     }
@@ -3099,14 +3213,13 @@ private:
                                   item(L"Previous suggestion", L"Shift+Tab", [this] { selectPrevSuggestion(), invalidate(); }, own && matchMode_),
                                   item(L"Keep original", L"Ctrl+Shift+K", [this] { keepOriginal(); }, own && matchMode_),
                                   sep,
+                                  item(L"Toggle verified/draft", L"Ctrl+D", [this] { toggleDraft(); }, own), sep,
                                   check(L"Linked rows", L"", linkRows_, [this] { toggleLinkRows(); }), sep,
                                   item(L"Restore removed pieces", L"", [this] { restoreRemoved(); },
                                        !shapeKey_.empty() && (!hiddenOf(shapeKey_).empty() || !cutOf(shapeKey_).empty())), sep,
                                   radio(L"Select a tile pair", L"Ctrl+T", wide_, [this] { toggleWidth(); }),
                                   radio(L"Select a single tile", L"Ctrl+T", !wide_, [this] { toggleWidth(); })};
-        std::vector<Item> terrainMenu = {radio(L"Draft", L"Ctrl+D", t && t->t.draft, [this] { toggleDraft(); }, own),
-                                         radio(L"Verified", L"Ctrl+D", t && !t->t.draft, [this] { toggleDraft(); }, own), sep,
-                                         item(L"Next NULL rect", L"Ctrl+L", [this] { nextNull(); }, own),
+        std::vector<Item> terrainMenu = {item(L"Next NULL rect", L"Ctrl+L", [this] { nextNull(); }, own),
                                          item(L"Next group block", L"Ctrl+M", [this] { nextMyRows(); }, own), sep,
                                          item(L"Next variant", L"Ctrl+]", [this] { stepVariant(1); }, own),
                                          item(L"Previous variant", L"Ctrl+[", [this] { stepVariant(-1); }, own),
@@ -3206,10 +3319,10 @@ private:
         if (isomrules::nullHalf(sample[1]) || isomrules::nullHalf(sample[2])) return setMessage(L"Put the mod's tiles in the selected rect first: its tiles set the offset");
         // The template's rects by role: the base border's (in its own tileset) or this tileset's.
         const auto [tg, tt] = stardraft::terrainrules::templateOf(tileset_, tp->t);
-        const std::vector<stardraft::terrainrules::TemplateRect> own = stardraft::terrainrules::templateRects(tileset_, tg, tt);
+        const std::vector<stardraft::terrainrules::TemplateRect> own = stardraft::terrainrules::templateRects(tplTs(tp->t), tg, tt);
         std::map<uint16_t, uint16_t> baseGroup;  // (a rect here -> the base's rect: its left group)
         int pairedByShape = -1;
-        if (tp->baseEra >= 0 && tp->baseEra != int(era())) {
+        if (tp->baseEra >= 0 && tp->baseEra != int(era()) && !tp->t.foreign()) {
             stardraft::Tileset other;
             std::string err;
             if (!loadTileset(other, tp->baseEra, true, err)) return setMessage(L"Base tileset: " + widen(err));
@@ -3266,10 +3379,11 @@ private:
         std::vector<ListPickItem> items;
         for (size_t i = 0; i < ts.terrains.size(); ++i) {
             if (int(i) == sel_ || ts.terrains[i].t.variantOf) continue;
+            const stardraft::Tileset& tts = tplTs(ts.terrains[i].t);
             const auto [a, b] = stardraft::terrainrules::templateOf(tileset_, ts.terrains[i].t);
-            const auto rects = stardraft::terrainrules::templateRects(tileset_, a, b);
-            const auto [done, total] = stardraft::terrainrules::completeness(tileset_, ts.terrains[i].t);
-            const auto f = stardraft::terrainrules::familyOf(rects, tileset_);
+            const auto rects = stardraft::terrainrules::templateRects(tts, a, b);
+            const auto [done, total] = stardraft::terrainrules::completeness(tts, ts.terrains[i].t);
+            const auto f = stardraft::terrainrules::familyOf(rects, tts);
             items.push_back({widen(ts.terrains[i].t.name) + L" \x00b7 " + isomrules::familyName(f) + L" \x00b7 " + std::to_wstring(done) + L"/" + std::to_wstring(total) +
                                  (f == family_ ? L"" : L"  (other family)"),
                              L"", std::to_string(i), "", -1});
@@ -3280,7 +3394,7 @@ private:
         if (!runListPick(pick, {at.left, at.top + scale(30)}) || pick.result().empty()) return;
         const auto& src = ts.terrains[size_t(std::stoi(pick.result()))];
         const auto [a, b] = stardraft::terrainrules::templateOf(tileset_, src.t);
-        const auto srcRects = stardraft::terrainrules::templateRects(tileset_, a, b);
+        const auto srcRects = stardraft::terrainrules::templateRects(tplTs(src.t), a, b);
         // (a role repeated in a template is numbered "edge N 1", "edge N 2": the source's n-th of that base role, else its first)
         auto base = [](const std::string& role) {
             size_t i = role.size();
@@ -3335,7 +3449,7 @@ private:
             // (the engine's order: complete pieces first; the target follows its piece)
             const std::array<uint16_t, 3> was = target_ >= 0 && target_ < int(t->t.pieces.size()) ? t->t.pieces[size_t(target_)] : std::array<uint16_t, 3>{0xFFFF, 0, 0};
             const std::vector<std::array<uint16_t, 3>> before = t->t.pieces;
-            stardraft::terrainrules::normalize(tileset_, t->t);
+            normalizeOf(t->t);
             if (t->t.pieces != before) remapPins(before, t->t.pieces);
             if (was[0] != 0xFFFF) {  // (the same one of equal pieces: a copy of Make Unique and its original)
                 int occ = 0;
@@ -3428,7 +3542,7 @@ private:
         }
         for (size_t i = 0; i < ts.terrains.size(); ++i)
             if (!ts.terrains[i].t.variantOf) {
-                const auto [done, total] = stardraft::terrainrules::completeness(tileset_, ts.terrains[i].t);
+                const auto [done, total] = stardraft::terrainrules::completeness(tplTs(ts.terrains[i].t), ts.terrains[i].t);
                 models.push_back({L"Copy of " + widen(ts.terrains[i].t.name) + L"  \x00b7  " + std::to_wstring(done) + L"/" + std::to_wstring(total) + L" Rects"});
                 models.back().image = chip(swatchOf(int(i))), modelOf.push_back(int(i));
             }
@@ -3541,8 +3655,22 @@ public:
     // (the snapshot's terrainmapper:<era>/refcheck:<tileset>:<template terrain>:<border>: a terrain of that template on that
     // border, the reference on, then refCheck)
     std::string refCheckOf(int e, const std::wstring& n, const std::wstring& border) {
+        // (STARDRAFT_PRE_TERRAIN=<era>:<template>:<border>: that terrain made first, a ground for this one)
+        if (const char* pre = std::getenv("STARDRAFT_PRE_TERRAIN")) {
+            const std::string p = pre;
+            const size_t a = p.find(':'), b = a != std::string::npos ? p.find(':', a + 1) : a;
+            if (b != std::string::npos) {
+                showNewPage();
+                if (newPage_.pickTestName(std::atoi(p.c_str()), widen(p.substr(a + 1, b - a - 1)))) {
+                    for (size_t k = 0; k < ground_.items().size(); ++k)
+                        if (ground_.items()[k].label == widen(p.substr(b + 1))) newPage_.setGroundTest(int(k));
+                    pageCreate();
+                }
+            }
+        }
         showNewPage();
         if (!newPage_.pickTestName(e, n)) return "no template";
+        fillGrounds();
         for (size_t k = 0; k < ground_.items().size(); ++k)
             if (ground_.items()[k].label == border) newPage_.setGroundTest(int(k));
         pageCreate();
@@ -3587,7 +3715,32 @@ private:
     // level: the level its ground must have (levelOf; -1: any): a border whose ground is at the Border's level, so the
     // brush can put the terrain on that Border (Grass is a level above Dirt: a terrain on Grass needs a border on a
     // ground a level up, as High Grass on High Dirt).
+    // A stand-in for template a of another tileset (no border of its shapes here): this tileset's border, its ground at
+    // `level` (-1: any), with the most of a's rect shapes (corners only, not the cliff rows: the map's own pass makes those
+    // shapes where the stand-in has them), then the fewest others; -1: none.
+    int standInFor(const isomrules::ArchetypeThumb& a, int level) const {
+        isomrules::ModTerrain probe;
+        probe.templateEra = uint8_t(a.era), probe.templateGround = a.ground, probe.templateTerrain = a.terrain;
+        auto shapes = [](const std::vector<stardraft::terrainrules::TemplateRect>& rs) {
+            std::set<std::string> out;
+            for (const auto& r : rs) out.insert(r.shape.substr(0, r.shape.rfind('/')));
+            return out;
+        };
+        const std::set<std::string> want = shapes(stardraft::terrainrules::templateRects(tplTs(probe), a.ground, a.terrain));
+        int best = -1, bestHave = -1, bestMore = 0;
+        for (size_t i = 0; i < stdPairs_.size(); ++i) {
+            if (level >= 0 && levelOf(stdPairs_[i].first) != level) continue;
+            const std::set<std::string> has = shapes(stardraft::terrainrules::templateRects(tileset_, stdPairs_[i].first, stdPairs_[i].second));
+            int have = 0;
+            for (const auto& s : want) have += has.count(s) ? 1 : 0;
+            const int more = int(has.size()) - have;
+            if (have > bestHave || (have == bestHave && more < bestMore)) best = int(i), bestHave = have, bestMore = more;
+        }
+        return best;
+    }
+    bool pickForeign_ = false;  // (the template picked: another tileset's, with a stand-in here (standInFor))
     int tplFor(const isomrules::ArchetypeThumb& a, int level = -1) const {
+        if (isomrules::reversedTemplate(a)) return -1;  // (no border of it in any tileset: its own tiles, a stand-in)
         auto fits = [&](size_t i) { return level < 0 || levelOf(stdPairs_[i].first) == level; };
         if (a.era == int(era()))
             for (size_t i = 0; i < stdPairs_.size(); ++i)
@@ -3631,8 +3784,14 @@ private:
         const isomrules::ArchetypeThumb& a = pickThumb_;
         const uint16_t border = pageBorderId();
         const int level = border ? levelOf(border) : -1;
-        pickTpl_ = tplFor(a, level);
+        pickTpl_ = tplFor(a, level), pickForeign_ = false;
         std::wstring s = L"Template: " + borderTitle(a.era, a.ground, a.terrain);
+        if (pickTpl_ < 0 && tplFor(a) < 0 && (a.era != int(era()) || isomrules::reversedTemplate(a))) {  // (no border of its shapes here: its own tileset's tiles, a stand-in here)
+            pickTpl_ = standInFor(a, level), pickForeign_ = pickTpl_ >= 0;
+            if (pickTpl_ < 0) return newPage_.setSummary(s);
+            return newPage_.setSummary(s + L"  \x00b7  " + isomrules::tilesetTitle(a.era) + L"'s rects (none like it in " + isomrules::tilesetTitle(int(era())) +
+                                       L"); stand-in " + stdName(pickTpl_));
+        }
         if (pickTpl_ < 0) {  // (none at that level: the border picked stays; the shapes' border at any level, with a note)
             pickTpl_ = tplFor(a);
             if (pickTpl_ < 0) return newPage_.setSummary(s);
@@ -3654,9 +3813,15 @@ private:
         pickThumb_ = a, pickTpl_ = -1;
         if (loading_) return newPage_.setSummary(L"Template: " + borderTitle(a.era, a.ground, a.terrain));  // (the tileset loading: opened() picks it again)
         const int any = tplFor(a);
-        if (any < 0) return newPage_.clearPick();
-        for (size_t g = 0; g < groundIds_.size(); ++g)  // (the Border: the border's own ground, until one is picked)
-            if (groundIds_[g] == stdPairs_[size_t(any)].first) newPage_.suggestGround(int(g));
+        if (any < 0 && a.era == int(era()) && !isomrules::reversedTemplate(a)) return newPage_.clearPick();
+        if (any >= 0) {
+            for (size_t g = 0; g < groundIds_.size(); ++g)  // (the Border: the border's own ground, until one is picked)
+                if (groundIds_[g] == stdPairs_[size_t(any)].first) newPage_.suggestGround(int(g));
+        } else if (const IsomTerrainTable *there = IsomTerrainTable::forEra(uint16_t(a.era)), *here = IsomTerrainTable::forEra(uint16_t(era())); there && here) {
+            for (size_t g = 0; g < groundIds_.size(); ++g)  // (another tileset's template: the ground of its ground's name here)
+                if (groundIds_[g] < stardraft::Tileset::kModTerrainIds && widen(here->terrainName(groundIds_[g])) == widen(there->terrainName(a.ground)))
+                    newPage_.suggestGround(int(g));
+        }
         pageRecheck();
     }
     void pageCreate() {
@@ -3670,7 +3835,18 @@ private:
         // (its template: the game border picked, in any tileset; no free id: the page stays)
         // (the template's variants: each rect of it, how many tiles its group has in the game; the inside's too)
         std::map<uint16_t, int> variants;
-        {
+        if (pickForeign_) {  // (another tileset's template: its rects, its groups' variants)
+            isomrules::ModTerrain probe;
+            probe.templateEra = uint8_t(pickThumb_.era), probe.templateGround = pickThumb_.ground, probe.templateTerrain = pickThumb_.terrain;
+            const stardraft::Tileset& bts = tplTs(probe);
+            auto count = [&](int bg) {
+                int n = 0;
+                for (int sub = 0; bg >= 0 && sub < 16; ++sub) n += bts.megatileFor(uint16_t(bg * 16 + sub)) > 0 ? 1 : 0;
+                return n;
+            };
+            for (const auto& r : stardraft::terrainrules::templateRects(bts, pickThumb_.ground, pickThumb_.terrain)) variants[r.group] = count(r.group);
+            if (const int bs = stardraft::solidTileGroup(bts, pickThumb_.terrain); bs >= 0) variants[uint16_t(bs)] = count(bs), variants[uint16_t(bs + 1)] = count(bs + 1);
+        } else {
             stardraft::Tileset other;
             std::string err;
             const bool here = pickThumb_.era == int(era());
@@ -3691,7 +3867,7 @@ private:
                     variants[uint16_t(sg)] = count(bs), variants[uint16_t(sg + 1)] = count(bs + 1);
             }
         }
-        if (!addTerrain(name, true, pickTpl_, g, t, groundIds_[size_t(newPage_.ground())], &pickThumb_, &variants)) return;
+        if (!addTerrain(name, true, pickTpl_, g, t, groundIds_[size_t(newPage_.ground())], &pickThumb_, &variants, pickForeign_)) return;
         pageOn_ = false;
         focus();  // (as closeNewPage)
         layout();
@@ -3719,7 +3895,8 @@ private:
             Editor ed(*data);
             ed.setUndoLimit(1), ed.setTerrainOnly(true), ed.limitGroups(gameGroups(e));
             std::string err2;
-            for (const auto& [g, t] : bordersOf(e)) {
+            for (const isomrules::ArchetypeThumb& a : isomrules::templatesOf(e)) {
+                const uint16_t g = a.ground, t = a.terrain;
                 if (!ed.newMap(W, H, uint16_t(e), g, err2)) continue;
                 ed.useModTerrains({});
                 static const int kStrokes[][3] = {{416, 224, 3}, {290, 190, 2}, {560, 250, 2}, {470, 140, 1}, {330, 300, 1}, {620, 180, 1}, {200, 260, 1}};
@@ -3777,21 +3954,23 @@ public:
 private:
     // A new terrain (base: the game border it is made from, any tileset's; null: its template). False: no free id.
     bool addTerrain(const std::wstring& name, bool fromStd, int modelIx, uint16_t tplGround, uint16_t tplTerrain, uint16_t ground,
-                    const isomrules::ArchetypeThumb* base = nullptr, const std::map<uint16_t, int>* variants = nullptr) {
+                    const isomrules::ArchetypeThumb* base = nullptr, const std::map<uint16_t, int>* variants = nullptr, bool foreign = false) {
         auto& ts = rules();
         std::set<uint16_t> ids;
         for (const auto& o : ts.terrains) ids.insert(o.t.id);
         for (const auto& m : tileset_.modTerrains) ids.insert(m.id);  // (and the variants' ids)
-        ids.insert(tileset_.reservedTerrainIds.begin(), tileset_.reservedTerrainIds.end());  // (the built-in terrains' when they are off)
-        uint16_t id = stardraft::Tileset::kModTerrainIds;
-        while (ids.count(id) && id < stardraft::Tileset::kModVariantIds) ++id;
-        if (id >= stardraft::Tileset::kModVariantIds) return shellErrorBox(L"No free terrain id in this tileset.", L"New terrain"), false;
+        const uint16_t id = stardraft::Tileset::freeModTerrainId(ids);  // (180 in all)
+        if (!id) return shellErrorBox(L"No free terrain id in this tileset (180 terrains).", L"New terrain"), false;
         stardraft::terrainrules::Terrain x;
         if (base) x.baseEra = base->era, x.baseGround = base->ground, x.baseTerrain = base->terrain;
         x.t.id = id, x.t.name = narrow(name), x.t.standIn = tplTerrain, x.t.ground = ground, x.t.draft = mapper_;  // (the mapper's: a draft until its tiles are checked)
         const isomrules::ModTerrain* gm = tileset_.modTerrain(ground);
         (void)gm;
         x.t.groundTemplate = ground == tplGround ? 0 : tplGround;  // (another bordering terrain: the template's ground stays)
+        // (another tileset's template (base): its pieces are that tileset's groups; tplTerrain on tplGround paints it here)
+        if (foreign && base) x.t.templateEra = uint8_t(base->era), x.t.templateGround = base->ground, x.t.templateTerrain = base->terrain;
+        const stardraft::Tileset& tts = tplTs(x.t);
+        const auto [rg, rt] = x.t.foreign() ? std::pair<uint16_t, uint16_t>{base->ground, base->terrain} : std::pair<uint16_t, uint16_t>{tplGround, tplTerrain};
         if (fromStd) {
             x.t.fill = false, x.t.fillKey = 0;
             // (every rect NULL: each tile is a decision; as many variants as the template's rect has (variants: its group
@@ -3800,10 +3979,10 @@ private:
                 const auto it = variants ? variants->find(g) : decltype(variants->end()){};
                 return variants && it != variants->end() ? std::max(1, it->second) : 1;
             };
-            for (const auto& r : stardraft::terrainrules::templateRects(tileset_, tplGround, tplTerrain))
+            for (const auto& r : stardraft::terrainrules::templateRects(tts, rg, rt))
                 for (int n = slots(r.group); n > 0; --n) x.t.pieces.push_back({r.group, 0, 1});
             // (the mapper's: its inside too, as rows to change (fill pieces), NULL as its edges: no tiles guessed)
-            if (const int sg = mapper_ ? stardraft::solidTileGroup(tileset_, tplTerrain) : -1; sg >= 0) {
+            if (const int sg = mapper_ ? stardraft::solidTileGroup(tts, rt) : -1; sg >= 0) {
                 x.t.fill = true, x.t.setPieces = x.t.pieces.size(), x.t.gapPieces = 0;
                 x.t.fillKey = 0xFFFE0000u | id;  // (its own inside: a key no other terrain has (0: not known))
                 for (uint16_t g : {uint16_t(sg), uint16_t(sg + 1)})
@@ -3813,7 +3992,7 @@ private:
             const auto& src = ts.terrains[size_t(modelIx)].t;
             x.t.fill = src.fill, x.t.fillKey = src.fillKey, x.t.pieces = src.pieces, x.t.setPieces = src.setPieces, x.t.gapPieces = src.gapPieces;
         }
-        stardraft::terrainrules::normalize(tileset_, x.t);
+        stardraft::terrainrules::normalize(tts, x.t);
         ts.terrains.push_back(std::move(x));
         familyCache_.clear();
         filter();
@@ -3828,13 +4007,13 @@ private:
     bool newDoc_ = false;  // (opened: its rules with no terrains)
     void newFile() {
         if (dirty_ && !confirmClose()) return;
-        doc_ = {}, file_.clear(), dirty_ = false, newDoc_ = true;
+        discarded_ = false, doc_ = {}, file_.clear(), dirty_ = false, newDoc_ = true;
         openEra(era());
         setMessage(L"New terrain rules");
     }
     void loadDefault() {
         if (dirty_ && !confirmClose()) return;
-        doc_ = {}, file_.clear(), dirty_ = false;
+        discarded_ = false, doc_ = {}, file_.clear(), dirty_ = false;
         openEra(era(), true);
     }
     void loadFile() {
@@ -3843,11 +4022,11 @@ private:
         d.title = L"Load terrain rules";
         d.filters = {{L"Terrain rules (*.isom)", L"*.isom"}};
         const std::filesystem::path f = shellPickFile(d);
-        if (f.empty()) return;
+        if (f.empty()) return dropDiscarded();  // (no file: the edits not saved still go)
         stardraft::terrainrules::Rules r;
         std::string err;
-        if (!stardraft::terrainrules::load(f, r, err)) return shellErrorBox(widen(err), L"Load terrain rules");
-        doc_ = std::move(r), file_ = modsOwn(f) ? std::filesystem::path() : f, dirty_ = false;  // (the mod's own file: Save asks for another)
+        if (!stardraft::terrainrules::load(f, r, err)) return dropDiscarded(), shellErrorBox(widen(err), L"Load terrain rules");
+        discarded_ = false, doc_ = std::move(r), file_ = modsOwn(f) ? std::filesystem::path() : f, dirty_ = false;  // (the mod's own file: Save asks for another)
         if (!gSettingsOff && !file_.empty()) prefs::setText(fileKey(), f.wstring());  // (the next open opens it)
         openEra(era());  // (a tileset the file has no rules for: the ones in use now)
         setMessage(L"Loaded " + f.filename().wstring());
@@ -3901,6 +4080,10 @@ private:
     // The game's tile of a group (its first subtile that is a tile): what a rect of that group shows in the game, the
     // tile the mod's tile stands in for. 0: none.
     uint16_t gameTile(uint32_t group) const { return stardraft::terrainrules::gameTile(tileset_, group); }
+    // A terrain's inside: the left group of its solid rects (its template's; another tileset's template: that tileset's).
+    int insideGroup(const isomrules::ModTerrain& m) const {
+        return m.foreign() ? stardraft::solidTileGroup(tplTs(m), m.templateTerrain) : stardraft::solidTileGroup(tileset_, m.standIn);
+    }
     // The checklist's rows: the template's rects, then the set's pieces for rects outside it ("other").
     struct CheckRow {
         uint16_t group = 0;
@@ -3955,8 +4138,9 @@ private:
         if (const auto* t = terrain()) tmplPair_ = stardraft::terrainrules::templateOf(tileset_, t->t);
         else if (std_ >= 0 && std_ < int(stdPairs_.size())) tmplPair_ = stdPairs_[size_t(std_)];
         else return;
-        tmpl_ = stardraft::terrainrules::templateRects(tileset_, tmplPair_.first, tmplPair_.second);
-        family_ = stardraft::terrainrules::familyOf(tmpl_, tileset_);
+        const stardraft::Tileset& tts = terrain() ? tplTs(terrain()->t) : tileset_;
+        tmpl_ = stardraft::terrainrules::templateRects(tts, tmplPair_.first, tmplPair_.second);
+        family_ = stardraft::terrainrules::familyOf(tmpl_, tts);
     }
     // "12/43 verified · " for the tileset's terrains (none loaded: empty).
     std::wstring verifiedText() const {
@@ -3991,7 +4175,7 @@ private:
                 }
                 const auto found = baseOf_.find(group);
                 int bg = found != baseOf_.end() ? int(found->second) : -1;
-                if (const int sg = stardraft::solidTileGroup(tileset_, t->t.standIn); bg < 0 && sg >= 0 && (group == sg || group == sg + 1))  // (an inside row: the base's inside)
+                if (const int sg = insideGroup(t->t); bg < 0 && sg >= 0 && (group == sg || group == sg + 1))  // (an inside row: the base's inside)
                     if (const int bs = stardraft::solidTileGroup(*bts, t->baseTerrain); bs >= 0) bg = bs;
                 auto tile = [&](uint32_t g, draw::Rect r) {
                     c.fill(r, 0x000000);
@@ -4018,7 +4202,7 @@ private:
         const stardraft::Tileset* bts = t->baseEra == int(era()) ? &tileset_ : baseTileset(t->baseEra);
         if (!bts) return nullptr;
         const std::map<uint16_t, uint16_t> base = baseRectsOf(tmpl_, stardraft::terrainrules::templateRects(*bts, t->baseGround, t->baseTerrain));
-        const int sg = stardraft::solidTileGroup(tileset_, t->t.standIn), bs = stardraft::solidTileGroup(*bts, t->baseTerrain);
+        const int sg = insideGroup(t->t), bs = stardraft::solidTileGroup(*bts, t->baseTerrain);
         const int groundSolid = stardraft::solidTileGroup(*bts, t->baseGround);
         auto subtiles = [&](int g) {  // (the subtiles of a group with a picture: its variants)
             std::vector<int> ks;
@@ -4057,6 +4241,30 @@ private:
             if (x + 1 >= 0 && x + 1 < w && kRight >= 0) tiles[size_t(y) * size_t(w) + size_t(x + 1)] = uint16_t((bg + 1) * 16 + kRight);
         }
         return isomrules::tilesBitmap(*bts, tiles, w, h);
+    }
+    // The tileset whose tile groups a terrain's pieces are (its template's: Tileset::ModTerrain::templateEra; else this
+    // one): another tileset's game groups only, loaded now the first time (its CV5 gives the template's rects).
+    const stardraft::Tileset& tplTs(const isomrules::ModTerrain& m) const {
+        if (!m.foreign()) return tileset_;
+        auto [it, fresh] = tplTilesets_.try_emplace(int(m.templateEra & 7));
+        if (fresh) {
+            auto ts = std::make_unique<stardraft::Tileset>();
+            std::string err;
+            if (loadTileset(*ts, m.templateEra & 7, true, err) && !ts->groups.empty()) {
+                if (const size_t n = gameGroups(m.templateEra & 7); n && n < ts->groups.size()) ts->groups.resize(n);
+                ts->modTerrains.clear();
+                it->second = std::move(ts);
+            }
+        }
+        return it->second ? *it->second : tileset_;
+    }
+    mutable std::map<int, std::unique_ptr<stardraft::Tileset>> tplTilesets_;
+    // Whether tplTs has m's tileset (another tileset's template that did not load: this one's in its place, no use).
+    bool tplReady(const isomrules::ModTerrain& m) const { return !m.foreign() || &tplTs(m) != &tileset_; }
+    // normalize with the pieces' tileset; another tileset's that did not load: the pieces as they are (this tileset's
+    // template would put its own rects in).
+    void normalizeOf(isomrules::ModTerrain& m) const {
+        if (tplReady(m)) stardraft::terrainrules::normalize(tplTs(m), m);
     }
     // Another tileset's tiles (a base border's), loaded on the worker the first time; null until then.
     const stardraft::Tileset* baseTileset(int e) {
@@ -4122,7 +4330,33 @@ private:
         if (b) c.bitmap(*b, {0, 0, b->width(), b->height()}, r);
     }
 
-    stardraft::kit::Dropdown era_{{}, -1}, ground_{{}, -1}, row_{{}, -1}, refPick_{{}, -1}, modePick_{{}, -1};
+    stardraft::kit::Dropdown era_{{}, -1}, ground_{{}, -1}, refPick_{{}, -1}, modePick_{{}, -1};
+    stardraft::kit::TextField row_;  // (Go to group: a number or a terrain name, Enter)
+    // The group shown in Go to group (-1: none), while the field is not being typed in.
+    void setRowShown(int g) {
+        if (!row_.hasFocus()) row_.setText(g >= 0 ? std::to_wstring(g) : std::wstring());
+    }
+    // Go to group: a number, that group; else the first group from the shown one on whose terrain name has the text.
+    void goToRow() {
+        std::wstring q = row_.text();
+        while (!q.empty() && q.back() == L' ') q.pop_back();
+        while (!q.empty() && q.front() == L' ') q.erase(q.begin());
+        if (q.empty() || tileset_.groups.empty()) return;
+        const int n = int(tileset_.groups.size());
+        if (std::all_of(q.begin(), q.end(), [](wchar_t ch) { return ch >= L'0' && ch <= L'9'; })) {
+            const int g = q.size() > 6 ? n : std::stoi(q);
+            if (g >= n) return setMessage(L"No group " + q + L" (0 to " + std::to_wstring(n - 1) + L")");
+            return showRow(g, -1);
+        }
+        auto lower = [](std::wstring t) { std::transform(t.begin(), t.end(), t.begin(), ::towlower); return t; };
+        const std::wstring lq = lower(q);
+        const int from = std::max(0, palScroll_ / std::max(1, palCell()) + 1);  // (after the row at the top: Enter again finds the next)
+        for (int k = 0; k < n; ++k) {
+            const int g = (from + k) % n;
+            if (g < int(rowNames_.size()) && lower(rowNames_[size_t(g)]).find(lq) != std::wstring::npos) return showRow(g, -1);
+        }
+        setMessage(L"No group of " + q);
+    }
     // Rectangle match (the mapper's other mode): the template's rects (and the inside) a row each, each of its vanilla
     // variants as its tile pair with the mod's pair of that variant's slot beside it; a click selects that slot, a click
     // in Tiles puts the mod's pair in, and the next empty slot is selected.
@@ -4271,7 +4505,7 @@ private:
         };
         for (const auto& r : tmpl_)
             if (const auto it = base.find(r.group); it != base.end()) addRect(int(it->second), int(it->second) + 1, r.group);
-        if (const int sg = stardraft::solidTileGroup(tileset_, t->t.standIn), bs = stardraft::solidTileGroup(*bts, bt0); sg >= 0 && bs >= 0)
+        if (const int sg = insideGroup(t->t), bs = stardraft::solidTileGroup(*bts, bt0); sg >= 0 && bs >= 0)
             addRect(bs, bs + 1, uint16_t(sg)), addRect(bs + 1, bs, uint16_t(sg + 1));
         const int cell = palCell(), pad = scale(8), x0 = matchX0();
         int i = 0;
@@ -4626,7 +4860,7 @@ private:
         if (const auto* sp = searchSpace()) in.onlyGroups = *sp;
         // (the inside's tiles get suggestions only once one of them is matched: the mod's inside is often far from its
         // edges, and a flat texture looks like any tile)
-        const int sg = stardraft::solidTileGroup(tileset_, t->t.standIn);
+        const int sg = insideGroup(t->t);
         auto inside = [&](const MatchCell& m) {
             return std::any_of(m.targets.begin(), m.targets.end(), [&](const MatchTarget& x) { return sg >= 0 && (x.g == sg || x.g == sg + 1); });
         };
@@ -4920,7 +5154,7 @@ private:
                 const bool inTemplate = std::any_of(tmpl_.begin(), tmpl_.end(), [&](const auto& r) { return r.group == x.g; });
                 if (inTemplate) tm.t.pieces.push_back({x.g, 0, 1});
                 else tm.t.pieces.insert(tm.t.pieces.begin() + long(tm.t.pieces.size() - std::min(tm.t.gapPieces, tm.t.pieces.size())), {x.g, 0, 1});
-                stardraft::terrainrules::normalize(tileset_, tm.t);
+                normalizeOf(tm.t);
                 pi = matchPiece(x.g, x.k);
                 if (pi < 0) continue;
             }
@@ -4929,7 +5163,7 @@ private:
             q[size_t(1 + x.h)] = v;
             tm.t.pieces[size_t(pi)] = q;
             tm.variantOf[q] = uint8_t(x.k);  // (its variant, also while its other half is NULL)
-            stardraft::terrainrules::normalize(tileset_, tm.t);
+            normalizeOf(tm.t);
         }
     }
     // The matched template tiles of the selected block back to NULL (one undo step).
@@ -4951,7 +5185,7 @@ private:
                 q[size_t(1 + x.h)] = uint16_t(x.h);  // (the null tile's subtiles: 0 left, 1 right)
                 tm.t.pieces[size_t(pi)] = q;
                 tm.variantOf[q] = uint8_t(x.k);
-                stardraft::terrainrules::normalize(tileset_, tm.t);
+                normalizeOf(tm.t);
             }
         target_ = -1;
         changed();
@@ -5538,7 +5772,7 @@ private:
             place(uint16_t(to));
             painting_ = strokeSaved_ = false, nudgeSlot_ = target_;
         }
-        scrollToRow(to >> 4), row_.setValue(to >> 4);
+        scrollToRow(to >> 4), setRowShown(to >> 4);
         blinkOn_ = true, invalidate();
     }
     int brushValue() const { return brush_ < 0 ? -1 : wide_ ? brush_ & ~1 : brush_; }
@@ -5955,6 +6189,8 @@ void IsomRulesView::paintSide(draw::Canvas& c) {
                    draw::kMiddle | draw::kEllipsis);
             continue;
         }
+        // (a row made before the rules changed (a paint behind a file dialog): no terrain to show yet)
+        if (r.value >= int(rules().terrains.size()) || (r.value < 0 && size_t(-1 - r.value) >= stdPairs_.size())) continue;
         drawTile(c, swatchOf(r.value), {side_.left + pad, y + scale(6), side_.left + pad + sw, y + scale(6) + sw});
         if (r.value >= 0)  // (the bordering terrain: its tile in the bottom right corner, framed)
             if (const uint16_t gt = terrainTile(rules().terrains[size_t(r.value)].t.ground)) {
@@ -5968,7 +6204,7 @@ void IsomRulesView::paintSide(draw::Canvas& c) {
             continue;
         }
         const auto& m = rules().terrains[size_t(r.value)].t;
-        const auto [done, total] = stardraft::terrainrules::completeness(tileset_, m);
+        const auto [done, total] = stardraft::terrainrules::completeness(tplTs(m), m);
         c.text({x, y + scale(4), side_.right - pad - (m.draft ? scale(40) : 0), y + scale(22)}, widen(m.name), selected ? kText : kText, draw::kMiddle | draw::kEllipsis);
         if (m.draft) c.text({side_.right - pad - scale(38), y + scale(4), side_.right - pad, y + scale(22)}, L"Draft", kDraft, draw::kMiddle | draw::kRight);
         c.text({x, y + scale(22), side_.right - pad, y + scale(36)}, (mapper_ ? isomrules::archetypeName(archetypeOfValue(r.value)) : isomrules::familyName(familyOfValue(r.value))) + L"  \x00b7  " + std::to_wstring(done) + L"/" + std::to_wstring(total) + L" Rects",
@@ -6212,7 +6448,10 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         const int fw = std::min(W / 2, c.measure(shown) + 2 * pad);
         c.text({sb.right - fw, sb.top, sb.right - pad, sb.bottom}, shown, kText, draw::kMiddle | draw::kRight | draw::kEllipsis);
         // (the title bar, as Windows programs show a file: an asterisk while it has unsaved changes)
-        if (const std::wstring title = (dirty_ ? L"*" : L"") + file + L" - " + windowName(); title != title_)
+        // (and the build: the version and the commit, for reports)
+        if (const std::wstring title = (dirty_ ? L"*" : L"") + file + L" - " + windowName() + L" - " + widen(STARDRAFT_VERSION_NAME) + L" (" +
+                                       widen(stardraft::buildCommit()) + L")";
+            title != title_)
             title_ = title, mapper_ ? shellSetTerrainMapperTitle(title) : shellSetIsomRulesTitle(title);
         c.text({pad, sb.top, sb.right - fw - pad, sb.bottom}, status_.empty() ? std::wstring(L"Ready") : status_, kDim, draw::kMiddle | draw::kEllipsis);
     }
@@ -6239,7 +6478,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         if (t || std_ >= 0)
             c.text({std::min(eb.right - pad, ground_.frame().right + pad), eb.top - scale(stardraft::kit::kButtonH) - pad,
                     modePick_.frame().width() > 0 ? modePick_.frame().left - pad : eb.right - pad, eb.top - pad},
-                   t ? std::to_wstring(stardraft::terrainrules::completeness(tileset_, t->t).first) + L"/" + std::to_wstring(tmpl_.size()) + (t->t.draft ? L" \x00b7 Draft" : L" \x00b7 Verified")
+                   t ? std::to_wstring(stardraft::terrainrules::completeness(tplTs(t->t), t->t).first) + L"/" + std::to_wstring(tmpl_.size()) + (t->t.draft ? L" \x00b7 Draft" : L" \x00b7 Verified")
                      : std::to_wstring(tmpl_.size()) + L" rects \x00b7 game border",
                    kDim, draw::kMiddle | draw::kRight | draw::kEllipsis);
     }
@@ -6855,10 +7094,12 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
                 if (isVariantRow(r.value)) return selectValue(r.value), true;  // (a variant: the terrain's own row renames and deletes)
                 if (r.value < 0) return selectValue(r.value), setMessage(L"Game tilesets are read-only"), true;
                 selectValue(r.value);
-                switch (shellContextMenuAt(*this, e.pt, {L"Rename\x2026", L"Duplicate with offset\x2026", L"Delete\x2026"})) {
+                const bool draft = rules().terrains[size_t(r.value)].t.draft;
+                switch (shellContextMenuAt(*this, e.pt, {L"Rename\x2026", L"Duplicate with offset\x2026", draft ? L"Mark as verified" : L"Mark as draft", L"Delete\x2026"})) {
                 case 1: renameTerrain(r.value); break;
                 case 2: duplicateWithOffset(r.value); break;
-                case 3: deleteTerrain(r.value); break;
+                case 3: toggleDraft(); break;  // (the row is selected: its terrain)
+                case 4: deleteTerrain(r.value); break;
                 default: break;
                 }
                 return true;
@@ -6881,7 +7122,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
                             if (n > most) g = row, most = n;
                         if (const int i = g >= 0 ? palIndexOf(g) : -1; i >= 0) {
                             palScroll_ = std::clamp(i * palCell() - scale(4), 0, palScrollMax());
-                            row_.setValue(g);
+                            setRowShown(g);
                         }
                     }
                 }
@@ -7105,3 +7346,5 @@ void isomRulesShutdown() {
 }
 // Quit: the editors' unsaved rules ask first (false: the quit stops).
 bool isomRulesConfirmQuit() { return gIsomRulesView.confirmClose() && gTerrainMapperView.confirmClose(); }
+// The quit stopped after all (a later question's Cancel): the edits not saved go now, as Do not save said.
+void isomRulesQuitStopped() { gIsomRulesView.dropDiscarded(), gTerrainMapperView.dropDiscarded(); }

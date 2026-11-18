@@ -1,4 +1,4 @@
-// Immersive mode (off by default; its option in Program options is locked until 9 clicks on About's logo, a hidden extra; the code says fun mode): edits
+// Immersive mode (off by default; its option in Program options is locked until a hidden extra unlocks it; the code says fun mode): edits
 // on the map give feedback. Painted terrain plays a short recorded
 // sound by its terrain (water splashes, mud squelches, grass swishes, dirt and rock crunch, built floors clank;
 // res/fun), and shards of the placed tiles (jagged pieces of their own pixels) fly off, each its own way, turning. A
@@ -6,7 +6,7 @@
 // view; a delete puffs; space and pits whoosh. Every sound is a recorded take.
 // How it finds the edits: each frame (funModeScene, after buildScene) it compares the map with the copy from the last
 // frame: the tiles when terrainRevision changed, the units (by serial) and the doodads when revision changed. A map read
-// anew (open, undo, redo: loadMark) or another tab only takes a new copy. Notes: docs/dev/fun-mode.md.
+// anew (open, undo, redo: loadMark) or another tab only takes a new copy. Notes: docs/dev/notes/edit-feedback.md.
 
 // Defined by the program: plays mono samples (-1..1) at `rate` once (sdl_data.inc; a test run plays nothing). `name`:
 // the sound's kind (STARDRAFT_FUN_WAV=<folder> writes each sound there as <name>-<n>.wav, also in a test run).
@@ -55,6 +55,7 @@ struct Particle {
 struct Pop {
     uint64_t start;
     float feet;  // (map pixels under its center: the pivot of the squash)
+    float strength = 1;  // (a selected unit's wobble: less than a placed unit's pop)
 };
 // A deleted unit's death: its sprite plays its Death animation (iscript animation 1) where the unit was, with the
 // animation's sounds, to its end (its remnants too) or for kDeathTicks at most.
@@ -104,7 +105,7 @@ void step(float dt, float zoom) {
 }
 
 // A sound of `kind`, unless one of that kind started less than `gapMs` ago (a long stroke: about 12 a second at most).
-#include "../res/fun/fun_sounds.inc"  // (recorded sounds: tools/fun_sounds_gen.py; sources and licenses: docs/dev/fun-mode.md)
+#include "../res/fun/fun_sounds.inc"  // (recorded sounds: tools/fun_sounds_gen.py; sources and licenses: docs/dev/notes/edit-feedback.md)
 
 // A recorded sound of the kind (one of its takes at random, not the last one again), at the program's rate: each
 // sample held (no smoothing: bit-like), `pitch` faster; at `level`. Empty: the kind has none (it is made in code).
@@ -266,7 +267,9 @@ void tickDeaths(const Editor& ed) {
 // The selection since the last frame: the first unit with what sounds (the game's sounds for a click on a unit) that
 // is selected now and was not says one of them at random (units.dat's What Sound Start to What Sound End), at most
 // one each 0.6 s (a box of many units says it once). A unit placed now says its ready sound only. On a Cosmonarchy map
-// the mod's what sounds (cmbw::unitWhatSound).
+// the mod's what sounds (cmbw::unitWhatSound). Each newly selected unit (at most 64) wobbles: a placed unit's pop at
+// kSelectWobble of its strength.
+constexpr float kSelectWobble = 0.35f;
 void watchSelection(const Editor& ed) {
     static const Editor* of = nullptr;
     static uint64_t mark = 0, lastYes = 0;
@@ -288,6 +291,10 @@ void watchSelection(const Editor& ed) {
         if (i < 0 || size_t(i) >= units.size()) continue;
         const Unit& un = units[size_t(i)];
         now.insert(un.serial);
+        if (known && !last.count(un.serial) && g.serials.count(un.serial) && !g.pops.count(un.serial) && g.pops.size() < 64) {
+            const UnitType* ut = un.type < ed.unitTypes().size() ? &ed.unitTypes()[un.type] : nullptr;
+            g.pops[un.serial] = {nowMs(), ut ? std::max(8.0f, ut->placementHeight / 2.0f) : 8, kSelectWobble};
+        }
         const int type = un.type;
         if (a || !modSound.empty() || !say || last.count(un.serial) || !g.serials.count(un.serial)) continue;
         if (mod) {
@@ -502,7 +509,7 @@ bool funModeBusy() {
 // The deaths hold their editor's sprites: none are left when those go (shellForgetAnims).
 void funForgetDeaths() { fun::g.deaths.clear(); }
 
-// A placed unit's pop: its sprites (s.sprites from `from` on) squash, then spring up and settle.
+// A placed unit's pop (a selected unit's: softer): its sprites (s.sprites from `from` on) squash, then spring up and settle.
 void funScaleUnit(render::Scene& s, const Unit& u, size_t from) {
     if (fun::g.ed != shellState().ed.get()) return;  // (another tab's pops: watch has not cleared them yet)
     const auto it = fun::g.pops.find(u.serial);
@@ -514,7 +521,7 @@ void funScaleUnit(render::Scene& s, const Unit& u, size_t from) {
     }
     const float t = float(now - it->second.start);
     if (t >= fun::kPopMs) return;
-    const float a = 0.38f * std::exp(-t / 95.0f) * std::cos(t * 6.2831853f / 210.0f);
+    const float a = 0.38f * it->second.strength * std::exp(-t / 95.0f) * std::cos(t * 6.2831853f / 210.0f);
     for (size_t i = from; i < s.sprites.size(); ++i) {
         render::SpriteDraw& d = s.sprites[i];
         d.scaleX = 1 + a * 0.6f, d.scaleY = 1 - a;

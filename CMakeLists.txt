@@ -453,13 +453,7 @@ endif()
 option(STARDRAFT_RENDERER "Build the GPU renderer (SDL3) and its tools" ON)
 # A label in the main window's title after the version (a local preview build: "CMBW-Preview"); empty: none.
 set(STARDRAFT_TITLE_TAG "" CACHE STRING "A label in the main window's title (a preview build's)")
-# Immersive mode: in local builds only for now (CI's builds, GitHub Actions: off).
-if(DEFINED ENV{GITHUB_ACTIONS})
-    set(stardraftImmersiveDefault OFF)
-else()
-    set(stardraftImmersiveDefault ON)
-endif()
-option(STARDRAFT_IMMERSIVE "Immersive mode (Program options; off: no option, About's logo does not unlock it)" ${stardraftImmersiveDefault})
+option(STARDRAFT_IMMERSIVE "Immersive mode (Program options; off: no option, and it cannot be unlocked)" ON)
 if(STARDRAFT_RENDERER)
     option(STARDRAFT_SDL_DEBUG_IME "SDL logs the input method's calls on macOS (cmake/patch_sdl.cmake)" OFF)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
@@ -579,7 +573,7 @@ target_include_directories(stardraft_kit PUBLIC apps/common apps/kit)
 # The editor's portable core (apps/editor/core/core.inc) compiled with no Win32 headers: the ratchet that keeps it
 # portable (research/ports/MAC-BUILD-PLAN.md). Nothing to run; building it is the check.
 add_library(editor_core_check OBJECT apps/editor/core/core_check.cpp)
-target_include_directories(editor_core_check PRIVATE apps/common apps/kit include src)
+target_include_directories(editor_core_check PRIVATE apps/common apps/kit apps/quicklook include src)
 if(NOT MSVC)  # (the core's files are included alone here: what only the full editor uses is unused)
     target_compile_options(editor_core_check PRIVATE -Wno-unused-function -Wno-unused-variable)
 else()

@@ -31,6 +31,12 @@ change (another script edited it, or an undo was done). After an undo, a new `ap
 other files (sounds and the like) from that copy. When another program changed the map file after `open`, `save`
 refuses: `save --force` writes over it, `save --to` writes another file.
 
+A map with map layers (made in the editor) keeps them: `save` puts the changes of the ops into the Background, as the
+editor does when the Background is the active layer, and writes the layers' files again (the result has `"layers":
+"kept"`). When the layers are stale (another program changed the map after the editor's last save), an op changed
+the map's size or tileset, or the layers would not show what the ops made (a layer over the changed terrain, a hidden
+Background, a linked duplicate), the layers are flattened into the map as the ops made it (`"layers": "flattened"`).
+
 ## Commands
 
 | Command | What it does |

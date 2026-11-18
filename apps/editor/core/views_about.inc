@@ -5,7 +5,7 @@
 //
 // The links open in the browser (shellOpenUrl); the Close button and Esc or Enter close the window.
 //
-// A hidden extra: 9 clicks on the logo unlock Immersive mode (core/fun_mode.inc: edits on the map make sounds, shards
+// A hidden extra: 60 clicks on the logo unlock Immersive mode (core/fun_mode.inc: edits on the map make sounds, shards
 // and pops) and turn it on: its option in Program options > Appearance is locked before that. After that, a click on
 // the logo does not change the mode (the option does). The logo squashes and springs back, bits fly out of it with a
 // sound, and "Immersive mode unlocked" shows under it for 2 seconds.
@@ -41,11 +41,11 @@ public:
         COLORREF color;
     };
     uint64_t popStart = 0, toggled = 0, textUntil = 0;
-    int logoClicks = 0;  // the clicks on the logo while Immersive mode is locked: the 9th unlocks it
+    int logoClicks = 0;  // the clicks on the logo while Immersive mode is locked: the 60th unlocks it
     std::vector<Bit> bits;
     uint64_t lastTick = 0;
     std::wstring craftText;
-    static constexpr int kCraftClicks = 9;
+    static constexpr int kCraftClicks = 60;
     static constexpr uint64_t kPopMs = 450, kTextMs = 2000;
 
     // The window's size at 100 % (the lines about the name and the EUD tools fit).
@@ -209,7 +209,7 @@ public:
         c.setFont(of);
     }
 
-    // A click on the logo: the pop, the bits and a sound now; the 9th unlocks Immersive mode when the pop is at its lowest.
+    // A click on the logo: the pop, the bits and a sound now; the 60th unlocks Immersive mode when the pop is at its lowest.
     void logoClick() {
         const uint64_t now = animNowMs();
         popStart = lastTick = now, toggled = 0;
@@ -233,7 +233,7 @@ public:
         lastTick = now;
         for (Bit& b : bits) b.vy += float(scale(700)) * dt, b.x += b.vx * dt, b.y += b.vy * dt, b.size *= 1 - 1.6f * dt;
         std::erase_if(bits, [&](const Bit& b) { return b.size < 0.4f || b.y > float(height()); });
-        // The mode changes as the logo is down (it says so): locked, the 9th click (kCraftClicks) unlocks it and turns
+        // The mode changes as the logo is down (it says so): locked, the 60th click (kCraftClicks) unlocks it and turns
         // it on. Unlocked, a click changes nothing (Program options has the option).
         if (popStart && !toggled && now - popStart >= 120) {
             toggled = now;

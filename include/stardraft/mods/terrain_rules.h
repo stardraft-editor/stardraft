@@ -20,7 +20,9 @@
 //                u16 variant of, u32 fill key, u32 set pieces, u32 gap pieces, string name (u16 bytes, UTF-8),
 //                u32 pieces, each u16 game group, u16 left tile, u16 right tile (0 and 1: the null tile)
 //   version 3, after each terrain's pieces: u8 base tileset (255: none), u16 base ground, u16 base terrain; version 4
-//                then u16 variant tags, each u16 group, u16 left tile, u16 right tile, u8 the base's variant
+//                then u16 variant tags, each u16 group, u16 left tile, u16 right tile, u8 the base's variant; version 5
+//                then u8 the template's tileset (255: none; the pieces are its groups: Tileset::ModTerrain::templateEra),
+//                u16 its ground there, u16 its terrain there
 //   (version 1 had a u8 kind before the flags; it is read and ignored)
 
 #include <array>
@@ -55,7 +57,7 @@ struct Rules {
     std::vector<TilesetRules> tilesets;
 };
 
-constexpr uint16_t kVersion = 4;  // (written only when a terrain has a base or variant tags; else 2)
+constexpr uint16_t kVersion = 5;  // (5 only with a template from another tileset; 4 with a base or variant tags; else 2)
 
 // The families of the game's borders, by their rects (the same in every tileset): a patch (14 rects: Rocky Ground on
 // Dirt), a blend (24, texture on texture: Grass on Dirt), a pavement (24, flat, one stack link id: Asphalt on Dirt), a

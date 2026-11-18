@@ -1617,23 +1617,38 @@ Json cmdSave(Session& s) {
     if (toSource && fileStamp(w.source) != w.stamp && !s.args.has("force"))
         fail(ustr(w.source) + " changed after `open` (another program saved it): `save --force` writes over it, or `save --to` "
              "writes another file");
+    // The map's other files (sounds and the like) come from the map file as it was opened. With map layers (made in the
+    // editor): the ops' changes go into the Background, so that the layers make this map (Editor::foldEditsIntoLayers).
+    std::vector<ArchiveFile> files = isChk(dst) ? std::vector<ArchiveFile>{} : mapFiles(w);
+    const char* layers = nullptr;
+    const bool hasLayers = std::any_of(files.begin(), files.end(), [](const ArchiveFile& f) { return f.name == kLayersFile; });
+    if (hasLayers && w.change() != w.steps[0].change) {  // (no change since `open`: the files as they are)
+        Editor before(s.data);
+        std::string err;
+        if (before.open(w.sourceCopy(), err)) {
+            const Editor::LayerFold fold = ed.foldEditsIntoLayers(before, files);
+            layers = fold == Editor::LayerFold::Kept ? "kept" : fold == Editor::LayerFold::Flattened ? "flattened" : nullptr;
+        }
+    }
     const Bytes chk = ed.savedChk();  // (the working copy, with the slots the game reads: Editor::gameSlots)
     if (isChk(dst)) {
         writeBytes(dst, chk);
     } else if (stardraft::hyperion::isHxm(dst)) {
         std::string err;
-        if (!stardraft::hyperion::writeHxmFile(dst, {chk, mapFiles(w), {}}, err)) fail(err);
+        if (!stardraft::hyperion::writeHxmFile(dst, {chk, files, {}}, err)) fail(err);
     } else {
-        // The map's other files (sounds and the like) come from the map file as it was opened.
         std::string err;
-        if (!writeMap(dst, chk, mapFiles(w), err)) fail(err);
+        if (!writeMap(dst, chk, files, err)) fail(err);
     }
     if (toSource) {
         w.savedChange = w.change();
         w.stamp = fileStamp(w.source);
         w.save();
     }
-    return Obj().add("saved", ustr(dst)).add("change", double(w.change())).add("modified", w.modified());
+    Obj o;
+    o.add("saved", ustr(dst)).add("change", double(w.change())).add("modified", w.modified());
+    if (layers) o.add("layers", std::string(layers));
+    return o;
 }
 
 Json cmdClose(Session& s) {

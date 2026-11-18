@@ -37,6 +37,8 @@ struct UnitDataLoader {
     // A trigger Comment's text with a location's name changed where the game's script in it uses the location (a mod's
     // trigger commands in Comments: Cosmonarchy's CRIG); nullptr: Comments are only text.
     std::string (*renameInComment)(const std::string& text, const std::string& from, const std::string& to) = nullptr;
+    // How many of a tileset's tile groups are the game's own (a mod's CV5 has its own after them); nullptr: all of them.
+    size_t (*gameTileGroups)(int era) = nullptr;
 };
 
 // Read-only access to StarCraft: Remastered game files stored in CASC

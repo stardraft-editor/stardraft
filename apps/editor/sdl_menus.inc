@@ -1268,7 +1268,7 @@ void sdlCommandShot(const std::string& name) {
     static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.animate", ID_OPT_ANIMATE}, {"options.dragobjects", ID_OPT_DRAGOBJECTS}, {"craftmode", ID_OPT_FUNMODE}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
                                                          {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO}, {"edit.history", ID_EDIT_HISTORY},
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT}, {"project.addmusic", ID_PROJ_ADDMUSIC}, {"project.adddots", ID_PROJ_ADDDOTS},
-                                                         {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART},
+                                                         {"file.exit", ID_FILE_EXIT}, {"file.save", ID_FILE_SAVE}, {"tab.next", ID_TAB_NEXT}, {"options.restart", ID_OPT_RESTART},
                                                          {"options.unitsnap", ID_SNAP_UNITS},  // (Options > Units > Snap to the grid)
                                                          {"options.stack", ID_OPT_STACK},  // (Options > Units > Can be on top of others)
                                                          {"options.tinticons", ID_OPT_TINTICONS},
@@ -1525,7 +1525,9 @@ void confirmQuit(std::function<void()> then) {
     const bool ok = !gRoot || (isomRulesConfirmQuit() && passagesConfirmQuit() && confirmAllDocs());
     gQuitRetry = {};
     gQuitPrompt = false;
-    if (ok) then();
+    if (ok) return then();
+    void isomRulesQuitStopped();  // (core/views_isom_rules.inc)
+    isomRulesQuitStopped();
 }
 
 // Quit (File > Exit, the window's close, the system's quit).

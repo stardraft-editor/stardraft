@@ -5,7 +5,7 @@ Usage: python -I tools/fun_sounds_gen.py [--repo DIR]
 Each apps/editor/res/fun/<kind><n>.wav is mono 8-bit unsigned PCM (11,025 Hz: tiny and bit-like). The kind is the
 name without its number (splash, gloop, brush, crunch, rock: core/fun_mode.inc's kKindNames). The output has each
 file's samples and rate; core/fun_mode.inc plays them in place of the sound made in code. Sources and licenses:
-docs/dev/fun-mode.md.
+docs/dev/notes/edit-feedback.md.
 """
 import argparse
 import re

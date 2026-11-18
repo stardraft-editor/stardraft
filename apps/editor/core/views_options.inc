@@ -34,7 +34,7 @@ struct OptionsValues {
     bool tintIcons = false;   // Appearance: the units' icons in the accent color, not the game's yellow (TintIcons)
     bool diagnostics = false; // Graphics and diagnostics: the frames a second and the memory in use in the status bar (ShowDiagnostics)
     bool immersive = false;   // Appearance: Immersive mode (FunMode: core/fun_mode.inc)
-    bool immersiveUnlocked = false;  // ... its option is unlocked (About's logo); else it shows "Locked", disabled
+    bool immersiveUnlocked = false;  // ... its option is unlocked (a hidden extra); else it shows "Locked", disabled
     bool smoothZoom = true, smoothPan = true;  // Map > Map view: the zoom and the jumps glide (view.smoothZoom, view.smoothPan)
     bool keyHints = false;    // Appearance > Status bar: the tool's keys (view.keyHints)
     bool askStartLocations = true;  // Saving maps: a save asks when the map has no start locations (AskStartLocations)
@@ -258,7 +258,7 @@ public:
             host_.command(ID_GAME_MODE + (&b == &cmbwPlugin_ ? 1 : &b == &hyperionPlugin_ ? 2 : 0));
         };
         builtin_.setLabel(L"Built-in ISOM terrains");
-        builtin_.setTip(L"The isometric terrains that come with the program and the mod. Clear it to use only the terrains of the override file");
+        builtin_.setTip(L"The isometric terrains that come with the program and the mod. Clear it to use only the terrains of the override file.");
         builtin_.onChange = [this](bool) { host_.command(ID_OPT_BUILTINTERRAINS); };
         override_.setLabel(L"ISOM terrain rules override");
         override_.setTip(L"Terrain rules from a file (Tools > Cosmonarchy > Custom isom terrain editor) in place of the built-in ones");

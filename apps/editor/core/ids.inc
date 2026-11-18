@@ -11,7 +11,7 @@ constexpr bool kRampBridgeTools = true;
 #endif
 
 // Immersive mode (Program options, core/fun_mode.inc): off in a build with -DSTARDRAFT_IMMERSIVE=OFF (a test build
-// without it): no option, About's logo does not unlock it, and its settings stay as they are in the settings file.
+// without it): no option, nothing unlocks it, and its settings stay as they are in the settings file.
 #if defined(STARDRAFT_IMMERSIVE) && !STARDRAFT_IMMERSIVE
 constexpr bool kImmersiveMode = false;
 #else
@@ -64,7 +64,7 @@ enum : int {
     ID_OPT_ASKSTARTLOC,   // Program options > Saving maps > Ask about missing start locations (a check box)
     ID_OPT_MANYSTARTS,    // Options > Units > Many start locations for each player (a check item)
     ID_OPT_DRAGOBJECTS,   // Options > Drag objects to move them (units, doodads, sprites, locations; GitHub #256)
-    ID_OPT_FUNMODE,       // Immersive mode on or off (Program options > Appearance, locked until 9 clicks on About's logo; core/fun_mode.inc)
+    ID_OPT_FUNMODE,       // Immersive mode on or off (Program options > Appearance, locked until a hidden extra unlocks it; core/fun_mode.inc)
     ID_OPT_LASTSESSION,   // Program options > Start > Open the last session's tabs on start (GitHub feedback #270)
     // The Options menu: Snap to the grid of units, sprites and locations, the place rule of doodads,
     // and the items that show a rule that does not change (always grayed).

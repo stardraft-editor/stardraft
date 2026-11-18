@@ -129,7 +129,8 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     open_ = true;
     modified_ = false;
     state_ = savedState_ = nextRevision();
-    loadMark_ = nextRevision();
+    loadMark_ = openMark_ = nextRevision();
+    openCheck_ = terrainCheck();
     return true;
 }
 
@@ -162,7 +163,8 @@ bool Editor::openChk(const Chk& chk, std::string& error) {
     open_ = true;
     modified_ = false;
     state_ = savedState_ = nextRevision();
-    loadMark_ = nextRevision();
+    loadMark_ = openMark_ = nextRevision();
+    openCheck_ = terrainCheck();
     return true;
 }
 
@@ -222,7 +224,8 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
     error.clear();
     modified_ = false;
     state_ = savedState_ = nextRevision();
-    loadMark_ = nextRevision();
+    loadMark_ = openMark_ = nextRevision();
+    openCheck_ = terrainCheck();
     if (!open_) {
         error = "could not load tileset " + std::string(tilesetName(era_));
         if (!tilesetError_.empty()) error += ": " + tilesetError_;
@@ -339,6 +342,7 @@ bool Editor::save(const std::filesystem::path& path, std::string& error) {
     if (filesError_.empty() && archiveFile(kLayersFile)) {  // (what the layers made: another editor's save differs)
         const std::string check = terrainCheck();
         setQuietArchiveFile(kLayersCheckFile, Bytes(check.begin(), check.end()));
+        openCheck_ = check;  // (the map as this save left it: the layers' check compares with it from now on)
     }
     if (hyperion::isHxm(path)) {
         if (!hyperion::writeHxmFile(path, {raw, files_, {}}, error)) return false;
@@ -384,6 +388,7 @@ void Editor::buildModTable() {
         for (size_t i = 0; i < tileset_.modTerrains.size(); ++i) {
             const Tileset::ModTerrain& m = tileset_.modTerrains[i];
             extras.push_back({m.id, m.standIn, m.ground, uint16_t(i + 1), m.name, m.groundTemplate});
+            if (m.foreign()) continue;  // (another tileset's template: no twins; its stand-in only paints the map's own pass)
             const Tileset::ModTerrain* g = tileset_.modTerrain(m.ground);
             // (its ground's twins: each terrain with the ground's tiles inside and its template (the same game terrain
             // in the template and on the same one there: a rect where a twin meets its own ground is one game tile), at
@@ -399,6 +404,21 @@ void Editor::buildModTable() {
         }
         modTable_ = IsomTerrainTable::withExtras(*game, extras, std::max<uint16_t>(game->shapeEnd(), uint16_t(tiles->shapeCount())));
     }
+}
+
+const Tileset* Editor::templateTileset(uint8_t era) {
+    auto [it, fresh] = templateTilesets_.try_emplace(uint8_t(era & 7));
+    if (fresh) {
+        auto ts = std::make_unique<Tileset>();
+        std::string err;
+        if (ts->load(data_, uint16_t(era & 7), err) && !ts->groups.empty()) {
+            if (const UnitDataLoader* mod = data_.unitDataLoader(); mod && mod->gameTileGroups)  // (the game's groups: a mod's own have the same edges)
+                if (const size_t n = mod->gameTileGroups(era & 7); n && n < ts->groups.size()) ts->groups.resize(n);
+            ts->modTerrains.clear();
+            it->second = std::move(ts);
+        }
+    }
+    return it->second.get();
 }
 
 void Editor::useModTerrains(std::vector<Tileset::ModTerrain> terrains) {
@@ -436,6 +456,7 @@ void Editor::reload() {
     std::string err;
     isom_.setTileset(tileset_.groups.empty() ? nullptr : &tileset_);  // (its tiles: StarEdit's, through the terrain core)
     isom_.setTable(modTable_.get());
+    isom_.setTemplateTilesets([this](uint8_t e) { return templateTileset(e); });
     isomOk_ = isom_.load(chk_, err);
     isomRebuilt_ = false;
     if (!isomOk_ && (!chk_.find("ISOM") || chk_.find("ISOM")->data.empty()))  // no ISOM: made from the tiles, so isometric painting works
@@ -4964,12 +4985,118 @@ bool ownFile(const std::string& name) { return name.rfind("stardraft\\", 0) == 0
 bool Editor::canKeepInExport(const std::string& name) { return name != kLayersFile && name != kLayersBaseFile && name != kLayersCheckFile && name != kExportListFile; }
 
 std::string Editor::terrainCheck() const {
-    uint32_t h = 2166136261u;  // FNV-1a
-    if (const Section* s = chk_.find(SectionName("MTXM")))
-        for (uint8_t b : s->data) h = (h ^ b) * 16777619u;
-    char text[16];
-    std::snprintf(text, sizeof text, "%08x", h);
+    // (FNV-1a of the terrain, then of the units, doodads and sprites: the layers have those too. A file of an older
+    // save has the terrain's only: layersStale compares that part.)
+    auto hash = [&](std::initializer_list<SectionName> names) {
+        uint32_t h = 2166136261u;
+        for (const SectionName n : names)
+            for (uint8_t b : chk_.effective(n)) h = (h ^ b) * 16777619u;
+        return h;
+    };
+    char text[24];
+    std::snprintf(text, sizeof text, "%08x %08x", hash({"MTXM"}), hash({"UNIT", "DD2 ", "THG2"}));
     return text;
+}
+
+Editor::LayerFold Editor::foldEditsIntoLayers(const Editor& before, std::vector<ArchiveFile>& files) {
+    const auto find = [&](const char* name) -> ArchiveFile* {
+        for (ArchiveFile& f : files)
+            if (f.name == name) return &f;
+        return nullptr;
+    };
+    ArchiveFile* stackFile = find(kLayersFile);
+    ArchiveFile* baseFile = find(kLayersBaseFile);
+    LayerStack stack;
+    if (!stackFile || !baseFile || !LayerStack::parse(stackFile->data, stack)) return LayerFold::None;
+    const auto flatten = [&] {
+        std::erase_if(files, [](const ArchiveFile& f) { return f.name == kLayersFile || f.name == kLayersBaseFile || f.name == kLayersCheckFile; });
+        return LayerFold::Flattened;
+    };
+    // (as the editor's check when a map opens: an older save's file has the terrain's part only)
+    if (const ArchiveFile* check = find(kLayersCheckFile)) {
+        const std::string was(check->data.begin(), check->data.end()), at = before.openCheck();
+        if (was != at && !(was.size() == 8 && at.compare(0, 8, was) == 0)) return flatten();
+    }
+    if (width_ != before.width_ || height_ != before.height_ || era() != before.era() || !isomOk_ || !before.isomOk_) return flatten();
+    // The corners that changed (the terrain asked for: the Background gets them, its edges are fitted again).
+    std::map<std::pair<int, int>, uint16_t> changed;
+    for (int y = -1; y <= int(height_) + 1; ++y)
+        for (int x = -1; x <= int(width_) / 2 + 1; ++x)
+            if (const uint16_t t = isom_.terrainAt(x, y); t && t != before.isom_.terrainAt(x, y)) changed[{x, y}] = t;
+    // Tiles that changed where no corner did, and that the terrain does not give: placed tiles (as the editor's capture).
+    std::map<std::pair<int, int>, uint16_t> placed;
+    const TerrainLayer nowSection = layerTileSection(), wasSection = before.layerTileSection();
+    if (nowSection.tiles.size() == wasSection.tiles.size()) {
+        const int tw = int(nowSection.width);
+        for (size_t k = 0; k < nowSection.tiles.size(); ++k) {
+            if (nowSection.tiles[k] == wasSection.tiles[k]) continue;
+            const int tx = int(k) % tw, ty = int(k) / tw, rx = tx / 2;
+            bool nearChange = false;
+            for (int cy = ty - 3; !nearChange && cy <= ty + 4; ++cy)
+                for (int cx = rx - 3; !nearChange && cx <= rx + 4; ++cx) nearChange = changed.count({cx, cy}) > 0;
+            if ((!nearChange && !tileIsFromIsom(nowSection, tx, ty)) || !nowSection.tiles[k]) placed[{tx, ty}] = nowSection.tiles[k];
+        }
+    }
+    // The objects: each keeps its layer, new ones go to the Background.
+    const LayerObjectLists was{before.units(), before.layerDoodads(), before.layerSprites()}, now{units(), layerDoodads(), layerSprites()};
+    captureLayerObjects(stack, was, now, stack.owners(), -1);
+    // (what the ops made: the layers must make it again, else they flatten. A linked duplicate made again from its
+    // original, a layer over the edit, a hidden Background: the layers would not show the ops' work)
+    const Chk made = chk_;
+    std::vector<uint16_t> madeCorners;
+    for (int y = -1; y <= int(height_) + 1; ++y)
+        for (int x = -1; x <= int(width_) / 2 + 1; ++x) madeCorners.push_back(isom_.terrainAt(x, y));
+    const auto objectKeys = [](const LayerObjectLists& o) {
+        std::vector<Bytes> keys;
+        for (const Unit& u : o.units) {
+            Bytes b{0};
+            u.encode(b);
+            keys.push_back(std::move(b));
+        }
+        for (const Doodad& d : o.doodads) {
+            Bytes b{1};
+            for (uint32_t v : {uint32_t(d.id), uint32_t(d.x), uint32_t(d.y), uint32_t(d.owner), uint32_t(d.disabled), uint32_t(d.noOverlay)}) appendU32(b, v);
+            keys.push_back(std::move(b));
+        }
+        for (const MapSprite& s : o.sprites) {
+            Bytes b{2};
+            for (uint32_t v : {uint32_t(s.id), uint32_t(s.x), uint32_t(s.y), uint32_t(s.owner), uint32_t(s.flags)}) appendU32(b, v);
+            keys.push_back(std::move(b));
+        }
+        std::sort(keys.begin(), keys.end());
+        return keys;
+    };
+    const std::vector<Bytes> madeObjects = objectKeys(now);
+    const auto flattenToMade = [&] {
+        chk_ = made;
+        reload();
+        return flatten();
+    };
+    // (a layer's placed tiles are not the terrain's: the first composing does not keep them in the Background)
+    std::set<std::pair<int, int>> layerTiles;
+    for (const MapLayer& l : stack.layers)
+        for (const auto& [at, tile] : l.tiles) layerTiles.insert(at);
+    noteLayerPlaced(std::move(layerTiles));
+    Bytes base = baseFile->data;
+    if (!changed.empty() || !placed.empty()) {
+        LayerStack one;
+        MapLayer& l = one.add("", 0);
+        l.corners = changed, l.tiles = placed;
+        if (!composeLayers(base, one, nullptr, true)) return flattenToMade();
+        base = layerBaseNow();
+    }
+    syncLinkedLayers(stack);
+    if (!composeLayers(base, stack)) return flattenToMade();
+    std::vector<uint16_t> composedCorners;
+    for (int y = -1; y <= int(height_) + 1; ++y)
+        for (int x = -1; x <= int(width_) / 2 + 1; ++x) composedCorners.push_back(isom_.terrainAt(x, y));
+    if (composedCorners != madeCorners || objectKeys({units(), layerDoodads(), layerSprites()}) != madeObjects) return flattenToMade();
+    stackFile->data = stack.serialize();
+    baseFile->data = base;
+    const std::string check = terrainCheck();
+    if (ArchiveFile* f = find(kLayersCheckFile)) f->data = Bytes(check.begin(), check.end());
+    else files.push_back({kLayersCheckFile, Bytes(check.begin(), check.end())});
+    return LayerFold::Kept;
 }
 
 bool Editor::keepInExport(const std::string& name) const {
@@ -5000,6 +5127,11 @@ bool Editor::namedInMap(const std::string& name) const {
                 if ((it == s->data.begin() || !*(it - 1)) && (end == s->data.end() || !*end)) return true;  // (the whole string, not a part of a text)
             }
     return false;
+}
+
+void Editor::removeQuietArchiveFiles(const std::vector<std::string>& names) {
+    finishFiles();
+    std::erase_if(files_, [&](const ArchiveFile& f) { return std::find(names.begin(), names.end(), f.name) != names.end(); });
 }
 
 void Editor::setQuietArchiveFile(const std::string& name, Bytes data) {

@@ -89,6 +89,7 @@
 #include "stardraft/pathing_regions.h"
 #include "stardraft/portraits.h"  // the briefing's portraits (core/views_briefing.inc)
 #include "stardraft/previews.h"  // the tile pictures (core/views_tiles.inc)
+#include "map_preview.h"  // apps/quicklook: preview::tileColors (core/views_isom_rules.inc: the mapper's minimap)
 #include "stardraft/portraits.h"  // the portraits' clips (core/data_pictures.inc)
 #include "stardraft/sprites.h"  // the image player (core/data_pictures.inc)
 #include "stardraft/scene.h"

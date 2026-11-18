@@ -24,8 +24,22 @@ struct Tile {
     std::array<float, kN * kN> gray{}, norm{}, shape{}, mask{}, edge{};
     std::array<float, 64 * 3> blocks{};  // (its colours: the mean of each 4x4 block, r g b)
     std::array<std::array<float, 3>, kN * kN> rgb{};
+    // (tint: the pixels along the tile's own main colour line (its colours' first principal axis), as norm, and that
+    // blurred, as shape: a picture in other hues keeps them, where its gray changes (green is light in gray, red dark))
+    std::array<float, kN * kN> pc{}, pcShape{};
     bool ok = false;
 };
+void blur(const std::array<float, kN * kN>& in, std::array<float, kN * kN>& out) {
+    for (int y = 0; y < kN; ++y)
+        for (int x = 0; x < kN; ++x) {
+            float s = 0;
+            int n = 0;
+            for (int dy = -2; dy <= 2; ++dy)
+                for (int dx = -2; dx <= 2; ++dx)
+                    if (unsigned(x + dx) < unsigned(kN) && unsigned(y + dy) < unsigned(kN)) s += in[size_t((y + dy) * kN + x + dx)], ++n;
+            out[size_t(y * kN + x)] = s / float(n);
+        }
+}
 
 void normalize(std::array<float, kN * kN>& a) {
     double s = 0, q = 0;
@@ -75,6 +89,31 @@ Tile tileOf(const Tileset& t, uint16_t v) {
             o.edge[size_t(y * kN + x)] = std::sqrt(gx * gx + gy * gy);
         }
     normalize(o.edge);
+    {  // (tint: the main colour line)
+        double m[3] = {0, 0, 0}, cv[3][3] = {};
+        for (const auto& p : o.rgb)
+            for (int i = 0; i < 3; ++i) m[i] += p[size_t(i)];
+        for (double& v : m) v /= double(o.rgb.size());
+        for (const auto& p : o.rgb)
+            for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j) cv[i][j] += (p[size_t(i)] - m[i]) * (p[size_t(j)] - m[j]);
+        double v[3] = {0.299, 0.587, 0.114};  // (from gray: the power steps find the main line)
+        for (int it = 0; it < 24; ++it) {
+            double w[3] = {0, 0, 0}, n = 0;
+            for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j) w[i] += cv[i][j] * v[j];
+            for (double x : w) n += x * x;
+            n = std::sqrt(n);
+            if (n < 1e-9) break;
+            for (int i = 0; i < 3; ++i) v[i] = w[i] / n;
+        }
+        if (v[0] * 0.299 + v[1] * 0.587 + v[2] * 0.114 < 0)  // (the way that grows with the gray: light stays light)
+            for (double& x : v) x = -x;
+        for (size_t i = 0; i < o.pc.size(); ++i) o.pc[i] = float(o.rgb[i][0] * v[0] + o.rgb[i][1] * v[1] + o.rgb[i][2] * v[2]);
+        normalize(o.pc);
+        blur(o.pc, o.pcShape);
+        normalize(o.pcShape);
+    }
     return o;
 }
 
@@ -94,11 +133,16 @@ void parallelFor(size_t n, const std::function<void(size_t)>& f) {
     for (auto& t : threads) t.join();
 }
 
-float corr(const std::array<float, kN * kN>& a, const std::array<float, kN * kN>& b) {
+template <size_t N>
+float corr(const std::array<float, N>& a, const std::array<float, N>& b) {
     double s = 0;
-    for (size_t i = 0; i < a.size(); ++i) s += double(a[i]) * b[i];
-    return float(s / a.size());
+    for (size_t i = 0; i < N; ++i) s += double(a[i]) * b[i];
+    return float(s / double(N));
 }
+// Likeness in another tint: both tiles along their own main colour line, as norm and shape are along the gray. (On the
+// mapped terrains the better of this and the gray one ranked the right mod tile higher than the gray one alone on each
+// terrain; the tinted sets most: Flagstones +5 to 7 %.)
+float axisLike(const Tile& a, const Tile& b) { return 0.3f * std::abs(corr(a.pc, b.pc)) + std::abs(corr(a.pcShape, b.pcShape)); }
 
 // Two colours that split a set of tiles' pixels best (2-means, from the darkest and the lightest): a border's terrain
 // and its ground, whatever their brightness (grass on dirt: the same brightness, other colours).
@@ -198,7 +242,7 @@ uint16_t samePicture(const Tileset& a, uint16_t va, const Tileset& b) {
 
 float pixelMatch(const Tileset& a, uint16_t va, const Tileset& b, uint16_t vb) {
     const Tile x = tileOf(a, va), y = tileOf(b, vb);
-    return x.ok && y.ok ? std::clamp(corr(x.norm, y.norm), 0.f, 1.f) : 0.f;
+    return x.ok && y.ok ? std::clamp(std::max(corr(x.norm, y.norm), std::abs(corr(x.pc, y.pc))), 0.f, 1.f) : 0.f;  // (another tint: along the colour line)
 }
 
 std::set<int> searchGroups(const Input& in) {
@@ -246,8 +290,9 @@ std::vector<Suggestion> suggest(const Input& in) {
     for (size_t i = 0; i < cands.size(); ++i) candIx[cands[i]] = i;
     // (each signal on its own first, raw: likeness, sides, colours; then their weights (learned from the matches, below),
     // then the table)
-    auto like = [&](const Tile& a, const Tile& b) {
-        return 0.3f * corr(a.norm, b.norm) + corr(a.shape, b.shape) + (in.wEdge != 0 ? in.wEdge / std::max(in.wLike, 1e-6f) * corr(a.edge, b.edge) : 0.f);
+    auto like = [&](const Tile& a, const Tile& b) {  // (in gray, or along the colour line where the tint differs)
+        return std::max(0.3f * corr(a.norm, b.norm) + corr(a.shape, b.shape), axisLike(a, b)) +
+               (in.wEdge != 0 ? in.wEdge / std::max(in.wLike, 1e-6f) * corr(a.edge, b.edge) : 0.f);
     };
     {  // (the candidates' tiles at once, on the cores: most of them are new)
         std::vector<Tile> made(cands.size());

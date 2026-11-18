@@ -699,13 +699,11 @@ public:
     void close() override {
         if (gFbView && gHost) gHost->closeWindow(*gFbView);
     }
-    int timer(int ms, std::function<void()> run) override {
-        draw::Host* h = gFbView ? gFbView->host() : nullptr;
-        return h ? h->timer(ms, std::move(run)) : -1;
-    }
+    // (the program's host, not the dialog's window's: Send closes the window before the dialog goes, and its timer must
+    // still be cancelled then, or it runs on the dialog after it is gone)
+    int timer(int ms, std::function<void()> run) override { return gHost && gFbView ? gHost->timer(ms, std::move(run)) : -1; }
     void cancelTimer(int id) override {
-        draw::Host* h = gFbView ? gFbView->host() : nullptr;
-        if (h && id >= 0) h->cancelTimer(id);
+        if (gHost && id >= 0) gHost->cancelTimer(id);
     }
 };
 FeedbackProgramSdl gFeedbackProgram;

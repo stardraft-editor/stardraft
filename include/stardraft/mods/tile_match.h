@@ -60,7 +60,8 @@ std::vector<Suggestion> suggest(const Input& in);
 std::set<int> searchGroups(const Input& in);
 
 // How alike two tiles are pixel by pixel, 0..1: both in gray, each with its brightness and contrast made the same (the
-// shapes count, not the colours); 1: the same picture, 0: nothing alike (or a tile with no picture).
+// shapes count, not the colours), or along each one's own main colour line when that is more alike (the same picture in
+// another tint); 1: the same picture, 0: nothing alike (or a tile with no picture).
 float pixelMatch(const Tileset& a, uint16_t va, const Tileset& b, uint16_t vb);
 
 // The tile of b with the same picture as tile va of a: each pixel's colour within a few steps of the other's (the same

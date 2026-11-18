@@ -151,6 +151,7 @@ Family familyOf(const std::vector<TemplateRect>& rects, const Tileset& t) {
 }
 
 std::pair<uint16_t, uint16_t> templateOf(const Tileset& t, const Tileset::ModTerrain& m) {
+    if (m.foreign()) return {m.templateGround, m.templateTerrain};  // (another tileset's: its ids there)
     uint16_t ground = m.groundTemplate ? m.groundTemplate : m.ground;
     for (int n = 0; n < 16 && ground >= Tileset::kModTerrainIds; ++n)  // (a mod ground with no template: its stand-in)
         if (const Tileset::ModTerrain* g = t.modTerrain(ground)) ground = g->groundTemplate ? g->groundTemplate : g->standIn;
@@ -237,9 +238,11 @@ std::vector<uint8_t> write(const Rules& r) {
     Out o;
     for (char c : std::string("SDTR")) o.u8(uint8_t(c));
     bool bases = false;  // (version 3 only when it is needed: other builds read 2)
+    bool foreign = false;  // (version 5 only with a template from another tileset)
     for (const TilesetRules& ts : r.tilesets)
-        for (const Terrain& x : ts.terrains) bases = bases || x.baseEra >= 0 || !x.variantOf.empty();
-    o.u16(bases ? kVersion : 2), o.u16(uint16_t(r.tilesets.size()));
+        for (const Terrain& x : ts.terrains) bases = bases || x.baseEra >= 0 || !x.variantOf.empty(), foreign = foreign || x.t.foreign();
+    bases = bases || foreign;  // (version 5: the version-3 and -4 fields too)
+    o.u16(foreign ? kVersion : bases ? 4 : 2), o.u16(uint16_t(r.tilesets.size()));
     for (const TilesetRules& ts : r.tilesets) {
         o.u8(ts.era), o.u32(ts.groups), o.u64(ts.fingerprint), o.u16(uint16_t(ts.terrains.size()));
         for (const Terrain& x : ts.terrains) {
@@ -253,6 +256,7 @@ std::vector<uint8_t> write(const Rules& r) {
                 o.u8(x.baseEra >= 0 ? uint8_t(x.baseEra) : 255), o.u16(x.baseGround), o.u16(x.baseTerrain);
                 o.u16(uint16_t(x.variantOf.size()));
                 for (const auto& [p, k] : x.variantOf) o.u16(p[0]), o.u16(p[1]), o.u16(p[2]), o.u8(k);
+                if (foreign) o.u8(m.templateEra), o.u16(m.templateGround), o.u16(m.templateTerrain);
             }
         }
     }
@@ -265,7 +269,7 @@ bool read(const std::vector<uint8_t>& bytes, Rules& r, std::string& err) {
     if (bytes.size() < 8 || std::string(bytes.begin(), bytes.begin() + 4) != "SDTR") return err = "not a terrain rules file", false;
     in.at = 4;
     const uint16_t version = in.u16();
-    if (version < 1 || version > kVersion) return err = "terrain rules version " + std::to_string(version) + " (this program reads 1 to 4)", false;
+    if (version < 1 || version > kVersion) return err = "terrain rules version " + std::to_string(version) + " (this program reads 1 to 5)", false;
     const uint16_t sets = in.u16();
     for (uint16_t s = 0; s < sets && in.ok; ++s) {
         TilesetRules ts;
@@ -294,6 +298,8 @@ bool read(const std::vector<uint8_t>& bytes, Rules& r, std::string& err) {
                     p[0] = in.u16(), p[1] = in.u16(), p[2] = in.u16();
                     x.variantOf[p] = in.u8();
                 }
+                if (version >= 5)  // (its pieces: that tileset's groups; 255: this one's)
+                    m.templateEra = in.u8(), m.templateGround = in.u16(), m.templateTerrain = in.u16();
             }
             ts.terrains.push_back(std::move(x));
         }
@@ -328,14 +334,15 @@ bool apply(Tileset& t, const Rules& r, std::string* why) {
             if (x.t.variantOf) continue;  // (a variant is made from its terrain: below)
             Tileset::ModTerrain m = x.t;
             m.pieceVariant = x.variantOf;  // (the rows of a block: one variant)
-            normalize(t, m);  // (a file's terrain in the engine's order, every template rect present)
+            if (!m.foreign()) normalize(t, m);  // (a file's terrain in the engine's order, every template rect present; another tileset's template: as the file has it)
             bool replaced = false;
             for (Tileset::ModTerrain& o : t.modTerrains)
                 if (o.id == m.id) o = m, replaced = true;
             if (!replaced) t.modTerrains.push_back(m);
             // (its variants: its set again on another ground, the same pieces)
             for (Tileset::ModTerrain& v : t.modTerrains)
-                if (v.variantOf == m.id) v.pieces = m.pieces, v.setPieces = m.setPieces, v.gapPieces = m.gapPieces, v.pieceVariant = m.pieceVariant;
+                if (v.variantOf == m.id) v.pieces = m.pieces, v.setPieces = m.setPieces, v.gapPieces = m.gapPieces, v.pieceVariant = m.pieceVariant,
+                    v.templateEra = m.templateEra, v.templateGround = m.templateGround, v.templateTerrain = m.templateTerrain;  // (the pieces' groups: its template's)
         }
         return true;
     }

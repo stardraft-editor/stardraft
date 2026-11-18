@@ -1181,7 +1181,7 @@ int main(int argc, char** argv) {
             } else if (dialogArg.rfind("terrainmapper", 0) == 0) {  // terrainmapper[:<era>[/<row>]]: the Mod terrain mapper on that tileset (--cmbw); its list printed
                 shown = &gTerrainMapperView;
                 gTerrainMapperView.setAsync(false);
-                std::string name = dialogArg.size() > 12 ? dialogArg.substr(12) : std::string();
+                std::string name = dialogArg.size() > 14 ? dialogArg.substr(14) : std::string();  // (after "terrainmapper:")
                 if (const size_t at = name.find('@'); at != std::string::npos) {  // (...@<file>: those rules)
                     gTerrainMapperView.useFile(std::filesystem::u8path(name.substr(at + 1)));
                     name.resize(at);
