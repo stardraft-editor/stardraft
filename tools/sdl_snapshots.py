@@ -792,7 +792,7 @@ CASES += [
     # focus line has the caret's x and the x where the letters of its line end): Map properties' Title and Description,
     # the Strings tab's text (a game text field) and the Data list's search box.
     ("map-props-caret", ["--check", "caret", "--workspace", "props", "--click", "420,254", "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox",
-                         "--click", "420,320", "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox"], "map"),
+                         "--click", "420,370", "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox"], "map"),
     # Crop or extend (Map properties; Discord feedback #140; core/views_resize.inc): the map's picture with the crop
     # rectangle (--dialog resize: the dialog is the picture and takes the inputs). The bottom right handle dragged to the
     # right (the size snaps to 192 x 128), then the rectangle dragged up and to the left (the offset snaps to one that

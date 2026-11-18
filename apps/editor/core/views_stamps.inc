@@ -39,6 +39,29 @@ struct StampRow {
     int index = -1;       // an item's: its index in stampsList()
 };
 
+// Names in the order people read them (#282): a run of digits is a number, so "2" goes before "10"; else no case.
+inline bool stampsNameLess(const std::wstring& a, const std::wstring& b) {
+    size_t i = 0, j = 0;
+    while (i < a.size() && j < b.size()) {
+        if (iswdigit(a[i]) && iswdigit(b[j])) {
+            size_t ie = i, je = j;
+            while (ie < a.size() && iswdigit(a[ie])) ++ie;
+            while (je < b.size() && iswdigit(b[je])) ++je;
+            size_t is = i, js = j;  // (the leading zeros do not count; "02" and "2" are the same number)
+            while (is + 1 < ie && a[is] == L'0') ++is;
+            while (js + 1 < je && b[js] == L'0') ++js;
+            if (ie - is != je - js) return ie - is < je - js;
+            if (const int c = a.compare(is, ie - is, b, js, je - js); c != 0) return c < 0;
+            i = ie, j = je;
+            continue;
+        }
+        const wchar_t x = wchar_t(::towlower(a[i])), y = wchar_t(::towlower(b[j]));
+        if (x != y) return x < y;
+        ++i, ++j;
+    }
+    return a.size() - i < b.size() - j;
+}
+
 std::vector<StampRow> stampsRows(std::wstring search = {}) {
     const auto& list = stampsList();
     auto lower = [](const std::string& n) {
@@ -53,13 +76,13 @@ std::vector<StampRow> stampsRows(std::wstring search = {}) {
     if (stampsSort() == 1)
         std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return list[size_t(a)].created > list[size_t(b)].created; });
     else
-        std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return lower(list[size_t(a)].name) < lower(list[size_t(b)].name); });
+        std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return stampsNameLess(widen(list[size_t(a)].name), widen(list[size_t(b)].name)); });
     // The custom terrain in no folder first, then each folder (by name), its items in the order, then its folders. A
     // search shows only the folders with a match, open.
     std::vector<std::string> folders = stampsFolders();
     for (int i : order)
         if (const std::string& f = list[size_t(i)].folder; !f.empty() && std::find(folders.begin(), folders.end(), f) == folders.end()) folders.push_back(f);
-    std::sort(folders.begin(), folders.end(), [&](const std::string& a, const std::string& b) { return lower(a) < lower(b); });
+    std::sort(folders.begin(), folders.end(), [&](const std::string& a, const std::string& b) { return stampsNameLess(widen(a), widen(b)); });
     std::vector<StampRow> rows;
     for (int i : order)
         if (list[size_t(i)].folder.empty()) rows.push_back({0, false, widen(list[size_t(i)].name), L"", i});

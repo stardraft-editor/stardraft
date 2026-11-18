@@ -31,9 +31,11 @@ struct UnitPropsValues {
 // Puts the values into `units`: only what changed from the shown values (`was`, the double-clicked unit) goes to the
 // units, so with several units selected the other values stay. The position changes only for one unit.
 // `mod`: a Cosmonarchy map's flags (any unit can have them; a flag that is turned on is made valid too).
-inline void unitPropsApply(Editor& ed, const std::vector<int>& units, const Unit& was, const UnitPropsValues& v, bool mod = false) {
+// `position`: false when the selection changed while the window was open (X and Y show the first unit's place then).
+inline void unitPropsApply(Editor& ed, const std::vector<int>& units, const Unit& was, const UnitPropsValues& v, bool mod = false,
+                           bool position = true) {
     const uint32_t hp = std::min(v.hp, 100u), sh = std::min(v.shields, 100u), en = std::min(v.energy, 100u), hang = std::min(v.hangar, 65535u);
-    const bool single = units.size() == 1;
+    const bool single = units.size() == 1 && position;
     ed.beginStroke();  // (the type, then the values: one undo step)
     if (v.unitType != was.type && v.unitType < ed.unitTypes().size()) {  // the units of each type they have now become the new type
         std::vector<uint16_t> from;
@@ -610,6 +612,9 @@ inline int runUnitPropsDialog(draw::View& from, Editor& ed, const std::vector<in
     const int r = dlg.run(from, tr(L"Unit properties"), size);
     shown = nullptr;
     if (r == kUnitPropsPick && next) *next = view.nextUnit();
-    if (r == kUnitPropsOk || r == kUnitPropsEditType) unitPropsApply(ed, units, first, view.values(), modTab());
+    if (r == kUnitPropsOk || r == kUnitPropsEditType) {  // (the units selected now: Ctrl+clicks in the Units list too)
+        const std::vector<int> now = ed.selection().empty() ? units : ed.selection();
+        unitPropsApply(ed, now, first, view.values(), modTab(), now == units);
+    }
     return r;
 }
