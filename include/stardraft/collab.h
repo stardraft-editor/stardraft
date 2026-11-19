@@ -124,6 +124,7 @@ struct Peer {
     bool cursorOn = false;
     int x = 0, y = 0;  // map pixels
     double cursorTime = 0;  // when it last moved (seconds, the session's clock)
+    std::string chat;       // cursor chat: the text at the cursor ("": none), at most kMaxChat bytes
 };
 
 class Session {
@@ -181,6 +182,8 @@ public:
 
     // This user's cursor (map pixels; off: not over the map). Sent at most 20 times a second.
     void cursor(int x, int y, bool on);
+    // Cursor chat: the text at this user's cursor, as it is typed ("": none). Everyone in the session sees it.
+    void chat(const std::string& text);
 
     struct Link;  // (a member's keys and counters: collab.cpp)
 
@@ -239,6 +242,7 @@ private:
     std::map<uint32_t, double> linkTime_;      // host: when each connection came (one with no keys in 10 s goes)
     int cursorX_ = 0, cursorY_ = 0;
     bool cursorOn_ = false, cursorDirty_ = false;
+    std::string chat_;
     double cursorSent_ = 0;
     uint8_t nextColor_ = 1;
     uint32_t myId_ = 0;  // guest: the relay's number for this program

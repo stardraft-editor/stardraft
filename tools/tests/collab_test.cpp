@@ -662,6 +662,28 @@ int main(int argc, char** argv) {
               return false;
           }),
           "Ann sees the host's cursor");
+    // Cursor chat: the text goes with the cursor, cleaned (no control characters), and goes away.
+    a.s->chat("hi \x01there");
+    CHECK(waitFor([&] {
+              for (const cb::Peer& p : b.s->peers())
+                  if (p.name == "Ann" && p.chat == "hi there") return true;
+              return false;
+          }),
+          "Bob sees Ann's chat, cleaned");
+    host.s->chat("hello");
+    CHECK(waitFor([&] {
+              for (const cb::Peer& p : a.s->peers())
+                  if (p.id == 0 && p.chat == "hello") return true;
+              return false;
+          }),
+          "Ann sees the host's chat");
+    a.s->chat("");
+    CHECK(waitFor([&] {
+              for (const cb::Peer& p : host.s->peers())
+                  if (p.name == "Ann" && p.chat.empty()) return true;
+              return false;
+          }),
+          "Ann's chat goes away");
 
     // A wrong secret for the room, then the old links after new ones.
     Program c;

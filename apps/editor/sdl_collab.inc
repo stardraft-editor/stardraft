@@ -82,6 +82,24 @@ void finish();
 void pump();
 void tickTimer();
 
+// Cursor chat (as Figma's): / on the map opens a bubble at the mouse, the text goes to the others as it is typed, Enter
+// keeps it for kChatKeep seconds, Esc removes it at once.
+bool gChatOpen = false;
+std::string gChatText;
+double gChatUntil = 0;  // (Enter: the text goes at this time)
+constexpr double kChatKeep = 5;
+constexpr size_t kChatMax = 100;  // bytes (collab.cpp kMaxChat)
+void chatSend() {
+    if (gSession && !gEnded) gSession->chat(gChatText);
+}
+void chatClose(bool clear) {
+    if (gChatOpen && gRoot)
+        if (draw::Host* h = gRoot->map.host()) h->textInput(gRoot->map, false, {});
+    gChatOpen = false;
+    if (clear) gChatText.clear(), chatSend();
+    invalidateMapView();
+}
+
 void armTimer() {
     if (gTimer || !gHost || !gSession) return;
     gTimer = gHost->timer(50, [] {
@@ -137,8 +155,10 @@ void pump() {
 }
 
 void tickTimer() {
-    if (!gSession || gEnded) return;
+    if (!gSession || gEnded) return chatClose(true);
     checkEditor();
+    if (!gChatOpen && !gChatText.empty() && clockNow() > gChatUntil) chatClose(true);
+    if (gChatOpen && (!gState.mouseIn || gWorkspace != Workspace::Map || gSession->editor() != gState.ed.get())) chatClose(true);
     Editor* ed = gSession && !gEnded ? gSession->editor() : nullptr;
     if (ed && gState.ed.get() == ed && gWorkspace == Workspace::Map && gState.mouseIn && gState.zoom > 0) {
         const float wx = gState.camX + float(gState.mouseX) / gState.zoom, wy = gState.camY + float(gState.mouseY) / gState.zoom;
@@ -362,7 +382,8 @@ struct SessionView final : draw::View {
             // What each link lets people do (the guest locks: sdlCollabLocks, collabModeLocked).
             const std::wstring note =
                 shellTr(L"Invite people to view or to edit the map. With the edit link, they can change terrain, units, doodads, sprites and "
-                        L"locations. They cannot change triggers, map layers or other map data, and they cannot save. This feature is experimental.");
+                        L"locations. They cannot change triggers, map layers or other map data. When the session ends, each collaborator keeps "
+                        L"a copy of the map and can save it on their own computer. This feature is experimental.");
             const int nh = c.measureBox(note, w - 2 * pad, draw::kWrap).y;
             c.text({pad, y, w - pad, y + nh}, note, kText, draw::kWrap);
             y += nh + scale(12);
@@ -546,6 +567,52 @@ bool sdlCollabWait(int ms) {
 }
 
 // The others' cursors on the map: an arrow in the person's color, with a dark outline, and their name.
+// Cursor chat's keys: / (or Shift+7, the / of Nordic and German keyboards) on the map opens it; while it is open it takes
+// the keys (Enter keeps the text a few seconds, Esc removes it, Backspace removes a character), not the Ctrl ones.
+bool collabChatKey(const draw::KeyEvent& e, bool typing) {
+    using namespace collabui;
+    if (!gChatOpen) {
+        if (!e.down || e.repeat || typing || !gRoot || !gSession || gEnded || !gSession->editor() || gSession->editor() != gState.ed.get()) return false;
+        if (gWorkspace != Workspace::Map || !gRoot->map.shown() || !gState.mouseIn) return false;
+        const bool slash = (e.key == draw::Key::Slash && !e.mods) || (e.numberRow == 7 && e.mods == draw::kShift);
+        if (!slash) return false;
+        gChatOpen = true, gChatText.clear(), chatSend();
+        if (draw::Host* h = gRoot->map.host())
+            h->textInput(gRoot->map, true, {gState.mouseX + scale(14), gState.mouseY + scale(18), gState.mouseX + scale(200), gState.mouseY + scale(40)});
+        invalidateMapView();
+        return true;
+    }
+    if (e.mods & (draw::kCtrl | draw::kAlt | draw::kSuper)) return false;
+    if (!e.down) return true;
+    if (e.key == draw::Key::Escape) return chatClose(true), true;
+    if (e.key == draw::Key::Enter) {
+        gChatUntil = clockNow() + kChatKeep;
+        chatClose(gChatText.empty());
+        return true;
+    }
+    if (e.key == draw::Key::Backspace && !gChatText.empty()) {
+        size_t n = gChatText.size() - 1;
+        while (n > 0 && (uint8_t(gChatText[n]) & 0xC0) == 0x80) --n;  // (a whole UTF-8 character)
+        gChatText.resize(n), chatSend(), invalidateMapView();
+    }
+    return true;  // (the map's own keys wait while the chat is open)
+}
+bool collabChatText(const std::string& utf8) {
+    using namespace collabui;
+    if (!gChatOpen) return false;
+    if (gChatText.size() + utf8.size() <= kChatMax) gChatText += utf8, chatSend(), invalidateMapView();
+    return true;
+}
+
+// A chat bubble: the text in a rounded box in the person's color (wrapped, at most 260 px wide), its top left at x, y.
+void chatBubble(draw::Canvas& c, int x, int y, const std::wstring& text, draw::Color fill, draw::Color line, draw::Color ink) {
+    const int pad = scale(8), maxW = scale(260);
+    const draw::Point sz = c.measureBox(text, maxW, draw::kWrap);
+    const draw::Rect r{x, y, x + std::min(maxW, sz.x) + 2 * pad, y + sz.y + scale(10)};
+    c.roundBox(r, fill, line, float(scale(10)));
+    c.text({r.left + pad, r.top + scale(5), r.right - pad + scale(2), r.bottom - scale(5)}, text, ink, draw::kWrap);
+}
+
 void collabCursorsPaint(draw::Canvas& c, draw::Rect view) {
     using namespace collabui;
     if (!gSession || gEnded || !gSession->editor() || gSession->editor() != gState.ed.get()) return;
@@ -599,6 +666,14 @@ void collabCursorsPaint(draw::Canvas& c, draw::Rect view) {
         const draw::Rect label{x + scale(12), y + scale(17), x + scale(12) + w, y + scale(17) + h};
         c.roundBox(label, col, dark, float(scale(4)));
         c.text(label, name, draw::rgb(16, 16, 16), draw::kCenter | draw::kMiddle);
+        if (!p.chat.empty()) chatBubble(c, label.left, label.bottom + scale(3), widen(p.chat), col, dark, draw::rgb(16, 16, 16));
+    }
+    if (gChatOpen || !gChatText.empty()) {  // (this user's bubble, at the mouse; open: a caret, or a cue when empty)
+        const int x = view.left + gState.mouseX + scale(14), y = view.top + gState.mouseY + scale(18);
+        const bool cue = gChatOpen && gChatText.empty();
+        std::wstring t = cue ? shellTr(L"Say something") : widen(gChatText);
+        if (gChatOpen && !cue) t += L"|";
+        chatBubble(c, x, y, t, draw::rgb(250, 250, 250), draw::rgb(60, 60, 60), cue ? draw::rgb(120, 120, 120) : draw::rgb(16, 16, 16));
     }
     c.popClip();
     c.setFont(old);

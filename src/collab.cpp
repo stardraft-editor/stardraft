@@ -29,6 +29,7 @@ namespace {
 
 constexpr uint8_t kProto = 1;
 constexpr size_t kMaxName = 32;
+constexpr size_t kMaxChat = 100;  // cursor chat: bytes
 constexpr size_t kMaxWaiting = 8;  // connections that have no keys yet (the relay takes 8 members)
 constexpr size_t kMaxMembers = 7;
 constexpr double kCursorEvery = 0.05;  // seconds: at most 20 cursor messages a second
@@ -87,7 +88,12 @@ struct Reader {
 
 // A name as people see it: valid UTF-8 (shortest forms, no surrogates), no control or format characters (C0, C1,
 // the direction marks and overrides, line and paragraph separators), at most kMaxName bytes (whole characters).
+std::string cleanText(const std::string& in, size_t maxBytes);
 std::string cleanName(const std::string& in) {
+    std::string out = cleanText(in, kMaxName);
+    return out.empty() ? "Guest" : out;
+}
+std::string cleanText(const std::string& in, size_t maxBytes) {
     std::string out;
     for (size_t i = 0; i < in.size();) {
         const uint8_t c = uint8_t(in[i]);
@@ -102,7 +108,7 @@ std::string cleanName(const std::string& in) {
         }
         static const uint32_t kMin[5] = {0, 0, 0x80, 0x800, 0x10000};
         if (!ok || cp < kMin[len] || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) break;
-        if (out.size() + len > kMaxName) break;
+        if (out.size() + len > maxBytes) break;
         const bool control = cp < 0x20 || (cp >= 0x7F && cp <= 0x9F) || cp == 0x200E || cp == 0x200F || (cp >= 0x202A && cp <= 0x202E) ||
                              (cp >= 0x2066 && cp <= 0x2069) || cp == 0x2028 || cp == 0x2029 || cp == 0x061C || cp == 0xFEFF;
         if (!control) out.append(in, i, len);
@@ -110,7 +116,7 @@ std::string cleanName(const std::string& in) {
     }
     while (!out.empty() && out.back() == ' ') out.pop_back();
     while (!out.empty() && out.front() == ' ') out.erase(out.begin());
-    return out.empty() ? "Guest" : out;
+    return out;
 }
 
 const char kB64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
@@ -1001,8 +1007,9 @@ void Session::hostMessage(uint32_t from, const Bytes& m) {
     if (type == mCursor) {
         const uint8_t on = r.u8();
         const uint16_t x = r.u16(), y = r.u16();
-        if (!r.done() || on > 1) return drop("A message was not valid.");
-        pr->cursorOn = on, pr->x = x, pr->y = y, pr->cursorTime = now();
+        std::string text = r.str();
+        if (!r.done() || on > 1 || text.size() > kMaxChat) return drop("A message was not valid.");
+        pr->cursorOn = on, pr->x = x, pr->y = y, pr->cursorTime = now(), pr->chat = cleanText(text, kMaxChat);
         cursorsDirty_ = true;  // (sendCursors: all at once, at most 10 times a second)
         if (ev_.peersChanged) ev_.peersChanged();
         return;
@@ -1098,7 +1105,7 @@ void Session::guestMessage(const Bytes& m) {
             p.role = Role(role);
             p.color &= 7;
             if (p.id == myId_) continue;
-            if (const Peer* old = peer(p.id)) p.cursorOn = old->cursorOn, p.x = old->x, p.y = old->y, p.cursorTime = old->cursorTime;
+            if (const Peer* old = peer(p.id)) p.cursorOn = old->cursorOn, p.x = old->x, p.y = old->y, p.cursorTime = old->cursorTime, p.chat = old->chat;
             list.push_back(p);
         }
         if (!r.done()) return bad();
@@ -1112,9 +1119,11 @@ void Session::guestMessage(const Bytes& m) {
             const uint32_t id = r.u32();
             const uint8_t on = r.u8();
             const uint16_t x = r.u16(), y = r.u16();
-            if (on > 1) return bad();
+            const std::string text = r.str();
+            if (on > 1 || text.size() > kMaxChat) return bad();
             Peer* p = id == myId_ ? nullptr : peer(id);
-            if (p && (p->cursorOn != bool(on) || p->x != x || p->y != y)) p->cursorOn = on, p->x = x, p->y = y, p->cursorTime = now();
+            if (p && (p->cursorOn != bool(on) || p->x != x || p->y != y || p->chat != text))
+                p->cursorOn = on, p->x = x, p->y = y, p->cursorTime = now(), p->chat = cleanText(text, kMaxChat);
         }
         if (!r.done()) return bad();
         if (ev_.peersChanged) ev_.peersChanged();
@@ -1606,6 +1615,7 @@ void Session::tick() {
     if (!ended_ && !host_ && ed_ && cursorDirty_ && now() - cursorSent_ >= kCursorEvery) {
         Writer w;
         w.u8(mCursor), w.u8(cursorOn_), w.u16(uint16_t(std::clamp(cursorX_, 0, 65535))), w.u16(uint16_t(std::clamp(cursorY_, 0, 65535)));
+        w.str(chat_);
         sendTo(0, w.b);
         cursorDirty_ = false, cursorSent_ = now();
     }
@@ -1623,10 +1633,17 @@ void Session::sendCursors() {
         Writer w;
         w.u8(mCursors), w.u8(uint8_t(in.size()));  // (the host, and the others: the member itself is not in it)
         w.u32(0), w.u8(cursorOn_), w.u16(uint16_t(std::clamp(cursorX_, 0, 65535))), w.u16(uint16_t(std::clamp(cursorY_, 0, 65535)));
+        w.str(chat_);
         for (const Peer* p : in)
-            if (p != to) w.u32(p->id), w.u8(p->cursorOn), w.u16(uint16_t(p->x)), w.u16(uint16_t(p->y));
+            if (p != to) w.u32(p->id), w.u8(p->cursorOn), w.u16(uint16_t(p->x)), w.u16(uint16_t(p->y)), w.str(p->chat);
         sendTo(to->id, w.b);
     }
+}
+
+void Session::chat(const std::string& text) {
+    const std::string t = cleanText(text, kMaxChat);
+    if (t == chat_) return;
+    chat_ = t, cursorDirty_ = true;
 }
 
 void Session::cursor(int x, int y, bool on) {
