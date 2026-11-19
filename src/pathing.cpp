@@ -174,6 +174,7 @@ const char* pathUnitSizeName(PathUnitSize size) {
 
 bool isStaticObstacle(const UnitType& type, uint16_t typeId) {
     if (typeId == kStartLocation) return false;
+    if (type.blocksNothing) return false;  // (a mod's marker, as its Town Center Marker: a town hall goes over it)
     if (type.is(UnitFlag::Flyer) && !type.is(UnitFlag::Building)) return false;
     return type.is(UnitFlag::Building) || type.is(UnitFlag::ResourceContainer);
 }
