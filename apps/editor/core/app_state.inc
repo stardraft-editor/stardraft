@@ -49,6 +49,7 @@ struct AppState {
     // Each mode's own copy buffer (units and terrain are the Editor's): Ctrl+C, Ctrl+X and Ctrl+V act on the active mode's.
     // Doodads and sprites: the copied ones, each from the middle of the group; a paste follows the mouse.
     std::vector<Editor::ItemAt> doodadClip, spriteClip;
+    uint16_t doodadClipEra = 0;  // the tileset of the copied doodads (a doodad is its tileset's: other tilesets cannot paste them)
     bool pastingItems = false;                 // Doodads or Sprites: the copy follows the mouse; a click places it
     // The copied locations: each one's edges, inverted axes (1 left/right, 2 top/bottom), name and the elevations it
     // leaves out (MRGN flags).

@@ -122,6 +122,7 @@ void showActive() {
     pageSync();  // a page tab shows its page over the map
 }
 bool takeTerrainCopy(Editor& ed);  // (map_edit_commands.inc)
+void takeUnitCopy(Editor& ed);
 
 void activateDoc(int i) {
     AppState& app = shellState();
@@ -131,7 +132,8 @@ void activateDoc(int i) {
     gActive = i;
     Doc& d = gDocs[size_t(i)];
     app.ed = std::move(d.ed);
-    if (app.ed) takeTerrainCopy(*app.ed);  // the terrain copied last, in another map too (GitHub #146)
+    if (app.ed) takeTerrainCopy(*app.ed), takeUnitCopy(*app.ed);  // the terrain and units copied last, in another map too (GitHub #146)
+    app.pastingItems = false;  // (a doodad, sprite or location paste under way: the other map's; Ctrl+V starts it here)
     app.camX = d.camX, app.camY = d.camY, app.zoom = d.zoom;
     shellRelayout();  // the minimap takes this map's shape
     app.hasTerrainSel = d.hasTerrainSel, app.terrainSel = d.terrainSel, app.terrainSelMask = d.terrainSelMask;

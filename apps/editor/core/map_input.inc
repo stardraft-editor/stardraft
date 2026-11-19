@@ -1298,6 +1298,8 @@ void mapTurnOrMirror(AppState& app, int turn, bool upDown) {
     if (what >= 4) {  // units, doodads, sprites: their places round the group's middle (their pictures do not turn)
         if (what == 4) {
             app.ed->turnUnitClipboard(turn, upDown);
+            void turnUnitCopy(int turn, bool upDown);  // (map_edit_commands.inc)
+            turnUnitCopy(turn, upDown);
         } else {
             for (Editor::ItemAt& it : what == 5 ? app.doodadClip : app.spriteClip) {
                 const int x = it.x, y = it.y;

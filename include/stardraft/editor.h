@@ -479,6 +479,12 @@ public:
     // The units a paste at (x, y) puts down, before the placement checks: the copy, then its symmetric copies.
     std::vector<Unit> pasteUnits(int x, int y) const;
     const std::vector<Unit>& clipboard() const { return clipboard_; }  // positions relative to group center
+    // The copied units from another map (its clipboard()): those of a unit type this map has.
+    void setClipboard(const std::vector<Unit>& units) {
+        clipboard_.clear();
+        for (const Unit& u : units)
+            if (u.type < types_.size()) clipboard_.push_back(u);
+    }
     // The copied units' places round their middle: a quarter turn clockwise (turn 1) or back (-1), or (turn 0) mirrored
     // left and right, or top and bottom (upDown).
     void turnUnitClipboard(int turn, bool upDown);

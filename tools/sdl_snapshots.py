@@ -337,6 +337,7 @@ CASES += [
     # and says why (core/map_input.inc: terrainEditBlockedAt).
     ("map-terrain-off-map", ["--script", "{script:terrainoffmap}"], "map"),
     ("map-terrain-paste-other-map", ["--script", "{script:terraincrossmap}"], "map"),
+    ("map-units-paste-other-map", ["--script", "{script:unitscrossmap}"], "map"),
     ("map-revealers-hidden", ["--script", "{script:revealersHidden}"], "map"),
     # View > Units list: the Unit properties window with the list in its left column (the first unit, its picture and fields
     # on the right), and the pick, Delete and undo of the list (the script).
@@ -416,6 +417,9 @@ CASES += [
     ("cmbw-rect-variants", ["--cmbw", "--histbox", "8,8,119,119", "--solid", "--key", "Q", "--type", "structure (dirt)", "--key", "Enter",
                             "--click", "255,459", "--click", "800,500:Shift"], "cmbw"),
     ("cmbw-isom-new-dialog", ["--cmbw", "--dialog", "isomnew:Structure (Halfsphalt)", "--size", "460x200"], "cmbw"),
+    # Program options > Plugins with the mod: ISOM terrains, one of three (the game's only, built-in, a terrain rules file)
+    ("cmbw-options-plugins", ["--cmbw", "--dialog", "options:4", "--size", "720x900"], "cmbw"),
+    ("cmbw-options-game-terrains", ["--cmbw", "--dialog", "options:4", "--size", "720x900", "--click", "47,312"], "cmbw"),
     # The pictures of 0.8.1 (tools/shots/0.8.1.json): the Tiles list's terrain flags, a briefing text in the preview
     # (it wraps as the game's).
     ("cmbw-isom-shot", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "746,247"], "cmbw"),
@@ -1440,6 +1444,22 @@ key Ctrl+V
 move 900,800
 click 900,800
 """,
+    # Units copied in one map paste in another map: Orbital Relay opens, Ctrl+V there pastes the first map's units and a
+    # click puts them. The first map's doodads: a map of another tileset says why it cannot paste them.
+    "unitscrossmap": """mode doodads
+key Ctrl+A
+key Ctrl+C
+mode units
+key Ctrl+A
+key Ctrl+C
+open {maps}/(4)Orbital Relay.scm
+mode units
+key Ctrl+V
+move 900,800
+click 900,800
+mode doodads
+key Ctrl+V
+""",
     # Isometric and Rectangle each keep their own brush size (GitHub #155): Alt+wheel makes Isometric's 4; Rectangle's
     # is 2 and goes to 1; Isometric's is 4 again, then Rectangle's 1.
     # Terrain's Brush with a terrain picked: the mouse off the map (left of a map that the view fits), then a press there.
@@ -2425,6 +2445,25 @@ def check_terrain_other_map(output):
         return "Ctrl+V in the second map did not start the paste of the first map's terrain"
     if s[-1].get("terrain") == s[k].get("terrain"):
         return "the click did not paste the terrain in the second map"
+    return None
+
+
+def check_units_other_map(output):
+    """Units copied in one map paste in another map; the doodads of another tileset do not (a message says why)."""
+    s = steps(output)
+    paste = [k for k, st in enumerate(s) if st["input"].startswith("key Ctrl+V")]
+    if len(paste) < 2:
+        return "no Ctrl+V steps"
+    k = paste[0]
+    if "Orbital Relay" not in s[k].get("tab", ""):
+        return f"Ctrl+V was not in the second map ({s[k].get('tabs')} {s[k].get('tab')})"
+    if not re.search(r"^key Ctrl\+V: .*Paste \d+ units", output, re.M):
+        return "Ctrl+V in the second map did not start the paste of the first map's units"
+    if int(s[k + 2]["units"]) <= int(s[k]["units"]):
+        return f"the click did not paste the units in the second map ({s[k]['units']} -> {s[k + 2]['units']})"
+    first = re.search(r"^Opened .*$", output, re.M)
+    if first and "(platform)" not in first.group(0) and not re.search(r"You can paste them only in a map of that tileset", output):
+        return "no message for the doodads of another tileset"
     return None
 
 
@@ -3991,11 +4030,13 @@ CASES += [("map-shape-line-preview", ["--mode", "terrain", "--click", "pal=Solar
           ("map-shape-polygon-mode", ["--mode", "terrain", "--click", "pal=Solar Array", "--key", "P"] + SHAPE_POLY[:4] +
            ["--key", "U", "--key", "T", "--click", "660,750"], "map")]
 # Release pictures (tools/shots): Fill with three terrains (Ctrl+click adds; Mix), the red ground where a picked mineral
-# field may not go, and the window in French.
+# field may not go, and the window in French, Portuguese (Brazil) and German.
 CASES += [("map-fill-mix", ["--mode", "terrain", "--click", "pal=Rusty Pit", "--click", "pal=Low Platform:Ctrl", "--click", "pal=Solar Array:Ctrl", "--key", "F",
                             "--click", "455,520", "--move", "1500,900"], "map"),
           ("map-units-nogo", ["--mode", "units", "--wheel", "1199,595,0,5", "--key", "Q", "--type", "mineral field", "--key", "Enter", "--move", "1000,560"], "map"),
-          ("map-french", ["--mode", "terrain", "--lang", "fr"], "map")]
+          ("map-french", ["--mode", "terrain", "--lang", "fr"], "map"),
+          ("map-portuguese", ["--mode", "terrain", "--lang", "pt"], "map"),
+          ("map-german", ["--mode", "terrain", "--lang", "de"], "map")]
 # View > Overlays: a pathing or terrain flags view turns off when its item is chosen again (Ctrl+K, P twice; W twice);
 # Turn off all overlays (Ctrl+K, O) hides the pathing, the town areas and the ranges that are on.
 CASES += [("map-overlay-toggles", ["--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "A",
@@ -4731,7 +4772,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-terrain-rect-quick": check_rect_quick, "map-terrain-rect-quick-scroll": check_rect_quick_scroll,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
           "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed, "map-paste-owner": check_paste_owner,
-          "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click, "map-quick-typing": check_quick_typing, "map-terrain-brush-sizes": check_brush_sizes, "map-terrain-off-map": check_terrain_off_map, "map-terrain-paste-other-map": check_terrain_other_map,
+          "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click, "map-quick-typing": check_quick_typing, "map-terrain-brush-sizes": check_brush_sizes, "map-terrain-off-map": check_terrain_off_map, "map-terrain-paste-other-map": check_terrain_other_map, "map-units-paste-other-map": check_units_other_map,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
           "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits, "map-classictrig-quickadd": check_classic_quickadd, "map-classictrig-find": check_classic_find,
