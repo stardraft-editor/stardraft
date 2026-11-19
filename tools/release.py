@@ -33,7 +33,7 @@ CI uses these (they need only Python and git):
                                 --images: the version's picture files, one on each line (the Discord post).
     discord <version> --title <t> --url <u> [--channel all|updates|general] [--screenshots-only]
                                 The Discord post (CI): in each channel with a webhook (DISCORD_RELEASE_WEBHOOK,
-                                DISCORD_GENERAL_WEBHOOK), "**<title>** is out: <url>" (in #updates after the @New Release ping) with
+                                DISCORD_GENERAL_WEBHOOK), "**<title>** is out: <url>" (in #stardraft-general after the @New Release ping) with
                                 the section's video links, then the screenshots in one message (each with its text),
                                 then the version's section as Discord text: in a thread on the first message when it is
                                 more than one message long (the bot starts it: DISCORD_BOT_TOKEN; without it, in the
@@ -448,7 +448,7 @@ def cmd_discord(args):
                 head = f"**{title}** is out: {url}" + ("".join("\n" + l for l in links) if links else "")
                 if long and os.environ.get("DISCORD_BOT_TOKEN"):
                     head += "\nThe full notes are in the thread."
-                if name == "updates":  # (one ping for a release: in #updates)
+                if name == "general":  # (one ping for a release: in #stardraft-general, none in #updates)
                     first = discord_send(hook, f"<@&{DISCORD_RELEASE_ROLE}> " + head, ping_role=DISCORD_RELEASE_ROLE)
                 else:
                     first = discord_send(hook, head)
