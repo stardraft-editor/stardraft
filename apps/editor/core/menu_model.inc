@@ -200,7 +200,7 @@ MenuModel buildMenuModel() {
                    menuItem(ID_FILE_EXPORTMAP, L"E&xport map\x2026"),
                    menuItem(ID_FILE_EXPORTIMAGE, L"&Export map image\x2026", L"Ctrl+Shift+E"),
                    menuSeparator(),
-                   menuPopup(L"Co&llaborative editing", {menuItem(ID_COLLAB_SHARE, L"&Invite\x2026"),
+                   menuPopup(L"Co&llaborative editing (experimental)", {menuItem(ID_COLLAB_SHARE, L"&Invite\x2026"),
                                                          menuItem(ID_COLLAB_PEOPLE, L"&Session\x2026"),
                                                          menuItem(ID_COLLAB_COPYEDIT, L"Copy &edit invite link"),
                                                          menuItem(ID_COLLAB_COPYVIEW, L"Copy &view invite link"),

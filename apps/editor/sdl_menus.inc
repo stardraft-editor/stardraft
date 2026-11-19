@@ -1563,7 +1563,7 @@ void commandSdl(int id) {
     if (sdlUpdatesCommand(id)) return;
     if (sdlHelpCommand(id)) return;
     if (sdlCollabCommand(id)) return;
-    if (sdlCollabLocks(id)) return setMessage(L"Collaborative editing preview: invited users edit the map only");
+    if (sdlCollabLocks(id)) return setMessage(L"Collaborative editing (experimental): invited users edit the map only");
     switch (id) {
     case ID_FILE_OPEN:  // (a map opens in a tab of its own: the open tabs keep their work, no save question)
         showFileDialog(false, [](const fs::path& p) {

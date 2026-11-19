@@ -728,7 +728,7 @@ void activatePanel(PanelState* p);
 bool collabModeLocked(int mode);  // (sdl_collab.inc)
 void setMessage(const std::wstring& m);
 void setMode(Mode m) {
-    if (collabModeLocked(int(m))) return setMessage(tr(L"Collaborative editing preview: Map layers are not shared"));
+    if (collabModeLocked(int(m))) return setMessage(tr(L"Collaborative editing (experimental): Map layers are not shared"));
     activatePanel(panelHomeOf(m));
 }
 

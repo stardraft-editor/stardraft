@@ -149,7 +149,7 @@ void tickTimer() {
     }
     // A participant edits the map only (the preview): the Map workspace, not Map layers.
     if (guestHere() && !gState.ed->inStroke()) {
-        if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map), setMessage(shellTr(L"Collaborative editing preview: invited users edit the map only"));
+        if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map), setMessage(shellTr(L"Collaborative editing (experimental): invited users edit the map only"));
         if (gState.mode == Mode::Layers) setMode(Mode::Terrain);
     }
     pump();
@@ -374,7 +374,13 @@ struct SessionView final : draw::View {
             button(c, {pad, y, pad + bw, y + bh}, shellTr(L"Copy edit link"), kitpaint::Tone::Primary, [] { copyLink(cb::Role::Edit); }, ready);
             button(c, {pad + bw + scale(8), y, pad + 2 * bw + scale(8), y + bh}, shellTr(L"Copy view link"), kitpaint::Tone::Normal, [] { copyLink(cb::Role::View); }, ready);
             button(c, {pad + 2 * (bw + scale(8)), y, w - pad, y + bh}, shellTr(L"New links\x2026"), kitpaint::Tone::Normal, [] { newLinks(); }, ready);
-            y += bh + pad;
+            y += bh + scale(8);
+            // What the people with an edit link can change (the guest locks: sdlCollabLocks, collabModeLocked).
+            const std::wstring note = shellTr(L"Experimental. Collaborators can edit only the map: terrain, units, doodads, sprites and locations. "
+                           L"They cannot edit triggers, map layers or other map data, and they cannot save.");
+            const int nh = c.measureBox(note, w - 2 * pad, draw::kWrap).y;
+            c.text({pad, y, w - pad, y + nh}, note, kDim, draw::kWrap);
+            y += nh + pad;
         }
         c.text({pad, y, w - pad, y + scale(20)}, shellTr(L"Participants"), kDim, draw::kMiddle);
         y += scale(24);
@@ -427,7 +433,7 @@ void showWindow() {
     size_t rows = 1;
     for (const cb::Peer& p : gSession->peers()) rows += p.approved;
     rows = std::max<size_t>(rows, 4);
-    dlg.run(*gRoot, shellTr(L"Collaborative editing session"), draw::Point{scale(480), scale(190) + int(rows) * scale(32) + (gSession->isHost() ? scale(76) : 0)});
+    dlg.run(*gRoot, shellTr(L"Collaborative editing session (experimental)"), draw::Point{scale(480), scale(190) + int(rows) * scale(32) + (gSession->isHost() ? scale(140) : 0)});
     gWindowDlg = nullptr, gWindowView = nullptr;
 }
 
