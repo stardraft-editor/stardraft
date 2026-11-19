@@ -98,6 +98,11 @@ Bytes readObjects(const Chk& chk, uint8_t section);                // all sectio
 void writeObjects(Chk& chk, uint8_t section, const Bytes& data);   // one section (strings: none when empty)
 ObjEdit diffObjects(uint8_t section, const Bytes& from, const Bytes& to);
 Bytes applyObjects(uint8_t section, const Bytes& data, const ObjEdit& e);  // (units: a record not found is the unit of its serial)
+// A section's change from one state to the next, in order (the host sends each member only this): runs of records the
+// member has (from, count) and new records. deltaObjects false: the data is not that section's.
+Bytes deltaObjects(uint8_t section, const Bytes& from, const Bytes& to);
+bool undeltaObjects(uint8_t section, const Bytes& from, const Bytes& delta, Bytes& out);
+uint32_t objectsHash(const Bytes& data);
 // The section's limits: its record or slot size, at most so many bytes, and (units) the unit types there are.
 bool validObjects(uint8_t section, const Bytes& data, size_t unitTypes);
 
@@ -250,12 +255,16 @@ private:
     bool objDirty_[kObjSections] = {};
     double objSent_ = 0;
     std::map<uint32_t, uint32_t> objAck_;  // host: each member's last edit that the host applied
+    std::map<uint32_t, std::array<Bytes, kObjSections>> objSentTo_;  // host: each section as each member has it
+    std::map<uint32_t, std::array<bool, kObjSections>> objKnown_;    // (false: the member gets the whole section next)
     std::map<Bytes, int> mineAdded_[kObjSections], mineRemoved_[kObjSections];  // this user's records (the undo's filter)
     std::vector<uint32_t> slotWriter_[kObjSections];
     struct ObjWaiting {
         uint8_t section = 0;
         uint32_t ack = 0, writer = 0;
         Bytes data;
+        bool delta = false;
+        uint32_t hash = 0;
     };
     std::vector<ObjWaiting> objLater_;  // guest: the host's object states that wait for a stroke to end
     struct ObjEditWaiting {

@@ -5,7 +5,9 @@
 //   node tools/collab-relay/relay.mjs --port 18787
 //   collab_test <StarCraft folder> http://localhost:18787
 
+#include <algorithm>
 #include <chrono>
+#include <random>
 #include <set>
 #include <cstdio>
 #include <deque>
@@ -45,10 +47,13 @@ struct Program final : cb::Outbox {
     std::vector<cb::Peer> requests;
     const GameData* data = nullptr;
 
+    size_t sentBytes = 0, sentMsgs = 0;
     void text(const std::string& json) override {
+        sentBytes += json.size(), ++sentMsgs;
         if (ws) ws->sendText(json);
     }
     void binary(Bytes b) override {
+        sentBytes += b.size(), ++sentMsgs;
         if (ws) ws->sendBinary(std::move(b));
     }
     void close() override {
@@ -140,6 +145,143 @@ static bool paint(Editor& e, int x, int y, uint16_t terrain, float size = 2) {
     return mtxm(e) != before;
 }
 
+// collab_test stress <StarCraft folder> <server> <members> <seconds> [<map size>]: a host and members that all edit at
+// once (terrain, units, doodads, sprites, undo, redo) for that time, then stop: all maps must be the same. It prints the
+// join time, how long the programs' work took (each pump: the received messages and the tick), the time until all were
+// the same, and the counts.
+static int stress(const GameData& data, const std::string& server, int members, double secs, int size, uint32_t seed) {
+    std::vector<std::unique_ptr<Program>> ps;
+    for (int i = 0; i <= members; ++i) {
+        ps.push_back(std::make_unique<Program>());
+        ps.back()->label = i ? "member " + std::to_string(i) : "host";
+        ps.back()->data = &data;
+    }
+    gAll.clear();
+    for (auto& p : ps) gAll.push_back(p.get());
+    Program& host = *ps[0];
+    auto hostEd = std::make_unique<Editor>(data);
+    std::string err;
+    if (!hostEd->newMap(uint16_t(size), uint16_t(size), 0, 1, err)) return std::printf("new map: %s\n", err.c_str()), 2;
+    for (int k = 0; k < 200; ++k) hostEd->placeUnit(0, uint8_t(k % 8), 100 + (k * 97) % (size * 32 - 200), 100 + (k * 61) % (size * 32 - 200));
+    host.s = cb::Session::host(*hostEd, server, "Host", host, host.events(), err);
+    if (!host.s) return std::printf("host: %s\n", err.c_str()), 2;
+    host.s->setClock(seconds), host.connect(cb::relayUrl(server));
+    if (!waitFor([&] { return !host.s->link(cb::Role::Edit).empty(); }, 10)) return std::printf("no room: %s\n", host.ended.c_str()), 1;
+    const std::string link = host.s->link(cb::Role::Edit);
+    const double joinStart = seconds();
+    const int late = members;  // (the last one joins halfway through, while the others edit)
+    auto joinOne = [&](int i) {
+        cb::InviteLink l;
+        cb::parseInviteLink(link, l, err);
+        Program& p = *ps[size_t(i)];
+        p.s = cb::Session::join(l, "Member " + std::to_string(i), "test", p, p.events());
+        p.s->setClock(seconds);
+        p.connect(cb::relayUrl(l.server, l.room));
+    };
+    for (int i = 1; i < late; ++i) joinOne(i);
+    size_t asked = 0;
+    const bool joined = waitFor([&] {
+        for (; asked < host.requests.size(); ++asked) host.s->approve(host.requests[asked].id, true);
+        for (int i = 1; i < late; ++i)
+            if (!ps[size_t(i)]->ed) return false;
+        return true;
+    }, 30);
+    const double joinTime = seconds() - joinStart;
+    std::printf("stress: %d x %d map, 200 units; %d members joined in %.2f s%s\n", size, size, members, joinTime, joined ? "" : " (NOT ALL)");
+    if (!joined) {
+        for (auto& p : ps)
+            if (!p->ed || !p->ended.empty()) std::printf("  %s: %s\n", p->label.c_str(), p->ended.empty() ? "no map yet" : p->ended.c_str());
+        return 1;
+    }
+
+    std::vector<uint16_t> doodads;
+    for (uint16_t id = 0; id < 4000 && doodads.size() < 40; ++id)
+        if (hostEd->doodadTypes().find(id)) doodads.push_back(id);
+    const uint16_t terrains[] = {2, 4, 5}, unitTypes[] = {0, 1, 7, 37, 64};
+    std::mt19937 rng(seed);
+    auto pick = [&](int n) { return int(rng() % uint32_t(n)); };
+    std::vector<Editor*> eds{hostEd.get()};
+    for (int i = 1; i < late; ++i) eds.push_back(ps[size_t(i)]->ed.get());
+    bool lateAsked = false;
+    double lateJoined = -1;
+    long ops = 0, undos = 0;
+    double pumpMax = 0, pumpSum = 0;
+    long pumps = 0;
+    auto pumpAll = [&] {
+        for (auto& p : ps) {
+            const double t = seconds();
+            p->pump();
+            const double d = seconds() - t;
+            pumpMax = std::max(pumpMax, d), pumpSum += d, ++pumps;
+        }
+    };
+    const double until = seconds() + secs;
+    while (seconds() < until) {
+        if (!lateAsked && seconds() > until - secs / 2) joinOne(late), lateAsked = true, lateJoined = seconds();
+        for (; asked < host.requests.size(); ++asked) host.s->approve(host.requests[asked].id, true);
+        if (lateAsked && eds.size() < size_t(late) + 1 && ps[size_t(late)]->ed) {
+            eds.push_back(ps[size_t(late)]->ed.get());
+            std::printf("stress: member %d joined halfway through, in %.2f s\n", late, seconds() - lateJoined);
+        }
+        for (size_t i = 0; i < eds.size(); ++i) {
+            if (pick(100) >= 12) continue;  // (each program: an edit about 6 times a second)
+            Editor& e = *eds[i];
+            Program& p = *ps[i];
+            const int x = 64 + pick(size * 32 - 128), y = 64 + pick(size * 32 - 128);
+            const int op = pick(100);
+            ++ops;
+            if (op < 40) paint(e, x, y, terrains[pick(3)], float(1 + pick(3)));
+            else if (op < 60) e.placeUnit(unitTypes[pick(5)], uint8_t(pick(8)), x, y);
+            else if (op < 68 && !e.units().empty()) {
+                e.select(pick(int(e.units().size())), false);
+                e.deleteSelection();
+            } else if (op < 78 && !doodads.empty()) e.placeDoodad(doodads[size_t(pick(int(doodads.size())))], x, y, false);
+            else if (op < 84) e.placeSprite(uint16_t(130 + pick(20)), x, y, uint8_t(pick(8)));
+            else if (op < 94) e.undo(1), p.s->afterUndo(), ++undos;
+            else e.redo(1), p.s->afterUndo(), ++undos;
+            p.s->cursor(x, y, true);
+        }
+        pumpAll();
+        std::this_thread::sleep_for(std::chrono::milliseconds(15));
+    }
+    const double stop = seconds();
+    bool same = false;
+    while (seconds() - stop < 30 && !(same = [&] {
+               for (size_t i = 1; i < eds.size(); ++i)
+                   if (!sameMap(*eds[0], *eds[i])) return false;
+               return true;
+           }())) {
+        pumpAll();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    const double settleTime = seconds() - stop;
+    if (!same)
+        for (size_t i = 1; i < eds.size(); ++i) {
+            std::string diff;
+            if (!sameTerrain(*eds[0], *eds[i])) diff += " terrain";
+            for (uint8_t s = 0; s < cb::kObjSections; ++s) {
+                const Bytes a = cb::readObjects(eds[0]->chk(), s), b = cb::readObjects(eds[i]->chk(), s);
+                if (a != b) diff += " section" + std::to_string(s) + "(" + std::to_string(a.size()) + "/" + std::to_string(b.size()) + ")";
+            }
+            if (!diff.empty()) std::printf("  member %zu differs:%s\n", i, diff.c_str());
+        }
+    bool alive = true;
+    for (auto& p : ps) alive &= p->ended.empty();
+    std::printf("stress: %ld edits (%ld undo or redo) in %.0f s by %d programs\n", ops, undos, secs, members + 1);
+    std::printf("stress: all the same %.2f s after the last edit: %s\n", settleTime, same ? "yes" : "NO");
+    std::printf("stress: a program's work each pump: average %.2f ms, longest %.1f ms\n", 1000 * pumpSum / std::max(1L, pumps), 1000 * pumpMax);
+    std::printf("stress: sent by the host %.1f MB in %zu messages (%.0f KB/s); by a member on average %.1f MB in %zu messages\n", ps[0]->sentBytes / 1e6,
+                ps[0]->sentMsgs, ps[0]->sentBytes / 1e3 / secs, [&] { double t = 0; for (int i = 1; i <= members; ++i) t += ps[size_t(i)]->sentBytes; return t / members / 1e6; }(),
+                [&] { size_t t = 0; for (int i = 1; i <= members; ++i) t += ps[size_t(i)]->sentMsgs; return t / size_t(members); }());
+    std::printf("stress: host %zu units, %zu doodads, %zu sprites; sessions %s\n", hostEd->units().size(), hostEd->doodads().size(), hostEd->sprites().size(),
+                alive ? "all open" : "SOME ENDED");
+    for (auto& p : ps)
+        if (!p->ended.empty()) std::printf("  %s: %s\n", p->label.c_str(), p->ended.c_str());
+    if (host.s) host.s->stop();
+    settle(0.5);
+    return same && alive ? 0 : 1;
+}
+
 // collab_test host <StarCraft folder> <server> <link file> <seconds>: a host for a test of the program as a guest. It
 // writes the edit link to the file, lets each one in, paints and moves its cursor after the first joins, and says
 // when a guest's edit arrives.
@@ -199,6 +341,12 @@ static int hostFor(const GameData& data, const std::string& server, const std::s
 }
 
 int main(int argc, char** argv) {
+    if (argc >= 6 && std::string(argv[1]) == "stress") {
+        GameData data;
+        std::string err;
+        if (!data.open(argv[2], err)) return std::fprintf(stderr, "game data: %s\n", err.c_str()), 2;
+        return stress(data, argv[3], std::atoi(argv[4]), std::atof(argv[5]), argc >= 7 ? std::atoi(argv[6]) : 256, argc >= 8 ? uint32_t(std::atoi(argv[7])) : 12345);
+    }
     if (argc >= 6 && std::string(argv[1]) == "host") {
         GameData data;
         std::string err;

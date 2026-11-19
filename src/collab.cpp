@@ -29,7 +29,7 @@ namespace {
 
 constexpr uint8_t kProto = 1;
 constexpr size_t kMaxName = 32;
-constexpr size_t kMaxWaiting = 4;  // connections that have no keys yet
+constexpr size_t kMaxWaiting = 8;  // connections that have no keys yet (the relay takes 8 members)
 constexpr size_t kMaxMembers = 7;
 constexpr double kCursorEvery = 0.05;  // seconds: at most 20 cursor messages a second
 const char kKdfLabel[] = "stardraft-collab-1";
@@ -37,12 +37,12 @@ const char kKdfLabel[] = "stardraft-collab-1";
 // Frames (the first byte of a binary message, inside the relay's).
 enum Frame : uint8_t { kHello = 1, kHelloBack = 2, kSealed = 3 };
 // Messages (the first byte of a sealed frame's text).
-enum Msg : uint8_t { mJoin = 1, mWelcome, mDeny, mPatch, mAck, mReject, mCursor, mPeers, mRole, mBye, mCursors, mObjEdit, mObjState };
+enum Msg : uint8_t { mJoin = 1, mWelcome, mDeny, mPatch, mAck, mReject, mCursor, mPeers, mRole, mBye, mCursors, mObjEdit, mObjState, mObjResync };
 constexpr double kObjectsEvery = 0.1;  // seconds: the host sends a changed object section at most 10 times a second
 constexpr double kCursorsEvery = 0.1;  // seconds: the host sends the cursors of all at most 10 times a second
 constexpr double kFlushEvery = 0.05;   // seconds: this program's edits go at most 20 times a second
 constexpr double kHelloWait = 10;      // seconds: a connection with no keys after this goes
-constexpr size_t kMaxAsking = 3;       // join requests that wait for the host's answer at one time
+constexpr size_t kMaxAsking = 8;       // join requests that wait for the host's answer at one time (the relay takes 8 members)
 
 // --- Bytes in and out -----------------------------------------------------------------------------------------------
 struct Writer {
@@ -599,6 +599,72 @@ bool validObjects(uint8_t section, const Bytes& data, size_t unitTypes) {
     return true;
 }
 
+uint32_t objectsHash(const Bytes& data) {  // (FNV-1a: a check that two copies are the same, not a secret)
+    uint32_t h = 2166136261u;
+    for (uint8_t b : data) h = (h ^ b) * 16777619u;
+    return h ^ uint32_t(data.size());
+}
+
+// Ops: u8 0, u32 from, u32 count (records the member has, in order); u8 1, a record. Whole sections: one record, all bytes.
+Bytes deltaObjects(uint8_t section, const Bytes& from, const Bytes& to) {
+    const size_t rec = kObj[section].record;
+    Writer w;
+    if (!rec || from.size() % rec || to.size() % rec) {
+        w.u8(2), w.u32(uint32_t(to.size()));
+        w.b.insert(w.b.end(), to.begin(), to.end());
+        return w.b;
+    }
+    std::map<Bytes, std::deque<uint32_t>> at;
+    for (size_t k = 0; k < from.size() / rec; ++k) at[Bytes(from.begin() + long(k * rec), from.begin() + long(k * rec + rec))].push_back(uint32_t(k));
+    uint32_t runFrom = 0, runCount = 0;
+    auto flush = [&] {
+        if (runCount) w.u8(0), w.u32(runFrom), w.u32(runCount);
+        runCount = 0;
+    };
+    for (size_t k = 0; k < to.size() / rec; ++k) {
+        Bytes r(to.begin() + long(k * rec), to.begin() + long(k * rec + rec));
+        auto it = at.find(r);
+        if (it != at.end() && !it->second.empty()) {
+            const uint32_t i = it->second.front();
+            it->second.pop_front();
+            if (runCount && runFrom + runCount == i) ++runCount;
+            else flush(), runFrom = i, runCount = 1;
+        } else {
+            flush();
+            w.u8(1);
+            w.b.insert(w.b.end(), r.begin(), r.end());
+        }
+    }
+    flush();
+    return w.b;
+}
+
+bool undeltaObjects(uint8_t section, const Bytes& from, const Bytes& delta, Bytes& out) {
+    const ObjDef& d = kObj[section];
+    out.clear();
+    Reader r{delta.data(), delta.size()};
+    while (r.ok && r.i < r.n) {
+        const uint8_t op = r.u8();
+        if (op == 0) {
+            const uint32_t a = r.u32(), n = r.u32();
+            if (!r.ok || !d.record || (size_t(a) + n) * d.record > from.size() || out.size() + size_t(n) * d.record > d.maxBytes) return false;
+            out.insert(out.end(), from.begin() + long(size_t(a) * d.record), from.begin() + long((size_t(a) + n) * d.record));
+        } else if (op == 1) {
+            if (!d.record || !r.need(d.record) || out.size() + d.record > d.maxBytes) return false;
+            out.insert(out.end(), r.p + r.i, r.p + r.i + d.record);
+            r.i += d.record;
+        } else if (op == 2) {
+            const uint32_t n = r.u32();
+            if (!r.ok || n > d.maxBytes || !r.need(n) || !out.empty()) return false;
+            out.assign(r.p + r.i, r.p + r.i + n);
+            r.i += n;
+        } else {
+            return false;
+        }
+    }
+    return r.ok;
+}
+
 // --- Keys ---------------------------------------------------------------------------------------------------------------
 
 struct Session::Link {
@@ -820,6 +886,7 @@ Peer* Session::peer(uint32_t id) {
 
 void Session::forget(uint32_t id) {
     links_.erase(id);
+    objSentTo_.erase(id), objKnown_.erase(id), objAck_.erase(id);
     linkTime_.erase(id);
     const bool had = peer(id) != nullptr;
     const bool wasIn = had && peer(id)->approved;
@@ -928,6 +995,13 @@ void Session::hostMessage(uint32_t from, const Bytes& m) {
         pr->cursorOn = on, pr->x = x, pr->y = y, pr->cursorTime = now();
         cursorsDirty_ = true;  // (sendCursors: all at once, at most 10 times a second)
         if (ev_.peersChanged) ev_.peersChanged();
+        return;
+    }
+    if (type == mObjResync) {
+        const uint8_t s = r.u8();
+        if (!r.done() || s >= kObjSections) return drop("A message was not valid.");
+        objKnown_[from][s] = false;
+        objDirty_[s] = true;
         return;
     }
     if (type == mObjEdit) {
@@ -1039,12 +1113,15 @@ void Session::guestMessage(const Bytes& m) {
     case mObjState: {
         if (!ed_) return bad();
         const uint8_t section = r.u8();
-        const uint32_t ack = r.u32(), writer = r.u32(), n = r.u32();
-        if (!r.ok || section >= kObjSections || n > kObj[section].maxBytes || !r.need(n)) return bad();
+        const uint32_t ack = r.u32(), writer = r.u32();
+        const uint8_t delta = r.u8();
+        const uint32_t hash = r.u32(), n = r.u32();
+        if (!r.ok || section >= kObjSections || delta > 1 || n > kObj[section].maxBytes * 2 + 64 || !r.need(n)) return bad();
         Bytes data(r.p + r.i, r.p + r.i + n);
         r.i += n;
-        if (!r.done() || !validObjects(section, data, ed_->unitTypes().size())) return bad();
-        objLater_.push_back({section, ack, writer, std::move(data)});
+        if (!r.done()) return bad();
+        if (!delta && !validObjects(section, data, ed_->unitTypes().size())) return bad();
+        objLater_.push_back({section, ack, writer, std::move(data), delta == 1, hash});
         return;
     }
     case mPatch: {
@@ -1076,8 +1153,9 @@ void Session::guestMessage(const Bytes& m) {
 
 bool Session::applyToEditor(const Patch& p) {
     if (!ed_ || p.empty()) return true;
+    const bool unsent = ed_->revision() != seenRevision_;  // (this program's edits that are not sent yet: the next flush sends them)
     if (!ed_->editTerrainSections([&](Chk& c) { writePatch(c, p); })) return false;
-    seenRevision_ = ed_->revision();
+    if (!unsent) seenRevision_ = ed_->revision();
     maxState_ = std::max(maxState_, ed_->stateId());
     return true;
 }
@@ -1316,8 +1394,9 @@ void Session::flushObjects(bool undone) {
 
 void Session::applyObjectsToEditor(uint8_t section, const Bytes& data) {
     if (!ed_) return;
+    const bool unsent = ed_->revision() != seenRevision_;
     if (!ed_->editSections([&](Chk& c) { writeObjects(c, section, data); })) return;
-    seenRevision_ = ed_->revision();
+    if (!unsent) seenRevision_ = ed_->revision();
     maxState_ = std::max(maxState_, ed_->stateId());
 }
 
@@ -1460,8 +1539,22 @@ void Session::tick() {
     if (ed_ && !ended_ && !hold_ && !ed_->inStroke() && !objLater_.empty()) {
         std::vector<ObjWaiting> batch = std::move(objLater_);
         objLater_.clear();
-        for (ObjWaiting& w : batch)
-            if (!ended_) objectsFromHost(w.section, w.ack, w.writer, std::move(w.data));
+        for (ObjWaiting& w : batch) {
+            if (ended_) break;
+            Bytes data;
+            if (w.delta) {  // (a change from the section as this program has it from the host)
+                if (!undeltaObjects(w.section, objBase_[w.section], w.data, data) || objectsHash(data) != w.hash ||
+                    !validObjects(w.section, data, ed_->unitTypes().size())) {
+                    Writer rs;
+                    rs.u8(mObjResync), rs.u8(w.section);
+                    sendTo(0, rs.b);  // (the host sends the whole section next)
+                    continue;
+                }
+            } else {
+                data = std::move(w.data);
+            }
+            objectsFromHost(w.section, w.ack, w.writer, std::move(data));
+        }
     }
     if (host_ && !ended_ && now() - objSent_ >= kObjectsEvery) {
         bool any = false;
@@ -1471,12 +1564,19 @@ void Session::tick() {
             for (uint8_t s = 0; s < kObjSections; ++s) {
                 if (!objDirty_[s]) continue;
                 objDirty_[s] = false;
+                const uint32_t hash = objectsHash(objBase_[s]);
                 for (const Peer& p : peers_) {
                     if (!p.approved) continue;
+                    Bytes& had = objSentTo_[p.id][s];
+                    bool& known = objKnown_[p.id][s];
+                    Bytes delta = known ? deltaObjects(s, had, objBase_[s]) : Bytes{};
+                    const bool useDelta = known && delta.size() < objBase_[s].size();
+                    const Bytes& body = useDelta ? delta : objBase_[s];
                     Writer w;
-                    w.u8(mObjState), w.u8(s), w.u32(objAck_[p.id]), w.u32(objWriter_[s]), w.u32(uint32_t(objBase_[s].size()));
-                    w.b.insert(w.b.end(), objBase_[s].begin(), objBase_[s].end());
+                    w.u8(mObjState), w.u8(s), w.u32(objAck_[p.id]), w.u32(objWriter_[s]), w.u8(useDelta ? 1 : 0), w.u32(hash), w.u32(uint32_t(body.size()));
+                    w.b.insert(w.b.end(), body.begin(), body.end());
                     sendTo(p.id, w.b);
+                    had = objBase_[s], known = true;
                 }
             }
         }
@@ -1602,6 +1702,7 @@ void Session::approve(uint32_t id, bool allow) {
         return;
     }
     sendTo(id, w.b);
+    for (uint8_t s = 0; s < kObjSections; ++s) objSentTo_[id][s] = objBase_[s], objKnown_[id][s] = true;  // (the welcome had them)
     broadcastPeers();
     if (ev_.peersChanged) ev_.peersChanged();
     if (ev_.status) ev_.status(p->name + " joined to " + roleName(p->role));
