@@ -704,6 +704,7 @@ void OptionsProgramSdl::setCollabName(const std::wstring& name) {
     while (!n.empty() && n.back() == L' ') n.pop_back();
     while (!n.empty() && n.front() == L' ') n.erase(n.begin());
     prefs::setText(L"CollabName", n.substr(0, 32));
+    if (!n.empty() && collabui::gSession && !collabui::gEnded) collabui::gSession->rename(narrow(n.substr(0, 32))), collabui::changed();
     shellSettingsChanged();
     gOptionsView.invalidate();
 }

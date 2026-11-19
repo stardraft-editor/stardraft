@@ -685,6 +685,18 @@ int main(int argc, char** argv) {
               return false;
           }),
           "Ann's chat goes away");
+    // A new display name: the others see it, from a member and from the host.
+    a.s->rename("Anna");
+    auto named = [&](Program& who, uint32_t id, const char* name) {
+        for (const cb::Peer& p : who.s->peers())
+            if ((id == 0 ? p.id == 0 : p.id != 0) && p.name == name) return true;
+        return false;
+    };
+    CHECK(waitFor([&] { return named(b, 1, "Anna") && named(host, 1, "Anna"); }), "a member's new name reaches all");
+    host.s->rename("Hosty");
+    CHECK(waitFor([&] { return named(a, 0, "Hosty") && named(b, 0, "Hosty"); }), "the host's new name reaches all");
+    a.s->rename("Ann");
+    CHECK(waitFor([&] { return named(b, 1, "Ann"); }), "and back");
 
     // A wrong secret for the room, then the old links after new ones.
     Program c;

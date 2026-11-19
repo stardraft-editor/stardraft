@@ -38,7 +38,7 @@ const char kKdfLabel[] = "stardraft-collab-1";
 // Frames (the first byte of a binary message, inside the relay's).
 enum Frame : uint8_t { kHello = 1, kHelloBack = 2, kSealed = 3 };
 // Messages (the first byte of a sealed frame's text).
-enum Msg : uint8_t { mJoin = 1, mWelcome, mDeny, mPatch, mAck, mReject, mCursor, mPeers, mRole, mBye, mCursors, mObjEdit, mObjState, mObjResync };
+enum Msg : uint8_t { mJoin = 1, mWelcome, mDeny, mPatch, mAck, mReject, mCursor, mPeers, mRole, mBye, mCursors, mObjEdit, mObjState, mObjResync, mRename };
 constexpr double kObjectsEvery = 0.1;  // seconds: the host sends a changed object section at most 10 times a second
 constexpr double kCursorsEvery = 0.1;  // seconds: the host sends the cursors of all at most 10 times a second
 constexpr double kFlushEvery = 0.05;   // seconds: this program's edits go at most 20 times a second
@@ -1004,6 +1004,13 @@ void Session::hostMessage(uint32_t from, const Bytes& m) {
     };
     if (type == mBye) return forget(from);
     if (!pr->approved) return;  // (nothing but goodbye before the host's yes)
+    if (type == mRename) {  // (a member's new display name: everyone gets the list again)
+        const std::string name = cleanName(r.str());
+        if (!r.done()) return drop("A message was not valid.");
+        if (name != pr->name) pr->name = name, broadcastPeers();
+        if (ev_.peersChanged) ev_.peersChanged();
+        return;
+    }
     if (type == mCursor) {
         const uint8_t on = r.u8();
         const uint16_t x = r.u16(), y = r.u16();
@@ -1638,6 +1645,20 @@ void Session::sendCursors() {
             if (p != to) w.u32(p->id), w.u8(p->cursorOn), w.u16(uint16_t(p->x)), w.u16(uint16_t(p->y)), w.str(p->chat);
         sendTo(to->id, w.b);
     }
+}
+
+void Session::rename(const std::string& name) {
+    const std::string n = cleanName(name);
+    if (n == name_ || ended_) return;
+    name_ = n;
+    if (host_) {
+        broadcastPeers();
+    } else if (ed_) {  // (after the welcome: the host knows this member)
+        Writer w;
+        w.u8(mRename), w.str(name_);
+        sendTo(0, w.b);
+    }
+    if (ev_.peersChanged) ev_.peersChanged();
 }
 
 void Session::chat(const std::string& text) {

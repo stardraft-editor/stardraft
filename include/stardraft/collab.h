@@ -185,6 +185,8 @@ public:
     void cursor(int x, int y, bool on);
     // Cursor chat: the text at this user's cursor, as it is typed ("": none). Everyone in the session sees it.
     void chat(const std::string& text);
+    // A new display name (Program options): the others see it at once.
+    void rename(const std::string& name);
 
     struct Link;  // (a member's keys and counters: collab.cpp)
 
