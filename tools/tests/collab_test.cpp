@@ -215,7 +215,9 @@ int main(int argc, char** argv) {
         CHECK(!cb::parseInviteLink("https://a.b/j/AAAAAAAAAAAAAAAAAAAAAA/../x#e." + link.substr(link.size() - 43), l, err), "links: a path is refused");
         std::string s;
         CHECK(cb::normalizeServer(" abc.trycloudflare.com/ ", s, err) && s == "https://abc.trycloudflare.com", "links: a bare server name is https");
-        CHECK(cb::relayUrl("https://a.b:444") == "wss://a.b:444/relay" && cb::relayUrl("http://localhost:1") == "ws://localhost:1/relay", "links: relay URLs");
+        CHECK(cb::relayUrl("https://a.b:444") == "wss://a.b:444/relay" && cb::relayUrl("http://localhost:1") == "ws://localhost:1/relay" &&
+                  cb::relayUrl("https://a.b", "AAAAAAAAAAAAAAAAAAAAAA") == "wss://a.b/relay/AAAAAAAAAAAAAAAAAAAAAA" && cb::relayUrl("https://a.b", "../x").empty(),
+              "links: relay URLs");
     }
     // --- Patches -----------------------------------------------------------------------------------------------------
     {
@@ -265,7 +267,7 @@ int main(int argc, char** argv) {
         p.ended.clear();
         p.s = cb::Session::join(l, name, "test", p, p.events());
         p.s->setClock(seconds);
-        p.connect(cb::relayUrl(l.server));
+        p.connect(cb::relayUrl(l.server, l.room));
         return true;
     };
     CHECK(joinAs(a, editLink, "Ann") && joinAs(b, viewLink, "Bo\x01b with a long name that goes past the limit"), "two join");
@@ -366,7 +368,7 @@ int main(int argc, char** argv) {
         cb::parseInviteLink(editLink, l, err);
         l.secret[0] ^= 1;
         c.s = cb::Session::join(l, "Eve", "test", c, c.events());
-        c.connect(cb::relayUrl(l.server));
+        c.connect(cb::relayUrl(l.server, l.room));
         CHECK(waitFor([&] { return !c.ended.empty(); }) && !c.ed && host.requests.size() == 2, "a wrong secret: the relay refuses, the host sees nothing");
         c.ws.reset();
     }

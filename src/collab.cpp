@@ -287,9 +287,11 @@ bool normalizeServer(const std::string& text, std::string& out, std::string& err
     return true;
 }
 
-std::string relayUrl(const std::string& server) {
-    if (server.rfind("https://", 0) == 0) return "wss://" + server.substr(8) + "/relay";
-    if (server.rfind("http://", 0) == 0) return "ws://" + server.substr(7) + "/relay";
+std::string relayUrl(const std::string& server, const std::string& room) {
+    const std::string path = room.empty() ? "/relay" : roomId(room) ? "/relay/" + room : "";
+    if (path.empty()) return {};
+    if (server.rfind("https://", 0) == 0) return "wss://" + server.substr(8) + path;
+    if (server.rfind("http://", 0) == 0) return "ws://" + server.substr(7) + path;
     return {};
 }
 

@@ -8,7 +8,7 @@ namespace collabui {
 
 namespace cb = stardraft::collab;
 
-constexpr const wchar_t* kDefaultServer = L"http://localhost:8787";
+constexpr const wchar_t* kDefaultServer = L"https://collab.stardraft.app";  // (tools/collab-relay/worker)
 
 struct Conn final : cb::Outbox {
     std::mutex m;
@@ -299,7 +299,7 @@ void join(const std::string& text) {
     gConn = std::move(conn);
     gSession = std::move(s);
     setMessage(shellTr(L"Connecting to ") + widen(link.server) + L"\x2026");
-    connect(cb::relayUrl(link.server));
+    connect(cb::relayUrl(link.server, link.room));
     changed();
 }
 

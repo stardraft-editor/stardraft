@@ -103,7 +103,8 @@ const server = http.createServer((req, res) => {
 // --- WebSocket (RFC 6455), server side --------------------------------------------------------------------------------
 server.on('upgrade', (req, socket) => {
   const fail = (code) => { socket.end(`HTTP/1.1 ${code}\r\nConnection: close\r\n\r\n`); };
-  if (req.url !== '/relay') return fail('404 Not Found');
+  const path = /^\/relay(?:\/([A-Za-z0-9_-]{22}))?$/.exec(req.url || '');
+  if (!path) return fail('404 Not Found');
   const key = req.headers['sec-websocket-key'];
   if (req.headers['sec-websocket-version'] !== '13' || typeof key !== 'string' || !/^[A-Za-z0-9+/]{22}==$/.test(key)) return fail('400 Bad Request');
   const ip = clientIp(req);
@@ -112,11 +113,12 @@ server.on('upgrade', (req, socket) => {
   const accept = crypto.createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
   socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
   socket.setNoDelay(true);
-  new Conn(socket, ip);
+  new Conn(socket, ip, path[1] || null);
 });
 
 class Conn {
-  constructor(socket, ip) {
+  constructor(socket, ip, room) {
+    this.urlRoom = room;  // (/relay/<room>: a join to that room; /relay: a new room)
     this.socket = socket;
     this.ip = ip;
     this.buf = Buffer.alloc(0);
@@ -240,8 +242,8 @@ class Conn {
     try { m = JSON.parse(msg.toString('utf8')); } catch { return this.close(1003, 'json'); }
     if (!m || typeof m !== 'object' || typeof m.t !== 'string') return this.close(1003, 'json');
     if (!this.role) {
-      if (m.t === 'create') return this.create(m);
-      if (m.t === 'join') return this.join(m);
+      if (m.t === 'create' && !this.urlRoom) return this.create(m);
+      if (m.t === 'join' && this.urlRoom) return this.join(m);
       return this.close(1008, 'hello');
     }
     if (this.role !== 'host') return this.close(1008, 'not host');
@@ -285,7 +287,7 @@ class Conn {
     joinTimes.set(this.ip, times);
     const notFound = () => { this.sendJson({ t: 'error', code: 'not-found' }); this.close(1008, 'not found'); };
     if (times.length > JOINS_PER_MIN_PER_IP) { this.sendJson({ t: 'error', code: 'slow-down' }); return this.close(1008, 'rate'); }
-    if (m.v !== 1 || typeof m.room !== 'string' || !/^[A-Za-z0-9_-]{22}$/.test(m.room)) return notFound();
+    if (m.v !== 1 || typeof m.room !== 'string' || m.room !== this.urlRoom) return notFound();
     const room = rooms.get(m.room);
     // (one answer for a room that is not there and a wrong token: no way to tell rooms apart)
     if (!room || !(sameToken(m.token, room.view) || sameToken(m.token, room.edit))) return notFound();

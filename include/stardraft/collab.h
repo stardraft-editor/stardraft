@@ -51,7 +51,8 @@ std::string makeInviteLink(const std::string& server, const std::string& room, R
 bool parseInviteLink(const std::string& text, InviteLink& out, std::string& error);
 // A server address as the user typed it: "https://host[:port]" with no path. http only for this computer.
 bool normalizeServer(const std::string& text, std::string& out, std::string& error);
-std::string relayUrl(const std::string& server);  // ws(s)://host[:port]/relay
+// ws(s)://host[:port]/relay (a host makes a room there), or /relay/<room> (a member joins it).
+std::string relayUrl(const std::string& server, const std::string& room = {});
 std::string relayToken(const Key& secret);        // what the relay checks for a link (64 hex digits); not the secret
 
 // --- The terrain ------------------------------------------------------------------------------------------------------
