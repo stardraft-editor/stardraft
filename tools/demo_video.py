@@ -13,7 +13,8 @@ A demo is a JSON file. Places are in the window's client area:
         {"rclick": [700, 650]}, {"altclick": [120, 668]}, {"shiftclick": [700, 650]}, {"ctrlclick": [700, 650]}, {"move": [700, 650]},
         {"drag": [640, 560, 820, 700]}, {"wheel": [145, 491, 3]}, {"key": "^a"}, {"wait": 500}]}
 
-A step's "text" is the caption from that step on; "hold" is how long the step stays, in ms (default 900).
+"altwheel": [x, y, n] turns the wheel n notches with Alt held. "caption_at": [x, top, width] places the caption
+box. A step's "text" is the caption from that step on; "hold" is how long the step stays, in ms (default 900).
 
     python -I tools/demo_video.py <exe> <demo.json> <out.mp4>
 """
@@ -41,6 +42,22 @@ win := "ahk_pid " pid
 if !WinWait(win, , 30)
     ExitApp 2
 Sleep 4000
+main := 0
+Loop 100 {{  ; the main window (not a tooltip or a splash of the same program)
+    for hwnd in WinGetList(win) {{
+        WinGetPos , , &ww, &wh, hwnd
+        if ww >= 400 && wh >= 300 {{
+            main := hwnd
+            break
+        }}
+    }}
+    if main
+        break
+    Sleep 100
+}}
+if !main
+    ExitApp 2
+win := "ahk_id " main
 WinActivate win
 WinMove 40, 40, , , win
 WinMove 40, 40, {w} + 16, {h} + 39 + 16, win
@@ -52,8 +69,9 @@ while !FileExist("{go}")
 MouseGetPos &homeX, &homeY
 caption := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20")
 caption.BackColor := "101010"
-caption.SetFont("s16 cWhite", "Segoe UI")
-label := caption.AddText("Center w500 h30", "")
+caption.SetFont("s26 cWhite", "Segoe UI")
+caption.MarginX := 0, caption.MarginY := 0
+label := caption.AddText("Center x0 y12 w{capw} h48", "")
 Guard() {{
     if A_TimeIdlePhysical < 200
         ExitApp 3
@@ -65,7 +83,7 @@ Say(text) {{
     if text = ""
         caption.Hide()
     else
-        caption.Show("x" (cx + (cw - 520) // 2) " y" (cy + ch - 90) " w520 h40 NoActivate")
+        caption.Show("x" (cx + {capx} - {capw} // 2) " y" (cy + {capy}) " w{capw} h72 NoActivate")
 }}
 Sleep 600
 '''
@@ -97,6 +115,11 @@ def step_code(step):
         x, y, n = step["wheel"]
         lines += [f"MouseMove {x}, {y}", "Sleep 500", "Guard()"]
         lines += [f'Click "{"WheelUp" if n > 0 else "WheelDown"}"', "Sleep 120"] * abs(n)
+    if "altwheel" in step:  # Alt held while the wheel turns (the program must see Alt down first)
+        x, y, n = step["altwheel"]
+        lines += [f"MouseMove {x}, {y}", "Sleep 300", "Guard()", 'Send "{Alt down}"', "Sleep 200"]
+        lines += [f'Click "{"WheelUp" if n > 0 else "WheelDown"}"', "Sleep 700"] * abs(n)
+        lines += ["Sleep 100", 'Send "{Alt up}"']
     if "key" in step:
         lines.append(f"Send {quoted(step['key'])}")
     lines.append(f"Sleep {step.get('hold', step.get('wait', 900))}")
@@ -119,7 +142,8 @@ def main():
         program = subprocess.Popen([exe, map_copy, "--settings", settings, "--silent"], cwd=folder)
         script = os.path.join(folder, "demo.ahk")
         with open(script, "w", encoding="utf-8") as f:
-            f.write(HEADER.format(pid=program.pid, w=w, h=h, rect=rect, go=go))
+            capx, capy, capw = demo.get("caption_at", [w // 2, h - 120, 1200])  # the caption box's middle and top, in the client area
+            f.write(HEADER.format(pid=program.pid, w=w, h=h, rect=rect, go=go, capx=capx, capy=capy, capw=capw))
             for step in demo["steps"]:
                 f.write(step_code(step))
             f.write('Say("")\nSleep 500\nMouseMove homeX, homeY, 0\nExitApp 0\n')
