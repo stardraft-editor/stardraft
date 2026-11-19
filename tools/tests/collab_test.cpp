@@ -149,7 +149,7 @@ static bool paint(Editor& e, int x, int y, uint16_t terrain, float size = 2) {
 // once (terrain, units, doodads, sprites, undo, redo) for that time, then stop: all maps must be the same. It prints the
 // join time, how long the programs' work took (each pump: the received messages and the tick), the time until all were
 // the same, and the counts.
-static int stress(const GameData& data, const std::string& server, int members, double secs, int size, uint32_t seed) {
+static int stress(const GameData& data, const std::string& server, int members, double secs, int size, uint32_t seed, int startUnits) {
     std::vector<std::unique_ptr<Program>> ps;
     for (int i = 0; i <= members; ++i) {
         ps.push_back(std::make_unique<Program>());
@@ -162,7 +162,8 @@ static int stress(const GameData& data, const std::string& server, int members, 
     auto hostEd = std::make_unique<Editor>(data);
     std::string err;
     if (!hostEd->newMap(uint16_t(size), uint16_t(size), 0, 1, err)) return std::printf("new map: %s\n", err.c_str()), 2;
-    for (int k = 0; k < 200; ++k) hostEd->placeUnit(0, uint8_t(k % 8), 100 + (k * 97) % (size * 32 - 200), 100 + (k * 61) % (size * 32 - 200));
+    for (int k = 0; k < startUnits; ++k)
+        hostEd->placeUnit(0, uint8_t(k % 8), 100 + (k * 97) % (size * 32 - 200), 100 + (k * 61 + k / 300 * 13) % (size * 32 - 200), false);
     host.s = cb::Session::host(*hostEd, server, "Host", host, host.events(), err);
     if (!host.s) return std::printf("host: %s\n", err.c_str()), 2;
     host.s->setClock(seconds), host.connect(cb::relayUrl(server));
@@ -187,7 +188,7 @@ static int stress(const GameData& data, const std::string& server, int members, 
         return true;
     }, 30);
     const double joinTime = seconds() - joinStart;
-    std::printf("stress: %d x %d map, 200 units; %d members joined in %.2f s%s\n", size, size, members, joinTime, joined ? "" : " (NOT ALL)");
+    std::printf("stress: %d x %d map, %zu units; %d members joined in %.2f s%s\n", size, size, hostEd->units().size(), members, joinTime, joined ? "" : " (NOT ALL)");
     if (!joined) {
         for (auto& p : ps)
             if (!p->ed || !p->ended.empty()) std::printf("  %s: %s\n", p->label.c_str(), p->ended.empty() ? "no map yet" : p->ended.c_str());
@@ -345,7 +346,8 @@ int main(int argc, char** argv) {
         GameData data;
         std::string err;
         if (!data.open(argv[2], err)) return std::fprintf(stderr, "game data: %s\n", err.c_str()), 2;
-        return stress(data, argv[3], std::atoi(argv[4]), std::atof(argv[5]), argc >= 7 ? std::atoi(argv[6]) : 256, argc >= 8 ? uint32_t(std::atoi(argv[7])) : 12345);
+        return stress(data, argv[3], std::atoi(argv[4]), std::atof(argv[5]), argc >= 7 ? std::atoi(argv[6]) : 256, argc >= 8 ? uint32_t(std::atoi(argv[7])) : 12345,
+                      argc >= 9 ? std::atoi(argv[8]) : 200);
     }
     if (argc >= 6 && std::string(argv[1]) == "host") {
         GameData data;
@@ -434,6 +436,42 @@ int main(int argc, char** argv) {
         none = cb::applyObjects(cb::oDoodads, many, big);
         CHECK(none.size() == many.size() && seconds() - t0 < 2, "objects: 65535 removals of 65535 doodads in under 2 seconds");
         CHECK(!cb::validObjects(cb::oLocations, Bytes(1025 * 20, 0), 0) && !cb::validObjects(cb::oUnits, Bytes(37, 0), 0), "objects: sizes are checked");
+        // The changes the host sends: the list comes out the same, in order, for random lists and edits.
+        std::mt19937 rng(5);
+        bool roundTrip = true;
+        size_t deltaBytes = 0, wholeBytes = 0;
+        for (int round = 0; round < 300 && roundTrip; ++round) {
+            Bytes from;
+            const int n = int(rng() % 400);
+            for (int k = 0; k < n; ++k) {
+                const Bytes u = unit(uint32_t(rng() % 50), uint16_t(rng()));  // (some the same: serials repeat)
+                from.insert(from.end(), u.begin(), u.end());
+            }
+            Bytes to = from;
+            const int edits = int(rng() % 6);
+            for (int e = 0; e < edits; ++e) {
+                const size_t count = to.size() / 36;
+                const int kind = int(rng() % 3);
+                if (kind == 0 || !count) {
+                    const Bytes u = unit(uint32_t(rng()), uint16_t(rng()));
+                    to.insert(to.end(), u.begin(), u.end());
+                } else if (kind == 1) {
+                    const size_t k = rng() % count;
+                    to.erase(to.begin() + long(k * 36), to.begin() + long(k * 36 + 36));
+                } else {
+                    to[(rng() % count) * 36 + 5] ^= 0x55;  // (a move in place)
+                }
+            }
+            const Bytes delta = cb::deltaObjects(cb::oUnits, from, to);
+            Bytes back;
+            roundTrip = cb::undeltaObjects(cb::oUnits, from, delta, back) && back == to && cb::objectsHash(back) == cb::objectsHash(to);
+            deltaBytes += delta.size(), wholeBytes += to.size();
+        }
+        CHECK(roundTrip, "objects: 300 random changes come out the same, in order");
+        CHECK(deltaBytes * 4 < wholeBytes, "objects: the changes are much smaller than the lists");
+        Bytes bad;
+        const Bytes evil{0, 0xFF, 0xFF, 0xFF, 0xFF, 1, 0, 0, 0};  // (a run past the member's list)
+        CHECK(!cb::undeltaObjects(cb::oUnits, Bytes(36, 0), evil, bad), "objects: a change that reads past the list is refused");
     }
 
     // --- A session ---------------------------------------------------------------------------------------------------

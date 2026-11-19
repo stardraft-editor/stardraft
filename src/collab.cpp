@@ -614,14 +614,20 @@ Bytes deltaObjects(uint8_t section, const Bytes& from, const Bytes& to) {
         w.b.insert(w.b.end(), to.begin(), to.end());
         return w.b;
     }
+    // (the records that are the same at the start and at the end are one run each: only the middle is looked up)
+    const size_t nf = from.size() / rec, nt = to.size() / rec;
+    size_t pre = 0, suf = 0;
+    while (pre < nf && pre < nt && std::memcmp(from.data() + pre * rec, to.data() + pre * rec, rec) == 0) ++pre;
+    while (suf < nf - pre && suf < nt - pre && std::memcmp(from.data() + (nf - 1 - suf) * rec, to.data() + (nt - 1 - suf) * rec, rec) == 0) ++suf;
     std::map<Bytes, std::deque<uint32_t>> at;
-    for (size_t k = 0; k < from.size() / rec; ++k) at[Bytes(from.begin() + long(k * rec), from.begin() + long(k * rec + rec))].push_back(uint32_t(k));
+    for (size_t k = pre; k < nf - suf; ++k) at[Bytes(from.begin() + long(k * rec), from.begin() + long(k * rec + rec))].push_back(uint32_t(k));
     uint32_t runFrom = 0, runCount = 0;
     auto flush = [&] {
         if (runCount) w.u8(0), w.u32(runFrom), w.u32(runCount);
         runCount = 0;
     };
-    for (size_t k = 0; k < to.size() / rec; ++k) {
+    if (pre) runFrom = 0, runCount = uint32_t(pre);
+    for (size_t k = pre; k < nt - suf; ++k) {
         Bytes r(to.begin() + long(k * rec), to.begin() + long(k * rec + rec));
         auto it = at.find(r);
         if (it != at.end() && !it->second.empty()) {
@@ -634,6 +640,10 @@ Bytes deltaObjects(uint8_t section, const Bytes& from, const Bytes& to) {
             w.u8(1);
             w.b.insert(w.b.end(), r.begin(), r.end());
         }
+    }
+    if (suf) {
+        if (runCount && runFrom + runCount == nf - suf) runCount += uint32_t(suf);
+        else flush(), runFrom = uint32_t(nf - suf), runCount = uint32_t(suf);
     }
     flush();
     return w.b;
@@ -1565,11 +1575,14 @@ void Session::tick() {
                 if (!objDirty_[s]) continue;
                 objDirty_[s] = false;
                 const uint32_t hash = objectsHash(objBase_[s]);
+                Bytes lastHad, lastDelta;  // (the members usually have the same copy: one delta for them)
+                bool haveLast = false;
                 for (const Peer& p : peers_) {
                     if (!p.approved) continue;
                     Bytes& had = objSentTo_[p.id][s];
                     bool& known = objKnown_[p.id][s];
-                    Bytes delta = known ? deltaObjects(s, had, objBase_[s]) : Bytes{};
+                    if (known && !(haveLast && had == lastHad)) lastHad = had, lastDelta = deltaObjects(s, had, objBase_[s]), haveLast = true;
+                    const Bytes delta = known ? lastDelta : Bytes{};
                     const bool useDelta = known && delta.size() < objBase_[s].size();
                     const Bytes& body = useDelta ? delta : objBase_[s];
                     Writer w;
