@@ -553,28 +553,60 @@ void collabCursorsPaint(draw::Canvas& c, draw::Rect view) {
     using namespace collabui;
     if (!gSession || gEnded || !gSession->editor() || gSession->editor() != gState.ed.get()) return;
     const double now = clockNow();
+    // The cursors glide to the place that came last (they come about 10 times a second): each frame a part of the way,
+    // and the map is drawn again until they are there. A far jump (more than 40 tiles) or a new cursor does not glide.
+    struct Shown {
+        float x = 0, y = 0;
+    };
+    static std::map<uint32_t, Shown> shown;
+    static double lastPaint = 0;
+    const double dt = std::clamp(now - lastPaint, 0.0, 0.1);
+    lastPaint = now;
+    const float k = float(1.0 - std::exp(-dt / 0.06));
+    std::map<uint32_t, Shown> next;
+    bool moving = false;
     const auto old = c.setFont(c.font({draw::Face::Ui, scale(12)}));
     c.pushClip(view);
     for (const stardraft::collab::Peer& p : gSession->peers()) {
         if (!p.cursorOn || now - p.cursorTime > 30) continue;  // (a cursor that did not move for 30 seconds goes)
+        Shown at{float(p.x), float(p.y)};
+        if (auto it = shown.find(p.id); it != shown.end() && std::abs(it->second.x - at.x) + std::abs(it->second.y - at.y) < 32 * 40) {
+            at = {it->second.x + (float(p.x) - it->second.x) * k, it->second.y + (float(p.y) - it->second.y) * k};
+            if (std::abs(at.x - float(p.x)) + std::abs(at.y - float(p.y)) < 0.5f / std::max(gState.zoom, 0.01f)) at = {float(p.x), float(p.y)};
+            else moving = true;
+        }
+        next[p.id] = at;
         const draw::Color col = personColor(p);
         const draw::Color dark = draw::rgb(uint8_t(GetRValue(col) / 3), uint8_t(GetGValue(col) / 3), uint8_t(GetBValue(col) / 3));
-        const int x = view.left + int(std::lround((p.x - gState.camX) * gState.zoom));
-        const int y = view.top + int(std::lround((p.y - gState.camY) * gState.zoom));
+        const int x = view.left + int(std::lround((at.x - gState.camX) * gState.zoom));
+        const int y = view.top + int(std::lround((at.y - gState.camY) * gState.zoom));
         if (x < view.left - 200 || y < view.top - 40 || x > view.right || y > view.bottom) continue;
-        // (the arrow: the system's pointer shape, 20 px high at 100 %)
-        static const int kArrow[7][2] = {{0, 0}, {0, 17}, {4, 13}, {7, 20}, {10, 19}, {7, 12}, {12, 12}};
-        draw::Point pts[7];
-        for (int k = 0; k < 7; ++k) pts[k] = {x + scale(kArrow[k][0]), y + scale(kArrow[k][1])};
-        c.polygon(pts, 7, col, dark);
+        // The arrow: a head that points up and to the left, with a notch and a short tail, a light upper face, a darker
+        // lower face and a dark outline 1 px wide all round (8 offset copies of the dark shape under it). 15 px at 100 %.
+        static const int kArrow[7][2] = {{0, 0}, {14, 4}, {8, 7}, {15, 12}, {12, 15}, {7, 8}, {4, 14}};
+        static const int kUpper[5][2] = {{0, 0}, {14, 4}, {8, 7}, {15, 12}, {13, 13}};  // (above the arrow's middle line)
+        auto shape = [&](const int (*src)[2], int n, int dx, int dy, draw::Color fill) {
+            draw::Point pts[7];
+            for (int i = 0; i < n; ++i) pts[i] = {x + scale(src[i][0]) + dx, y + scale(src[i][1]) + dy};
+            c.polygon(pts, n, fill);
+        };
+        const int o = std::max(1, scale(1));
+        for (int dy = -o; dy <= o; dy += o)
+            for (int dx = -o; dx <= o; dx += o)
+                if (dx || dy) shape(kArrow, 7, dx, dy, dark);
+        const draw::Color light = draw::rgb(uint8_t((GetRValue(col) + 255) / 2), uint8_t((GetGValue(col) + 255) / 2), uint8_t((GetBValue(col) + 255) / 2));
+        shape(kArrow, 7, 0, 0, col);
+        shape(kUpper, 5, 0, 0, light);
         const std::wstring name = widen(p.name);
         const int w = c.measure(name) + scale(10), h = c.metrics().height + scale(4);
-        const draw::Rect label{x + scale(12), y + scale(18), x + scale(12) + w, y + scale(18) + h};
+        const draw::Rect label{x + scale(12), y + scale(17), x + scale(12) + w, y + scale(17) + h};
         c.roundBox(label, col, dark, float(scale(4)));
         c.text(label, name, draw::rgb(16, 16, 16), draw::kCenter | draw::kMiddle);
     }
     c.popClip();
     c.setFont(old);
+    shown.swap(next);
+    if (moving) shellPost([] { invalidateMapView(); });  // (the next frame)
 }
 
 // Program options > Collaboration: the display name (spaces at the ends removed; empty: asked at the next host or join)
