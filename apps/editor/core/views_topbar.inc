@@ -183,6 +183,28 @@ struct TopBarView final : stardraft::draw::View {
             updateRc = ub;
             std::swap(surface.hits[surface.hits.size() - 2], surface.hits.back());  // (Tab: Update, then Report feedback)
         }
+        // Invite (File > Collaborative editing): before Update and Report feedback. In a session: its state, green while
+        // others are in it; a click shows the session window.
+        {
+            std::wstring collabStatusText(bool& live);  // (sdl_collab.inc)
+            bool live = false;
+            const std::wstring state = collabStatusText(live);
+            const std::wstring label = state.empty() ? std::wstring(tr(L"Invite")) : live ? state : std::wstring(tr(L"Session"));
+            const Font ofi = c.setFont(ui);
+            const int bh = scale(stardraft::kit::kButtonH), iy = (h - bh) / 2;
+            const int iw = scale(10) + scale(16) + scale(8) + c.measure(label) + scale(12);
+            const int ir = (updateRc.right > updateRc.left ? updateRc.left : fb.left) - scale(8);
+            const RECT ib{ir - iw, iy, ir, iy + bh};
+            const bool on = commandEnabled(ID_COLLAB_SHARE), ihot = on && surface.hot(ib);
+            kitpaint::drawBox(c, ib, live ? kGoodFill : ihot ? kCtlHot : kCtl, live ? kGoodLine : kBorder);
+            c.icon({ib.left + scale(10), ib.top, ib.left + scale(10) + scale(16), ib.bottom}, int(UiIcon::Units), live ? kGood : on ? kText : kFaint, scale(16));
+            c.text({ib.left + scale(10) + scale(16) + scale(8), ib.top, ib.right, ib.bottom}, label, live ? kGood : on ? kText : kFaint, kMiddle);
+            c.setFont(ofi);
+            if (on)
+                surface.add({ib, nullptr, [] { command(ID_COLLAB_SHARE); },
+                             state.empty() ? L"Invite people to edit this map's terrain with you (collaborative editing preview)" : L"Show the collaborative editing session",
+                             draw::Cursor::Hand});
+        }
         c.fill({0, h - 1, w, h}, kBorder);  // the line under the bar
         surface.paintFocus(c, *this);
     }

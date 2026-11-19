@@ -57,6 +57,21 @@ struct StatusView final : stardraft::draw::View {
             }
 #endif
         }
+        // (a collaborative editing session: its part at the right, green while others are in it; a click shows its window)
+        collabRc = {};
+        {
+            std::wstring collabStatusText(bool& live);  // (sdl_collab.inc)
+            bool live = false;
+            const std::wstring t = collabStatusText(live);
+            const int cw = t.empty() ? 0 : c.measure(t) + 2 * pad;
+            if (cw && right - cw >= x) {
+                collabRc = {right - cw, scale(3), right, h - scale(2)};
+                if (live) c.roundBox(collabRc, kGoodFill, kGoodLine, float(scale(3)));
+                c.text({collabRc.left + pad, 1, collabRc.right - pad, h}, t, live ? kGood : kDim, kMiddle);
+                sep(right - cw);
+                right -= cw + scale(4);
+            }
+        }
         // (the diagnostics: at the right, in the room that the parts before leave)
         if (diagnosticsOn()) diagnosticsRefresh();
         if (diagnosticsOn() && !gDiagnosticsText.empty()) {
@@ -76,4 +91,13 @@ struct StatusView final : stardraft::draw::View {
             paintKeyHints(c, st, {left + pad, 1, right - pad, h}, st.drag == Drag::None && host() ? host()->modifiers() : 0);
     }
     bool sizeGrip(stardraft::draw::Point p) override { return p.x >= width() - scale(16) && p.y >= height() - scale(16); }
+    stardraft::draw::Rect collabRc{};  // (the session's part at the last paint)
+    bool mouse(const stardraft::draw::MouseEvent& e) override {
+        if (e.kind == stardraft::draw::MouseKind::Down && e.button == 0 && !collabRc.empty() && collabRc.contains(e.pt)) {
+            void command(int id);
+            command(ID_COLLAB_PEOPLE);
+            return true;
+        }
+        return false;
+    }
 };

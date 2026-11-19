@@ -85,6 +85,8 @@
 #include "http.h"  // apps/common: the GitHub requests (core/releases.inc)
 #include "update.h"  // apps/common: the self-update's file steps (core/releases.inc, sdl_updates.inc)
 #include "crash_report.h"  // apps/common: the crash handler and sending reports (core/releases.inc, shell_sdl_win.inc)
+#include "websocket.h"  // apps/common: the shared maps' connection (sdl_collab.inc)
+#include "stardraft/collab.h"
 #include "instance.h"  // apps/common: one program for all maps (shell_sdl_win.inc, sdl_xdg.inc)
 #ifdef _WIN32
 #include "file_types.h"  // apps/common: the files that open with StarDraft 2 (shell_sdl_win.inc)
@@ -205,6 +207,7 @@ bool gKeysFromOpener = false;
 #include "sdl_build.inc"  // Build's parts of this system (core/project_build.inc)
 #include "sdl_triggers.inc"  // the Triggers workspace (the tree, the pane and the block picker are core/views_triggers_*.inc; the model core/triggers_model.inc)
 #include "sdl_history.inc"  // Undo, Redo and Edit > Undo history (the model is core/undo_history.inc)
+#include "sdl_collab.inc"  // File > Shared map: shared maps (include/stardraft/collab.h)
 #include "sdl_shot_state.inc"  // a snapshot's input lines: what the workspace holds after each input
 #include "sdl_updates.inc"  // Help > Check for updates, the crash reports' choice (core/releases.inc)
 #include "sdl_help.inc"  // Help > Documentation and F1: the help window (core/views_help.inc)
@@ -776,6 +779,18 @@ int main(int argc, char** argv) {
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
+    // An invite link from the system (stardraft://): the link only. The other arguments may be the link's own text
+    // (a launcher that did not quote it), so none of them is an option.
+    for (int i = 1; i < argc; ++i)
+        if (std::string(argv[i]).rfind("stardraft:", 0) == 0) {
+            const std::string link = argv[i];
+            if (!snapshot.empty()) break;  // (a test run: its options stay)
+            for (int k = 1; k < argc; ++k)
+                if (k != i) std::fprintf(stderr, "stardraft: an invite link is given: the argument %d is ignored\n", k);
+            if (argc > 2) return 2;  // (an invite link comes alone: anything more is not from the link handler)
+            mapArg = link;
+            break;
+        }
     if (!snapshot.empty()) gSilent = true, gNoBoxes = true, gShotDialogs = true;  // (a snapshot shows no file dialog: --pick answers)
     if (!gShotBoxes.empty()) msgbox::hostBox() = sdlShotBox;
     if (gNoBoxes || gNoActivate || gKpi) gMapMotion = false;  // (a snapshot or a test: the zoom is at its goal at once)

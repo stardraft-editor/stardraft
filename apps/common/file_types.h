@@ -54,6 +54,9 @@ bool mapsOpenWithStarDraft();
 // program a double-click opens. Windows keeps a program that the user chose in its own Open with window (a UserChoice):
 // then only Settings > Default apps changes it, and this returns false. `keepOther`: as registerProjectFiles (the start;
 // not with makeDefault).
+// stardraft:// links (a shared map's invite: the program asks before it joins) open with `exe`. keepOther: a command
+// that opens another copy of StarDraft 2 that is still there stays.
+void registerInviteLinks(const std::wstring& exe, bool keepOther);
 bool registerMapFiles(const std::wstring& exe, bool makeDefault, bool keepOther = false);
 
 }  // namespace stardraft::platform

@@ -252,6 +252,7 @@ bool simKey(const draw::KeyEvent& e);
 void simFrame();
 
 // The map view: the texture of the map (drawn by the frame hook) and the core's map input.
+void collabCursorsPaint(draw::Canvas& c, draw::Rect view);  // (sdl_collab.inc)
 struct MapView final : draw::View {
     bool rightDown = false;  // the right button went down on the map: its release opens the map's menu
     // The middle button held: Options > Middle mouse click and hold. Drag map: the map follows the mouse; Pan map (the
@@ -273,6 +274,7 @@ struct MapView final : draw::View {
         if (open() && gMapTex && gMapW == width() && gMapH == height()) {
             c.externalImage(gMapTex, all);
             mapTextPaint(c, all);      // (the locations' names: core/map_scene.inc)
+            collabCursorsPaint(c, all);  // (a shared map: the others' cursors, sdl_collab.inc)
             pathOverlayPaint(c, all);  // (the pathing overlays' labels: core/path_overlay.inc)
             if (simBarShown()) simPaintBar(c, all);
             return;

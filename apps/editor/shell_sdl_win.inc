@@ -115,6 +115,10 @@ void raiseMainWindow() {
 bool sendOrListen(const std::vector<std::wstring>& files) {
     std::string text;
     for (const std::wstring& f : files) {
+        if (f.rfind(L"stardraft:", 0) == 0) {  // (an invite link: not a file)
+            text += narrow(f) + "\n";
+            continue;
+        }
         std::error_code ec;
         const fs::path abs = fs::absolute(f, ec);  // (the open program has another working folder)
         text += narrow((ec ? fs::path(f) : abs).wstring()) + "\n";
@@ -174,6 +178,7 @@ void askMapsDefault() {
 void fileTypesAtStart() {
     if (stardraft::platform::programFile().filename().wstring().rfind(L"stardraft-latest-", 0) != 0)
         stardraft::platform::registerProjectFiles(stardraft::platform::programFile().wstring(), true);
+    stardraft::platform::registerInviteLinks(stardraft::platform::associationExe(), true);  // (stardraft:// invite links: shared maps)
     stardraft::platform::registerMapFiles(stardraft::platform::associationExe(), false, true);  // in Explorer's Open with list for maps
 }
 

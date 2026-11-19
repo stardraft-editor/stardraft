@@ -43,6 +43,14 @@ FetchContent_Declare(stb
     GIT_TAG 2c980bb59875b0d32144a71867fbdebb2f77cd20)
 FetchContent_MakeAvailable(stb)
 
+# Monocypher (CC0 / BSD-2): X25519, XChaCha20-Poly1305 and BLAKE2b for shared maps' end-to-end encryption (src/collab.cpp)
+FetchContent_Declare(monocypher
+    GIT_REPOSITORY https://github.com/LoupVaillant/Monocypher.git
+    GIT_TAG 4.0.2)
+FetchContent_MakeAvailable(monocypher)
+add_library(monocypher STATIC ${monocypher_SOURCE_DIR}/src/monocypher.c)
+target_include_directories(monocypher PUBLIC ${monocypher_SOURCE_DIR}/src)
+
 # libvpx: the VP8 and VP9 decoders, for the game's portraits (WebM). Built from its C sources only; the configure
 # step's output is generated once by tools/gen_libvpx.py into third_party/libvpx/.
 FetchContent_Declare(libvpx
@@ -207,6 +215,7 @@ add_library(stardraft
     src/triggers.cpp
     src/editor.cpp
     src/editor_history.cpp
+    src/collab.cpp
     src/editor_selection.cpp
     src/new_map.cpp
     src/campaign.cpp
@@ -234,7 +243,10 @@ target_include_directories(stardraft PRIVATE third_party/IsomTerrain/IsomTerrain
 # Hyperion maps (.hxm) are zip files: StormLib's own zlib reads and writes them (src/mods/hyperion.cpp).
 set_source_files_properties(src/mods/hyperion.cpp PROPERTIES INCLUDE_DIRECTORIES ${stormlib_SOURCE_DIR}/src/zlib)
 find_package(Threads REQUIRED)  # std::async; older glibc needs -pthread for it
-target_link_libraries(stardraft PRIVATE storm casc_static vpx ogg_vorbis lua51 PUBLIC Threads::Threads)
+target_link_libraries(stardraft PRIVATE storm casc_static vpx ogg_vorbis lua51 monocypher PUBLIC Threads::Threads)
+if(WIN32)
+    target_link_libraries(stardraft PRIVATE bcrypt)  # (src/collab.cpp: BCryptGenRandom)
+endif()
 if(WIN32)  # wide-char paths, as StormLib and CascLib are built on Windows (TCHAR = wchar_t)
     target_compile_definitions(stardraft PRIVATE UNICODE _UNICODE)
 endif()
@@ -513,12 +525,12 @@ endif()
 
 # --- What the shells ask of the system (apps/common): HTTPS, dialogs (Windows), crash reports, updates -------
 if(WIN32)
-    add_library(stardraft_platform STATIC apps/common/http_win32.cpp apps/common/crash_win32.cpp apps/common/crash_report.cpp apps/common/update_win32.cpp apps/common/install_win32.cpp apps/common/file_types_win32.cpp apps/common/instance_win32.cpp)
+    add_library(stardraft_platform STATIC apps/common/http_win32.cpp apps/common/crash_win32.cpp apps/common/crash_report.cpp apps/common/update_win32.cpp apps/common/install_win32.cpp apps/common/file_types_win32.cpp apps/common/instance_win32.cpp apps/common/websocket_win32.cpp)
     target_link_libraries(stardraft_platform PUBLIC stardraft winhttp comdlg32 ole32 dbghelp advapi32 shell32)
     # (update_win32.cpp unpacks the release's zip with StormLib's own zlib: no tar.exe)
     target_include_directories(stardraft_platform PRIVATE ${stormlib_SOURCE_DIR}/src/zlib)
 else()
-    add_library(stardraft_platform STATIC apps/common/http_curl.cpp apps/common/crash_report.cpp apps/common/crash_posix.cpp apps/common/update_posix.cpp)
+    add_library(stardraft_platform STATIC apps/common/http_curl.cpp apps/common/crash_report.cpp apps/common/crash_posix.cpp apps/common/update_posix.cpp apps/common/websocket_none.cpp)
     target_link_libraries(stardraft_platform PUBLIC stardraft)
 endif()
 if(UNIX AND NOT APPLE)  # Linux and the BSDs: the XDG folders, the desktop portal, notifications, recently used files,
@@ -533,6 +545,9 @@ target_include_directories(stardraft_platform PUBLIC apps/common)
 add_executable(http_get tools/http_get.cpp)
 target_link_libraries(http_get PRIVATE stardraft_platform)
 add_executable(platform_test tools/tests/platform_test.cpp)
+# Shared maps: two programs through a relay (needs Node and the game's files; not run by GitHub): collab_test <relay.mjs>
+add_executable(collab_test tools/tests/collab_test.cpp)
+target_link_libraries(collab_test PRIVATE stardraft_platform)
 target_link_libraries(platform_test PRIVATE stardraft_platform)
 
 # --- A map's picture without a window or a GPU (apps/quicklook/map_preview.cpp): the minimap's colors, the units and the
