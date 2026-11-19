@@ -1087,8 +1087,9 @@ void Session::guestMessage(const Bytes& m) {
         return end("The host did not let you in.");
     }
     case mBye: {
-        const std::string why = r.str();
-        return end(why.empty() ? "The host ended the session." : "The host ended the session: " + cleanName(why));
+        // The host's own sentence, whole (a name's 32-byte limit cut it); none: the general one.
+        const std::string why = cleanText(r.str(), 255);
+        return end(why.empty() ? "The host ended the session." : why);
     }
     case mRole: {
         const uint8_t role = r.u8();
