@@ -209,7 +209,7 @@ MenuModel buildMenuModel() {
                                                          menuItem(ID_COLLAB_LEAVE, L"&Leave session"),
                                                          menuSeparator(),
                                                          menuItem(ID_COLLAB_JOIN, L"&Join session\x2026"),
-                                                         menuItem(ID_COLLAB_SERVER, L"Collaboration se&rver\x2026")}),
+                                                         menuItem(ID_COLLAB_SERVER, L"Collaboration &options\x2026")}),
                    menuSeparator(),
                    menuItem(ID_FILE_CLOSE, L"&Close", L"Ctrl+W"),
                    menuItem(ID_FILE_CLOSEALL, L"Close a&ll", L"Ctrl+Shift+W"),

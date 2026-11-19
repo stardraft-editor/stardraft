@@ -51,10 +51,10 @@ std::wstring savedServer() {
     return s;
 }
 
-// The user's name in the session: asked each time (the last one is in the field). False: Cancel or no name.
+// The user's name in sessions (Program options > Collaboration): asked only when there is none. False: Cancel or no name.
 bool askName() {
     std::wstring name = savedName();
-    if (gSilent && !name.empty()) return true;  // (a test run asks nothing: the settings file's name)
+    if (!name.empty()) return true;
     if (!shellPromptText(shellTr(L"Display name in the session"), name)) return false;
     while (!name.empty() && name.back() == L' ') name.pop_back();
     while (!name.empty() && name.front() == L' ') name.erase(name.begin());
@@ -316,14 +316,7 @@ void joinPrompt() {
     join(narrow(text));
 }
 
-void serverAddress() {
-    std::wstring s = savedServer();
-    if (!shellPromptText(shellTr(L"Collaboration server"), s)) return;
-    std::string out, err;
-    if (!cb::normalizeServer(narrow(s), out, err)) return shellErrorBox(widen(err), shellTr(L"Could not change the server"));
-    prefs::setText(L"CollabServer", widen(out));
-    setMessage(shellTr(L"Collaboration server: ") + widen(out));
-}
+void serverAddress() { showOptionsTab(L"Collaboration"), showOptionsSdl(); }
 
 // --- The session window ------------------------------------------------------------------------------------------------
 // The session's state, the invite links (host), the participants (host: their role and Remove), End or Leave. It is
@@ -456,7 +449,7 @@ bool sdlCollabEnabled(int id) {
     case ID_COLLAB_STOP: return host;
     case ID_COLLAB_LEAVE: return on && !host;
     case ID_COLLAB_JOIN: return !on;
-    case ID_COLLAB_SERVER: return !on;
+    case ID_COLLAB_SERVER: return true;
     default: return false;
     }
 }
@@ -582,4 +575,33 @@ void collabCursorsPaint(draw::Canvas& c, draw::Rect view) {
     }
     c.popClip();
     c.setFont(old);
+}
+
+// Program options > Collaboration: the display name (spaces at the ends removed; empty: asked at the next host or join)
+// and the server (checked: a wrong address is not kept; empty: the default server).
+void OptionsProgramSdl::setCollabName(const std::wstring& name) {
+    std::wstring n = name;
+    while (!n.empty() && n.back() == L' ') n.pop_back();
+    while (!n.empty() && n.front() == L' ') n.erase(n.begin());
+    prefs::setText(L"CollabName", n.substr(0, 32));
+    shellSettingsChanged();
+    gOptionsView.invalidate();
+}
+std::wstring OptionsProgramSdl::setCollabServer(const std::wstring& server) {
+    std::wstring out;
+    if (!server.empty()) {
+        std::string norm, err;
+        if (!stardraft::collab::normalizeServer(narrow(server), norm, err)) {
+            const std::wstring why = widen(err);
+            shellPost([why] { shellErrorBox(why, shellTr(L"Could not change the server")); });  // (after the field's change ends)
+            std::wstring old;
+            prefs::text(L"CollabServer", old);
+            return old;
+        }
+        out = widen(norm);
+    }
+    prefs::setText(L"CollabServer", out);
+    shellSettingsChanged();
+    gOptionsView.invalidate();
+    return out;
 }

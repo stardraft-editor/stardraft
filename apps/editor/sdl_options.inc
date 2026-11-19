@@ -310,6 +310,7 @@ public:
         v.languages = languageChoicesOffered(L"Automatic (the language of the system)"), v.language = languageChoice();
         v.restartDue = sdlLanguageChosen(gLanguage) != gUiLang;  // another language than the one in use
         v.unitNames = gDock.unitNames;
+        prefs::text(L"CollabName", v.collabName), prefs::text(L"CollabServer", v.collabServer);
         v.unitLimit[0] = gUnitLimitClassic, v.unitLimit[1] = gUnitLimitEud;
         v.detailedTiles = stardraft::detailedTilePercent();
         flag = false;
@@ -366,6 +367,8 @@ public:
         gOptionsView.invalidate();
     }
     void setVolume(int value) override;
+    void setCollabName(const std::wstring& name) override;      // (sdl_collab.inc)
+    std::wstring setCollabServer(const std::wstring& server) override;  // (sdl_collab.inc)
     void browseWorkingFolder() override;
     void useDefaultWorkingFolder() override;
     void themeShown(bool) override {}  // (the dialog's frame is the kit's: it paints with the tokens)

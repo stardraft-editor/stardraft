@@ -60,6 +60,8 @@ struct OptionsValues {
     std::wstring overrideFile;    // ... its file ("": none chosen)
     bool passagesOn = false;      // ... Ramp and bridge mappings: a passages file (the Ramp and bridge mapper's) for the tools
     std::wstring passagesFile;    // ... its file ("": none chosen)
+    std::wstring collabName;      // Collaboration: the display name in sessions ("": asked at the next host or join)
+    std::wstring collabServer;    // ... the server for new sessions (the default one when none is set)
 };
 
 // The program's part of the options window (options_window.inc): the values, the commands and the pickers.
@@ -79,6 +81,10 @@ public:
     virtual void setVolume(int v) = 0;
     // Painting terrain's Detailed tiles (0 to 100%; GitHub #257).
     virtual void setDetailedTiles(int percent) { (void)percent; }
+    // Collaboration: the display name and the server (the host checks the server's address; a wrong one is not kept).
+    virtual void setCollabName(const std::wstring& name) { (void)name; }
+    // (setCollabServer gives back the server that is saved now: the old one after a wrong address)
+    virtual std::wstring setCollabServer(const std::wstring& server) { return server; }
     // The working folder: a folder chosen by the user, or the default one.
     virtual void browseWorkingFolder() = 0;
     virtual void useDefaultWorkingFolder() = 0;
@@ -94,7 +100,7 @@ namespace optionsview {
 enum Section : unsigned {
     kStart = 1u << 0, kAppearance = 1u << 1, kMouse = 1u << 2, kUnitNames = 1u << 3, kUnitLimit = 1u << 4,
     kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kMapView = 1u << 8, kPlugins = 1u << 9,
-    kKeyboard = 1u << 10, kReset = 1u << 11, kLanguage = 1u << 12, kGraphics = 1u << 13, kAllSections = (1u << 14) - 1,
+    kKeyboard = 1u << 10, kReset = 1u << 11, kLanguage = 1u << 12, kGraphics = 1u << 13, kCollab = 1u << 14, kAllSections = (1u << 15) - 1,
 };
 struct Tab {
     const wchar_t* name;  // the tab's name (macOS: the toolbar item's label and the window's title)
@@ -108,6 +114,7 @@ inline const Tab kTabs[] = {
     {L"Mouse and keyboard", kMouse | kKeyboard},
     {L"Map", kMapView | kUnitNames | kUnitLimit},
     {L"Plugins", kPlugins},
+    {L"Collaboration", kCollab},
     {L"Folders", kWorkingFolder | kStarCraftFolder},
     {L"Updates", kUpdates},
 };
@@ -312,6 +319,20 @@ public:
         detail_.onFocusLost = [this] { commitDetail(); };
         detail_.onEscape = [this] { detail_.setText(std::to_wstring(detailValue_)); };
         add(detail_, {0, 0, 0, 0}), detail_.setVisible(false);
+        // Collaboration: a change applies on Enter or when the field loses the focus; Escape gives back the saved value.
+        collabName_.setMaxLength(32);
+        collabName_.onEnter = collabName_.onFocusLost = [this] {
+            if (collabName_.text() != collabNameValue_) host_.setCollabName(collabName_.text()), collabNameValue_ = collabName_.text();
+        };
+        collabName_.onEscape = [this] { collabName_.setText(collabNameValue_); };
+        collabServer_.setMaxLength(200);
+        collabServer_.onEnter = collabServer_.onFocusLost = [this] {
+            if (collabServer_.text() == collabServerValue_) return;
+            collabServerValue_ = host_.setCollabServer(collabServer_.text());
+            collabServer_.setText(collabServerValue_);
+        };
+        collabServer_.onEscape = [this] { collabServer_.setText(collabServerValue_); };
+        add(collabName_, {0, 0, 0, 0}), collabName_.setVisible(false), add(collabServer_, {0, 0, 0, 0}), collabServer_.setVisible(false);
         folder_.setReadOnly(true), folder_.setTabStop(false);
         install_.setReadOnly(true), install_.setTabStop(false);
         cmbw_.setReadOnly(true), cmbw_.setTabStop(false), overrideFile_.setReadOnly(true), overrideFile_.setTabStop(false);
@@ -528,7 +549,8 @@ private:
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Slider slider_;
-    stardraft::kit::TextField limit_[2], detail_, folder_, install_, cmbw_, hyperion_, overrideFile_, passagesFile_;
+    stardraft::kit::TextField limit_[2], detail_, folder_, install_, cmbw_, hyperion_, overrideFile_, passagesFile_, collabName_, collabServer_;
+    std::wstring collabNameValue_, collabServerValue_;  // (the saved values: Escape gives them back)
     std::vector<int> langChoices_;     // the choice index of each language dropdown item
     std::vector<OptionsAccent> accents_;
     std::vector<draw::Rect> accentRects_;
@@ -611,6 +633,9 @@ void OptionsView::sync(const OptionsValues& v) {
         limitValue_[k] = v.unitLimit[k];
         if (!limit_[k].hasFocus() && limit_[k].text() != std::to_wstring(v.unitLimit[k])) limit_[k].setText(std::to_wstring(v.unitLimit[k]));
     }
+    collabNameValue_ = v.collabName, collabServerValue_ = v.collabServer;
+    if (!collabName_.hasFocus() && collabName_.text() != v.collabName) collabName_.setText(v.collabName);
+    if (!collabServer_.hasFocus() && collabServer_.text() != v.collabServer) collabServer_.setText(v.collabServer);
     detailValue_ = v.detailedTiles;
     if (!detail_.hasFocus() && detail_.text() != std::to_wstring(v.detailedTiles)) detail_.setText(std::to_wstring(v.detailedTiles));
     if (slider_.value() != v.volume) slider_.setValue(v.volume);
@@ -1022,6 +1047,23 @@ void OptionsView::paint(draw::Canvas& c) {
                 if (v->visible()) v->setVisible(false);
         }
         y += pad;
+    }
+
+    // Collaboration (File > Collaborative editing, sdl_collab.inc): the display name and the server.
+    if (shown & optionsview::kCollab) {
+        header(L"Collaborative editing (experimental)");
+        label(L"Display name");
+        place(collabName_, {fx, fieldTop(y), std::min<int>(colRight, fx + scale(240)), fieldTop(y) + fieldH}, true);
+        parts_["collabname"] = collabName_.frame();
+        y += rowH;
+        note(fx, y - scale(4), L"The name that the other people in a session see");
+        y += scale(20);
+        label(L"Server");
+        place(collabServer_, {fx, fieldTop(y), colRight, fieldTop(y) + fieldH}, true);
+        parts_["collabserver"] = collabServer_.frame();
+        y += rowH;
+        note(fx, y - scale(4), L"For new sessions. Empty: https://collab.stardraft.app");
+        y += scale(20) + pad;
     }
 
     height_ = y + scroll_ - contentTop_;
