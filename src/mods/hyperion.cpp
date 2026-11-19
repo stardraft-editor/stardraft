@@ -81,51 +81,61 @@ struct J {
     std::vector<J> items;
     std::vector<JMember> members;
 
-    static const J& none() {
-        static const J n;
-        return n;
-    }
+    // (the functions that make or destroy a J are defined after JMember: libc++ and libstdc++ with clang need
+    // JMember complete for std::vector<JMember>'s destructor)
+    static const J& none();
     const J& operator[](std::string_view k) const;
     size_t size() const { return kind == ARRAY ? items.size() : 0; }
     const J& At(size_t i) const { return kind == ARRAY && i < items.size() ? items[i] : none(); }
     std::string Str(const std::string& dflt = {}) const { return kind == STRING ? s : dflt; }
 
-    static J num(long long v) {
-        J j;
-        j.kind = NUMBER, j.d = double(v);
-        return j;
-    }
-    static J str(std::string v) {
-        J j;
-        j.kind = STRING, j.s = std::move(v);
-        return j;
-    }
-    static J boolean(bool v) {
-        J j;
-        j.kind = BOOL, j.b = v;
-        return j;
-    }
-    static J arr() {
-        J j;
-        j.kind = ARRAY;
-        return j;
-    }
-    static J obj() {
-        J j;
-        j.kind = OBJECT;
-        return j;
-    }
+    static J num(long long v);
+    static J str(std::string v);
+    static J boolean(bool v);
+    static J arr();
+    static J obj();
     J& add(std::string k, J v);
-    J& push(J v) {
-        items.push_back(std::move(v));
-        return items.back();
-    }
+    J& push(J v);
 };
 
 struct JMember {
     std::string first;
     J second;
 };
+
+const J& J::none() {
+    static const J n;
+    return n;
+}
+J J::num(long long v) {
+    J j;
+    j.kind = NUMBER, j.d = double(v);
+    return j;
+}
+J J::str(std::string v) {
+    J j;
+    j.kind = STRING, j.s = std::move(v);
+    return j;
+}
+J J::boolean(bool v) {
+    J j;
+    j.kind = BOOL, j.b = v;
+    return j;
+}
+J J::arr() {
+    J j;
+    j.kind = ARRAY;
+    return j;
+}
+J J::obj() {
+    J j;
+    j.kind = OBJECT;
+    return j;
+}
+J& J::push(J v) {
+    items.push_back(std::move(v));
+    return items.back();
+}
 
 const J& J::operator[](std::string_view k) const {
     for (const JMember& m : members)
