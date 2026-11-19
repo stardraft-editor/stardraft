@@ -86,6 +86,7 @@ void tickTimer();
 // keeps it for kChatKeep seconds, Esc removes it at once.
 bool gChatOpen = false;
 std::string gChatText;
+bool gChatSkipSlash = false;  // (the next text is the / that opened the chat)
 double gChatUntil = 0;  // (Enter: the text goes at this time)
 constexpr double kChatKeep = 5;
 constexpr size_t kChatMax = 100;  // bytes (collab.cpp kMaxChat)
@@ -577,6 +578,7 @@ bool collabChatKey(const draw::KeyEvent& e, bool typing) {
         const bool slash = (e.key == draw::Key::Slash && !e.mods) || (e.numberRow == 7 && e.mods == draw::kShift);
         if (!slash) return false;
         gChatOpen = true, gChatText.clear(), chatSend();
+        gChatSkipSlash = true;  // (the / that opened it comes as text too: not in the message)
         if (draw::Host* h = gRoot->map.host())
             h->textInput(gRoot->map, true, {gState.mouseX + scale(14), gState.mouseY + scale(18), gState.mouseX + scale(200), gState.mouseY + scale(40)});
         invalidateMapView();
@@ -600,6 +602,9 @@ bool collabChatKey(const draw::KeyEvent& e, bool typing) {
 bool collabChatText(const std::string& utf8) {
     using namespace collabui;
     if (!gChatOpen) return false;
+    const bool skip = gChatSkipSlash && utf8 == "/";
+    gChatSkipSlash = false;
+    if (skip) return true;
     if (gChatText.size() + utf8.size() <= kChatMax) gChatText += utf8, chatSend(), invalidateMapView();
     return true;
 }
@@ -645,25 +650,31 @@ void collabCursorsPaint(draw::Canvas& c, draw::Rect view) {
         const int x = view.left + int(std::lround((at.x - gState.camX) * gState.zoom));
         const int y = view.top + int(std::lround((at.y - gState.camY) * gState.zoom));
         if (x < view.left - 200 || y < view.top - 40 || x > view.right || y > view.bottom) continue;
-        // The arrow: a head that points up and to the left, with a notch and a short tail, a light upper face, a darker
-        // lower face and a dark outline 1 px wide all round (8 offset copies of the dark shape under it). 15 px at 100 %.
-        static const int kArrow[7][2] = {{0, 0}, {14, 4}, {8, 7}, {15, 12}, {12, 15}, {7, 8}, {4, 14}};
-        static const int kUpper[5][2] = {{0, 0}, {14, 4}, {8, 7}, {15, 12}, {13, 13}};  // (above the arrow's middle line)
-        auto shape = [&](const int (*src)[2], int n, int dx, int dy, draw::Color fill) {
-            draw::Point pts[7];
-            for (int i = 0; i < n; ++i) pts[i] = {x + scale(src[i][0]) + dx, y + scale(src[i][1]) + dy};
-            c.polygon(pts, n, fill);
+        // The arrow: a pixel drawing, 20 x 21 at 100 % (each pixel scale(1) square), its tip at the place. A: the dark
+        // outline, B: the person's color, C: lighter, D: darker; '.': nothing (the map shows through).
+        static const char* const kArrow[21] = {
+            "A...................", "AA..................", "ABA.................", "ABBA................", "ABBBA...............",
+            "ABBBBA..............", "ABBABBA.............", "ABB.ABBA............", "ABB..ABBA...........", "ABB...ABBA..........",
+            "ABB....ABBA.........", "ABB.....ABBA........", "ABB...AA.ABBA.......", "ACB..ADDAAABBA......", "ACB.ADAADDAABBA.....",
+            "ACBABA..AADDABBA....", "ACCDD.....AACCBBA...", "ACDA........AACCCA..", "ADA...........AACBA.", "AA..............AACA",
+            "A.................AA"};
+        auto mix = [](draw::Color a, uint8_t r, uint8_t g, uint8_t b, int t) {  // (t/8 of the way from a to r, g, b)
+            return draw::rgb(uint8_t((GetRValue(a) * (8 - t) + r * t) / 8), uint8_t((GetGValue(a) * (8 - t) + g * t) / 8), uint8_t((GetBValue(a) * (8 - t) + b * t) / 8));
         };
-        const int o = std::max(1, scale(1));
-        for (int dy = -o; dy <= o; dy += o)
-            for (int dx = -o; dx <= o; dx += o)
-                if (dx || dy) shape(kArrow, 7, dx, dy, dark);
-        const draw::Color light = draw::rgb(uint8_t((GetRValue(col) + 255) / 2), uint8_t((GetGValue(col) + 255) / 2), uint8_t((GetBValue(col) + 255) / 2));
-        shape(kArrow, 7, 0, 0, col);
-        shape(kUpper, 5, 0, 0, light);
+        const draw::Color ink[4] = {draw::rgb(40, 16, 23), col, mix(col, 255, 255, 255, 2), mix(col, 0, 0, 40, 4)};
+        const int px = std::max(1, scale(1));
+        for (int r = 0; r < 21; ++r)
+            for (int k = 0; k < 20; ++k) {
+                const char ch = kArrow[r][k];
+                if (ch < 'A' || ch > 'D') continue;
+                int run = 1;  // (a run of the same color in the row: one rectangle)
+                while (k + run < 20 && kArrow[r][k + run] == ch) ++run;
+                c.fill({x + k * px, y + r * px, x + (k + run) * px, y + (r + 1) * px}, ink[ch - 'A']);
+                k += run - 1;
+            }
         const std::wstring name = widen(p.name);
         const int w = c.measure(name) + scale(10), h = c.metrics().height + scale(4);
-        const draw::Rect label{x + scale(12), y + scale(17), x + scale(12) + w, y + scale(17) + h};
+        const draw::Rect label{x + scale(10), y + scale(22), x + scale(10) + w, y + scale(22) + h};
         c.roundBox(label, col, dark, float(scale(4)));
         c.text(label, name, draw::rgb(16, 16, 16), draw::kCenter | draw::kMiddle);
         if (!p.chat.empty()) chatBubble(c, label.left, label.bottom + scale(3), widen(p.chat), col, dark, draw::rgb(16, 16, 16));
