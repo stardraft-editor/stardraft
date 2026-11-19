@@ -35,6 +35,7 @@ enum class Role : uint8_t { None = 0, View = 1, Edit = 2 };
 const char* roleName(Role r);  // "view", "edit"
 
 using Key = std::array<uint8_t, 32>;
+using Secret = std::array<uint8_t, 16>;  // an invite link's secret (128 bits: 22 characters in the link)
 
 // Random bytes from the system (BCryptGenRandom, getrandom, arc4random). False: none (do not go on).
 bool randomBytes(void* out, size_t n);
@@ -45,15 +46,15 @@ struct InviteLink {
     std::string server;  // "https://host[:port]" (or "http://" for this computer only: localhost, 127.0.0.1)
     std::string room;    // 22 characters (128 bits, base64url)
     Role role = Role::None;
-    Key secret{};
+    Secret secret{};
 };
-std::string makeInviteLink(const std::string& server, const std::string& room, Role role, const Key& secret);
+std::string makeInviteLink(const std::string& server, const std::string& room, Role role, const Secret& secret);
 bool parseInviteLink(const std::string& text, InviteLink& out, std::string& error);
 // A server address as the user typed it: "https://host[:port]" with no path. http only for this computer.
 bool normalizeServer(const std::string& text, std::string& out, std::string& error);
 // ws(s)://host[:port]/relay (a host makes a room there), or /relay/<room> (a member joins it).
 std::string relayUrl(const std::string& server, const std::string& room = {});
-std::string relayToken(const Key& secret);        // what the relay checks for a link (64 hex digits); not the secret
+std::string relayToken(const Secret& secret);        // what the relay checks for a link (64 hex digits); not the secret
 
 // --- The terrain ------------------------------------------------------------------------------------------------------
 enum Part : uint8_t { kIsom = 0, kMtxm = 1, kTile = 2, kSections = 3 };
@@ -224,7 +225,7 @@ private:
     Events ev_;
     Clock clock_;
     std::string server_, room_, name_, version_, hostName_;
-    Key secrets_[3]{};  // host: by Role (View, Edit); guest: secrets_[0] is the link's
+    Secret secrets_[3]{};  // host: by Role (View, Edit); guest: secrets_[0] is the link's
     std::vector<Peer> peers_;
     std::map<uint32_t, std::unique_ptr<Link>> links_;  // host: by member; guest: [0], the host
     Terrain base_;  // the terrain as this program last sent or applied it

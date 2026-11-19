@@ -369,22 +369,23 @@ int main(int argc, char** argv) {
 
     // --- Links -------------------------------------------------------------------------------------------------------
     {
-        cb::Key k{};
-        for (int i = 0; i < 32; ++i) k[size_t(i)] = uint8_t(i * 7);
-        const std::string link = cb::makeInviteLink("https://abc.trycloudflare.com", "AAAAAAAAAAAAAAAAAAAAAA", cb::Role::Edit, k);
+        cb::Secret k{};
+        for (int i = 0; i < 16; ++i) k[size_t(i)] = uint8_t(i * 7);
+        const std::string link = cb::makeInviteLink("https://abc.trycloudflare.com", "AAAAAAAAAAAA", cb::Role::Edit, k);
         cb::InviteLink l;
         CHECK(cb::parseInviteLink(link, l, err) && l.secret == k && l.role == cb::Role::Edit && l.server == "https://abc.trycloudflare.com",
               "links: an edit link reads back");
-        CHECK(cb::parseInviteLink("stardraft://join?link=https%3A%2F%2Fabc.trycloudflare.com%2Fj%2FAAAAAAAAAAAAAAAAAAAAAA%23v." + link.substr(link.size() - 43), l, err) &&
+        CHECK(cb::parseInviteLink("stardraft://join?link=https%3A%2F%2Fabc.trycloudflare.com%2Fj%2FAAAAAAAAAAAA%23v" + link.substr(link.size() - 22), l, err) &&
                   l.role == cb::Role::View,
               "links: the stardraft:// form reads");
-        CHECK(!cb::parseInviteLink("http://evil.example/j/AAAAAAAAAAAAAAAAAAAAAA#e." + link.substr(link.size() - 43), l, err), "links: http only for localhost");
+        CHECK(!cb::parseInviteLink("http://evil.example/j/AAAAAAAAAAAA#e" + link.substr(link.size() - 22), l, err), "links: http only for localhost");
         CHECK(!cb::parseInviteLink(link.substr(0, link.size() - 1), l, err), "links: a short secret is refused");
-        CHECK(!cb::parseInviteLink("https://a.b/j/AAAAAAAAAAAAAAAAAAAAAA/../x#e." + link.substr(link.size() - 43), l, err), "links: a path is refused");
+        CHECK(!cb::parseInviteLink("https://a.b/j/AAAAAAAAAAAA/../x#e" + link.substr(link.size() - 22), l, err), "links: a path is refused");
         std::string s;
+        CHECK(link.size() < 72, "links: an invite link is short");
         CHECK(cb::normalizeServer(" abc.trycloudflare.com/ ", s, err) && s == "https://abc.trycloudflare.com", "links: a bare server name is https");
         CHECK(cb::relayUrl("https://a.b:444") == "wss://a.b:444/relay" && cb::relayUrl("http://localhost:1") == "ws://localhost:1/relay" &&
-                  cb::relayUrl("https://a.b", "AAAAAAAAAAAAAAAAAAAAAA") == "wss://a.b/relay/AAAAAAAAAAAAAAAAAAAAAA" && cb::relayUrl("https://a.b", "../x").empty(),
+                  cb::relayUrl("https://a.b", "AAAAAAAAAAAA") == "wss://a.b/relay/AAAAAAAAAAAA" && cb::relayUrl("https://a.b", "../x").empty(),
               "links: relay URLs");
     }
     // --- Patches -----------------------------------------------------------------------------------------------------

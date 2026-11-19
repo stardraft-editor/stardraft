@@ -154,7 +154,7 @@ std::string hex(const uint8_t* p, size_t n) {
     return s;
 }
 bool roomId(const std::string& s) {
-    return s.size() == 22 && std::all_of(s.begin(), s.end(), [](char c) { return c && std::strchr(kB64, c); });
+    return s.size() == 12 && std::all_of(s.begin(), s.end(), [](char c) { return c && std::strchr(kB64, c); });
 }
 
 uint64_t cellKey(uint8_t section, uint32_t cell) { return uint64_t(section) << 32 | cell; }
@@ -302,19 +302,19 @@ std::string relayUrl(const std::string& server, const std::string& room) {
     return {};
 }
 
-std::string relayToken(const Key& secret) {
+std::string relayToken(const Secret& secret) {
     uint8_t out[32];
     static const char label[] = "stardraft-collab relay token";
     crypto_blake2b_keyed(out, sizeof out, secret.data(), secret.size(), reinterpret_cast<const uint8_t*>(label), sizeof label - 1);
     return hex(out, sizeof out);
 }
 
-std::string makeInviteLink(const std::string& server, const std::string& room, Role role, const Key& secret) {
-    return server + "/j/" + room + "#" + (role == Role::Edit ? "e." : "v.") + base64url(secret.data(), secret.size());
+std::string makeInviteLink(const std::string& server, const std::string& room, Role role, const Secret& secret) {
+    return server + "/j/" + room + "#" + (role == Role::Edit ? "e" : "v") + base64url(secret.data(), secret.size());
 }
 
 bool parseInviteLink(const std::string& text, InviteLink& out, std::string& error) {
-    error = "This is not a StarDraft invite link. It looks like https://<server>/j/<room>#e.<code>.";
+    error = "This is not a StarDraft invite link. It looks like https://<server>/j/<room>#e<code>.";
     std::string s = trimmed(text);
     static const char custom[] = "stardraft://join?link=";
     if (s.rfind(custom, 0) == 0) {
@@ -331,11 +331,11 @@ bool parseInviteLink(const std::string& text, InviteLink& out, std::string& erro
     std::string server;
     if (!normalizeServer(s.substr(0, j), server, error)) return false;
     const std::string room = s.substr(j + 3);
-    if (!roomId(room) || fragment.size() != 45 || fragment[1] != '.' || (fragment[0] != 'e' && fragment[0] != 'v')) {
+    if (!roomId(room) || fragment.size() != 23 || (fragment[0] != 'e' && fragment[0] != 'v')) {
         error = "This invite link is not complete. Ask for the link again.";
         return false;
     }
-    if (!unbase64url(fragment.substr(2), out.secret.data(), out.secret.size())) {
+    if (!unbase64url(fragment.substr(1), out.secret.data(), out.secret.size())) {
         error = "This invite link is not complete. Ask for the link again.";
         return false;
     }
@@ -708,7 +708,7 @@ struct Session::Link {
         return zero != 0;
     }
     // The two directions' keys for a link secret. joinerPub, hostPub: the transcript.
-    static void derive(const Key& secret, const uint8_t dh[32], const uint8_t* joinerPub, const uint8_t* hostPub, Key& j2h, Key& h2j) {
+    static void derive(const Secret& secret, const uint8_t dh[32], const uint8_t* joinerPub, const uint8_t* hostPub, Key& j2h, Key& h2j) {
         uint8_t msg[sizeof kKdfLabel - 1 + 96], out[64];
         std::memcpy(msg, kKdfLabel, sizeof kKdfLabel - 1);
         std::memcpy(msg + sizeof kKdfLabel - 1, dh, 32);
@@ -761,7 +761,7 @@ std::unique_ptr<Session> Session::host(Editor& editor, const std::string& server
     }
     if (!readTerrain(editor.chk(), s->base_, error)) return nullptr;
     if (!normalizeServer(server, s->server_, error)) return nullptr;
-    if (!randomBytes(s->secrets_[1].data(), 32) || !randomBytes(s->secrets_[2].data(), 32)) {
+    if (!randomBytes(s->secrets_[1].data(), s->secrets_[1].size()) || !randomBytes(s->secrets_[2].data(), s->secrets_[2].size())) {
         error = "The system gave no random numbers.";
         return nullptr;
     }
@@ -795,7 +795,7 @@ void Session::end(const std::string& why, bool notify) {
     ended_ = true;
     out_->close();
     links_.clear();  // (the keys wiped)
-    for (Key& k : secrets_) crypto_wipe(k.data(), k.size());
+    for (Secret& k : secrets_) crypto_wipe(k.data(), k.size());
     if (notify && ev_.ended) ev_.ended(why);
 }
 
@@ -1760,10 +1760,10 @@ void Session::remove(uint32_t id) {
 
 bool Session::newLinks() {
     if (!host_ || ended_ || room_.empty()) return false;
-    Key v, e;
-    if (!randomBytes(v.data(), 32) || !randomBytes(e.data(), 32)) return false;
+    Secret v, e;
+    if (!randomBytes(v.data(), v.size()) || !randomBytes(e.data(), e.size())) return false;
     secrets_[1] = v, secrets_[2] = e;
-    crypto_wipe(v.data(), 32), crypto_wipe(e.data(), 32);
+    crypto_wipe(v.data(), v.size()), crypto_wipe(e.data(), e.size());
     out_->text("{\"t\":\"tokens\",\"view\":" + quote(relayToken(secrets_[1])) + ",\"edit\":" + quote(relayToken(secrets_[2])) + "}");
     if (ev_.linksChanged) ev_.linksChanged();
     return true;

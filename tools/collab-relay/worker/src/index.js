@@ -20,11 +20,11 @@ const RATE = {
   member: { bytes: 1 << 20, burstBytes: 2 << 20, msgs: 100, burstMsgs: 200 },
   none: { bytes: 8192, burstBytes: 8192, msgs: 4, burstMsgs: 4 },
 };
-const ROOM_RE = /^[A-Za-z0-9_-]{22}$/;
+const ROOM_RE = /^[A-Za-z0-9_-]{12}$/;
 const TOKEN_RE = /^[0-9a-f]{64}$/;
 
-function randomId() {
-  const b = new Uint8Array(16);
+function randomId() {  // (72 bits: 12 characters; the link's secret is what keeps a room closed)
+  const b = new Uint8Array(9);
   crypto.getRandomValues(b);
   return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -56,7 +56,7 @@ p.s{color:#9aa0aa;font-size:14px}</style></head>
 <p class="s">The map goes between the programs end to end encrypted. This server cannot read it.</p></main>
 <script nonce="${nonce}">
 const f = location.hash.slice(1);
-if (/^[ev]\\.[A-Za-z0-9_-]{43}$/.test(f)) {
+if (/^[ev][A-Za-z0-9_-]{22}$/.test(f)) {
   document.getElementById('what').textContent = f[0] === 'e' ? 'You have an invite to edit in a StarDraft 2 session.' : 'You have an invite to view a StarDraft 2 session.';
   const link = 'stardraft://join?link=' + encodeURIComponent(location.href);
   const a = document.getElementById('open');
@@ -81,8 +81,8 @@ export default {
     const url = new URL(req.url);
     if (req.method !== 'GET') return new Response(null, { status: 405 });
     if (url.pathname === '/') return new Response('StarDraft collaboration relay\n', { headers: { ...SECURITY_HEADERS, 'Content-Type': 'text/plain' } });
-    if (/^\/j\/[A-Za-z0-9_-]{22}$/.test(url.pathname)) return landingPage();
-    const m = url.pathname.match(/^\/relay(?:\/([A-Za-z0-9_-]{22}))?$/);
+    if (/^\/j\/[A-Za-z0-9_-]{12}$/.test(url.pathname)) return landingPage();
+    const m = url.pathname.match(/^\/relay(?:\/([A-Za-z0-9_-]{12}))?$/);
     if (!m) return new Response('Not found\n', { status: 404 });
     if (req.headers.get('Upgrade') !== 'websocket') return new Response('WebSocket only\n', { status: 426 });
     const ip = req.headers.get('CF-Connecting-IP') || 'none';

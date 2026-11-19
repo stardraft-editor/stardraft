@@ -39,7 +39,7 @@ const connsPerIp = new Map();
 const joinTimes = new Map();  // ip -> [ms]
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
-const randomId = () => crypto.randomBytes(16).toString('base64url');
+const randomId = () => crypto.randomBytes(9).toString('base64url');
 const sameToken = (a, b) => {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== 64 || b.length !== 64) return false;
   return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -76,7 +76,7 @@ code{background:#262a33;padding:.1em .3em;border-radius:4px;word-break:break-all
 <p class="s">The map goes directly between the programs, encrypted. This server cannot read it.</p></main>
 <script nonce="${nonce}">
 const f = location.hash.slice(1);
-if (/^[ev]\\.[A-Za-z0-9_-]{43}$/.test(f)) {
+if (/^[ev][A-Za-z0-9_-]{22}$/.test(f)) {
   document.getElementById('what').textContent = f[0] === 'e' ? 'You have an invite to edit a map that someone shares in StarDraft 2.' : 'You have an invite to view a map that someone shares in StarDraft 2.';
   const link = 'stardraft://join?link=' + encodeURIComponent(location.href);
   const a = document.getElementById('open');
@@ -92,7 +92,7 @@ if (/^[ev]\\.[A-Za-z0-9_-]{43}$/.test(f)) {
 const server = http.createServer((req, res) => {
   if (req.method !== 'GET') return res.writeHead(405).end();
   const url = req.url || '/';
-  if (/^\/j\/[A-Za-z0-9_-]{22}$/.test(url)) return landingPage(res);
+  if (/^\/j\/[A-Za-z0-9_-]{12}$/.test(url)) return landingPage(res);
   if (url === '/') {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
     return res.end('StarDraft collaboration relay\n');
@@ -103,7 +103,7 @@ const server = http.createServer((req, res) => {
 // --- WebSocket (RFC 6455), server side --------------------------------------------------------------------------------
 server.on('upgrade', (req, socket) => {
   const fail = (code) => { socket.end(`HTTP/1.1 ${code}\r\nConnection: close\r\n\r\n`); };
-  const path = /^\/relay(?:\/([A-Za-z0-9_-]{22}))?$/.exec(req.url || '');
+  const path = /^\/relay(?:\/([A-Za-z0-9_-]{12}))?$/.exec(req.url || '');
   if (!path) return fail('404 Not Found');
   const key = req.headers['sec-websocket-key'];
   if (req.headers['sec-websocket-version'] !== '13' || typeof key !== 'string' || !/^[A-Za-z0-9+/]{22}==$/.test(key)) return fail('400 Bad Request');
