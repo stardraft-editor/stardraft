@@ -229,6 +229,10 @@ void swipeTabs(int dir) {
     activateDoc(((gActive + (dir < 0 ? 1 : -1)) % n + n) % n);
 }
 
+// Collaborative editing (sdl_collab.inc): 0 the tab's map is in no session, 1 in a session with no one else yet, 2 live
+// with others. A live tab has a dot before its title (green: live; gray: waiting).
+int collabTabState(int doc);
+
 struct TabsView final : stardraft::draw::View {
     void paint(stardraft::draw::Canvas& c) override {
         const unsigned center = stardraft::draw::kCenter | stardraft::draw::kMiddle;
@@ -249,7 +253,8 @@ struct TabsView final : stardraft::draw::View {
         for (int i = 0; i < tabs; ++i) {
             tabTitles[size_t(i)] = i == int(gDocs.size()) ? std::wstring(page) : docTitle(i);
             const std::wstring& t = tabTitles[size_t(i)];
-            tabWidths[size_t(i)] = std::clamp(c.measure(t.rfind(L"* ", 0) == 0 ? t.substr(2) : t) + pad * 3 + closeW, scale(90), scale(260));
+            const int mark = i < int(gDocs.size()) && collabTabState(i) ? scale(12) : 0;  // (the session's dot)
+            tabWidths[size_t(i)] = std::clamp(c.measure(t.rfind(L"* ", 0) == 0 ? t.substr(2) : t) + pad * 3 + closeW + mark, scale(90), scale(260));
             total += tabWidths[size_t(i)] + 1;
         }
         // The span from `left` for `w` px comes into view.
@@ -286,7 +291,13 @@ struct TabsView final : stardraft::draw::View {
             const bool active = page ? pageTab : i == gActive;
             c.fill(r, active ? kCtl : (i == gTabHot ? kHot : kBg));
             if (active) c.fill({r.left, 0, r.right, scale(2)}, kAccent);
-            c.text({r.left + pad, 0, r.right - pad - closeW, h}, t, active ? kText : kDim, ellipsis);
+            int textLeft = r.left + pad;
+            if (const int live = pageTab ? 0 : collabTabState(i)) {  // (a session: a dot, green while others are in it)
+                const int d = scale(7), cy = h / 2;
+                c.ellipse({textLeft, cy - d / 2, textLeft + d + 1, cy - d / 2 + d + 1}, live == 2 ? kGood : kDim, stardraft::draw::kNone);
+                textLeft += scale(12);
+            }
+            c.text({textLeft, 0, r.right - pad - closeW, h}, t, active ? kText : kDim, ellipsis);
             const RECT cr{r.right - pad / 2 - closeW, (h - closeW) / 2, r.right - pad / 2, (h + closeW) / 2};
             if (i == gTabHotClose) c.fill(cr, kHot);
             if (pageTab && !shellPageTabClosable()) {

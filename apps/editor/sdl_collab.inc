@@ -114,6 +114,9 @@ void armTimer() {
 void finish() {
     if (!gEnded) return;
     gEnded = false;
+    // (a guest that had the map keeps it: the end says so)
+    if (gSession && !gSession->isHost() && gSession->editor() && editorAlive(gSession->editor()))
+        gEndWhy += shellTr(L" You keep your copy of the map. Save it to keep the changes.");
     gSession.reset();
     gConn.reset();  // (its socket's threads end first)
     gSharedKey = 0;
@@ -121,6 +124,7 @@ void finish() {
     invalidateMapView();
     shellMenusChanged();
     shellStatusChanged();
+    if (gRoot) gRoot->tabs.invalidate();
     setMessage(gEndWhy);
     // (an end that this user did not start: a message box too, so it is not missed)
     if (gEndWhy.rfind(L"You ", 0) != 0 && gRoot) msgbox::ask(*gRoot, shellTr(L"Collaborative editing"), gEndWhy, {L"OK"}, msgbox::Icon::Info);
@@ -131,6 +135,7 @@ void changed() {
     shellMenusChanged();
     shellStatusChanged();
     if (gWindowView) gWindowView->invalidate();
+    if (gRoot) gRoot->tabs.invalidate();  // (the tab's session dot)
 }
 
 void pump() {
@@ -719,4 +724,16 @@ std::wstring OptionsProgramSdl::setCollabServer(const std::wstring& server) {
     shellSettingsChanged();
     gOptionsView.invalidate();
     return out;
+}
+
+// The document tab's session state (core/views_tabs.inc): 0 none, 1 in a session alone, 2 live with others.
+int collabTabState(int doc) {
+    using namespace collabui;
+    if (!gSession || gEnded || doc < 0 || doc >= int(gDocs.size())) return 0;
+    const Editor* e = doc == gActive ? gState.ed.get() : gDocs[size_t(doc)].ed.get();
+    if (!e || gSession->editor() != e) return 0;
+    if (!gSession->isHost()) return 2;  // (a guest with the map: the host is there)
+    for (const stardraft::collab::Peer& p : gSession->peers())
+        if (p.approved) return 2;
+    return 1;
 }
