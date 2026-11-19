@@ -3430,3 +3430,293 @@ Frames a trip	Кадров за рейс
 %d workers on minerals at each base, %.1f game minutes measured at Fastest	%d рабочих на минералах на каждой базе, измерено %.1f игровых минут на максимальной скорости
 The map has no base to mine at	На карте нет базы для добычи
 Select a base in the panel to play	Выберите базу на панели, чтобы запустить
+\tCtrl+Alt+D	\tCtrl+Alt+D
+\tCtrl+Alt+E	\tCtrl+Alt+E
+\tCtrl+Alt+H	\tCtrl+Alt+H
+\tCtrl+Alt+L	\tCtrl+Alt+L
+\tCtrl+Alt+N	\tCtrl+Alt+N
+\tCtrl+D	\tCtrl+D
+\tDel	\tDel
+\n\n---\nFile > Import a project, step 	\n\n---\nФайл > Импорт проекта, шаг 
+\nDraw	\nРисование
+\nError: 	\nОшибка: 
+\nFile: 	\nФайл: 
+\nMap: 	\nКарта: 
+\nPlayer 	\nИгрок 
+\r\n• Deleted: 	\r\n• Удалено: 
+\r\n• Locations move with the map	\r\n• Локации перемещаются вместе с картой
+\r\n• Not possible: 	\r\n• Невозможно: 
+  ·  Average 	  ·  Среднее 
+  ·  HP 	  ·  HP 
+  ·  Highest 	  ·  Наибольшее 
+  ·  Lowest 	  ·  Наименьшее 
+  ·  game's 	  ·  игровое 
+ (Use Map Settings)	 (по настройкам карты)
+ (resource area 	 (область ресурсов 
+ cells  ·  	 клеток  ·  
+ columns (Columns… shows them again)	 столбцов («Столбцы…» покажет их снова)
+ doodads. You can paste them only in a map of that tileset.	 декораций. Их можно вставить только в карту с этим тайлсетом.
+ terrain. You can paste it only in a map of that tileset.	 местность. Её можно вставить только в карту с этим тайлсетом.
+ tiles, in Rectangle: the selection has no whole isometric diamond. Ctrl+V pastes them.	 тайлов в режиме «Прямоугольник»: в выделении нет целого изометрического ромба. Ctrl+V вставляет их.
+ units. To stop, right-click or press Esc.	 юнитов. Чтобы остановить, щёлкните правой кнопкой или нажмите Esc.
+" --noactivate "	" --noactivate "
+%d minerals, %d gas, %d tiles	%d минералов, %d газа, %d тайлов
+%ls  ·  %d, %d	%ls  ·  %d, %d
+%ls  ·  %ls  ·  %d, %d	%ls  ·  %ls  ·  %d, %d
+%s: %d buildable tiles, %d mineral fields (%u minerals in total), %d geysers (%u gas in total)%s	%s: %d тайлов для строительства, %d минеральных полей (всего %u минералов), %d гейзеров (всего %u газа)%s
+%zu more sound files. Type more of the name.	Ещё звуковых файлов: %zu. Введите больше символов имени.
+&Arrange	&Упорядочить
+&Check the map in Hyperion	&Проверить карту в Hyperion
+&Export map image…	&Экспорт изображения карты…
+&Hyperion	&Hyperion
+&Invert selection	&Инвертировать выделение
+&Mod terrain mapper…	&Маппер местности мода…
+&New Hyperion map	&Новая карта Hyperion
+&Open…	&Открыть…
+&Pie palette	&Круговая палитра
+&Program options…	&Параметры программы…
+&Quick open…	&Быстрое открытие…
+&Quick picker…	&Быстрый выбор…
+&Test in Hyperion (melee)	&Тест в Hyperion (мелее)
+(not necessary)	(не нужно)
+(older lines dropped)\n	(старые строки удалены)\n
+).\n\nThe release before the update is in its place again	).\n\nВерсия до обновления возвращена на место
+. Its window shows the samples and the lines that run; close it to write the report.	. В её окне видны образцы и выполняемые строки; закройте окно, чтобы записать отчёт.
+. The strings are more than 65535 bytes: the map keeps them in STRx (StarCraft: Remastered only).	. Строки длиннее 65535 байт: карта хранит их в STRx (только StarCraft: Remastered).
+: the file is not a map (.scm, .scx, .chk, .hxm) or a project	: файл не является картой (.scm, .scx, .chk, .hxm) или проектом
+; no place for a town hall	; нет места для главного здания
+A jump to a place on the map glides there	Переход к месту на карте выполняется плавно
+A map has at least 12 players (the 12th is the neutral player)	В карте не менее 12 игроков (12-й — нейтральный игрок)
+Add a player	Добавить игрока
+Add or remove	Добавить или удалить
+Add to selection	Добавить к выделению
+Align &bottom	По &нижнему краю
+Align &center	По &центру
+Align &left	По &левому краю
+Align &middle	По &середине
+Align &right	По &правому краю
+Align &top	По &верхнему краю
+All units of &Player 	Все юниты &игрока 
+Amount   0–100	Количество   0–100
+Another program changed this map after its last save here: the layers are flattened into the map as it is	Другая программа изменила эту карту после последнего сохранения здесь: слои объединены в карту как есть
+Arran&ge	&Расположить
+Arrange in a &grid	Расположить в &сетку
+Arrange in a c&ircle	Расположить по &кругу
+Arrange in a colum&n	Расположить в &столбец
+Arrange in a ro&w	Расположить в &строку
+Badlands  ·  128 x 128 tiles	Пустоши  ·  128 x 128 тайлов
+Built-in mod terrains (deprecated)	Встроенная местность мода (устарело)
+C&olumns…	&Столбцы…
+Check the map in Hyperion	Проверить карту в Hyperion
+Content-Type: application/json\r\n	Content-Type: application/json\r\n
+Could not delete the file 	Не удалось удалить файл 
+Could not delete the folder 	Не удалось удалить папку 
+Could not import the file. It has no "id" column. The first row must give the column names, with "id" for the entry numbers.	Не удалось импортировать файл. В нём нет столбца "id". В первой строке должны быть имена столбцов, а "id" — для номеров записей.
+Could not make the folder 	Не удалось создать папку 
+Could not make the new project: 	Не удалось создать новый проект: 
+Could not move the file 	Не удалось переместить файл 
+Could not rename the folder 	Не удалось переименовать папку 
+Could not write to the map's folder. Select another place for the map.	Не удалось записать в папку карты. Выберите другое место для карты.
+Crop or extend…	Обрезать или расширить…
+Ctrl+Shift+G	Ctrl+Shift+G
+Custom isom &terrain editor…	Редактор &пользовательской ISOM-местности…
+Custom terrain with the name "	Пользовательская местность с именем "
+Delete the custom terrain "	Удалить пользовательскую местность "
+Delete the trigger "Spawn the waves"?	Удалить триггер "Spawn the waves"?
+Each color is a resource area (the game's areas for the towns of computer players): its resources, with a line from the area's position, and the buildable tiles near its town hall.	Каждый цвет — это область ресурсов (игровая область для баз компьютерных игроков): её ресурсы с линией от позиции области и тайлы для строительства рядом с главным зданием.
+Edit text…	Изменить текст…
+Equal sides	Равные стороны
+Equal spaces &across	Равные промежутки по &горизонтали
+Equal spaces &down	Равные промежутки по &вертикали
+Equal spaces: select 3 units or more	Равные промежутки: выберите 3 юнита или больше
+Export CSV…	Экспорт CSV…
+Fill all of this terrain	Залить всей этой местностью
+Game terrains only	Только игровая местность
+Give to p&layer	Передать &игроку
+Go to the place at the mouse	Перейти к месту под мышью
+Hid 1 column (Columns… shows it again)	Скрыт 1 столбец («Столбцы…» покажет его снова)
+Hyperion can start this map	Hyperion может запустить эту карту
+Hyperion check: 	Проверка Hyperion: 
+Hyperion could not read the map.	Hyperion не смог прочитать карту.
+Hyperion folder	Папка Hyperion
+Hyperion map	Карта Hyperion
+Hyperion plays this map.	Hyperion воспроизводит эту карту.
+Hyperion refuses this map:	Hyperion отклоняет эту карту:
+Hyperion was not found. Select its folder in Program options > Plugins > Hyperion folder.	Hyperion не найден. Выберите его папку в Параметры программы > Плагины > Папка Hyperion.
+Hyperion's check did not run.	Проверка Hyperion не выполнилась.
+ISOM terrains: maps opened from now on use only the game's terrains	Местность ISOM: открытые с этого момента карты используют только игровую местность
+ISOM terrains: maps opened from now on use the built-in mod terrains	Местность ISOM: открытые с этого момента карты используют встроенную местность мода
+ISOM terrains: maps opened from now on use the terrain rules file	Местность ISOM: открытые с этого момента карты используют файл правил местности
+Import CSV…	Импорт CSV…
+Import the values of a CSV file into this .dat file. The "id" column gives the entries. The first row gives the columns.	Импортировать значения файла CSV в этот файл .dat. Столбец "id" задаёт записи. Первая строка задаёт столбцы.
+Invalid resource depot: the box of a town hall or a start location must not reach into the red areas	Недопустимый пункт сдачи ресурсов: область главного здания или стартовой локации не должна заходить в красные зоны
+Invalid resource node: the box of a resource must not reach into the orange areas	Недопустимый источник ресурсов: область ресурса не должна заходить в оранжевые зоны
+Inverted location	Инвертированная локация
+Loaded the Hyperion plugin: maps open and save as .hxm too, and Tools > Hyperion tests them	Плагин Hyperion загружен: карты открываются и сохраняются также как .hxm, а Сервис > Hyperion проверяет их
+Lock angle	Зафиксировать угол
+Make maps for Hyperion, up to 512 tiles a side, saved as .hxm.	Создавайте карты для Hyperion размером до 512 тайлов по стороне, с сохранением в .hxm.
+Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\nLayers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. All layers that show become one map, and the layer data stays out of it.	Слои карты экспериментальные. Сохраните копию карты и сообщайте, что не работает («Сообщить об этом»).\n\nПока вы работаете, слои остаются в этом файле карты.\n\nЧтобы получить карту для игры в StarCraft, используйте Файл > Экспорт карты. Все видимые слои становятся одной картой, а данные слоёв в неё не попадают.
+Map view	Вид карты
+Maps open and save as .hxm too, up to 512 tiles a side, and test in Hyperion	Карты открываются и сохраняются также как .hxm, размером до 512 тайлов по стороне, и тестируются в Hyperion
+Maps open and save as Hyperion maps (.hxm) too, up to 512 tiles a side, and test in Hyperion	Карты открываются и сохраняются также как карты Hyperion (.hxm), размером до 512 тайлов по стороне, и тестируются в Hyperion
+Maps open with the CMBW data, and new maps are CMBW maps	Карты открываются с данными CMBW, а новые карты являются картами CMBW
+Maps open with the Cosmonarchy BW data, and new maps are CMBW maps	Карты открываются с данными Cosmonarchy BW, а новые карты являются картами CMBW
+Maps opened after a change use the selected terrains	Карты, открытые после изменения, используют выбранную местность
+Mod terrain mapper	Маппер местности мода
+New Hyperion map	Новая карта Hyperion
+Next doodad	Следующая декорация
+Next variation	Следующий вариант
+No folder	Нет папки
+No plugin	Нет плагина
+No plugin loaded: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	Плагин не загружен: карты открываются и создаются как карты StarCraft: Brood War (открытые вкладки остаются как есть)
+No program to start	Нет программы для запуска
+No sound file has this name	Звукового файла с таким именем нет
+No tiles are selected. Select tiles in the Tiles list.	Тайлы не выбраны. Выберите тайлы в списке «Тайлы».
+Not found: select the folder that has Hyperion.exe	Не найдено: выберите папку с Hyperion.exe
+Only the isometric terrains of StarCraft. The mod's tiles are in the Tile and Custom tools.	Только изометрическая местность StarCraft. Тайлы мода находятся в инструментах «Тайл» и «Свой».
+Only the terrains of a terrain rules file (.isom, from the tools in Tools > Cosmonarchy)	Только местность из файла правил местности (.isom, из инструментов в Сервис > Cosmonarchy)
+Open in a new &panel	Открыть в новой &панели
+Overview	Обзор
+Pages that Cosmonarchy shows before the map starts: each a 1920 x 1080 picture with text (rez\\est.txt in the map).	Страницы, которые Cosmonarchy показывает перед началом карты: каждая — картинка 1920 x 1080 с текстом (rez\\est.txt в карте).
+Pie palette	Круговая палитра
+Ramp and &bridge mapper…	&Маппер пандусов и &мостов…
+Remove from selection	Убрать из выделения
+Remove ramp	Убрать пандус
+Remove the last player	Удалить последнего игрока
+Rename a unit in its form (a double-click on its name opens it).	Переименуйте юнит в его форме (двойной щелчок по имени открывает её).
+Resource area 	Область ресурсов 
+S&mooth zoom	&Плавное масштабирование
+Save &as…	Сохранить &как…
+Save as custom &terrain…	Сохранить как пользовательскую &местность…
+Save the map first (File > Save as), then test it in Hyperion.	Сначала сохраните карту (Файл > Сохранить как), затем проверьте её в Hyperion.
+Search sounds	Поиск звуков
+Select &more	Выбрать &больше
+Select a picture…	Выбрать картинку…
+Select in a box	Выбрать рамкой
+Select the columns that show. A right-click on a column's header can hide it.	Выберите столбцы, которые показываются. Правый щелчок по заголовку столбца может скрыть его.
+Select the folder with the Hyperion program	Выберите папку с программой Hyperion
+Select units first	Сначала выберите юнитов
+Set the Hyperion folder	Указать папку Hyperion
+Show &key hints	Показывать &подсказки клавиш
+Show key hints	Показывать подсказки клавиш
+Smooth &pan	Плавное &перемещение
+Smooth pan	Плавное перемещение
+Smooth zoom	Плавное масштабирование
+Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\	Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\
+Sound files show here when you type the sound of PlayWAV or Transmission	Звуковые файлы показываются здесь, когда вы вводите звук для PlayWAV или Transmission
+Sound files…	Звуковые файлы…
+StarDraft.Map\\DefaultIcon	StarDraft.Map\\DefaultIcon
+StarDraft.Map\\shell\\open\\command	StarDraft.Map\\shell\\open\\command
+StarDraft.Project\\DefaultIcon	StarDraft.Project\\DefaultIcon
+StarDraft.Project\\shell\\open\\command	StarDraft.Project\\shell\\open\\command
+Started Hyperion with 	Hyperion запущен с 
+Terrain rules file	Файл правил местности
+Test in Hyperion	Тест в Hyperion
+Test in Hyperion (&Use Map Settings)	Тест в Hyperion (&по настройкам карты)
+That folder has no Hyperion program (Hyperion.exe).	В этой папке нет программы Hyperion (Hyperion.exe).
+The copied doodads are 	Скопированные декорации: 
+The first build downloads euddraft from GitHub into its own folder. Other copies of euddraft on this computer do not change. A map that you open stays a regular map. Only a project can be built.	При первой сборке euddraft загружается с GitHub в свою папку. Другие копии euddraft на этом компьютере не меняются. Открытая карта остаётся обычной картой. Собрать можно только проект.
+The folder that has Hyperion.exe	Папка с Hyperion.exe
+The isometric terrains that come with the program and the mod. A later version removes them: use a terrain rules file.	Изометрическая местность, которая идёт с программой и модом. В одной из следующих версий она будет удалена: используйте файл правил местности.
+The keys of the tool that is on, in the middle of the status bar	Клавиши включённого инструмента, в середине строки состояния
+The last player owns units or sprites: give them to another player first	Последний игрок владеет юнитами или спрайтами: сначала передайте их другому игроку
+The map could not be saved:	Не удалось сохранить карту:
+The map could not be written as .hxm:	Не удалось записать карту как .hxm:
+The mouse wheel and the zoom commands glide to the new zoom	Колесо мыши и команды масштаба плавно переходят к новому масштабу
+The units are in their places, or do not fit there	Юниты стоят на своих местах или не помещаются там
+Theme: Automatic	Тема: автоматическая
+Theme: Dark	Тема: тёмная
+Theme: Light	Тема: светлая
+There are no sounds. Type the path of a sound.	Звуков нет. Введите путь к звуку.
+This tileset has no custom terrain	В этом тайлсете нет пользовательской местности
+Turned the tiles, experimental: each tile's picture stays as it is, so edges and cliffs possibly do not fit	Тайлы повёрнуты (экспериментально): картинка каждого тайла остаётся как есть, поэтому края и обрывы могут не совпадать
+Type a value…	Ввести значение…
+Undo &history…	&История отмен…
+Units in the &view	Юниты в &видимой области
+Untitled.hxm	Untitled.hxm
+Use a player number from 0 to 11 (Player 1 is 0)	Используйте номер игрока от 0 до 11 (Игрок 1 — это 0)
+Use this doodad	Использовать эту декорацию
+Use this sprite	Использовать этот спрайт
+Use this terrain	Использовать эту местность
+Use this tile	Использовать этот тайл
+Use this unit	Использовать этот юнит
+Zoom and pan	Масштаб и перемещение
+epTrace closed without a report. Start the map in StarCraft before you start epTrace, and close epTrace's window (not the game) to write the report.	epTrace закрылся без отчёта. Запустите карту в StarCraft до запуска epTrace и закройте окно epTrace (не игру), чтобы записать отчёт.
+epTrace report: no samples. epTrace did not find a script line that runs. Code in onPluginStart and in triggers that run once at map start runs before epTrace can see it; code that runs each trigger cycle (beforeTriggerExec, afterTriggerExec, triggers that repeat) shows in the report.	Отчёт epTrace: нет образцов. epTrace не нашёл выполняемой строки скрипта. Код в onPluginStart и в триггерах, которые выполняются один раз при старте карты, выполняется раньше, чем его увидит epTrace; код, который выполняется в каждом цикле триггеров (beforeTriggerExec, afterTriggerExec, повторяющиеся триггеры), попадает в отчёт.
+euddraft's freeze: the built map's file is protected, so that map editors cannot open it and take its triggers. Your project's own files stay as they are.	Заморозка euddraft: файл собранной карты защищён, чтобы редакторы карт не могли открыть его и забрать триггеры. Файлы вашего проекта остаются как есть.
+frame %d  ·  tick %d%ls	кадр %d  ·  такт %d%ls
+more in the Custom list	ещё в списке «Свой»
+more in the palette	ещё в палитре
+the Terrain choices	выбор местности
+• At least one player must be human\r\n	• Хотя бы один игрок должен быть человеком\r\n
+• Drag an edge or corner: size\r\n• Drag inside: move\r\n• Arrow keys: move 2 tiles	• Перетащите край или угол: размер\r\n• Перетащите внутри: переместить\r\n• Клавиши со стрелками: сдвиг на 2 тайла
+• No change	• Без изменений
+A minus B with A smaller than B gives a number above 4 billion. This value does not.	A минус B при A меньше B даёт число больше 4 миллиардов. Это значение так не делает.
+A number kept in a range	Число в заданных пределах
+A remainder	Остаток
+Do not divide by 0.	Не делите на 0.
+Each computer has its own value. Use it only for what that player sees, for example in Run local block. For a value that is the same on each computer, use "{player}'s mouse x on the map".	У каждого компьютера своё значение. Используйте его только для того, что видит этот игрок, например в «Выполнить локальный блок». Для значения, одинакового на всех компьютерах, используйте «мышь {player} по x на карте».
+Each computer has its own value. Use it only for what that player sees, for example in Run local block. For a value that is the same on each computer, use "{player}'s mouse y on the map".	У каждого компьютера своё значение. Используйте его только для того, что видит этот игрок, например в «Выполнить локальный блок». Для значения, одинакового на всех компьютерах, используйте «мышь {player} по y на карте».
+Each computer has its own value. Use it only for what that player sees, for example in Run local block. To send it to every computer, use "Share a local value".	У каждого компьютера своё значение. Используйте его только для того, что видит этот игрок, например в «Выполнить локальный блок». Чтобы отправить его на все компьютеры, используйте «Передать локальное значение».
+Game time in seconds	Игровое время в секундах
+Goes through the units of a unit group: "the unit" is each one. A unit that died runs "When it dies" one time and leaves the group.	Перебирает юниты группы юнитов: «юнит» — каждый из них. Юнит, который погиб, один раз выполняет «Когда он погибает» и покидает группу.
+How long the game has run, in game seconds: the time that the Elapsed time condition reads. At Fastest speed, a game second is shorter than a real second.	Сколько времени идёт игра, в игровых секундах: время, которое считывает условие «Прошедшее время». На скорости Fastest игровая секунда короче реальной.
+How many of Player 1 to Player 8 are in the game: people and computers that have not left.	Сколько игроков с Игрока 1 по Игрока 8 в игре: люди и компьютеры, которые не вышли.
+If the difference between score and target is at most 5: the score is near the target.	Если разница между счётом и целью не больше 5: счёт близок к цели.
+If the number of players in the game is at most 1: the last player wins.	Если число игроков в игре не больше 1: побеждает последний игрок.
+If the remainder of wave divided by 5 is exactly 0: each fifth wave has a boss.	Если остаток от деления wave на 5 ровно 0: на каждой пятой волне есть босс.
+In Run local block: if the screen x is less than 640, show "You are in the west" on this screen.	В «Выполнить локальный блок»: если x экрана меньше 640, показать «Вы на западе» на этом экране.
+In Run local block: if the screen y is less than 480, show "You are in the north" on this screen.	В «Выполнить локальный блок»: если y экрана меньше 480, показать «Вы на севере» на этом экране.
+It counts each time. Keep the number in a variable if you use it many times in one trigger.	Он считает каждый раз. Если число нужно много раз в одном триггере, храните его в переменной.
+It is true only on that player's computer. Use it only for what that player sees or hears, for example in Run local block. To change the game with a key, use "presses" or "holds down" with a player.	Это истинно только на компьютере этого игрока. Используйте это только для того, что этот игрок видит или слышит, например в «Выполнить локальный блок». Чтобы менять игру клавишей, используйте «нажимает» или «удерживает» с игроком.
+It moves the location from where it is now. To put the location at a distance from a point, first move the location to the point. Small distances are not exact: 8 pixels in direction 10 can move 1 pixel less than you expect.	Он сдвигает локацию от её текущего места. Чтобы поместить локацию на расстоянии от точки, сначала переместите локацию в эту точку. Малые расстояния неточны: 8 пикселей в направлении 10 могут сдвинуть на 1 пиксель меньше, чем вы ожидаете.
+Moves a location by a distance in a direction, in pixels. One tile is 32 pixels. The direction is 0 to 255, as the game counts directions: 0 is up, 64 is right, 128 is down and 192 is left. The location keeps its size.	Сдвигает локацию на расстояние в заданном направлении, в пикселях. Один тайл — это 32 пикселя. Направление от 0 до 255, как игра считает направления: 0 — вверх, 64 — вправо, 128 — вниз, 192 — влево. Размер локации сохраняется.
+Player 1's name is "Mapmaker": give the map maker access to test commands.	Имя Игрока 1 — "Mapmaker": дать автору карты доступ к тестовым командам.
+Runs its actions for each unit made since this loop last ran: trained, built, morphed, or made by a trigger. Inside the loop, the unit is "the unit".	Выполняет свои действия для каждого юнита, созданного с прошлого запуска этого цикла: обученного, построенного, преобразованного или созданного триггером. Внутри цикла юнит — это «юнит».
+Runs its actions for each unit on the map that matches. Inside the loop, the unit is "the unit". For one player, it goes through only that player's units (faster).	Выполняет свои действия для каждого подходящего юнита на карте. Внутри цикла юнит — это «юнит». Для одного игрока перебирает только юниты этого игрока (быстрее).
+Runs its blocks one time for each item of the list, or 8 times for a player array. The counter is the number of the item, for example 0, 1, 2 and so on. Use the counter as the index, for example "change item counter of the list".	Выполняет свои блоки по одному разу для каждого элемента списка или 8 раз для массива игроков. Счётчик — это номер элемента, например 0, 1, 2 и так далее. Используйте счётчик как индекс, например «изменить элемент счётчика списка».
+Set gold to the number in the chat line after "-give ": the value of a chat command.	Установить gold равным числу в строке чата после "-give ": значение команды чата.
+Set hp to hp + 20, but at least 0 and at most 100: heal the hero, but not above 100.	Установить hp равным hp + 20, но не меньше 0 и не больше 100: вылечить героя, но не выше 100.
+Set start to game seconds since the game started: keep the time when the wave starts. Subtract it later to get the wave's time.	Установить start равным игровым секундам с начала игры: сохранить время начала волны. Позже вычтите его, чтобы получить время волны.
+Shift a location in a direction	Сдвинуть локацию в направлении
+The difference of two	Разница двух
+The game keeps hit points, shields and energy in 1/256ths. Thus "exactly 40" can miss a unit at 40.5. Use at least or at most.	Игра хранит здоровье, щиты и энергию в 1/256. Поэтому «ровно 40» может не сработать для юнита с 40,5. Используйте «не меньше» или «не больше».
+The larger number minus the smaller number. It is never below 0.	Большее число минус меньшее. Никогда не меньше 0.
+The number of players	Число игроков
+The number, or the minimum when it is smaller, or the maximum when it is larger.	Число, или минимум, если оно меньше, или максимум, если оно больше.
+What is left when the first number is divided by the second: 7 divided by 3 gives the remainder 1.	Что остаётся, когда первое число делится на второе: 7 разделить на 3 даёт остаток 1.
+a player types "-help" in the chat: show the help text.	игрок вводит "-help" в чат: показать текст справки.
+a player types a chat line that starts with "-give ". With Add resources and The number in the chat line after "-give ", a chat command gives minerals.	игрок вводит строку чата, которая начинается с "-give ". С «Добавить ресурсы» и «Число в строке чата после "-give "» команда чата выдаёт минералы.
+a player types a chat line with "gg" in it: show "Good game!".	игрок вводит строку чата с "gg": показать "Good game!".
+change game text 1 to "Rifleman" in every language: the marine has a different name in this map.	изменить игровой текст 1 на "Rifleman" во всех языках: у морпеха на этой карте другое имя.
+epScript: Deaths(P1, AtLeast, 1, "Terran Marine"): write a condition in epScript that no block has.	epScript: Deaths(P1, AtLeast, 1, "Terran Marine"): записать условие на epScript, которого нет ни в одном блоке.
+game seconds since the game started	игровые секунды с начала игры
+note: "This trigger starts wave 2": tell other map makers what the trigger does.	заметка: "This trigger starts wave 2": сообщить другим авторам карт, что делает триггер.
+play "music\\theme.ogg" as music, again every 95 seconds, for all players: the map's own music.	воспроизвести "music\\theme.ogg" как музыку, повторять каждые 95 секунд, для всех игроков: собственная музыка карты.
+send transmission from Jim Raynor (Marine) at Base: play hello.wav, show "Hold the line": a classic message with a portrait.	отправить сообщение от Jim Raynor (Marine) на Base: воспроизвести hello.wav, показать "Hold the line": классическое сообщение с портретом.
+set Player 8's name to "The Swarm": the enemy has a name in the chat and on the leaderboard.	задать Игроку 8 имя "The Swarm": у врага есть имя в чате и в таблице лидеров.
+set the mission objectives to "Kill the boss" for all players: the players can read the goal in the Objectives menu.	задать цели миссии "Kill the boss" для всех игроков: игроки могут прочитать цель в меню «Задания».
+set the next map to "Mission 2": the next mission of the campaign loads after this map.	задать следующую карту "Mission 2": после этой карты загружается следующая миссия кампании.
+shift Missile by 16 pixels in direction dir: move the missile in the direction of the unit that shot it, in each trigger cycle.	сдвинуть Missile на 16 пикселей в направлении dir: двигать снаряд в направлении юнита, который его выпустил, в каждом цикле триггеров.
+shift {where} by {d} pixels in direction {a}	сдвинуть {where} на {d} пикселей в направлении {a}
+show "Defend the base" to all players: tell the players the goal at the start of the game.	показать "Defend the base" всем игрокам: сообщить игрокам цель в начале игры.
+show "Gold: {} Score: {}" with gold and score to the current player: show the player the two values.	показать "Gold: {} Score: {}" с gold и score текущему игроку: показать игроку два значения.
+show "Gold: {} Wave: {}" with gold and wave on line 0 to all players: show the two values on the top line.	показать "Gold: {} Wave: {}" с gold и wave в строке 0 всем игрокам: показать два значения в верхней строке.
+show "Kills: {} Wave: {}" with kills and wave in the middle of the screen to all players: show the values in the center.	показать "Kills: {} Wave: {}" с kills и wave в середине экрана всем игрокам: показать значения по центру.
+show "Not enough gold" in the middle of the screen to the current player: tell the player that the purchase did not go through.	показать "Not enough gold" в середине экрана текущему игроку: сообщить игроку, что покупка не удалась.
+show "Wave 2" on line 0 to all players: show the wave on the top line. A new text on the line replaces it.	показать "Wave 2" в строке 0 всем игрокам: показать волну в верхней строке. Новый текст в строке заменяет его.
+show a leaderboard "Hill" of who has the most Men at Hill, goal 10: show who is near to 10 units on the hill.	показать таблицу лидеров "Hill" по тому, у кого больше всего Men в Hill, цель 10: показать, кто близок к 10 юнитам на холме.
+show a leaderboard "Hill" of who has the most Men at Hill: show who holds the hill in a king of the hill map.	показать таблицу лидеров "Hill" по тому, у кого больше всего Men в Hill: показать, кто держит холм на карте «царь горы».
+show a leaderboard "Kills" of kills of Any unit, goal 50: show how many kills each player needs to win.	показать таблицу лидеров "Kills" по убийствам Any unit, цель 50: показать, сколько убийств нужно каждому игроку для победы.
+show a leaderboard "Kills" of kills of Any unit: show which player killed the most units.	показать таблицу лидеров "Kills" по убийствам Any unit: показать, какой игрок убил больше всего юнитов.
+show a leaderboard "Marines" of who owns the most Terran Marine, goal 20: the first player with 20 marines wins.	показать таблицу лидеров "Marines" по тому, у кого больше всего Terran Marine, цель 20: первый игрок с 20 морпехами побеждает.
+show a leaderboard "Most units" of who owns the most Men: show which player has the largest army.	показать таблицу лидеров "Most units" по тому, у кого больше всего Men: показать, у какого игрока самая большая армия.
+show a leaderboard "Richest" of minerals, goal 5000: show how near each player is to 5000 minerals.	показать таблицу лидеров "Richest" по минералам, цель 5000: показать, насколько каждый игрок близок к 5000 минералов.
+show a leaderboard "Richest" of minerals: show which player has the most minerals.	показать таблицу лидеров "Richest" по минералам: показать, у какого игрока больше всего минералов.
+show a leaderboard "Score" of custom score: show the rounds that each player won.	показать таблицу лидеров "Score" по пользовательскому счёту: показать раунды, которые выиграл каждый игрок.
+show a leaderboard "Score" of total score, goal 1000: show how far each player is from the score goal.	показать таблицу лидеров "Score" по общему счёту, цель 1000: показать, как далеко каждый игрок от цели по счёту.
+the current player has the most minerals: this player is the richest. Show the text "You are the richest player" to this player.	у текущего игрока больше всего минералов: этот игрок самый богатый. Показать этому игроку текст "You are the richest player".
+the difference between {a} and {b}	разница между {a} и {b}
+the number of players in the game	число игроков в игре
+the remainder of {a} divided by {b}	остаток от деления {a} на {b}
+{a}, but at least {low} and at most {high}	{a}, но не меньше {low} и не больше {high}

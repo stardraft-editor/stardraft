@@ -184,5 +184,5 @@
    "target": 0
   }
  },
- "accepted": {}
+ "accepted": {"0.9.1": {"largest_file_lines": "the mod terrain mapper (apps/editor/core/views_isom_rules.inc) grew as one file; it is split after 0.9.1, not in the release"}}
 }

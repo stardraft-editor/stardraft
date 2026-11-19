@@ -227,7 +227,7 @@ std::vector<std::wstring> sdlPlayersProblems(const PlayersValues& d) {
 void sdlPlayersRefresh(PlayersValues& d) {
     const auto problems = sdlPlayersProblems(d);
     d.problemsText.clear();
-    if (problems.empty()) d.problemsText = hyperionMode() ? L"\x2713  Hyperion can start this map" : L"\x2713  StarCraft can start this map";
+    if (problems.empty()) d.problemsText = std::wstring(L"\x2713  ") + (hyperionMode() ? L"Hyperion can start this map" : L"StarCraft can start this map");
     else
         for (const auto& pr : problems) d.problemsText += L"\x2717  " + pr + L"\r\n";
 }

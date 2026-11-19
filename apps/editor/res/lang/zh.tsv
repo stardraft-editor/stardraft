@@ -3430,3 +3430,293 @@ Frames a trip	每趟帧数
 %d workers on minerals at each base, %.1f game minutes measured at Fastest	每个基地 %d 名采矿工人，最快速度下测量 %.1f 游戏分钟
 The map has no base to mine at	地图上没有可采矿的基地
 Select a base in the panel to play	在面板中选择一个基地以播放
+\tCtrl+Alt+D	\tCtrl+Alt+D
+\tCtrl+Alt+E	\tCtrl+Alt+E
+\tCtrl+Alt+H	\tCtrl+Alt+H
+\tCtrl+Alt+L	\tCtrl+Alt+L
+\tCtrl+Alt+N	\tCtrl+Alt+N
+\tCtrl+D	\tCtrl+D
+\tDel	\tDel
+\n\n---\nFile > Import a project, step 	\n\n---\n文件 > 导入项目，步骤 
+\nDraw	\n绘制
+\nError: 	\n错误： 
+\nFile: 	\n文件： 
+\nMap: 	\n地图： 
+\nPlayer 	\n玩家 
+\r\n• Deleted: 	\r\n• 已删除： 
+\r\n• Locations move with the map	\r\n• 位置随地图移动
+\r\n• Not possible: 	\r\n• 无法执行： 
+  ·  Average 	  ·  平均 
+  ·  HP 	  ·  生命值 
+  ·  Highest 	  ·  最高 
+  ·  Lowest 	  ·  最低 
+  ·  game's 	  ·  游戏的 
+ (Use Map Settings)	（使用地图设置）
+ (resource area 	（资源区 
+ cells  ·  	 格  ·  
+ columns (Columns… shows them again)	 列（“列…”可再次显示）
+ doodads. You can paste them only in a map of that tileset.	 装饰物。只能粘贴到使用该图块集的地图中。
+ terrain. You can paste it only in a map of that tileset.	 地形。只能粘贴到使用该图块集的地图中。
+ tiles, in Rectangle: the selection has no whole isometric diamond. Ctrl+V pastes them.	 图块，在“矩形”中：所选内容没有完整的等距菱形。按 Ctrl+V 粘贴。
+ units. To stop, right-click or press Esc.	 单位。要停止，请右键单击或按 Esc。
+" --noactivate "	" --noactivate "
+%d minerals, %d gas, %d tiles	%d 矿物，%d 瓦斯，%d 格
+%ls  ·  %d, %d	%ls  ·  %d, %d
+%ls  ·  %ls  ·  %d, %d	%ls  ·  %ls  ·  %d, %d
+%s: %d buildable tiles, %d mineral fields (%u minerals in total), %d geysers (%u gas in total)%s	%s：%d 个可建造格，%d 个矿区（共 %u 矿物），%d 个瓦斯泉（共 %u 瓦斯）%s
+%zu more sound files. Type more of the name.	还有 %zu 个声音文件。请输入更多名称。
+&Arrange	排列(&A)
+&Check the map in Hyperion	在 Hyperion 中检查地图(&C)
+&Export map image…	导出地图图像(&E)…
+&Hyperion	&Hyperion
+&Invert selection	反选(&I)
+&Mod terrain mapper…	Mod 地形映射器(&M)…
+&New Hyperion map	新建 Hyperion 地图(&N)
+&Open…	打开(&O)…
+&Pie palette	饼形调色板(&P)
+&Program options…	程序选项(&P)…
+&Quick open…	快速打开(&Q)…
+&Quick picker…	快速选取器(&Q)…
+&Test in Hyperion (melee)	在 Hyperion 中测试（对战）(&T)
+(not necessary)	（无需）
+(older lines dropped)\n	（较早的行已丢弃）\n
+).\n\nThe release before the update is in its place again	）。\n\n更新前的版本已恢复
+. Its window shows the samples and the lines that run; close it to write the report.	。其窗口显示样本和正在运行的行；关闭窗口即可写入报告。
+. The strings are more than 65535 bytes: the map keeps them in STRx (StarCraft: Remastered only).	。字符串超过 65535 字节：地图将其保存在 STRx 中（仅限 StarCraft: Remastered）。
+: the file is not a map (.scm, .scx, .chk, .hxm) or a project	：该文件不是地图（.scm、.scx、.chk、.hxm）或项目
+; no place for a town hall	；没有主基地的位置
+A jump to a place on the map glides there	跳转到地图上的某处时平滑滑动
+A map has at least 12 players (the 12th is the neutral player)	地图至少有 12 名玩家（第 12 名是中立玩家）
+Add a player	添加玩家
+Add or remove	添加或删除
+Add to selection	添加到选择
+Align &bottom	底部对齐(&B)
+Align &center	居中对齐(&C)
+Align &left	左对齐(&L)
+Align &middle	垂直居中对齐(&M)
+Align &right	右对齐(&R)
+Align &top	顶部对齐(&T)
+All units of &Player 	玩家 的所有单位(&P) 
+Amount   0–100	数量   0…100
+Another program changed this map after its last save here: the layers are flattened into the map as it is	另一个程序在此处上次保存后更改了该地图：图层已合并到当前的地图中
+Arran&ge	排列(&G)
+Arrange in a &grid	按网格排列(&G)
+Arrange in a c&ircle	按圆形排列(&I)
+Arrange in a colum&n	按列排列(&N)
+Arrange in a ro&w	按行排列(&W)
+Badlands  ·  128 x 128 tiles	Badlands  ·  128 x 128 格
+Built-in mod terrains (deprecated)	内置 mod 地形（已弃用）
+C&olumns…	列(&O)…
+Check the map in Hyperion	在 Hyperion 中检查地图
+Content-Type: application/json\r\n	Content-Type: application/json\r\n
+Could not delete the file 	无法删除文件 
+Could not delete the folder 	无法删除文件夹 
+Could not import the file. It has no "id" column. The first row must give the column names, with "id" for the entry numbers.	无法导入文件。它没有“id”列。第一行必须给出列名，条目编号使用“id”。
+Could not make the folder 	无法创建文件夹 
+Could not make the new project: 	无法创建新项目： 
+Could not move the file 	无法移动文件 
+Could not rename the folder 	无法重命名文件夹 
+Could not write to the map's folder. Select another place for the map.	无法写入地图所在的文件夹。请为地图选择其他位置。
+Crop or extend…	裁剪或扩展…
+Ctrl+Shift+G	Ctrl+Shift+G
+Custom isom &terrain editor…	自定义 isom 地形编辑器(&T)…
+Custom terrain with the name "	名为“
+Delete the custom terrain "	删除自定义地形“
+Delete the trigger "Spawn the waves"?	删除触发器“Spawn the waves”吗？
+Each color is a resource area (the game's areas for the towns of computer players): its resources, with a line from the area's position, and the buildable tiles near its town hall.	每种颜色是一个资源区（游戏中电脑玩家城镇的区域）：其资源（有一条线连到区域位置），以及主基地附近的可建造格。
+Edit text…	编辑文本…
+Equal sides	等边
+Equal spaces &across	水平等间距(&A)
+Equal spaces &down	垂直等间距(&D)
+Equal spaces: select 3 units or more	等间距：请选择 3 个或更多单位
+Export CSV…	导出 CSV…
+Fill all of this terrain	填充此地形的全部
+Game terrains only	仅游戏地形
+Give to p&layer	分配给玩家(&L)
+Go to the place at the mouse	转到鼠标所在位置
+Hid 1 column (Columns… shows it again)	已隐藏 1 列（“列…”可再次显示）
+Hyperion can start this map	Hyperion 可以启动此地图
+Hyperion check: 	Hyperion 检查： 
+Hyperion could not read the map.	Hyperion 无法读取该地图。
+Hyperion folder	Hyperion 文件夹
+Hyperion map	Hyperion 地图
+Hyperion plays this map.	Hyperion 可以运行此地图。
+Hyperion refuses this map:	Hyperion 拒绝此地图：
+Hyperion was not found. Select its folder in Program options > Plugins > Hyperion folder.	未找到 Hyperion。请在“程序选项 > 插件 > Hyperion 文件夹”中选择其文件夹。
+Hyperion's check did not run.	Hyperion 的检查未运行。
+ISOM terrains: maps opened from now on use only the game's terrains	ISOM 地形：此后打开的地图仅使用游戏地形
+ISOM terrains: maps opened from now on use the built-in mod terrains	ISOM 地形：此后打开的地图使用内置 mod 地形
+ISOM terrains: maps opened from now on use the terrain rules file	ISOM 地形：此后打开的地图使用地形规则文件
+Import CSV…	导入 CSV…
+Import the values of a CSV file into this .dat file. The "id" column gives the entries. The first row gives the columns.	将 CSV 文件中的值导入此 .dat 文件。“id”列给出条目。第一行给出各列。
+Invalid resource depot: the box of a town hall or a start location must not reach into the red areas	无效的资源仓库：主基地或出生点的方框不能进入红色区域
+Invalid resource node: the box of a resource must not reach into the orange areas	无效的资源点：资源的方框不能进入橙色区域
+Inverted location	反向位置
+Loaded the Hyperion plugin: maps open and save as .hxm too, and Tools > Hyperion tests them	已加载 Hyperion 插件：地图也可打开和保存为 .hxm，工具 > Hyperion 可测试地图
+Lock angle	锁定角度
+Make maps for Hyperion, up to 512 tiles a side, saved as .hxm.	为 Hyperion 制作地图，每边最多 512 格，保存为 .hxm。
+Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\nLayers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. All layers that show become one map, and the layer data stays out of it.	地图图层为实验功能。请保留地图副本，并报告不能正常工作的地方（提交反馈）。\n\n编辑期间，图层保存在此地图文件中。\n\n要制作在 StarCraft 中游玩的地图，请使用 文件 > 导出地图。所有显示的图层将合并为一张地图，图层数据不会包含在内。
+Map view	地图视图
+Maps open and save as .hxm too, up to 512 tiles a side, and test in Hyperion	地图也可打开和保存为 .hxm，每边最多 512 格，并可在 Hyperion 中测试
+Maps open and save as Hyperion maps (.hxm) too, up to 512 tiles a side, and test in Hyperion	地图也可打开和保存为 Hyperion 地图 (.hxm)，每边最多 512 格，并可在 Hyperion 中测试
+Maps open with the CMBW data, and new maps are CMBW maps	地图使用 CMBW 数据打开，新地图为 CMBW 地图
+Maps open with the Cosmonarchy BW data, and new maps are CMBW maps	地图使用 Cosmonarchy BW 数据打开，新地图为 CMBW 地图
+Maps opened after a change use the selected terrains	更改后打开的地图使用所选的地形
+Mod terrain mapper	Mod 地形映射器
+New Hyperion map	新建 Hyperion 地图
+Next doodad	下一个装饰物
+Next variation	下一个变体
+No folder	无文件夹
+No plugin	无插件
+No plugin loaded: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	未加载插件：地图作为 StarCraft: Brood War 地图打开和创建（已打开的标签页保持不变）
+No program to start	没有可启动的程序
+No sound file has this name	没有声音文件使用此名称
+No tiles are selected. Select tiles in the Tiles list.	未选择图块。请在“图块”列表中选择图块。
+Not found: select the folder that has Hyperion.exe	未找到：请选择包含 Hyperion.exe 的文件夹
+Only the isometric terrains of StarCraft. The mod's tiles are in the Tile and Custom tools.	仅 StarCraft 的等距地形。mod 的图块在“图块”和“自定义”工具中。
+Only the terrains of a terrain rules file (.isom, from the tools in Tools > Cosmonarchy)	仅地形规则文件的地形（.isom，来自 工具 > Cosmonarchy 中的工具）
+Open in a new &panel	在新面板中打开(&P)
+Overview	概览
+Pages that Cosmonarchy shows before the map starts: each a 1920 x 1080 picture with text (rez\\est.txt in the map).	Cosmonarchy 在地图开始前显示的页面：每页是一张带文字的 1920 x 1080 图片（地图中的 rez\\est.txt）。
+Pie palette	饼形调色板
+Ramp and &bridge mapper…	坡道和桥梁映射器(&B)…
+Remove from selection	从选择中移除
+Remove ramp	移除坡道
+Remove the last player	移除最后一名玩家
+Rename a unit in its form (a double-click on its name opens it).	在单位的表单中重命名单位（双击其名称即可打开）。
+Resource area 	资源区 
+S&mooth zoom	平滑缩放(&M)
+Save &as…	另存为(&A)…
+Save as custom &terrain…	另存为自定义地形(&T)…
+Save the map first (File > Save as), then test it in Hyperion.	请先保存地图（文件 > 另存为），然后在 Hyperion 中测试。
+Search sounds	搜索声音
+Select &more	选择更多(&M)
+Select a picture…	选择图片…
+Select in a box	框选
+Select the columns that show. A right-click on a column's header can hide it.	选择要显示的列。右键单击列标题可隐藏该列。
+Select the folder with the Hyperion program	选择包含 Hyperion 程序的文件夹
+Select units first	请先选择单位
+Set the Hyperion folder	设置 Hyperion 文件夹
+Show &key hints	显示按键提示(&K)
+Show key hints	显示按键提示
+Smooth &pan	平滑平移(&P)
+Smooth pan	平滑平移
+Smooth zoom	平滑缩放
+Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\	Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\
+Sound files show here when you type the sound of PlayWAV or Transmission	输入 PlayWAV 或 Transmission 的声音时，声音文件显示在这里
+Sound files…	声音文件…
+StarDraft.Map\\DefaultIcon	StarDraft.Map\\DefaultIcon
+StarDraft.Map\\shell\\open\\command	StarDraft.Map\\shell\\open\\command
+StarDraft.Project\\DefaultIcon	StarDraft.Project\\DefaultIcon
+StarDraft.Project\\shell\\open\\command	StarDraft.Project\\shell\\open\\command
+Started Hyperion with 	已启动 Hyperion，参数： 
+Terrain rules file	地形规则文件
+Test in Hyperion	在 Hyperion 中测试
+Test in Hyperion (&Use Map Settings)	在 Hyperion 中测试（使用地图设置）(&U)
+That folder has no Hyperion program (Hyperion.exe).	该文件夹中没有 Hyperion 程序 (Hyperion.exe)。
+The copied doodads are 	已复制的装饰物为 
+The first build downloads euddraft from GitHub into its own folder. Other copies of euddraft on this computer do not change. A map that you open stays a regular map. Only a project can be built.	首次构建会将 euddraft 从 GitHub 下载到其自己的文件夹。此电脑上 euddraft 的其他副本不会改变。打开的地图仍是普通地图。只有项目可以构建。
+The folder that has Hyperion.exe	包含 Hyperion.exe 的文件夹
+The isometric terrains that come with the program and the mod. A later version removes them: use a terrain rules file.	随程序和 mod 提供的等距地形。以后的版本会移除它们：请使用地形规则文件。
+The keys of the tool that is on, in the middle of the status bar	已启用工具的按键，显示在状态栏中间
+The last player owns units or sprites: give them to another player first	最后一名玩家拥有单位或精灵：请先将它们分配给其他玩家
+The map could not be saved:	无法保存地图：
+The map could not be written as .hxm:	无法将地图写为 .hxm：
+The mouse wheel and the zoom commands glide to the new zoom	鼠标滚轮和缩放命令会平滑过渡到新的缩放
+The units are in their places, or do not fit there	单位已就位，或放不下
+Theme: Automatic	主题：自动
+Theme: Dark	主题：深色
+Theme: Light	主题：浅色
+There are no sounds. Type the path of a sound.	没有声音。请输入声音的路径。
+This tileset has no custom terrain	此图块集没有自定义地形
+Turned the tiles, experimental: each tile's picture stays as it is, so edges and cliffs possibly do not fit	已旋转图块（实验功能）：每个图块的图片保持不变，因此边缘和悬崖可能对不上
+Type a value…	输入值…
+Undo &history…	撤销历史(&H)…
+Units in the &view	视图中的单位(&V)
+Untitled.hxm	Untitled.hxm
+Use a player number from 0 to 11 (Player 1 is 0)	请使用 0 到 11 的玩家编号（玩家 1 是 0）
+Use this doodad	使用此装饰物
+Use this sprite	使用此精灵
+Use this terrain	使用此地形
+Use this tile	使用此图块
+Use this unit	使用此单位
+Zoom and pan	缩放和平移
+epTrace closed without a report. Start the map in StarCraft before you start epTrace, and close epTrace's window (not the game) to write the report.	epTrace 关闭时没有报告。请先在 StarCraft 中启动地图，再启动 epTrace；并关闭 epTrace 的窗口（不是游戏）以写入报告。
+epTrace report: no samples. epTrace did not find a script line that runs. Code in onPluginStart and in triggers that run once at map start runs before epTrace can see it; code that runs each trigger cycle (beforeTriggerExec, afterTriggerExec, triggers that repeat) shows in the report.	epTrace 报告：没有样本。epTrace 未找到运行的脚本行。onPluginStart 中的代码和地图开始时只运行一次的触发器中的代码，在 epTrace 能看到之前就已运行；每个触发周期运行的代码（beforeTriggerExec、afterTriggerExec、重复的触发器）会显示在报告中。
+euddraft's freeze: the built map's file is protected, so that map editors cannot open it and take its triggers. Your project's own files stay as they are.	euddraft 的冻结：生成的地图文件受到保护，地图编辑器无法打开它并获取其触发器。项目自己的文件保持不变。
+frame %d  ·  tick %d%ls	帧 %d  ·  刻 %d%ls
+more in the Custom list	自定义列表中还有更多
+more in the palette	调色板中还有更多
+the Terrain choices	地形选项
+• At least one player must be human\r\n	• 至少要有一名人类玩家\r\n
+• Drag an edge or corner: size\r\n• Drag inside: move\r\n• Arrow keys: move 2 tiles	• 拖动边缘或角：调整大小\r\n• 在内部拖动：移动\r\n• 方向键：移动 2 格
+• No change	• 无更改
+A minus B with A smaller than B gives a number above 4 billion. This value does not.	A 减 B（A 小于 B）会得到大于 40 亿的数。此值不会。
+A number kept in a range	限制在范围内的数
+A remainder	余数
+Do not divide by 0.	不要除以 0。
+Each computer has its own value. Use it only for what that player sees, for example in Run local block. For a value that is the same on each computer, use "{player}'s mouse x on the map".	每台电脑有各自的值。仅用于该玩家所见的内容，例如在“运行本地块”中。对于每台电脑相同的值，请使用“{player}'s mouse x on the map”。
+Each computer has its own value. Use it only for what that player sees, for example in Run local block. For a value that is the same on each computer, use "{player}'s mouse y on the map".	每台电脑有各自的值。仅用于该玩家所见的内容，例如在“运行本地块”中。对于每台电脑相同的值，请使用“{player}'s mouse y on the map”。
+Each computer has its own value. Use it only for what that player sees, for example in Run local block. To send it to every computer, use "Share a local value".	每台电脑有各自的值。仅用于该玩家所见的内容，例如在“运行本地块”中。要发送给每台电脑，请使用“共享本地值”。
+Game time in seconds	游戏时间（秒）
+Goes through the units of a unit group: "the unit" is each one. A unit that died runs "When it dies" one time and leaves the group.	遍历单位组中的单位：“该单位”是其中每一个。死亡的单位会运行一次“死亡时”并离开该组。
+How long the game has run, in game seconds: the time that the Elapsed time condition reads. At Fastest speed, a game second is shorter than a real second.	游戏已运行的时间，以游戏秒计：即“已用时间”条件读取的时间。在最快速度下，一游戏秒比一现实秒短。
+How many of Player 1 to Player 8 are in the game: people and computers that have not left.	玩家 1 到玩家 8 中仍在游戏中的数量：未离开的人类和电脑。
+If the difference between score and target is at most 5: the score is near the target.	如果分数与目标的差最多为 5：分数接近目标。
+If the number of players in the game is at most 1: the last player wins.	如果游戏中的玩家数最多为 1：最后一名玩家获胜。
+If the remainder of wave divided by 5 is exactly 0: each fifth wave has a boss.	如果波数除以 5 的余数正好为 0：每第五波有首领。
+In Run local block: if the screen x is less than 640, show "You are in the west" on this screen.	在“运行本地块”中：如果屏幕 x 小于 640，则在此屏幕上显示“You are in the west”。
+In Run local block: if the screen y is less than 480, show "You are in the north" on this screen.	在“运行本地块”中：如果屏幕 y 小于 480，则在此屏幕上显示“You are in the north”。
+It counts each time. Keep the number in a variable if you use it many times in one trigger.	每次都会计数。如果在一个触发器中多次使用该数，请将其保存在变量中。
+It is true only on that player's computer. Use it only for what that player sees or hears, for example in Run local block. To change the game with a key, use "presses" or "holds down" with a player.	仅在该玩家的电脑上为真。仅用于该玩家所见或所闻的内容，例如在“运行本地块”中。要用按键更改游戏，请对玩家使用“按下”或“按住”。
+It moves the location from where it is now. To put the location at a distance from a point, first move the location to the point. Small distances are not exact: 8 pixels in direction 10 can move 1 pixel less than you expect.	它从位置当前所在处开始移动。要将位置放在距某点一定距离处，请先将位置移到该点。小距离不精确：方向 10 上的 8 像素可能比预期少移动 1 像素。
+Moves a location by a distance in a direction, in pixels. One tile is 32 pixels. The direction is 0 to 255, as the game counts directions: 0 is up, 64 is right, 128 is down and 192 is left. The location keeps its size.	按方向和距离移动位置，单位为像素。一格为 32 像素。方向为 0 到 255，按游戏的方向计数：0 是上，64 是右，128 是下，192 是左。位置保持其大小。
+Player 1's name is "Mapmaker": give the map maker access to test commands.	玩家 1 的名称是“Mapmaker”：让地图作者可以使用测试命令。
+Runs its actions for each unit made since this loop last ran: trained, built, morphed, or made by a trigger. Inside the loop, the unit is "the unit".	对自上次循环运行以来制造的每个单位运行其动作：训练、建造、变形或由触发器制造。在循环内，该单位是“该单位”。
+Runs its actions for each unit on the map that matches. Inside the loop, the unit is "the unit". For one player, it goes through only that player's units (faster).	对地图上每个匹配的单位运行其动作。在循环内，该单位是“该单位”。对于一名玩家，只遍历该玩家的单位（更快）。
+Runs its blocks one time for each item of the list, or 8 times for a player array. The counter is the number of the item, for example 0, 1, 2 and so on. Use the counter as the index, for example "change item counter of the list".	对列表的每一项运行其块一次，对玩家数组则运行 8 次。计数器是项的编号，例如 0、1、2 等。将计数器用作索引，例如“更改列表的项 计数器”。
+Set gold to the number in the chat line after "-give ": the value of a chat command.	将 gold 设为聊天行中“-give ”之后的数：聊天命令的值。
+Set hp to hp + 20, but at least 0 and at most 100: heal the hero, but not above 100.	将 hp 设为 hp + 20，但至少为 0，至多为 100：治疗英雄，但不超过 100。
+Set start to game seconds since the game started: keep the time when the wave starts. Subtract it later to get the wave's time.	将 start 设为游戏开始后的游戏秒数：保存波开始的时间。稍后减去它即可得到该波的时间。
+Shift a location in a direction	沿某方向移动位置
+The difference of two	两者之差
+The game keeps hit points, shields and energy in 1/256ths. Thus "exactly 40" can miss a unit at 40.5. Use at least or at most.	游戏以 1/256 为单位保存生命值、护盾和能量。因此“正好 40”可能漏掉 40.5 的单位。请使用至少或至多。
+The larger number minus the smaller number. It is never below 0.	较大的数减去较小的数。它永远不会低于 0。
+The number of players	玩家数
+The number, or the minimum when it is smaller, or the maximum when it is larger.	该数；如果它更小则为最小值，如果它更大则为最大值。
+What is left when the first number is divided by the second: 7 divided by 3 gives the remainder 1.	第一个数除以第二个数后剩下的部分：7 除以 3 的余数是 1。
+a player types "-help" in the chat: show the help text.	玩家在聊天中输入“-help”：显示帮助文本。
+a player types a chat line that starts with "-give ". With Add resources and The number in the chat line after "-give ", a chat command gives minerals.	玩家输入以“-give ”开头的聊天行。使用“添加资源”和“聊天行中“-give ”之后的数”，聊天命令可给予矿物。
+a player types a chat line with "gg" in it: show "Good game!".	玩家输入包含“gg”的聊天行：显示“Good game!”。
+change game text 1 to "Rifleman" in every language: the marine has a different name in this map.	将游戏文本 1 在每种语言中改为“Rifleman”：此地图中陆战队员有不同的名称。
+epScript: Deaths(P1, AtLeast, 1, "Terran Marine"): write a condition in epScript that no block has.	epScript: Deaths(P1, AtLeast, 1, "Terran Marine")：用 epScript 写一个任何块都没有的条件。
+game seconds since the game started	游戏开始后的游戏秒数
+note: "This trigger starts wave 2": tell other map makers what the trigger does.	备注：“This trigger starts wave 2”：告诉其他地图作者此触发器的作用。
+play "music\\theme.ogg" as music, again every 95 seconds, for all players: the map's own music.	将“music\\theme.ogg”作为音乐播放，每 95 秒重复一次，对所有玩家：地图自己的音乐。
+send transmission from Jim Raynor (Marine) at Base: play hello.wav, show "Hold the line": a classic message with a portrait.	发送通讯：Jim Raynor（陆战队员），在 Base：播放 hello.wav，显示“Hold the line”：带头像的经典消息。
+set Player 8's name to "The Swarm": the enemy has a name in the chat and on the leaderboard.	将玩家 8 的名称设为“The Swarm”：敌人在聊天和排行榜中有名称。
+set the mission objectives to "Kill the boss" for all players: the players can read the goal in the Objectives menu.	对所有玩家将任务目标设为“Kill the boss”：玩家可在“任务目标”菜单中阅读目标。
+set the next map to "Mission 2": the next mission of the campaign loads after this map.	将下一张地图设为“Mission 2”：本地图结束后加载战役的下一个任务。
+shift Missile by 16 pixels in direction dir: move the missile in the direction of the unit that shot it, in each trigger cycle.	将 Missile 沿方向 dir 移动 16 像素：在每个触发周期中，沿射出它的单位的方向移动导弹。
+shift {where} by {d} pixels in direction {a}	将 {where} 沿方向 {a} 移动 {d} 像素
+show "Defend the base" to all players: tell the players the goal at the start of the game.	对所有玩家显示“Defend the base”：在游戏开始时告诉玩家目标。
+show "Gold: {} Score: {}" with gold and score to the current player: show the player the two values.	对当前玩家显示“Gold: {} Score: {}”，值为 gold 和 score：向玩家显示这两个值。
+show "Gold: {} Wave: {}" with gold and wave on line 0 to all players: show the two values on the top line.	对所有玩家在第 0 行显示“Gold: {} Wave: {}”，值为 gold 和 wave：在顶部行显示这两个值。
+show "Kills: {} Wave: {}" with kills and wave in the middle of the screen to all players: show the values in the center.	对所有玩家在屏幕中间显示“Kills: {} Wave: {}”，值为 kills 和 wave：在中央显示这些值。
+show "Not enough gold" in the middle of the screen to the current player: tell the player that the purchase did not go through.	对当前玩家在屏幕中间显示“Not enough gold”：告诉玩家购买没有成功。
+show "Wave 2" on line 0 to all players: show the wave on the top line. A new text on the line replaces it.	对所有玩家在第 0 行显示“Wave 2”：在顶部行显示波数。该行上的新文本会替换它。
+show a leaderboard "Hill" of who has the most Men at Hill, goal 10: show who is near to 10 units on the hill.	显示排行榜“Hill”：谁在 Hill 拥有最多 Men，目标 10：显示谁接近山上 10 个单位。
+show a leaderboard "Hill" of who has the most Men at Hill: show who holds the hill in a king of the hill map.	显示排行榜“Hill”：谁在 Hill 拥有最多 Men：在山丘之王地图中显示谁占据山丘。
+show a leaderboard "Kills" of kills of Any unit, goal 50: show how many kills each player needs to win.	显示排行榜“Kills”：Any unit 的击杀数，目标 50：显示每名玩家还需要多少击杀才能获胜。
+show a leaderboard "Kills" of kills of Any unit: show which player killed the most units.	显示排行榜“Kills”：Any unit 的击杀数：显示哪名玩家击杀的单位最多。
+show a leaderboard "Marines" of who owns the most Terran Marine, goal 20: the first player with 20 marines wins.	显示排行榜“Marines”：谁拥有最多 Terran Marine，目标 20：第一个拥有 20 名陆战队员的玩家获胜。
+show a leaderboard "Most units" of who owns the most Men: show which player has the largest army.	显示排行榜“Most units”：谁拥有最多 Men：显示哪名玩家的军队最大。
+show a leaderboard "Richest" of minerals, goal 5000: show how near each player is to 5000 minerals.	显示排行榜“Richest”：矿物，目标 5000：显示每名玩家离 5000 矿物有多近。
+show a leaderboard "Richest" of minerals: show which player has the most minerals.	显示排行榜“Richest”：矿物：显示哪名玩家的矿物最多。
+show a leaderboard "Score" of custom score: show the rounds that each player won.	显示排行榜“Score”：自定义分数：显示每名玩家赢得的回合数。
+show a leaderboard "Score" of total score, goal 1000: show how far each player is from the score goal.	显示排行榜“Score”：总分，目标 1000：显示每名玩家离分数目标还有多远。
+the current player has the most minerals: this player is the richest. Show the text "You are the richest player" to this player.	当前玩家的矿物最多：此玩家最富有。对此玩家显示文本“You are the richest player”。
+the difference between {a} and {b}	{a} 与 {b} 之差
+the number of players in the game	游戏中的玩家数
+the remainder of {a} divided by {b}	{a} 除以 {b} 的余数
+{a}, but at least {low} and at most {high}	{a}，但至少为 {low}，至多为 {high}

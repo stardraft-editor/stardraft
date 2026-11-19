@@ -5262,8 +5262,8 @@ private:
     std::filesystem::path pendingFile_;  // (useFile)
     stardraft::kit::Button newTerrain_;    stardraft::kit::CheckBox refShow_;
     stardraft::kit::Button cmpAccept_{L"Accept", stardraft::kit::Tone::Primary, [this] { acceptOne(), focus(); }};  // (Enter stays the view's)
-    stardraft::kit::Button shiftBack_{L"\x25C0", stardraft::kit::Tone::Normal, [this] { shiftStep(-1), focus(); }};
-    stardraft::kit::Button shiftOn_{L"\x25B6", stardraft::kit::Tone::Normal, [this] { shiftStep(1), focus(); }};
+    stardraft::kit::Button shiftBack_{L"<", stardraft::kit::Tone::Normal, [this] { shiftStep(-1), focus(); }};
+    stardraft::kit::Button shiftOn_{L">", stardraft::kit::Tone::Normal, [this] { shiftStep(1), focus(); }};
     draw::Rect shiftLabel_{0, 0, 0, 0}, borderLabel_{0, 0, 0, 0};  // (Rectangle match: the row over the canvas)
     stardraft::kit::Button cmpAlt_{L"Next choice", stardraft::kit::Tone::Normal, [this] { nextAlternative(), focus(); }};
     stardraft::kit::Button cmpAll_{L"Accept all", stardraft::kit::Tone::Normal, [this] { acceptSuggestions(false, true), focus(); }};  // (the compare pane's)

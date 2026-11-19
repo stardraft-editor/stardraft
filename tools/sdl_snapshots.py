@@ -476,7 +476,7 @@ CASES += [
     ("map-panel-dock-shot", ["--mode", "terrain", "--script", "{script:floatdockshot}"], "map"),
     # A custom terrain saved, then a right click on it in the Custom list: Copy as text, Import from text.
     ("map-custom-copy-shot", ["--custom", "--stamps", "{newdir}", "--wheel", "90,491,0,1", "--key", "V", "--drag", "520,640-560,660",
-                              "--click", "540,655:Menu7", "--type", "Plain", "--key", "Enter", "--key", "Esc",
+                              "--click", "540,655:Menu8", "--type", "Plain", "--key", "Enter", "--key", "Esc",
                               "--rclick", "200,624"], "map"),
 ]
 CASES += [
@@ -502,8 +502,8 @@ CASES += [
 CASES += [
     ("map-palette-second-pick", ["--click", "196,640", "--click", "700,500"], "map"),
     # Each docked side shows its mode's tools (Terrain left, Units right): in Units mode, a click on the Terrain side's
-    # Spray (221,459) makes Terrain the mode with Spray as its tool.
-    ("map-strip-other-side", ["--mode", "units", "--click", "221,459"], "map"),
+    # Spray (187,459) makes Terrain the mode with Spray as its tool.
+    ("map-strip-other-side", ["--mode", "units", "--click", "187,459"], "map"),
     # Several locations: three made; a click selects one, Ctrl+click and Shift+click add two; a drag moves the three; Ctrl+C,
     # Ctrl+V pastes three copies (selected); Del deletes them (one undo step: Ctrl+Z gives them back); Ctrl+A selects
     # every location, Esc none; in the list a click selects one and Ctrl+click adds one.
@@ -612,7 +612,7 @@ CASES += [
     # Rectangle's variants as the game's maps have them (the game's rule: the common variants all as often, the variants
     # after the group's first empty megatile 1 time in 20): Road War's Asphalt filled with Rectangle (Shift+Fill: every
     # tile of that terrain), the tiles counted (--histbox: tilehist=).
-    ("map-rect-variants", ["{maps}/(2)Road War.scm", "--histbox", "0,0,255,255", "--solid", "--click", "800,500:Ctrl", "--click", "255,459",
+    ("map-rect-variants", ["{maps}/(2)Road War.scm", "--histbox", "0,0,255,255", "--solid", "--click", "800,500:Ctrl", "--click", "221,459",
                            "--click", "800,500:Shift"], "data"),
     # Rectangle painted over its own tiles again and again (60 clicks at one place, brush 4 x 4: the height linked at 330,487;
     # one row takes the tiles above it, the map's: the same ones each time): the rare variants stay
@@ -625,7 +625,7 @@ CASES += [
                                "--key", "Ctrl+Alt+2", "--key", "Ctrl+P", "--type", "terrain tools"], "map"),
     # Solid with the left-right mirror: the same stroke without it, Undo, then with it puts twice the tiles.
     ("map-solid-mirror", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B", "--wheel", "560,690,0,-1:Alt",
-                          "--drag", "520,650-600,650", "--key", "Ctrl+Z", "--click", "115,521", "--drag", "520,650-600,650",
+                          "--drag", "520,650-600,650", "--key", "Ctrl+Z", "--key", "Alt+1", "--drag", "520,650-600,650",
                           "--move", "560,600"], "map"),
     # The terrain selection (V) of the Diamond and of the Circle: its outline (Isometric: on the diamonds' edges;
     # Rectangle: on the tile edges), as the rectangle's (GitHub #135, #136).
@@ -638,17 +638,17 @@ CASES += [
                              "--key", "Ctrl+C", "--click", "900,800", "--move", "1000,850", "--wait", "200"], "map"),
     # Custom terrain (Terrain's Custom; the files in a new folder: --stamps, never the user's): the square shape, Select
     # (V), a drag selects 7 x 4 tiles, Shift+click adds a tile apart from them, Ctrl+click takes one out of them; a right
-    # click on the selection > Save as custom terrain (item 7) and the name typed; the same name again: Replace? (--box
+    # click on the selection > Save as custom terrain (item 8) and the name typed; the same name again: Replace? (--box
     # 0: Replace); three more (the Custom list's headings are real folders: the names' '_' makes none, so the rows are
     # the four names, sorted); Cut makes null tiles where a click on Test_Bridges_Left in the Custom list then places it
     # (exactly its 28 tiles: its box is 13 x 10), Ctrl+Z takes it back; Q finds "bridges right"; Rename (item 0) of Plain; Delete (item 1) of Test_Ramp (--box 0: Delete): its file is gone.
     ("map-custom-terrain", ["--custom", "--stamps", "{newdir}", "--wheel", "90,491,0,1", "--key", "V", "--drag", "520,640-560,660",
                             "--click", "600,700:Shift", "--click", "540,650:Ctrl",
-                            "--click", "540,655:Menu7", "--type", "Test_Bridges_Left", "--key", "Enter",
-                            "--click", "540,655:Menu7", "--type", "Test_Bridges_Left", "--key", "Enter", "--box", "0",
-                            "--click", "540,655:Menu7", "--type", "Test_Bridges_Right", "--key", "Enter",
-                            "--click", "540,655:Menu7", "--type", "Test_Ramp", "--key", "Enter",
-                            "--click", "540,655:Menu7", "--type", "Plain", "--key", "Enter",
+                            "--click", "540,655:Menu8", "--type", "Test_Bridges_Left", "--key", "Enter",
+                            "--click", "540,655:Menu8", "--type", "Test_Bridges_Left", "--key", "Enter", "--box", "0",
+                            "--click", "540,655:Menu8", "--type", "Test_Bridges_Right", "--key", "Enter",
+                            "--click", "540,655:Menu8", "--type", "Test_Ramp", "--key", "Enter",
+                            "--click", "540,655:Menu8", "--type", "Plain", "--key", "Enter",
                             "--drag", "840,760-960,850", "--key", "Ctrl+X", "--click", "custom=Test_Bridges_Left", "--click", "900,800",
                             "--key", "Ctrl+Z", "--key", "Esc", "--key", "Q", "--type", "bridges right", "--key", "Enter",
                             "--click", "custom=Plain:Menu0", "--type", "Renamed", "--key", "Enter",
@@ -660,7 +660,7 @@ CASES += [
     # The Custom list shows only the custom terrain of the map's tileset: saved on Bottleneck (Space Platform), none in
     # Volcanis (Ash World) after Ctrl+O; with none, the list says how to make it.
     ("map-custom-other-tileset", ["--custom", "--stamps", "{newdir}", "--key", "V", "--drag", "520,640-560,660",
-                                  "--click", "540,655:Menu7", "--type", "Platform_Piece", "--key", "Enter",
+                                  "--click", "540,655:Menu8", "--type", "Platform_Piece", "--key", "Enter",
                                   "--key", "Ctrl+O", "--pick", "{maps}/(2)Volcanis.scm", "--click", "299,427"], "map"),
     # Units: the placement preview at the left-right mirror image too (Discord feedback #133).
     ("map-units-mirror-ghost", ["--mode", "units", "--click", "1371,187", "--click", "1386,579", "--wheel", "831,525,0,-4", "--move", "700,500",
@@ -789,7 +789,7 @@ CASES += [
     # A double click needs both clicks on the same row (--click x,y:Quick: a click that comes quickly after the one
     # before, which SDL counts as a double click): two quick clicks on two rows select the second one and play nothing;
     # a double click on one row plays its sound. The Assets page's game sounds and the SFX data list.
-    ("files-double-click", ["--workspace", "files", "--click", "300,411", "--click", "300,437:Quick", "--click", "300,489:Double"], "map"),
+    ("files-double-click", ["--workspace", "files", "--click", "300,471", "--click", "300,497:Quick", "--click", "300,549:Double"], "map"),
     ("data-sfx-double-click", ["--newproject", "{newdir}", "--workspace", "data", "--data", "sfxdata:1", "--click", "200,239",
                                "--click", "200,265:Quick", "--click", "200,317:Double"], "data"),
     # The caret is where the drawn letters end, after a long text (51 letters, no spaces) is typed (--check caret: each
@@ -850,7 +850,7 @@ CASES += [
     ("map-classictrig-edits", ["--workspace", "classictriggers", "--click", "150,219", "--click", "1058,184", "--key", "Ctrl+Z",
                                "--wait", "400"], "map"),
     # The Files workspace: the search box of the game's sounds, "marine" typed.
-    ("map-files-search", ["--workspace", "files", "--click", "240,325", "--type", "marine"], "map"),
+    ("map-files-search", ["--workspace", "files", "--click", "240,386", "--type", "marine"], "map"),
     # The Briefing: Add an action (the list picker: Text message), then Undo.
     ("map-briefing-add", ["--workspace", "briefing", "--click", "543,166", "--type", "Text message", "--key", "Enter",
                           "--key", "Ctrl+Z"], "map"),
@@ -862,7 +862,7 @@ CASES += [
 CASES += [
     # The Files search box: a composition (its caret at its end, then after its first syllable), the commit, more text,
     # Backspace over an emoji, select, copy, paste, select all, cut, paste, then Undo twice.
-    ("map-text-input", ["--workspace", "files", "--click", "240,325", "--type", "abc", "--ime", "\u314e", "--ime", "\ud55c",
+    ("map-text-input", ["--workspace", "files", "--click", "240,386", "--type", "abc", "--ime", "\u314e", "--ime", "\ud55c",
                         "--ime", "\ud55c\u3131@1", "--type", "\ud55c\uad6d", "--type", " \u041f\u0440\u0438\u0432\u0435\u0442 \u4f60\u597d \U0001f600",
                         "--key", "Backspace", "--key", "Shift+Home", "--key", "Ctrl+C", "--key", "End", "--key", "Ctrl+V",
                         "--key", "Ctrl+A", "--key", "Ctrl+X", "--key", "Ctrl+V", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "map"),
@@ -885,9 +885,9 @@ CASES += [
     ("map-tab-focus", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 100 + ["--key", "Shift+Tab"] * 100 +
      ["--key", "Tab", "--key", "Tab", "--key", "Esc"], "map"),
     # Enter and Space press the part with the focus, and the focus stays on it: Tab from the map to the modes in the top
-    # bar (33 stops in Units mode), Enter picks Terrain; Shift+Tab to the top bar's Quick search, Space opens the quick
+    # bar (29 stops in Units mode), Enter picks Terrain; Shift+Tab to the top bar's Quick search, Space opens the quick
     # picker, Esc closes it, and Esc on Quick search gives the keyboard to the map (CHECKS: check_tab_press).
-    ("map-tab-press", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 33 + ["--key", "Enter", "--key", "Shift+Tab",
+    ("map-tab-press", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 29 + ["--key", "Enter", "--key", "Shift+Tab",
                        "--key", "Space", "--key", "Esc", "--key", "Esc"], "map"),
     # The save question (msgbox::ask: Save, Do not save, Cancel) after a change and Ctrl+W: Tab and Shift+Tab move the
     # focus between the buttons, round again at the ends; Enter presses Cancel (the tab stays); the second time, Tab to
@@ -908,7 +908,7 @@ CASES += [
     # (not to a hidden option of the tab before).
     ("map-options-ctrltab", ["--key", "Ctrl+,", "--key", "Tab", "--key", "Tab", "--key", "Ctrl+Tab", "--key", "Ctrl+Shift+Tab",
                              "--key", "Esc"], "map"),
-    ("map-feedback-cycle", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 39 + ["--key", "Enter"] +
+    ("map-feedback-cycle", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 35 + ["--key", "Enter"] +
      ["--key", "Tab"] * 10 + ["--key", "Shift+Tab"] * 3 + ["--key", "Esc"], "map"),
     # The Triggers tree takes typed letters (type-ahead) after a text field of the window had the keyboard: New trigger
     # (its name's field), Enter, then "o" goes to On every trigger cycle.
@@ -945,7 +945,7 @@ CASES += [
 # With no game data and no map (as on GitHub's machines): the Files workspace's search box takes Korean and Japanese
 # compositions (each shows in the field, not in its text, until the commit), and emoji (one Backspace removes one).
 CASES += [
-    ("text-input-cjk", ["--noinstall", "--workspace", "files", "--click", "240,325", "--type", "abc", "--ime", "\u314e", "--ime", "\ud55c",
+    ("text-input-cjk", ["--noinstall", "--workspace", "files", "--click", "240,386", "--type", "abc", "--ime", "\u314e", "--ime", "\ud55c",
                         "--ime", "\ud55c\u3131@1", "--type", "\ud55c\uad6d", "--ime", "\u306b", "--ime", "\u306b\u307b\u3093",
                         "--ime", "\u65e5\u672c@1", "--type", "\u65e5\u672c\u8a9e", "--type", " \U0001f600\U0001f3ae", "--key", "Backspace"], ""),
 ]
@@ -3957,7 +3957,7 @@ CASES += [
     ("map-building-snap", ["--mode", "units", "--key", "Q", "--type", "Command Center", "--key", "Enter",
                            "--click", "701,651", "--key", "Esc", "--drag", "701,651-713,659"], "map"),
 ]
-# Protected terrain (core/protected_layer.inc): a terrain selection's menu > Protect terrain (its 8th item); then the
+# Protected terrain (core/protected_layer.inc): a terrain selection's menu > Protect terrain (its 9th item); then the
 # isometric brush (Solar Array) is dragged over it and around it, the fill clicks in it (nothing) and next to it, and
 # Rectangle's brush puts a tile of the Tiles list in it (nothing) and next to it. --check protect: none of the
 # protected tiles has another tile than the map file, the tiles around them do; the right click at the end shows
@@ -3965,7 +3965,7 @@ CASES += [
 SCRIPTS["protectterrain"] = """mode terrain
 key V
 drag 540,630-640,700
-rclick 590,665:7
+rclick 590,665:8
 click pal=Solar Array
 key B
 drag 470,600-710,740
@@ -3985,18 +3985,18 @@ click 720,730
 SCRIPTS["protectundo"] = """mode terrain
 key V
 drag 540,630-640,700
-rclick 590,665:7
+rclick 590,665:8
 key Ctrl+Z
 key Ctrl+Y
 """
-# Edit > Select all (Ctrl+A) in Terrain mode selects every tile of the map: its menu's Unprotect terrain (the 9th
+# Edit > Select all (Ctrl+A) in Terrain mode selects every tile of the map: its menu's Unprotect terrain (the 10th
 # item) then unprotects every protected tile.
 SCRIPTS["protectselectall"] = """mode terrain
 key V
 drag 540,630-640,700
-rclick 590,665:7
+rclick 590,665:8
 key Ctrl+A
-rclick 900,300:8
+rclick 900,300:9
 """
 CASES += [("map-protect-selectall", ["--script", "{script:protectselectall}", "--check", "protect"], "map")]
 CASES += [("map-protect-terrain", ["--script", "{script:protectterrain}", "--check", "protect", "--mode", "terrain", "--key", "V",
@@ -4812,8 +4812,8 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "update-registry": check_settings_read(LEGACY_LINES),
           "map-text-input": check_text_input, "map-text-korean-save": check_korean_save, "map-dialog-tab": check_dialog_tab,
           "map-tab-focus": check_main_tab, "map-tab-press": check_tab_press, "map-message-tab": check_message_tab,
-          "map-unitprops-cycle": check_dialog_cycle(["Invincible", "Apply", "Cancel"]),
-          "map-locprops-cycle": check_dialog_cycle(["Location 2", "Low ground", "High air", "Apply", "Cancel"]),
+          "map-unitprops-cycle": check_dialog_cycle(["Invincible", "OK", "Cancel"]),
+          "map-locprops-cycle": check_dialog_cycle(["Location 2", "Low ground", "High air", "OK", "Cancel"]),
           "map-prompt-cycle": check_dialog_cycle(["Location 2", "OK", "Cancel"]),
           "map-options-ctrltab": check_options_ctrltab,
           "cmbw-isom-rules": check_isom_rules,
@@ -5042,7 +5042,7 @@ def check_custom_terrain(output):
     n = int(drag.get("tselcount", 0))
     if n != 28 or int(shift.get("tselcount", 0)) != n + 1 or int(ctrl.get("tselcount", 0)) != n:
         return f"the selection: {n} tiles, after Shift+click {shift.get('tselcount')}, after Ctrl+click {ctrl.get('tselcount')} (not 28, 29, 28)"
-    saves = [f for i, f in steps if i == "click 540,655:Menu7"]
+    saves = [f for i, f in steps if i == "click 540,655:Menu8"]
     if len(saves) != 5 or saves[0].get("customfiles") != "Test_Bridges_Left:28":
         return f"the first save: files {saves[0].get('customfiles') if saves else '-'}, not Test_Bridges_Left:28"
     if 'box: "Save as custom terrain": &Replace' not in output or saves[1].get("customfiles") != "Test_Bridges_Left:28":
@@ -5073,7 +5073,7 @@ def check_custom_terrain(output):
 def check_custom_other_tileset(output):
     """map-custom-other-tileset: the custom terrain saved on Space Platform is not in Ash World's list (nor its files)."""
     steps = custom_steps(output)
-    saved = [f for i, f in steps if i == "click 540,655:Menu7"]
+    saved = [f for i, f in steps if i == "click 540,655:Menu8"]
     if not saved or not saved[0].get("customfiles", "").startswith("Platform_Piece:") or saved[0].get("customrows") != "Platform_Piece=Platform_Piece":
         return f"the save on Bottleneck: files {saved[0].get('customfiles') if saved else '-'}, rows {saved[0].get('customrows') if saved else '-'}"
     last = steps[-1][1]

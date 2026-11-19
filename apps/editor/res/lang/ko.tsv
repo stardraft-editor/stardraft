@@ -3460,3 +3460,291 @@ Frames a trip	왕복당 프레임
 %d workers on minerals at each base, %.1f game minutes measured at Fastest	기지마다 미네랄 일꾼 %d명, 최고속으로 측정한 게임 %.1f분
 The map has no base to mine at	맵에 채굴할 기지가 없습니다
 Select a base in the panel to play	재생하려면 패널에서 기지를 선택하세요
+\tCtrl+Alt+D	\tCtrl+Alt+D
+\tCtrl+Alt+E	\tCtrl+Alt+E
+\tCtrl+Alt+H	\tCtrl+Alt+H
+\tCtrl+Alt+L	\tCtrl+Alt+L
+\tCtrl+Alt+N	\tCtrl+Alt+N
+\tCtrl+D	\tCtrl+D
+\tDel	\tDel
+\n\n---\nFile > Import a project, step 	\n\n---\n파일 > 프로젝트 가져오기, 단계 
+\nDraw	\n그리기
+\nError: 	\n오류: 
+\nFile: 	\n파일: 
+\nMap: 	\n맵: 
+\nPlayer 	\n플레이어 
+\r\n• Deleted: 	\r\n• 삭제됨: 
+\r\n• Locations move with the map	\r\n• 위치가 맵과 함께 이동합니다
+\r\n• Not possible: 	\r\n• 불가능: 
+  ·  Average 	  ·  평균 
+  ·  HP 	  ·  체력 
+  ·  Highest 	  ·  최고 
+  ·  Lowest 	  ·  최저 
+  ·  game's 	  ·  게임의 
+ (Use Map Settings)	 (맵 설정 사용)
+ (resource area 	 (자원 지역 
+ cells  ·  	 칸  ·  
+ columns (Columns… shows them again)	 열 (열… 에서 다시 표시)
+ doodads. You can paste them only in a map of that tileset.	 장식물. 같은 타일셋의 맵에만 붙여넣을 수 있습니다.
+ terrain. You can paste it only in a map of that tileset.	 지형. 같은 타일셋의 맵에만 붙여넣을 수 있습니다.
+ tiles, in Rectangle: the selection has no whole isometric diamond. Ctrl+V pastes them.	 타일, 사각형: 선택 영역에 온전한 아이소메트릭 마름모가 없습니다. Ctrl+V로 붙여넣습니다.
+ units. To stop, right-click or press Esc.	 유닛. 중지하려면 오른쪽 클릭하거나 Esc를 누르세요.
+" --noactivate "	" --noactivate "
+%d minerals, %d gas, %d tiles	미네랄 %d, 가스 %d, 타일 %d
+%ls  ·  %d, %d	%ls  ·  %d, %d
+%ls  ·  %ls  ·  %d, %d	%ls  ·  %ls  ·  %d, %d
+%s: %d buildable tiles, %d mineral fields (%u minerals in total), %d geysers (%u gas in total)%s	%s: 건설 가능 타일 %d, 미네랄 %d (총 미네랄 %u), 가스 %d (총 가스 %u)%s
+%zu more sound files. Type more of the name.	사운드 파일 %zu개 더 있습니다. 이름을 더 입력하세요.
+&Arrange	정렬(&A)
+&Check the map in Hyperion	Hyperion에서 맵 확인(&C)
+&Export map image…	맵 이미지 내보내기(&E)…
+&Hyperion	&Hyperion
+&Invert selection	선택 반전(&I)
+&Mod terrain mapper…	모드 지형 매퍼(&M)…
+&New Hyperion map	새 Hyperion 맵(&N)
+&Open…	열기(&O)…
+&Pie palette	파이 팔레트(&P)
+&Program options…	프로그램 옵션(&P)…
+&Quick open…	빠른 열기(&Q)…
+&Quick picker…	빠른 선택기(&Q)…
+&Test in Hyperion (melee)	Hyperion에서 테스트(&T) (멜리)
+(not necessary)	(필요 없음)
+(older lines dropped)\n	(이전 줄은 삭제됨)\n
+).\n\nThe release before the update is in its place again	).\n\n업데이트 전의 릴리스가 다시 설치됩니다
+. Its window shows the samples and the lines that run; close it to write the report.	. 창에 샘플과 실행 중인 줄이 표시됩니다. 보고서를 작성하려면 창을 닫으세요.
+. The strings are more than 65535 bytes: the map keeps them in STRx (StarCraft: Remastered only).	. 문자열이 65535바이트를 넘습니다. 맵은 문자열을 STRx에 저장합니다 (StarCraft: Remastered 전용).
+: the file is not a map (.scm, .scx, .chk, .hxm) or a project	: 이 파일은 맵(.scm, .scx, .chk, .hxm)도 프로젝트도 아닙니다
+; no place for a town hall	; 타운 홀을 지을 자리가 없음
+A jump to a place on the map glides there	맵의 한 위치로 이동하면 부드럽게 이동합니다
+A map has at least 12 players (the 12th is the neutral player)	맵에는 플레이어가 12명 이상 있습니다 (12번째는 중립 플레이어)
+Add a player	플레이어 추가
+Add or remove	추가 또는 제거
+Add to selection	선택에 추가
+Align &bottom	아래쪽 맞춤(&B)
+Align &center	가운데 맞춤(&C)
+Align &left	왼쪽 맞춤(&L)
+Align &middle	세로 가운데 맞춤(&M)
+Align &right	오른쪽 맞춤(&R)
+Align &top	위쪽 맞춤(&T)
+All units of &Player 	플레이어 &P의 모든 유닛 
+Amount   0–100	양   0–100
+Another program changed this map after its last save here: the layers are flattened into the map as it is	다른 프로그램이 여기에서 마지막으로 저장한 후 이 맵을 변경했습니다. 레이어가 현재 상태의 맵으로 병합됩니다
+Arran&ge	정렬(&G)
+Arrange in a &grid	격자로 정렬(&G)
+Arrange in a c&ircle	원형으로 정렬(&I)
+Arrange in a colum&n	세로 한 줄로 정렬(&N)
+Arrange in a ro&w	가로 한 줄로 정렬(&W)
+Badlands  ·  128 x 128 tiles	Badlands  ·  128 x 128 타일
+Built-in mod terrains (deprecated)	내장 모드 지형 (사용 중단 예정)
+C&olumns…	열(&O)…
+Check the map in Hyperion	Hyperion에서 맵 확인
+Content-Type: application/json\r\n	Content-Type: application/json\r\n
+Could not delete the file 	파일을 삭제할 수 없습니다: 
+Could not delete the folder 	폴더를 삭제할 수 없습니다: 
+Could not import the file. It has no "id" column. The first row must give the column names, with "id" for the entry numbers.	파일을 가져올 수 없습니다. "id" 열이 없습니다. 첫 번째 행에 열 이름을 쓰고, 항목 번호의 열 이름은 "id"로 하십시오.
+Could not make the folder 	폴더를 만들 수 없습니다: 
+Could not make the new project: 	새 프로젝트를 만들 수 없습니다: 
+Could not move the file 	파일을 이동할 수 없습니다: 
+Could not rename the folder 	폴더 이름을 바꿀 수 없습니다: 
+Could not write to the map's folder. Select another place for the map.	맵의 폴더에 쓸 수 없습니다. 맵을 저장할 다른 위치를 선택하세요.
+Crop or extend…	자르기 또는 확장…
+Ctrl+Shift+G	Ctrl+Shift+G
+Custom isom &terrain editor…	사용자 지정 isom 지형 편집기(&T)…
+Custom terrain with the name "	이름이 "
+Delete the custom terrain "	사용자 지정 지형을 삭제하시겠습니까: "
+Delete the trigger "Spawn the waves"?	트리거 "Spawn the waves"를 삭제하시겠습니까?
+Each color is a resource area (the game's areas for the towns of computer players): its resources, with a line from the area's position, and the buildable tiles near its town hall.	각 색은 자원 지역(컴퓨터 플레이어의 타운용 게임 지역)입니다. 지역의 자원을 지역 위치에서 이어진 선과 함께, 타운 홀 근처의 건설 가능 타일을 표시합니다.
+Edit text…	텍스트 편집…
+Equal sides	변 길이 같게
+Equal spaces &across	가로 간격 같게(&A)
+Equal spaces &down	세로 간격 같게(&D)
+Equal spaces: select 3 units or more	간격 같게: 유닛을 3개 이상 선택하세요
+Export CSV…	CSV 내보내기…
+Fill all of this terrain	이 지형 모두 채우기
+Game terrains only	게임 지형만
+Give to p&layer	플레이어에게 주기(&L)
+Go to the place at the mouse	마우스 위치로 이동
+Hid 1 column (Columns… shows it again)	열 1개 숨김 (열… 에서 다시 표시)
+Hyperion can start this map	Hyperion에서 이 맵을 시작할 수 있습니다
+Hyperion check: 	Hyperion 확인: 
+Hyperion could not read the map.	Hyperion에서 맵을 읽을 수 없습니다.
+Hyperion folder	Hyperion 폴더
+Hyperion map	Hyperion 맵
+Hyperion plays this map.	Hyperion에서 이 맵을 실행합니다.
+Hyperion refuses this map:	Hyperion에서 이 맵을 거부합니다:
+Hyperion was not found. Select its folder in Program options > Plugins > Hyperion folder.	Hyperion을 찾을 수 없습니다. 프로그램 옵션 > 플러그인 > Hyperion 폴더에서 폴더를 선택하세요.
+Hyperion's check did not run.	Hyperion 확인이 실행되지 않았습니다.
+ISOM terrains: maps opened from now on use only the game's terrains	ISOM 지형: 이제부터 여는 맵은 게임 지형만 사용합니다
+ISOM terrains: maps opened from now on use the built-in mod terrains	ISOM 지형: 이제부터 여는 맵은 내장 모드 지형을 사용합니다
+ISOM terrains: maps opened from now on use the terrain rules file	ISOM 지형: 이제부터 여는 맵은 지형 규칙 파일을 사용합니다
+Import CSV…	CSV 가져오기…
+Import the values of a CSV file into this .dat file. The "id" column gives the entries. The first row gives the columns.	CSV 파일의 값을 이 .dat 파일로 가져옵니다. "id" 열이 항목을 지정하고, 첫 번째 행이 열을 지정합니다.
+Inverted location	반전된 위치
+Loaded the Hyperion plugin: maps open and save as .hxm too, and Tools > Hyperion tests them	Hyperion 플러그인을 불러왔습니다: 맵을 .hxm으로도 열고 저장할 수 있으며, 도구 > Hyperion에서 테스트합니다
+Lock angle	각도 고정
+Make maps for Hyperion, up to 512 tiles a side, saved as .hxm.	Hyperion용 맵을 만듭니다. 한 변 최대 512타일, .hxm으로 저장됩니다.
+Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\nLayers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. All layers that show become one map, and the layer data stays out of it.	맵 레이어는 실험 기능입니다. 맵을 복사해 두고, 작동하지 않는 부분은 알려 주세요 (피드백 보내기).\n\n작업하는 동안 레이어는 이 맵 파일에 남습니다.\n\nStarCraft에서 플레이할 맵을 만들려면 파일 > 맵 내보내기를 사용하세요. 표시된 모든 레이어가 하나의 맵이 되고, 레이어 데이터는 포함되지 않습니다.
+Map view	맵 보기
+Maps open and save as .hxm too, up to 512 tiles a side, and test in Hyperion	맵을 .hxm으로도 열고 저장할 수 있으며 (한 변 최대 512타일), Hyperion에서 테스트합니다
+Maps open and save as Hyperion maps (.hxm) too, up to 512 tiles a side, and test in Hyperion	맵을 Hyperion 맵(.hxm)으로도 열고 저장할 수 있으며 (한 변 최대 512타일), Hyperion에서 테스트합니다
+Maps open with the CMBW data, and new maps are CMBW maps	맵을 CMBW 데이터로 열고, 새 맵은 CMBW 맵이 됩니다
+Maps open with the Cosmonarchy BW data, and new maps are CMBW maps	맵을 Cosmonarchy BW 데이터로 열고, 새 맵은 CMBW 맵이 됩니다
+Maps opened after a change use the selected terrains	변경 후 여는 맵은 선택한 지형을 사용합니다
+Mod terrain mapper	모드 지형 매퍼
+New Hyperion map	새 Hyperion 맵
+Next doodad	다음 장식물
+Next variation	다음 변형
+No folder	폴더 없음
+No plugin	플러그인 없음
+No plugin loaded: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	불러온 플러그인 없음: 맵을 StarCraft: Brood War 맵으로 열고 만듭니다 (열린 탭은 그대로 유지됩니다)
+No program to start	시작할 프로그램 없음
+No sound file has this name	이 이름의 사운드 파일이 없습니다
+No tiles are selected. Select tiles in the Tiles list.	선택한 타일이 없습니다. 타일 목록에서 타일을 선택하세요.
+Not found: select the folder that has Hyperion.exe	찾을 수 없음: Hyperion.exe가 있는 폴더를 선택하세요
+Only the isometric terrains of StarCraft. The mod's tiles are in the Tile and Custom tools.	StarCraft의 아이소메트릭 지형만. 모드의 타일은 타일 및 사용자 지정 도구에 있습니다.
+Only the terrains of a terrain rules file (.isom, from the tools in Tools > Cosmonarchy)	지형 규칙 파일(.isom, 도구 > Cosmonarchy의 도구로 만듦)의 지형만
+Open in a new &panel	새 패널에서 열기(&P)
+Overview	개요
+Pages that Cosmonarchy shows before the map starts: each a 1920 x 1080 picture with text (rez\\est.txt in the map).	맵이 시작되기 전에 Cosmonarchy가 표시하는 페이지: 각각 텍스트가 있는 1920 x 1080 그림입니다 (맵의 rez\\est.txt).
+Pie palette	파이 팔레트
+Ramp and &bridge mapper…	경사로 및 다리 매퍼(&B)…
+Remove from selection	선택에서 제거
+Remove ramp	경사로 제거
+Remove the last player	마지막 플레이어 제거
+Rename a unit in its form (a double-click on its name opens it).	유닛 이름은 유닛 양식에서 바꿉니다 (이름을 더블클릭하면 열립니다).
+Resource area 	자원 지역 
+S&mooth zoom	부드러운 확대/축소(&M)
+Save &as…	다른 이름으로 저장(&A)…
+Save as custom &terrain…	사용자 지정 지형으로 저장(&T)…
+Save the map first (File > Save as), then test it in Hyperion.	먼저 맵을 저장한 다음(파일 > 다른 이름으로 저장) Hyperion에서 테스트하세요.
+Search sounds	사운드 검색
+Select &more	더 선택(&M)
+Select a picture…	그림 선택…
+Select in a box	상자로 선택
+Select the columns that show. A right-click on a column's header can hide it.	표시할 열을 선택하세요. 열 머리글을 오른쪽 클릭하면 숨길 수 있습니다.
+Select the folder with the Hyperion program	Hyperion 프로그램이 있는 폴더를 선택하세요
+Select units first	먼저 유닛을 선택하세요
+Set the Hyperion folder	Hyperion 폴더 설정
+Show &key hints	키 힌트 표시(&K)
+Show key hints	키 힌트 표시
+Smooth &pan	부드러운 이동(&P)
+Smooth pan	부드러운 이동
+Smooth zoom	부드러운 확대/축소
+Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\	Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\
+Sound files show here when you type the sound of PlayWAV or Transmission	PlayWAV 또는 Transmission의 사운드를 입력하면 사운드 파일이 여기에 표시됩니다
+Sound files…	사운드 파일…
+StarDraft.Map\\DefaultIcon	StarDraft.Map\\DefaultIcon
+StarDraft.Map\\shell\\open\\command	StarDraft.Map\\shell\\open\\command
+StarDraft.Project\\DefaultIcon	StarDraft.Project\\DefaultIcon
+StarDraft.Project\\shell\\open\\command	StarDraft.Project\\shell\\open\\command
+Started Hyperion with 	Hyperion을 시작했습니다: 
+Terrain rules file	지형 규칙 파일
+Test in Hyperion	Hyperion에서 테스트
+Test in Hyperion (&Use Map Settings)	Hyperion에서 테스트(&U) (맵 설정 사용)
+That folder has no Hyperion program (Hyperion.exe).	이 폴더에 Hyperion 프로그램(Hyperion.exe)이 없습니다.
+The copied doodads are 	복사한 장식물: 
+The first build downloads euddraft from GitHub into its own folder. Other copies of euddraft on this computer do not change. A map that you open stays a regular map. Only a project can be built.	첫 빌드에서 euddraft를 GitHub에서 자체 폴더로 다운로드합니다. 이 컴퓨터의 다른 euddraft 사본은 바뀌지 않습니다. 연 맵은 일반 맵으로 유지됩니다. 프로젝트만 빌드할 수 있습니다.
+The folder that has Hyperion.exe	Hyperion.exe가 있는 폴더
+The isometric terrains that come with the program and the mod. A later version removes them: use a terrain rules file.	프로그램과 모드에 포함된 아이소메트릭 지형입니다. 이후 버전에서 제거됩니다. 지형 규칙 파일을 사용하세요.
+The keys of the tool that is on, in the middle of the status bar	상태 표시줄 가운데에 있는, 켜진 도구의 키
+The last player owns units or sprites: give them to another player first	마지막 플레이어가 유닛이나 스프라이트를 소유하고 있습니다. 먼저 다른 플레이어에게 주세요
+The map could not be saved:	맵을 저장할 수 없습니다:
+The map could not be written as .hxm:	맵을 .hxm으로 쓸 수 없습니다:
+The mouse wheel and the zoom commands glide to the new zoom	마우스 휠과 확대/축소 명령이 새 배율로 부드럽게 이동합니다
+The units are in their places, or do not fit there	유닛이 제자리에 있거나, 그 자리에 맞지 않습니다
+Theme: Automatic	테마: 자동
+Theme: Dark	테마: 어둡게
+Theme: Light	테마: 밝게
+There are no sounds. Type the path of a sound.	사운드가 없습니다. 사운드의 경로를 입력하세요.
+This tileset has no custom terrain	이 타일셋에는 사용자 지정 지형이 없습니다
+Turned the tiles, experimental: each tile's picture stays as it is, so edges and cliffs possibly do not fit	타일을 회전했습니다 (실험 기능). 각 타일의 그림은 그대로이므로 가장자리와 절벽이 맞지 않을 수 있습니다
+Type a value…	값 입력…
+Undo &history…	실행 취소 기록(&H)…
+Units in the &view	보이는 영역의 유닛(&V)
+Untitled.hxm	Untitled.hxm
+Use a player number from 0 to 11 (Player 1 is 0)	플레이어 번호는 0~11을 사용하세요 (플레이어 1은 0)
+Use this doodad	이 장식물 사용
+Use this sprite	이 스프라이트 사용
+Use this terrain	이 지형 사용
+Use this tile	이 타일 사용
+Use this unit	이 유닛 사용
+Zoom and pan	확대/축소 및 이동
+epTrace closed without a report. Start the map in StarCraft before you start epTrace, and close epTrace's window (not the game) to write the report.	epTrace가 보고서 없이 닫혔습니다. epTrace를 시작하기 전에 StarCraft에서 맵을 시작하고, 보고서를 작성하려면 (게임이 아니라) epTrace 창을 닫으세요.
+epTrace report: no samples. epTrace did not find a script line that runs. Code in onPluginStart and in triggers that run once at map start runs before epTrace can see it; code that runs each trigger cycle (beforeTriggerExec, afterTriggerExec, triggers that repeat) shows in the report.	epTrace 보고서: 샘플 없음. epTrace에서 실행되는 스크립트 줄을 찾지 못했습니다. onPluginStart의 코드와 맵 시작 시 한 번 실행되는 트리거의 코드는 epTrace가 볼 수 있기 전에 실행됩니다. 트리거 주기마다 실행되는 코드(beforeTriggerExec, afterTriggerExec, 반복되는 트리거)는 보고서에 표시됩니다.
+euddraft's freeze: the built map's file is protected, so that map editors cannot open it and take its triggers. Your project's own files stay as they are.	euddraft의 freeze: 빌드한 맵의 파일을 보호하여 맵 에디터에서 열어 트리거를 가져갈 수 없게 합니다. 프로젝트 자체의 파일은 그대로입니다.
+frame %d  ·  tick %d%ls	프레임 %d  ·  틱 %d%ls
+more in the Custom list	사용자 지정 목록에 더 있음
+more in the palette	팔레트에 더 있음
+the Terrain choices	지형 선택
+• At least one player must be human\r\n	• 최소한 한 명의 플레이어는 사람이어야 합니다\r\n
+• Drag an edge or corner: size\r\n• Drag inside: move\r\n• Arrow keys: move 2 tiles	• 가장자리나 모서리 드래그: 크기\r\n• 안쪽 드래그: 이동\r\n• 화살표 키: 2타일 이동
+• No change	• 변경 없음
+A minus B with A smaller than B gives a number above 4 billion. This value does not.	A 빼기 B에서 A가 B보다 작으면 40억이 넘는 수가 됩니다. 이 값은 그렇지 않습니다.
+A number kept in a range	범위 안에 유지되는 수
+A remainder	나머지
+Do not divide by 0.	0으로 나누지 마세요.
+Each computer has its own value. Use it only for what that player sees, for example in Run local block. For a value that is the same on each computer, use "{player}'s mouse x on the map".	컴퓨터마다 값이 다릅니다. 해당 플레이어에게 보이는 것에만 사용하세요 (예: Run local block). 모든 컴퓨터에서 같은 값이 필요하면 "{player}'s mouse x on the map"을 사용하세요.
+Each computer has its own value. Use it only for what that player sees, for example in Run local block. For a value that is the same on each computer, use "{player}'s mouse y on the map".	컴퓨터마다 값이 다릅니다. 해당 플레이어에게 보이는 것에만 사용하세요 (예: Run local block). 모든 컴퓨터에서 같은 값이 필요하면 "{player}'s mouse y on the map"을 사용하세요.
+Each computer has its own value. Use it only for what that player sees, for example in Run local block. To send it to every computer, use "Share a local value".	컴퓨터마다 값이 다릅니다. 해당 플레이어에게 보이는 것에만 사용하세요 (예: Run local block). 모든 컴퓨터로 보내려면 "Share a local value"를 사용하세요.
+Game time in seconds	게임 시간(초)
+Goes through the units of a unit group: "the unit" is each one. A unit that died runs "When it dies" one time and leaves the group.	유닛 그룹의 유닛을 하나씩 처리합니다: "the unit"이 각 유닛입니다. 죽은 유닛은 "When it dies"를 한 번 실행하고 그룹에서 빠집니다.
+How long the game has run, in game seconds: the time that the Elapsed time condition reads. At Fastest speed, a game second is shorter than a real second.	게임이 진행된 시간(게임 초 단위)입니다. Elapsed time 조건이 읽는 시간입니다. 최고속에서는 게임 1초가 실제 1초보다 짧습니다.
+How many of Player 1 to Player 8 are in the game: people and computers that have not left.	플레이어 1~플레이어 8 중 게임에 남아 있는 수: 떠나지 않은 사람과 컴퓨터.
+If the difference between score and target is at most 5: the score is near the target.	점수와 목표의 차이가 5 이하이면: 점수가 목표에 가깝습니다.
+If the number of players in the game is at most 1: the last player wins.	게임의 플레이어 수가 1 이하이면: 마지막 플레이어가 승리합니다.
+If the remainder of wave divided by 5 is exactly 0: each fifth wave has a boss.	wave를 5로 나눈 나머지가 정확히 0이면: 5번째 웨이브마다 보스가 있습니다.
+In Run local block: if the screen x is less than 640, show "You are in the west" on this screen.	Run local block에서: 화면 x가 640보다 작으면 이 화면에 "You are in the west"를 표시합니다.
+In Run local block: if the screen y is less than 480, show "You are in the north" on this screen.	Run local block에서: 화면 y가 480보다 작으면 이 화면에 "You are in the north"를 표시합니다.
+It counts each time. Keep the number in a variable if you use it many times in one trigger.	매번 셉니다. 한 트리거에서 여러 번 쓰려면 수를 변수에 저장하세요.
+It is true only on that player's computer. Use it only for what that player sees or hears, for example in Run local block. To change the game with a key, use "presses" or "holds down" with a player.	해당 플레이어의 컴퓨터에서만 참입니다. 그 플레이어에게 보이거나 들리는 것에만 사용하세요 (예: Run local block). 키로 게임을 바꾸려면 플레이어와 함께 "presses" 또는 "holds down"을 사용하세요.
+It moves the location from where it is now. To put the location at a distance from a point, first move the location to the point. Small distances are not exact: 8 pixels in direction 10 can move 1 pixel less than you expect.	위치를 현재 위치에서 이동합니다. 위치를 한 점에서 일정 거리에 두려면 먼저 위치를 그 점으로 이동하세요. 작은 거리는 정확하지 않습니다: 방향 10으로 8픽셀은 예상보다 1픽셀 덜 이동할 수 있습니다.
+Moves a location by a distance in a direction, in pixels. One tile is 32 pixels. The direction is 0 to 255, as the game counts directions: 0 is up, 64 is right, 128 is down and 192 is left. The location keeps its size.	위치를 방향과 거리(픽셀)만큼 이동합니다. 1타일은 32픽셀입니다. 방향은 게임의 방향 단위로 0~255입니다: 0은 위, 64는 오른쪽, 128은 아래, 192는 왼쪽입니다. 위치의 크기는 유지됩니다.
+Player 1's name is "Mapmaker": give the map maker access to test commands.	플레이어 1의 이름이 "Mapmaker"이면: 맵 제작자가 테스트 명령을 사용할 수 있게 합니다.
+Runs its actions for each unit made since this loop last ran: trained, built, morphed, or made by a trigger. Inside the loop, the unit is "the unit".	이 루프가 마지막으로 실행된 이후 만들어진 각 유닛에 대해 액션을 실행합니다: 훈련, 건설, 변태 또는 트리거로 만들어진 유닛. 루프 안에서 유닛은 "the unit"입니다.
+Runs its actions for each unit on the map that matches. Inside the loop, the unit is "the unit". For one player, it goes through only that player's units (faster).	조건에 맞는 맵의 각 유닛에 대해 액션을 실행합니다. 루프 안에서 유닛은 "the unit"입니다. 한 플레이어를 지정하면 그 플레이어의 유닛만 처리합니다 (더 빠름).
+Runs its blocks one time for each item of the list, or 8 times for a player array. The counter is the number of the item, for example 0, 1, 2 and so on. Use the counter as the index, for example "change item counter of the list".	목록의 항목마다 블록을 한 번씩 실행하고, 플레이어 배열이면 8번 실행합니다. 카운터는 항목의 번호입니다 (0, 1, 2 등). 카운터를 인덱스로 사용하세요 (예: "change item counter of the list").
+Set gold to the number in the chat line after "-give ": the value of a chat command.	gold를 채팅 줄에서 "-give " 뒤의 수로 설정: 채팅 명령의 값.
+Set hp to hp + 20, but at least 0 and at most 100: heal the hero, but not above 100.	hp를 hp + 20으로 설정하되 최소 0, 최대 100: 영웅을 치료하되 100을 넘지 않게 합니다.
+Set start to game seconds since the game started: keep the time when the wave starts. Subtract it later to get the wave's time.	start를 게임 시작 후 게임 초로 설정: 웨이브가 시작되는 시간을 저장합니다. 나중에 빼면 웨이브의 시간을 얻습니다.
+Shift a location in a direction	위치를 한 방향으로 이동
+The difference of two	두 수의 차이
+The game keeps hit points, shields and energy in 1/256ths. Thus "exactly 40" can miss a unit at 40.5. Use at least or at most.	게임은 체력, 실드, 에너지를 1/256 단위로 저장합니다. 따라서 "정확히 40"은 40.5인 유닛을 놓칠 수 있습니다. 이상 또는 이하를 사용하세요.
+The larger number minus the smaller number. It is never below 0.	큰 수에서 작은 수를 뺀 값. 0 미만이 되지 않습니다.
+The number of players	플레이어 수
+The number, or the minimum when it is smaller, or the maximum when it is larger.	그 수, 또는 더 작으면 최솟값, 더 크면 최댓값.
+What is left when the first number is divided by the second: 7 divided by 3 gives the remainder 1.	첫 번째 수를 두 번째 수로 나눈 나머지: 7을 3으로 나누면 나머지는 1입니다.
+a player types "-help" in the chat: show the help text.	플레이어가 채팅에 "-help"를 입력: 도움말 텍스트를 표시합니다.
+a player types a chat line that starts with "-give ". With Add resources and The number in the chat line after "-give ", a chat command gives minerals.	플레이어가 "-give "로 시작하는 채팅 줄을 입력. Add resources와 The number in the chat line after "-give "와 함께 채팅 명령으로 미네랄을 줍니다.
+a player types a chat line with "gg" in it: show "Good game!".	플레이어가 "gg"가 들어 있는 채팅 줄을 입력: "Good game!"을 표시합니다.
+change game text 1 to "Rifleman" in every language: the marine has a different name in this map.	게임 텍스트 1을 모든 언어에서 "Rifleman"으로 변경: 이 맵에서는 마린의 이름이 다릅니다.
+epScript: Deaths(P1, AtLeast, 1, "Terran Marine"): write a condition in epScript that no block has.	epScript: Deaths(P1, AtLeast, 1, "Terran Marine"): 어떤 블록에도 없는 조건을 epScript로 작성합니다.
+game seconds since the game started	게임 시작 후 게임 초
+note: "This trigger starts wave 2": tell other map makers what the trigger does.	메모: "This trigger starts wave 2": 이 트리거가 하는 일을 다른 맵 제작자에게 알립니다.
+play "music\\theme.ogg" as music, again every 95 seconds, for all players: the map's own music.	"music\\theme.ogg"를 음악으로 재생, 95초마다 다시, 모든 플레이어에게: 맵 고유의 음악.
+send transmission from Jim Raynor (Marine) at Base: play hello.wav, show "Hold the line": a classic message with a portrait.	Base에서 Jim Raynor(Marine)의 전송 보내기: hello.wav를 재생하고 "Hold the line"을 표시: 초상화가 있는 전형적인 메시지.
+set Player 8's name to "The Swarm": the enemy has a name in the chat and on the leaderboard.	플레이어 8의 이름을 "The Swarm"으로 설정: 적에게 채팅과 순위표에 표시되는 이름이 생깁니다.
+set the mission objectives to "Kill the boss" for all players: the players can read the goal in the Objectives menu.	모든 플레이어의 임무 목표를 "Kill the boss"로 설정: 플레이어가 목표 메뉴에서 목표를 읽을 수 있습니다.
+set the next map to "Mission 2": the next mission of the campaign loads after this map.	다음 맵을 "Mission 2"로 설정: 이 맵 다음에 캠페인의 다음 임무가 로드됩니다.
+shift Missile by 16 pixels in direction dir: move the missile in the direction of the unit that shot it, in each trigger cycle.	Missile을 방향 dir으로 16픽셀 이동: 트리거 주기마다 미사일을 발사한 유닛의 방향으로 이동합니다.
+shift {where} by {d} pixels in direction {a}	{where}을(를) 방향 {a}으로 {d}픽셀 이동
+show "Defend the base" to all players: tell the players the goal at the start of the game.	모든 플레이어에게 "Defend the base" 표시: 게임 시작 시 플레이어에게 목표를 알립니다.
+show "Gold: {} Score: {}" with gold and score to the current player: show the player the two values.	현재 플레이어에게 gold와 score로 "Gold: {} Score: {}" 표시: 플레이어에게 두 값을 보여 줍니다.
+show "Gold: {} Wave: {}" with gold and wave on line 0 to all players: show the two values on the top line.	모든 플레이어에게 gold와 wave로 "Gold: {} Wave: {}"를 0번 줄에 표시: 맨 위 줄에 두 값을 보여 줍니다.
+show "Kills: {} Wave: {}" with kills and wave in the middle of the screen to all players: show the values in the center.	모든 플레이어에게 kills와 wave로 "Kills: {} Wave: {}"를 화면 가운데에 표시: 값을 가운데에 보여 줍니다.
+show "Not enough gold" in the middle of the screen to the current player: tell the player that the purchase did not go through.	현재 플레이어에게 "Not enough gold"를 화면 가운데에 표시: 구매가 되지 않았음을 플레이어에게 알립니다.
+show "Wave 2" on line 0 to all players: show the wave on the top line. A new text on the line replaces it.	모든 플레이어에게 "Wave 2"를 0번 줄에 표시: 맨 위 줄에 웨이브를 보여 줍니다. 그 줄의 새 텍스트가 이전 텍스트를 대체합니다.
+show a leaderboard "Hill" of who has the most Men at Hill, goal 10: show who is near to 10 units on the hill.	Hill에 Men이 가장 많은 사람의 순위표 "Hill" 표시, 목표 10: 언덕에서 유닛 10기에 가까운 사람을 보여 줍니다.
+show a leaderboard "Hill" of who has the most Men at Hill: show who holds the hill in a king of the hill map.	Hill에 Men이 가장 많은 사람의 순위표 "Hill" 표시: 킹 오브 더 힐 맵에서 언덕을 차지한 사람을 보여 줍니다.
+show a leaderboard "Kills" of kills of Any unit, goal 50: show how many kills each player needs to win.	Any unit 처치 수의 순위표 "Kills" 표시, 목표 50: 각 플레이어가 이기려면 몇 번 처치해야 하는지 보여 줍니다.
+show a leaderboard "Kills" of kills of Any unit: show which player killed the most units.	Any unit 처치 수의 순위표 "Kills" 표시: 유닛을 가장 많이 처치한 플레이어를 보여 줍니다.
+show a leaderboard "Marines" of who owns the most Terran Marine, goal 20: the first player with 20 marines wins.	Terran Marine을 가장 많이 가진 사람의 순위표 "Marines" 표시, 목표 20: 마린 20기를 먼저 가진 플레이어가 승리합니다.
+show a leaderboard "Most units" of who owns the most Men: show which player has the largest army.	Men을 가장 많이 가진 사람의 순위표 "Most units" 표시: 가장 큰 군대를 가진 플레이어를 보여 줍니다.
+show a leaderboard "Richest" of minerals, goal 5000: show how near each player is to 5000 minerals.	미네랄의 순위표 "Richest" 표시, 목표 5000: 각 플레이어가 미네랄 5000에 얼마나 가까운지 보여 줍니다.
+show a leaderboard "Richest" of minerals: show which player has the most minerals.	미네랄의 순위표 "Richest" 표시: 미네랄이 가장 많은 플레이어를 보여 줍니다.
+show a leaderboard "Score" of custom score: show the rounds that each player won.	custom score의 순위표 "Score" 표시: 각 플레이어가 이긴 라운드를 보여 줍니다.
+show a leaderboard "Score" of total score, goal 1000: show how far each player is from the score goal.	total score의 순위표 "Score" 표시, 목표 1000: 각 플레이어가 점수 목표에서 얼마나 떨어져 있는지 보여 줍니다.
+the current player has the most minerals: this player is the richest. Show the text "You are the richest player" to this player.	현재 플레이어의 미네랄이 가장 많음: 이 플레이어가 가장 부자입니다. 이 플레이어에게 "You are the richest player" 텍스트를 표시합니다.
+the difference between {a} and {b}	{a}와 {b}의 차이
+the number of players in the game	게임의 플레이어 수
+the remainder of {a} divided by {b}	{a}를 {b}로 나눈 나머지
+{a}, but at least {low} and at most {high}	{a}, 단 최소 {low}, 최대 {high}
