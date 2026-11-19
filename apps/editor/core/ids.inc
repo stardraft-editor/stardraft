@@ -82,7 +82,7 @@ enum : int {
     ID_OPT_DIAGNOSTICS = 637,  // Program options > Appearance > Graphics and diagnostics: Show system diagnostics (ShowDiagnostics)
     ID_GRID_SIZE = 1160,  // + the preset (kGridPresets); View > Grid (16 places)
     ID_GRID_CUSTOM = 958,
-    ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese, 6 French
+    ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese, 6 French, 7 Portuguese, 8 German
     ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
     ID_TERRAIN_KIND_NEXT = 977,  // Ctrl+Alt+T: Terrain mode's Isometric, Rectangle, Tile, Custom, each in turn
     ID_TERRAIN_KIND = 1130,  // + the place in the tool strip: Mode > Terrain tools > Isometric, Rectangle, Tile, Custom (Ctrl+Alt+1 to 4)
@@ -108,8 +108,9 @@ enum : int {
     ID_CMBW_REPAIRISOM = 1099,  // Tools > Cosmonarchy > Try to repair the ISOM (a Cosmonarchy map's tab only: core/cmbw.inc)
     ID_CMBW_PASSAGES = 1113, ID_OPT_PASSAGES, ID_OPT_PASSAGESFILE,  // Tools > Cosmonarchy > Ramp and bridge mapper (core/views_passages.inc); Program options > Plugins > Ramp and bridge mappings: on or off, Browse
     ID_CMBW_TERRAINMAPPER = 1128,  // Tools > Cosmonarchy > Mod terrain mapper (core/views_isom_rules.inc)
-    ID_OPT_BUILTINTERRAINS = 1129,  // Program options > Plugins > Built-in ISOM terrains: on or off (core/cmbw.inc)
-    ID_OPT_TERRAINOVERRIDE = 1110, ID_OPT_TERRAINOVERRIDEFILE, ID_CMBW_ISOMRULES,  // Program options > Plugins > ISOM terrain rules override: on or off, Browse; Tools > Cosmonarchy > Custom isom terrain editor
+    ID_OPT_BUILTINTERRAINS = 1129,  // Program options > Plugins > ISOM terrains > Built-in mod terrains (core/cmbw.inc)
+    ID_OPT_GAMETERRAINS = 1105,  // Program options > Plugins > ISOM terrains > Game terrains only (core/cmbw.inc)
+    ID_OPT_TERRAINOVERRIDE = 1110, ID_OPT_TERRAINOVERRIDEFILE, ID_CMBW_ISOMRULES,  // Program options > Plugins > ISOM terrains > Terrain rules file, and its Browse; Tools > Cosmonarchy > Custom isom terrain editor
     // Program options > Plugins > Hyperion folder's Browse; Tools > Hyperion > Check the map in Hyperion, Test in Hyperion
     // (melee), Test in Hyperion (Use Map Settings) (core/hyperion.inc)
     ID_OPT_HYPERIONFOLDER = 1116, ID_HYP_CHECK, ID_HYP_TEST, ID_HYP_TESTUMS,

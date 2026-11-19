@@ -43,13 +43,15 @@ UiLang sdlSystemLanguage() {
             else if (l == "ru") lang = UiLang::Russian;
             else if (l == "zh" && (c.empty() || c == "CN" || c == "SG")) lang = UiLang::Chinese;  // simplified; traditional: English
             else if (l == "fr") lang = UiLang::French;
+            else if (l == "pt") lang = UiLang::Portuguese;  // Brazilian (also for Portugal: closer than English)
+            else if (l == "de") lang = UiLang::German;
         }
         SDL_free(locales);
     }
     return lang;
 }
 
-// The language to use: STARDRAFT_LANG (en, ko, es, ru, zh or fr, for test runs) wins, then the setting, and automatic is the
+// The language to use: STARDRAFT_LANG (en, ko, es, ru, zh, fr, pt or de, for test runs) wins, then the setting, and automatic is the
 // language of the system.
 UiLang sdlLanguageChosen(const std::wstring& setting) {
     std::wstring code = setting;
@@ -343,8 +345,7 @@ public:
             v.cmbwFolder = mod.empty() ? std::wstring() : mod.wstring();
             v.cmbwOpen = !inUse.empty();
             v.cmbwNext = !gCmbwNext.empty() && gCmbwNext != mod ? gCmbwNext.wstring() : std::wstring();
-            v.overrideOn = gTerrainOverrideOn, v.overrideFile = gTerrainOverride.wstring();
-            v.builtinTerrains = gBuiltinTerrains;
+            v.isomTerrains = cmbwIsomTerrains(), v.overrideFile = gTerrainOverride.wstring();
             v.passagesOn = passagesOn(), v.passagesFile = passagesFile().wstring();
         }
         v.mapsWithSD2 = sdlMapsOpenWithUs();  // (Windows: .scm and .scx open with StarDraft 2; shell_sdl_win.inc)

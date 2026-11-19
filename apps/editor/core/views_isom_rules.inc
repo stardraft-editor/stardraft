@@ -4065,12 +4065,12 @@ private:
         file_ = f, dirty_ = false;
         if (first && !gSettingsOff && !mapper_ && !cmbwIsTerrainOverride(f) &&  // (the first save of these rules: the maps can use them; not the mapper's)
             msgbox::ask(*this, L"Save terrain rules",
-                        L"Use " + f.filename().wstring() + L" as the ISOM terrain rules override? Maps then paint with its rules.\r\n"
+                        L"Use " + f.filename().wstring() + L" as the terrain rules file? Maps then paint with only its terrains.\r\n"
                         L"Options > Program options > Plugins can change this later.",
-                        {L"&Use as override", L"&Not now"}, msgbox::Icon::Question) == 0)
+                        {L"&Use this file", L"&Not now"}, msgbox::Icon::Question) == 0)
             shellSetTerrainOverride(f);
         if (!gSettingsOff) prefs::setText(fileKey(), f.wstring());  // (the next open opens it)
-        // (the file the maps use (ISOM terrain rules override): the open map takes the new rules now)
+        // (the file the maps use (ISOM terrains > Terrain rules file): the open map takes the new rules now)
         setMessage(L"Saved " + f.filename().wstring() + (!mapper_ && cmbwReloadTerrainRules(f) ? L"; the open map uses the new rules" : L""));
         invalidate();
         return true;

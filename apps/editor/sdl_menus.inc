@@ -255,6 +255,7 @@ bool sdlRuns(int id) {
     case ID_OPT_TERRAINOVERRIDE:
     case ID_OPT_TERRAINOVERRIDEFILE:
     case ID_OPT_BUILTINTERRAINS:
+    case ID_OPT_GAMETERRAINS:
     case ID_OPT_PASSAGES:
     case ID_OPT_PASSAGESFILE:
     case ID_SCEN_CHECK:
@@ -1633,8 +1634,9 @@ void commandSdl(int id) {
     case ID_OPT_INSTALL: shellChooseInstallFolder(); return;
     case ID_OPT_CMBWFOLDER: shellChooseCmbwFolder(); return;
     case ID_OPT_HYPERIONFOLDER: shellChooseHyperionFolder(); return;
-    case ID_OPT_TERRAINOVERRIDE: shellToggleTerrainOverride(); return;
-    case ID_OPT_BUILTINTERRAINS: cmbwToggleBuiltinTerrains(); return;  // (core/cmbw.inc; the check box shows the new value)
+    case ID_OPT_TERRAINOVERRIDE: shellUseTerrainOverride(); return;
+    case ID_OPT_BUILTINTERRAINS: cmbwSetIsomTerrains(1); return;  // (core/cmbw.inc; the options view shows the new choice)
+    case ID_OPT_GAMETERRAINS: cmbwSetIsomTerrains(0); return;
     case ID_OPT_TERRAINOVERRIDEFILE: shellChooseTerrainOverride(); return;
     case ID_OPT_PASSAGES: passagesToggle(); return;  // (core/views_passages.inc)
     case ID_OPT_PASSAGESFILE: passagesChoose(); return;

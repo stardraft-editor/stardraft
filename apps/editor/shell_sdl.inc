@@ -698,17 +698,13 @@ void shellChooseCmbwFolder() {
                 {L"OK"}, msgbox::Icon::Info);
     shellLogLine(L"Cosmonarchy folder set to " + in.wstring() + L" (from the next start)");
 }
-// Program options > Plugins > ISOM terrain rules override: on or off (with no file yet: Browse first), and Browse (a terrain rules
-// file). The rules apply to the maps opened from then on (core/cmbw.inc: cmbwApplyTerrainOverride).
+// Program options > Plugins > ISOM terrains > Terrain rules file (with no file yet: Browse first), and Browse (a terrain
+// rules file). The rules apply to the maps opened from then on (core/cmbw.inc: cmbwSetIsomTerrains).
 void shellChooseTerrainOverride();
-void shellToggleTerrainOverride() {
-    if (!gTerrainOverrideOn && gTerrainOverride.empty()) return shellChooseTerrainOverride();
-    gTerrainOverrideOn = !gTerrainOverrideOn;
-    if (!gSilent) prefs::setNumber(L"TerrainOverrideOn", gTerrainOverrideOn ? 1 : 0);
-    cmbwApplyTerrainOverride();
+void shellUseTerrainOverride() {
+    if (gTerrainOverride.empty()) return shellChooseTerrainOverride(), gOptionsView.invalidate();  // (cancelled: the choice stays)
+    cmbwSetIsomTerrains(2);
     gOptionsView.invalidate();
-    setMessage(gTerrainOverrideOn ? L"ISOM terrain rules override on: maps opened from now on use its terrain rules"
-                                  : L"ISOM terrain rules override off: maps opened from now on use the built-in terrain rules");
 }
 void shellChooseTerrainOverride() {
     ShellFilePick d;
@@ -720,18 +716,17 @@ void shellChooseTerrainOverride() {
     stardraft::terrainrules::Rules r;
     std::string err;
     if (!stardraft::terrainrules::load(picked, r, err)) {
-        msgbox::ask(*gRoot, shellTr(L"ISOM terrain rules override"), shellTr(L"Could not read the terrain rules file:") + L"\r\n" + widen(err), {L"OK"},
+        msgbox::ask(*gRoot, shellTr(L"Terrain rules file"), shellTr(L"Could not read the terrain rules file:") + L"\r\n" + widen(err), {L"OK"},
                     msgbox::Icon::Warning);
         return;
     }
     shellSetTerrainOverride(picked);
 }
 void shellSetTerrainOverride(const std::filesystem::path& file) {
-    gTerrainOverride = file, gTerrainOverrideOn = true;
-    if (!gSilent) prefs::setText(L"TerrainOverride", file.wstring()), prefs::setNumber(L"TerrainOverrideOn", 1);
-    cmbwApplyTerrainOverride();
+    gTerrainOverride = file;
+    if (!gSilent) prefs::setText(L"TerrainOverride", file.wstring());
+    cmbwSetIsomTerrains(2);
     gOptionsView.invalidate();
-    setMessage(L"ISOM terrain rules override on: maps opened from now on use its terrain rules");
 }
 
 // The file and folder dialogs: SDL's (asynchronous); the call waits for the answer (the host handles events and paints
