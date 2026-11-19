@@ -237,10 +237,10 @@ void copyLink(cb::Role r) {
 
 void newLinks() {
     if (!gSession || !gRoot) return;
-    if (msgbox::ask(*gRoot, shellTr(L"New invite links"), shellTr(L"Make new invite links? The old links stop working. The people in the session stay."),
+    if (msgbox::ask(*gRoot, shellTr(L"Reset invite links"), shellTr(L"Reset the invite links? The old links stop working. The people in the session stay."),
                     {shellTr(L"Make new links"), shellTr(L"Cancel")}, msgbox::Icon::Question) == 0 &&
         gSession && !gEnded && gSession->newLinks())
-        setMessage(shellTr(L"Made new invite links"));
+        setMessage(shellTr(L"Reset the invite links"));
 }
 
 void endSession() {
@@ -369,18 +369,19 @@ struct SessionView final : draw::View {
         if (host) {
             c.text({pad, y, w - pad, y + scale(20)}, shellTr(L"Invite links"), kDim, draw::kMiddle);
             y += scale(24);
+            // What each link lets people do (the guest locks: sdlCollabLocks, collabModeLocked).
+            const std::wstring note =
+                shellTr(L"Invite people to view or to edit the map. With the edit link, they can change terrain, units, doodads, sprites and "
+                        L"locations. They cannot change triggers, map layers or other map data, and they cannot save. This feature is experimental.");
+            const int nh = c.measureBox(note, w - 2 * pad, draw::kWrap).y;
+            c.text({pad, y, w - pad, y + nh}, note, kText, draw::kWrap);
+            y += nh + scale(12);
             const bool ready = !gSession->link(cb::Role::Edit).empty();
             const int bw = (w - 2 * pad - 2 * scale(8)) / 3;
             button(c, {pad, y, pad + bw, y + bh}, shellTr(L"Copy edit link"), kitpaint::Tone::Primary, [] { copyLink(cb::Role::Edit); }, ready);
             button(c, {pad + bw + scale(8), y, pad + 2 * bw + scale(8), y + bh}, shellTr(L"Copy view link"), kitpaint::Tone::Normal, [] { copyLink(cb::Role::View); }, ready);
-            button(c, {pad + 2 * (bw + scale(8)), y, w - pad, y + bh}, shellTr(L"New links\x2026"), kitpaint::Tone::Normal, [] { newLinks(); }, ready);
-            y += bh + scale(8);
-            // What the people with an edit link can change (the guest locks: sdlCollabLocks, collabModeLocked).
-            const std::wstring note = shellTr(L"Experimental. Collaborators can edit only the map: terrain, units, doodads, sprites and locations. "
-                           L"They cannot edit triggers, map layers or other map data, and they cannot save.");
-            const int nh = c.measureBox(note, w - 2 * pad, draw::kWrap).y;
-            c.text({pad, y, w - pad, y + nh}, note, kDim, draw::kWrap);
-            y += nh + pad;
+            button(c, {pad + 2 * (bw + scale(8)), y, w - pad, y + bh}, shellTr(L"Reset links\x2026"), kitpaint::Tone::Normal, [] { newLinks(); }, ready);
+            y += bh + pad;
         }
         c.text({pad, y, w - pad, y + scale(20)}, shellTr(L"Participants"), kDim, draw::kMiddle);
         y += scale(24);

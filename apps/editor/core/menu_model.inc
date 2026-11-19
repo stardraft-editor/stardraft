@@ -204,7 +204,7 @@ MenuModel buildMenuModel() {
                                                          menuItem(ID_COLLAB_PEOPLE, L"&Session\x2026"),
                                                          menuItem(ID_COLLAB_COPYEDIT, L"Copy &edit invite link"),
                                                          menuItem(ID_COLLAB_COPYVIEW, L"Copy &view invite link"),
-                                                         menuItem(ID_COLLAB_NEWLINKS, L"&New invite links\x2026"),
+                                                         menuItem(ID_COLLAB_NEWLINKS, L"&Reset invite links\x2026"),
                                                          menuItem(ID_COLLAB_STOP, L"E&nd session"),
                                                          menuItem(ID_COLLAB_LEAVE, L"&Leave session"),
                                                          menuSeparator(),
