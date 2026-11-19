@@ -493,6 +493,11 @@ bool sdlCollabCommand(int id) {
     return true;
 }
 
+// Unit properties is open: others' edits wait (the window holds the units by their places in the list).
+void collabHold(bool on) {
+    if (collabui::gSession) collabui::gSession->setHold(on);
+}
+
 // openAny's first step: a stardraft:// link (the system gives it to the program) joins, after the question.
 bool collabOpenLink(const std::filesystem::path& path) {
     const std::string s = narrow(path.wstring());

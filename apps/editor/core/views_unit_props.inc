@@ -593,9 +593,15 @@ struct UnitPropsWindow {
     std::function<void()> closing;
 };
 
+void collabHold(bool on);  // (sdl_collab.inc: a collaborative editing session's others' edits wait while it is on)
 inline int runUnitPropsDialog(draw::View& from, Editor& ed, const std::vector<int>& units, const Unit& first, draw::Image icon, bool project,
                               UnitPropsView*& shown, std::function<void(draw::Canvas&, draw::Rect)> paintIcon = {}, int* next = nullptr,
                               const UnitPropsWindow* win = nullptr) {
+    // (the window holds the units by their places in the list: others' edits of a shared map wait until it closes)
+    struct Hold {
+        Hold() { collabHold(true); }
+        ~Hold() { collabHold(false); }
+    } hold;
     UnitPropsView view(ed, first, units, icon, project);
     view.paintIcon = std::move(paintIcon);
     stardraft::kit::Dialog dlg;

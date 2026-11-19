@@ -495,8 +495,12 @@ bool readObjEdit(Reader& r, ObjEdit& e) {
 Bytes readObjects(const Chk& chk, uint8_t section) {
     Bytes out;
     if (section >= kObjSections) return out;
+    const bool all = section == oUnits || section == oDoodads || section == oSprites;  // (these add up; the others: the last one counts)
     for (const Section& s : chk.sections)
-        if (s.name == kObj[section].name) out.insert(out.end(), s.data.begin(), s.data.end());
+        if (s.name == kObj[section].name) {
+            if (!all) out.clear();
+            out.insert(out.end(), s.data.begin(), s.data.end());
+        }
     return out;
 }
 
@@ -552,14 +556,37 @@ Bytes applyObjects(uint8_t section, const Bytes& data, const ObjEdit& e) {
         return out;
     }
     if (!d.record || out.size() % d.record) return out;
-    for (const Bytes& rec : e.removed)
-        for (size_t at = 0; at + d.record <= out.size(); at += d.record)
-            if (std::equal(rec.begin(), rec.end(), out.begin() + long(at))) {
-                out.erase(out.begin() + long(at), out.begin() + long(at + d.record));
-                break;
-            }
-    for (const Bytes& rec : e.added) out.insert(out.end(), rec.begin(), rec.end());
-    return out;
+    // (the records by their bytes, and units by their serial: each removed record takes one of them)
+    const size_t n = out.size() / d.record;
+    std::map<Bytes, std::vector<size_t>> byBytes;
+    std::map<uint32_t, std::vector<size_t>> bySerial;
+    auto serialAt = [&](const uint8_t* p) { return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24; };
+    for (size_t k = n; k-- > 0;) {  // (from the end: back() is the first)
+        const uint8_t* p = out.data() + k * d.record;
+        byBytes[Bytes(p, p + d.record)].push_back(k);
+        if (section == oUnits) bySerial[serialAt(p)].push_back(k);
+    }
+    std::vector<uint8_t> gone(n, 0);
+    auto take = [&](std::vector<size_t>& v) {
+        while (!v.empty() && gone[v.back()]) v.pop_back();
+        if (v.empty()) return false;
+        gone[v.back()] = 1, v.pop_back();
+        return true;
+    };
+    for (const Bytes& rec : e.removed) {
+        if (rec.size() != d.record) continue;
+        auto it = byBytes.find(rec);
+        if (it != byBytes.end() && take(it->second)) continue;
+        if (section == oUnits)  // (moved or changed by another user meanwhile: the unit is the one of that serial)
+            if (auto s = bySerial.find(serialAt(rec.data())); s != bySerial.end()) take(s->second);
+    }
+    Bytes kept;
+    kept.reserve(out.size() + e.added.size() * d.record);
+    for (size_t k = 0; k < n; ++k)
+        if (!gone[k]) kept.insert(kept.end(), out.begin() + long(k * d.record), out.begin() + long(k * d.record + d.record));
+    for (const Bytes& rec : e.added)
+        if (rec.size() == d.record) kept.insert(kept.end(), rec.begin(), rec.end());
+    return kept;
 }
 
 bool validObjects(uint8_t section, const Bytes& data, size_t unitTypes) {
@@ -668,6 +695,7 @@ std::unique_ptr<Session> Session::host(Editor& editor, const std::string& server
         }
         s->slotWriter_[k].assign(kObj[k].slots ? s->objBase_[k].size() / kObj[k].record : 0, 0);
     }
+    s->slotLimit_ = std::max<size_t>(s->objBase_[oLocations].size(), 64 * 20);
     for (int k = 0; k < kSections; ++k) s->writer_[k].assign(s->base_.cells[k].size(), 0);
     return s;
 }
@@ -911,7 +939,7 @@ void Session::hostMessage(uint32_t from, const Bytes& m) {
             objDirty_[e.section] = true;
             return;
         }
-        hostObjects(from, seq, std::move(e));
+        hostObjLater_.push_back({from, seq, std::move(e)});  // (tick applies it, after this program's own edits, not in a stroke)
         return;
     }
     if (type == mPatch) {
@@ -1215,15 +1243,16 @@ bool Session::flushLocal(bool force) {
 
 // This user's records (the undo takes back only these): added ones, and removed ones (an undo may put them back).
 void Session::noteMine(uint8_t section, const ObjEdit& e) {
+    // (a record this user removed may come back with an undo or a redo; one this user added may go)
     for (const Bytes& r : e.removed) {
         auto it = mineAdded_[section].find(r);
         if (it != mineAdded_[section].end() && it->second > 0) --it->second;
-        else ++mineRemoved_[section][r];
+        ++mineRemoved_[section][r];
     }
     for (const Bytes& r : e.added) {
         auto it = mineRemoved_[section].find(r);
         if (it != mineRemoved_[section].end() && it->second > 0) --it->second;
-        else ++mineAdded_[section][r];
+        ++mineAdded_[section][r];
     }
     for (const auto& [i, rec] : e.slots) {
         if (slotWriter_[section].size() <= i) slotWriter_[section].resize(i + 1, 0);
@@ -1262,7 +1291,7 @@ void Session::flushObjects(bool undone) {
         }
         if (undone) e = filterUndo(s, e, shown);
         const Bytes next = applyObjects(s, shown, e);
-        if (!validObjects(s, next, ed_->unitTypes().size())) {
+        if (!validObjects(s, next, ed_->unitTypes().size()) || (s == oLocations && next.size() > slotLimit_)) {
             applyObjectsToEditor(s, shown);
             if (ev_.status) ev_.status("The change is larger than collaborative editing takes: it was put back");
             continue;
@@ -1298,26 +1327,42 @@ void Session::hostObjects(uint32_t from, uint32_t seq, ObjEdit e) {
     flushLocal(true);
     if (ended_) return;
     const uint8_t s = e.section;
+    auto serialOf = [](const Bytes& r) { return uint32_t(r[0]) | uint32_t(r[1]) << 8 | uint32_t(r[2]) << 16 | uint32_t(r[3]) << 24; };
+    auto setSerial = [](uint8_t* u, uint32_t v) {
+        for (int b = 0; b < 4; ++b) u[b] = uint8_t(v >> (8 * b));
+    };
+    if (s == oUnits)  // (a unit this member placed that got another serial here: the member's later edits of it use the old one)
+        for (auto* list : {&e.removed, &e.added})
+            for (Bytes& r : *list)
+                if (auto it = serialMap_.find({from, serialOf(r)}); it != serialMap_.end()) setSerial(r.data(), it->second);
     Bytes merged = applyObjects(s, objBase_[s], e);
     if (s == oUnits && merged.size() % 36 == 0) {  // (a unit added with a serial that another unit has: a new one)
         std::set<uint32_t> serials;
         uint32_t top = 0;
         const size_t kept = merged.size() / 36 - e.added.size();
-        for (size_t k = 0; k < merged.size() / 36; ++k) {
+        for (size_t k = 0; k < kept; ++k) {
+            const uint8_t* u = merged.data() + k * 36;
+            const uint32_t v = uint32_t(u[0]) | uint32_t(u[1]) << 8 | uint32_t(u[2]) << 16 | uint32_t(u[3]) << 24;
+            serials.insert(v), top = std::max(top, v);
+        }
+        for (size_t k = kept; k < merged.size() / 36; ++k) {
             uint8_t* u = merged.data() + k * 36;
-            uint32_t serial = uint32_t(u[0]) | uint32_t(u[1]) << 8 | uint32_t(u[2]) << 16 | uint32_t(u[3]) << 24;
-            if (k >= kept && serials.count(serial)) {
-                serial = top + 1;
-                for (int b = 0; b < 4; ++b) u[b] = uint8_t(serial >> (8 * b));
+            const uint32_t was = uint32_t(u[0]) | uint32_t(u[1]) << 8 | uint32_t(u[2]) << 16 | uint32_t(u[3]) << 24;
+            uint32_t v = was;
+            if (serials.count(v)) {
+                v = ++top;
+                setSerial(u, v);
+                if (serialMap_.size() < 4096) serialMap_[{from, was}] = v;
             }
-            serials.insert(serial), top = std::max(top, serial);
+            serials.insert(v), top = std::max(top, v);
         }
     }
     objAck_[from] = seq;
     objDirty_[s] = true;  // (also when nothing changed: the member's state comes back)
-    if (!validObjects(s, merged, ed_->unitTypes().size())) return;
+    if (!validObjects(s, merged, ed_->unitTypes().size()) || (s == oLocations && merged.size() > slotLimit_)) return;
     if (merged == objBase_[s]) return;
     applyObjectsToEditor(s, merged);
+    if (readObjects(ed_->chk(), s) != merged) return;  // (the editor did not take it: nothing changes, the member gets the state back)
     objBase_[s] = merged;
     objWriter_[s] = from;
     for (const auto& [i, rec] : e.slots) {
@@ -1331,9 +1376,13 @@ void Session::hostObjects(uint32_t from, uint32_t seq, ObjEdit e) {
 // Guest: the host's state of a section. This program's edits that the host did not take yet stay on top of it.
 void Session::objectsFromHost(uint8_t section, uint32_t ack, uint32_t writer, Bytes data) {
     if (!ed_) return;
-    flushObjects(false);  // (this program's last edits go first: they become waiting edits)
+    flushLocal(true);  // (this program's last edits go first, an undo's filtered: they become waiting edits)
     if (ended_) return;
     auto& pending = objPending_[section];
+    std::map<uint32_t, Bytes> mineDone;  // (the slots of this user's edits that the host took now)
+    for (const ObjPending& p : pending)
+        if (p.seq <= ack)
+            for (const auto& [i, rec] : p.edit.slots) mineDone[i] = rec;
     std::erase_if(pending, [&](const ObjPending& p) { return p.seq <= ack; });
     const Bytes old = objBase_[section];
     objBase_[section] = std::move(data);
@@ -1341,11 +1390,34 @@ void Session::objectsFromHost(uint8_t section, uint32_t ack, uint32_t writer, By
         const size_t rec = kObj[section].record, n = objBase_[section].size() / rec;
         if (slotWriter_[section].size() < n) slotWriter_[section].resize(n, 0);
         for (size_t i = 0; i < n; ++i)
-            if (i * rec + rec > old.size() || !std::equal(old.begin() + long(i * rec), old.begin() + long(i * rec + rec), objBase_[section].begin() + long(i * rec)))
-                slotWriter_[section][i] = writer;
+            if (i * rec + rec > old.size() || !std::equal(old.begin() + long(i * rec), old.begin() + long(i * rec + rec), objBase_[section].begin() + long(i * rec))) {
+                auto m = mineDone.find(uint32_t(i));
+                const bool mine = m != mineDone.end() && std::equal(m->second.begin(), m->second.end(), objBase_[section].begin() + long(i * rec));
+                slotWriter_[section][i] = mine ? me() : writer;
+            }
     } else if (old != objBase_[section]) {
         objWriter_[section] = writer;
     }
+    if (section == oUnits && objBase_[section].size() % 36 == 0)  // (this user's units that the host gave a new serial: still this user's)
+        for (auto it = mineAdded_[section].begin(); it != mineAdded_[section].end();) {
+            const Bytes& r = it->first;
+            bool there = false;
+            for (size_t at = 0; at < objBase_[section].size() && !there; at += 36) there = std::equal(r.begin(), r.end(), objBase_[section].begin() + long(at));
+            Bytes moved;
+            if (!there && it->second > 0 && r.size() == 36)
+                for (size_t at = 0; at < objBase_[section].size(); at += 36)
+                    if (std::equal(r.begin() + 4, r.end(), objBase_[section].begin() + long(at + 4)) && !mineAdded_[section].count(Bytes(objBase_[section].begin() + long(at), objBase_[section].begin() + long(at + 36)))) {
+                        moved.assign(objBase_[section].begin() + long(at), objBase_[section].begin() + long(at + 36));
+                        break;
+                    }
+            if (moved.empty()) {
+                ++it;
+                continue;
+            }
+            const int n = it->second;
+            it = mineAdded_[section].erase(it);
+            mineAdded_[section][moved] += n;
+        }
     Bytes shown = objBase_[section];
     for (const ObjPending& p : pending) shown = applyObjects(section, shown, p.edit);
     if (shown != readObjects(ed_->chk(), section)) applyObjectsToEditor(section, shown);
@@ -1367,7 +1439,7 @@ void Session::tick() {
     }
     if (ed_) {
         flushLocal();
-        if (!ended_ && !ed_->inStroke() && !later_.empty()) {
+        if (!ended_ && !hold_ && !ed_->inStroke() && !later_.empty()) {
             std::vector<Waiting> batch = std::move(later_);
             later_.clear();
             Terrain cur;
@@ -1379,7 +1451,13 @@ void Session::tick() {
             }
         }
     }
-    if (ed_ && !ended_ && !ed_->inStroke() && !objLater_.empty()) {
+    if (host_ && ed_ && !ended_ && !hold_ && !ed_->inStroke() && !hostObjLater_.empty()) {
+        std::vector<ObjEditWaiting> batch = std::move(hostObjLater_);
+        hostObjLater_.clear();
+        for (ObjEditWaiting& w : batch)
+            if (!ended_) hostObjects(w.from, w.seq, std::move(w.edit));
+    }
+    if (ed_ && !ended_ && !hold_ && !ed_->inStroke() && !objLater_.empty()) {
         std::vector<ObjWaiting> batch = std::move(objLater_);
         objLater_.clear();
         for (ObjWaiting& w : batch)
@@ -1461,6 +1539,7 @@ void Session::setEditor(Editor* ed) {
     ed_->editSections([&](Chk& c) {
         for (uint8_t s = 0; s < kObjSections; ++s) writeObjects(c, s, objBase_[s]);
     });
+    slotLimit_ = std::max<size_t>(objBase_[oLocations].size(), 64 * 20);
     for (uint8_t s = 0; s < kObjSections; ++s) {
         objShown_[s] = readObjects(ed_->chk(), s);
         slotWriter_[s].assign(kObj[s].slots ? objBase_[s].size() / kObj[s].record : 0, 0);

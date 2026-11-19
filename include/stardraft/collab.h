@@ -97,7 +97,7 @@ struct ObjEdit {
 Bytes readObjects(const Chk& chk, uint8_t section);                // all sections of that name, one after the other
 void writeObjects(Chk& chk, uint8_t section, const Bytes& data);   // one section (strings: none when empty)
 ObjEdit diffObjects(uint8_t section, const Bytes& from, const Bytes& to);
-Bytes applyObjects(uint8_t section, const Bytes& data, const ObjEdit& e);
+Bytes applyObjects(uint8_t section, const Bytes& data, const ObjEdit& e);  // (units: a record not found is the unit of its serial)
 // The section's limits: its record or slot size, at most so many bytes, and (units) the unit types there are.
 bool validObjects(uint8_t section, const Bytes& data, size_t unitTypes);
 
@@ -167,6 +167,8 @@ public:
     bool newLinks();  // new secrets: the old links stop working (people who joined stay)
     void stop();      // host: ends the session for all; guest: leaves
     void editorClosed();  // the map's tab closed (its editor is gone): the session ends
+    // While on, others' edits wait (a window that holds the units by their places in the list: Unit properties).
+    void setHold(bool on) { hold_ = on; }
 
     // After the editor's undo or redo: the terrain cells that another user wrote last go back to their values (an undo
     // takes back only this user's own edits), and this user's are sent.
@@ -256,6 +258,14 @@ private:
         Bytes data;
     };
     std::vector<ObjWaiting> objLater_;  // guest: the host's object states that wait for a stroke to end
+    struct ObjEditWaiting {
+        uint32_t from = 0, seq = 0;
+        ObjEdit edit;
+    };
+    std::vector<ObjEditWaiting> hostObjLater_;  // host: members' object edits that wait for a stroke to end
+    std::map<std::pair<uint32_t, uint32_t>, uint32_t> serialMap_;  // host: (member, its unit's serial) -> the serial the host gave
+    size_t slotLimit_ = 0;  // locations: at most the map's slots at the start (64 or 255)
+    bool hold_ = false;
 };
 
 }  // namespace collab

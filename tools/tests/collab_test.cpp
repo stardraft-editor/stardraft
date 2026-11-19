@@ -256,6 +256,37 @@ int main(int argc, char** argv) {
         cb::applyPatch(v, d);
         CHECK(v.cells[cb::kMtxm] == u.cells[cb::kMtxm] && v.cells[cb::kIsom] == u.cells[cb::kIsom] && cb::validPatch(t, d, 0), "patches: diff and apply");
     }
+    // --- Object edits ----------------------------------------------------------------------------------------------------
+    {
+        auto unit = [](uint32_t serial, uint16_t x) {
+            Bytes u(36, 0);
+            for (int b = 0; b < 4; ++b) u[size_t(b)] = uint8_t(serial >> (8 * b));
+            u[4] = uint8_t(x), u[5] = uint8_t(x >> 8);
+            return u;
+        };
+        Bytes list;
+        for (uint32_t s = 1; s <= 3; ++s) {
+            const Bytes u = unit(s, uint16_t(s * 10));
+            list.insert(list.end(), u.begin(), u.end());
+        }
+        // Two users move unit 2: the second edit removes the first's version (the unit of serial 2), no copy is left.
+        cb::ObjEdit first{cb::oUnits, {unit(2, 20)}, {unit(2, 99)}}, second{cb::oUnits, {unit(2, 20)}, {unit(2, 77)}};
+        Bytes after = cb::applyObjects(cb::oUnits, cb::applyObjects(cb::oUnits, list, first), second);
+        CHECK(after.size() == 3 * 36, "objects: two moves of one unit leave one unit");
+        // Many removals: the merge is quick (a member cannot stop the host with one message).
+        Bytes many, none;
+        cb::ObjEdit big;
+        big.section = cb::oDoodads;
+        for (uint32_t k = 0; k < 65535; ++k) {
+            const Bytes r{uint8_t(k), uint8_t(k >> 8), 1, 2, 3, 4, 5, 6};
+            many.insert(many.end(), r.begin(), r.end());
+            big.removed.push_back(Bytes{uint8_t(k), uint8_t(k >> 8), 9, 9, 9, 9, 9, 9});
+        }
+        const double t0 = seconds();
+        none = cb::applyObjects(cb::oDoodads, many, big);
+        CHECK(none.size() == many.size() && seconds() - t0 < 2, "objects: 65535 removals of 65535 doodads in under 2 seconds");
+        CHECK(!cb::validObjects(cb::oLocations, Bytes(1025 * 20, 0), 0) && !cb::validObjects(cb::oUnits, Bytes(37, 0), 0), "objects: sizes are checked");
+    }
 
     // --- A session ---------------------------------------------------------------------------------------------------
     Program host, a, b;
@@ -355,6 +386,28 @@ int main(int argc, char** argv) {
         a.ed->redo(1), a.s->afterUndo();
         CHECK(waitFor([&] { return sameMap(*a.ed, *hostEd) && hostEd->locationName(loc) == "Ann's base"; }),
               "Ann's redo puts it back");
+        settle();
+
+        // Undo and redo of a unit placement.
+        const size_t before = hostEd->units().size();
+        a.ed->placeUnit(0, 0, 500, 1100);
+        CHECK(waitFor([&] { return hostEd->units().size() == before + 1 && sameMap(*a.ed, *hostEd); }), "Ann places one more unit");
+        settle(0.2);
+        a.ed->undo(1), a.s->afterUndo();
+        CHECK(waitFor([&] { return hostEd->units().size() == before && sameMap(*a.ed, *hostEd); }), "Ann's undo takes the unit back");
+        settle(0.2);
+        a.ed->redo(1), a.s->afterUndo();
+        CHECK(waitFor([&] { return hostEd->units().size() == before + 1 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }),
+              "Ann's redo puts the unit back on all");
+
+        // A unit that Ann places while the host is in a stroke waits for the stroke's end (it is not lost).
+        hostEd->beginStroke();
+        a.ed->placeUnit(0, 0, 700, 1100);
+        settle(0.5);
+        CHECK(hostEd->units().size() == before + 1, "the host's stroke: Ann's unit waits");
+        hostEd->endStroke();
+        CHECK(waitFor([&] { return hostEd->units().size() == before + 2 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }),
+              "after the stroke the host has Ann's unit, and all are the same");
         settle();
     }
 
