@@ -1,7 +1,8 @@
 #pragma once
 
 // A WebSocket client (wss://, or ws:// to this computer), for shared maps (include/stardraft/collab.h). WinHTTP on
-// Windows (websocket_win32.cpp); not there yet on other systems (websocket_none.cpp: connect fails).
+// Windows (websocket_win32.cpp), NSURLSession on macOS (websocket_mac.mm); not there yet on Linux (websocket_none.cpp:
+// connect fails).
 
 #include <cstdint>
 #include <functional>

@@ -307,6 +307,8 @@ void ensureGameData() {
 // save question for the open map (SDL has one tab).
 // In the Assets workspace a sound imports into the map (sdl_dock.inc).
 void dropFile(const std::string& utf8) {
+    // A stardraft:// invite link that macOS gives (SDL's URL handler sends it as a drop): it is not a file.
+    if (utf8.rfind("stardraft:", 0) == 0) return openAny(fs::path(widen(utf8)));
     if (sdlAssetsDrop(fs::path(widen(utf8)))) return;
     openDropped({fs::path(widen(utf8))}, [](const fs::path& f) { openAny(f); });
 }
