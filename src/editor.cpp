@@ -315,10 +315,15 @@ bool Editor::slotsSaved() const {
 
 Bytes Editor::savedChk() const {
     const Bytes game = gameSlots(), shown = editorSlots();
+    const Section* ver = chk_.find("VER ");
+    const bool broodWar = broodWarSaves_ && ver && ver->data.size() >= 2 && (ver->data[0] | (ver->data[1] << 8)) == 206;  // (setBroodWarSaves)
     // (not slotsSaved: the file may have the slots while the working copy has the page's)
-    if (const Section* ownr = chk_.find("OWNR"); ownr && ownr->data.size() >= 12 && std::equal(game.begin(), game.end(), ownr->data.begin()))
-        return chk_.serialize();
+    const Section* ownr = chk_.find("OWNR");
+    const bool slotsThere = ownr && ownr->data.size() >= 12 && std::equal(game.begin(), game.end(), ownr->data.begin());
+    if (slotsThere && !broodWar) return chk_.serialize();
     Chk out = chk_;
+    if (broodWar) out.set("VER ", Bytes{205, 0});
+    if (slotsThere) return out.serialize();
     out.set("OWNR", game);
     Bytes iown = shown;  // (IOWN has the type that the game's slot does not have: the page shows it after a reopen)
     if (const Section* s = chk_.find("IOWN"); s && s->data.size() >= 12) {

@@ -672,6 +672,9 @@ public:
     Bytes editorSlots() const;  // the slots the Players page shows (OWNR; IOWN's when the map has none, and its Computer)
     bool slotsSaved() const;    // whether the map's OWNR is gameSlots already
     Bytes savedChk() const;  // the scenario.chk that a save writes (OWNR: gameSlots)
+    // Saves for a game on the 1.16.1 engine (a mod such as Cosmonarchy BW): a Remastered map (VER 206) is always written
+    // as a Brood War map (205), the version that game opens.
+    void setBroodWarSaves(bool on) { broodWarSaves_ = on; }
     // Players 1-8 (index 0-7): who controls the slot (IOWN, the editor's copy; OWNR when the map has no IOWN), the race (SIDE) and the
     // force (FORC). Players 9-12 (index 8-11): the slot and the race only (no force, no color). Forces 1-4: a name (a
     // map string) and their properties. A byte with no name here stays as it is (Controller(9), Race(69)).
@@ -1082,6 +1085,7 @@ private:
     int moveUnitsTo(const std::vector<int>& sel, std::vector<Unit> to);
 
     const GameData& data_;
+    bool broodWarSaves_ = false;  // (setBroodWarSaves)
     std::filesystem::path path_;
     mutable std::vector<ArchiveFile> files_;
     // The archive's files while they are read (after open); filesError_: why they could not be (save refuses then).

@@ -153,6 +153,8 @@ bool saveMapFile(const fs::path& path, std::string& err) {
     AppState& app = shellState();
     if (!app.ed) return err = "No map is open.", false;
     mapPrefsIntoMap(*app.ed, path);
+    bool cmbwMode();  // (core/cmbw.inc)
+    app.ed->setBroodWarSaves(cmbwMode());  // (the mod runs on the 1.16.1 engine: it does not open Remastered maps)
     if (!app.ed->save(path, err)) return false;
     protectedTerrainSync();  // (the protected terrain of the saved map: core/protected_layer.inc)
     updateTitle();
