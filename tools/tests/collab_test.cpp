@@ -6,6 +6,7 @@
 //   collab_test <StarCraft folder> http://localhost:18787
 
 #include <chrono>
+#include <set>
 #include <cstdio>
 #include <deque>
 #include <functional>
@@ -114,6 +115,17 @@ static bool sameTerrain(const Editor& a, const Editor& b) {
         if (x.cells[s] != y.cells[s]) return false;
     return true;
 }
+static bool sameObjects(const Editor& a, const Editor& b) {
+    for (uint8_t s = 0; s < cb::kObjSections; ++s)
+        if (cb::readObjects(a.chk(), s) != cb::readObjects(b.chk(), s)) return false;
+    return true;
+}
+static bool sameMap(const Editor& a, const Editor& b) { return sameTerrain(a, b) && sameObjects(a, b); }
+static std::set<uint32_t> serials(const Editor& e) {
+    std::set<uint32_t> out;
+    for (const Unit& u : e.units()) out.insert(u.serial);
+    return out;
+}
 static std::vector<uint16_t> mtxm(const Editor& e) {
     cb::Terrain t;
     std::string err;
@@ -146,7 +158,8 @@ static int hostFor(const GameData& data, const std::string& server, const std::s
     std::printf("host: link written\n");
     std::fflush(stdout);
     size_t asked = 0;
-    bool painted = false, got = false;
+    bool painted = false, got = false, gotUnit = false;
+    const size_t units = ed->units().size();
     std::vector<uint16_t> mine;
     const double until = seconds() + secs;
     while (seconds() < until && host.ended.empty()) {
@@ -162,6 +175,11 @@ static int hostFor(const GameData& data, const std::string& server, const std::s
             mine = mtxm(*ed);
             painted = true;
             std::printf("host: painted and moved the cursor\n");
+            std::fflush(stdout);
+        }
+        if (painted && !gotUnit && ed->units().size() > units) {
+            gotUnit = true;
+            std::printf("host: a guest's unit arrived\n");
             std::fflush(stdout);
         }
         if (painted && !got && mtxm(*ed) != mine) {
@@ -292,6 +310,53 @@ int main(int argc, char** argv) {
     CHECK(paint(*b.ed, 1500, 1500, 4), "Bob (view only) paints in his program");
     settle();
     CHECK(sameTerrain(*b.ed, *hostEd) && mtxm(*hostEd) == beforeBob, "Bob's edit is put back, and not sent");
+
+    // Units, doodads, sprites, locations.
+    {
+        const size_t hostUnits = hostEd->units().size();
+        b.ed->placeUnit(0, 0, 900, 900);  // (a Terran Marine of Player 1)
+        settle();
+        CHECK(sameMap(*b.ed, *hostEd) && hostEd->units().size() == hostUnits, "Bob (view only) places a unit: it is put back, and not sent");
+
+        a.ed->placeUnit(0, 0, 400, 400);
+        CHECK(waitFor([&] { return hostEd->units().size() == hostUnits + 1 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }),
+              "Ann places a unit: the host and Bob have it");
+        // At the same time: the two new units have serials of their own.
+        hostEd->placeUnit(0, 1, 1200, 400);
+        a.ed->placeUnit(0, 0, 450, 400);
+        CHECK(waitFor([&] { return hostEd->units().size() == hostUnits + 3 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }),
+              "units placed at the same time: all have both");
+        CHECK(serials(*hostEd).size() == hostEd->units().size(), "each unit has a serial of its own");
+
+        uint16_t doodad = 0;
+        for (uint16_t id = 0; id < 4000 && !doodad; ++id)
+            if (hostEd->doodadTypes().find(id)) doodad = id;
+        const size_t doodads = hostEd->doodads().size();
+        CHECK(doodad && a.ed->placeDoodad(doodad, 1600, 1600, false), "Ann places a doodad");
+        CHECK(waitFor([&] { return hostEd->doodads().size() == doodads + 1 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }),
+              "the doodad (DD2, THG2 and its tiles) reaches all");
+        const size_t sprites = hostEd->sprites().size();
+        CHECK(hostEd->placeSprite(130, 300, 1600, 0), "the host places a sprite");
+        CHECK(waitFor([&] { return a.ed->sprites().size() == sprites + 1 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }), "the sprite reaches all");
+        const int loc = a.ed->createLocation(Rect{64, 64, 320, 256}, false, 3, "Ann's base");
+        CHECK(loc >= 0, "Ann makes a location");
+        CHECK(waitFor([&] {
+                  return sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd) && size_t(loc) < hostEd->locations().size() &&
+                         hostEd->locationName(loc) == "Ann's base";
+              }),
+              "the location and its name reach all");
+
+        // Ann's undo takes back her location, not the host's sprite or units.
+        const size_t unitsNow = hostEd->units().size(), spritesNow = hostEd->sprites().size();
+        a.ed->undo(1), a.s->afterUndo();
+        CHECK(waitFor([&] { return sameMap(*a.ed, *hostEd) && hostEd->locationName(loc) != "Ann's base"; }),
+              "Ann's undo takes her location back on all");
+        CHECK(hostEd->units().size() == unitsNow && hostEd->sprites().size() == spritesNow, "the host's units and sprite stay");
+        a.ed->redo(1), a.s->afterUndo();
+        CHECK(waitFor([&] { return sameMap(*a.ed, *hostEd) && hostEd->locationName(loc) == "Ann's base"; }),
+              "Ann's redo puts it back");
+        settle();
+    }
 
     // Edits at the same time, over the same cells: all end with the host's order.
     paint(*hostEd, 700, 700, 2, 4);

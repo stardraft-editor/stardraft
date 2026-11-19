@@ -37,7 +37,8 @@ const char kKdfLabel[] = "stardraft-collab-1";
 // Frames (the first byte of a binary message, inside the relay's).
 enum Frame : uint8_t { kHello = 1, kHelloBack = 2, kSealed = 3 };
 // Messages (the first byte of a sealed frame's text).
-enum Msg : uint8_t { mJoin = 1, mWelcome, mDeny, mPatch, mAck, mReject, mCursor, mPeers, mRole, mBye, mCursors };
+enum Msg : uint8_t { mJoin = 1, mWelcome, mDeny, mPatch, mAck, mReject, mCursor, mPeers, mRole, mBye, mCursors, mObjEdit, mObjState };
+constexpr double kObjectsEvery = 0.1;  // seconds: the host sends a changed object section at most 10 times a second
 constexpr double kCursorsEvery = 0.1;  // seconds: the host sends the cursors of all at most 10 times a second
 constexpr double kFlushEvery = 0.05;   // seconds: this program's edits go at most 20 times a second
 constexpr double kHelloWait = 10;      // seconds: a connection with no keys after this goes
@@ -424,6 +425,153 @@ size_t patchCells(const Patch& p) {
     return n;
 }
 
+// --- Objects ------------------------------------------------------------------------------------------------------------
+
+namespace {
+struct ObjDef {
+    SectionName name;
+    size_t record;  // a record's or a slot's size (0: whole)
+    bool slots;
+    size_t maxBytes;
+};
+const ObjDef kObj[kObjSections] = {
+    {SectionName("UNIT"), 36, false, 8192 * 36},  {SectionName("DD2 "), 8, false, 65535 * 8}, {SectionName("THG2"), 10, false, 65535 * 10},
+    {SectionName("MRGN"), 20, true, 1024 * 20},  {SectionName("STR "), 0, false, 512 * 1024}, {SectionName("STRx"), 0, false, 512 * 1024},
+};
+
+void writeObjEdit(Writer& w, const ObjEdit& e) {
+    w.u8(e.section);
+    const ObjDef& d = kObj[e.section];
+    if (d.record && !d.slots) {
+        w.u32(uint32_t(e.removed.size()));
+        for (const Bytes& r : e.removed) w.b.insert(w.b.end(), r.begin(), r.end());
+        w.u32(uint32_t(e.added.size()));
+        for (const Bytes& r : e.added) w.b.insert(w.b.end(), r.begin(), r.end());
+    } else if (d.slots) {
+        w.u32(uint32_t(e.slots.size()));
+        for (const auto& [i, r] : e.slots) w.u32(i), w.b.insert(w.b.end(), r.begin(), r.end());
+    } else {
+        w.u32(uint32_t(e.data.size()));
+        w.b.insert(w.b.end(), e.data.begin(), e.data.end());
+    }
+}
+bool readObjEdit(Reader& r, ObjEdit& e) {
+    e = ObjEdit{};
+    e.section = r.u8();
+    if (!r.ok || e.section >= kObjSections) return false;
+    const ObjDef& d = kObj[e.section];
+    auto bytes = [&](size_t n, Bytes& out) {
+        if (!r.need(n)) return false;
+        out.assign(r.p + r.i, r.p + r.i + n);
+        r.i += n;
+        return true;
+    };
+    if (d.record && !d.slots) {
+        for (auto* list : {&e.removed, &e.added}) {
+            const uint32_t n = r.u32();
+            if (!r.ok || size_t(n) * d.record > d.maxBytes) return false;
+            list->resize(n);
+            for (Bytes& rec : *list)
+                if (!bytes(d.record, rec)) return false;
+        }
+    } else if (d.slots) {
+        const uint32_t n = r.u32();
+        if (!r.ok || size_t(n) * d.record > d.maxBytes) return false;
+        e.slots.resize(n);
+        for (auto& [i, rec] : e.slots) {
+            i = r.u32();
+            if (!r.ok || (size_t(i) + 1) * d.record > d.maxBytes || !bytes(d.record, rec)) return false;
+        }
+    } else {
+        const uint32_t n = r.u32();
+        if (!r.ok || n > d.maxBytes) return false;
+        e.whole = true;
+        if (!bytes(n, e.data)) return false;
+    }
+    return r.ok;
+}
+}  // namespace
+
+Bytes readObjects(const Chk& chk, uint8_t section) {
+    Bytes out;
+    if (section >= kObjSections) return out;
+    for (const Section& s : chk.sections)
+        if (s.name == kObj[section].name) out.insert(out.end(), s.data.begin(), s.data.end());
+    return out;
+}
+
+void writeObjects(Chk& chk, uint8_t section, const Bytes& data) {
+    if (section >= kObjSections) return;
+    const ObjDef& d = kObj[section];
+    if (readObjects(chk, section) == data) return;
+    while (chk.find(d.name)) chk.remove(d.name);
+    if (!data.empty() || d.record) chk.set(d.name, data);  // (no strings: no section)
+}
+
+ObjEdit diffObjects(uint8_t section, const Bytes& from, const Bytes& to) {
+    ObjEdit e;
+    e.section = section;
+    const ObjDef& d = kObj[section];
+    if (!d.record || from.size() % d.record || to.size() % d.record) {  // (whole, or a section that is not whole records)
+        if (from != to) e.whole = true, e.data = to;
+        return e;
+    }
+    if (d.slots) {
+        const size_t n = std::max(from.size(), to.size()) / d.record;
+        for (size_t i = 0; i < n; ++i) {
+            const size_t at = i * d.record;
+            Bytes a = at < from.size() ? Bytes(from.begin() + long(at), from.begin() + long(at + d.record)) : Bytes(d.record, 0);
+            Bytes b = at < to.size() ? Bytes(to.begin() + long(at), to.begin() + long(at + d.record)) : Bytes(d.record, 0);
+            if (a != b) e.slots.push_back({uint32_t(i), std::move(b)});
+        }
+        return e;
+    }
+    std::map<Bytes, int> have;
+    for (size_t at = 0; at < from.size(); at += d.record) ++have[Bytes(from.begin() + long(at), from.begin() + long(at + d.record))];
+    for (size_t at = 0; at < to.size(); at += d.record) {
+        Bytes rec(to.begin() + long(at), to.begin() + long(at + d.record));
+        auto it = have.find(rec);
+        if (it != have.end() && it->second > 0) --it->second;
+        else e.added.push_back(std::move(rec));
+    }
+    for (const auto& [rec, n] : have)
+        for (int k = 0; k < n; ++k) e.removed.push_back(rec);
+    return e;
+}
+
+Bytes applyObjects(uint8_t section, const Bytes& data, const ObjEdit& e) {
+    const ObjDef& d = kObj[section];
+    if (e.whole) return e.data;
+    Bytes out = data;
+    if (d.slots) {
+        for (const auto& [i, rec] : e.slots) {
+            const size_t at = size_t(i) * d.record;
+            if (out.size() < at + d.record) out.resize(at + d.record, 0);
+            std::copy(rec.begin(), rec.end(), out.begin() + long(at));
+        }
+        return out;
+    }
+    if (!d.record || out.size() % d.record) return out;
+    for (const Bytes& rec : e.removed)
+        for (size_t at = 0; at + d.record <= out.size(); at += d.record)
+            if (std::equal(rec.begin(), rec.end(), out.begin() + long(at))) {
+                out.erase(out.begin() + long(at), out.begin() + long(at + d.record));
+                break;
+            }
+    for (const Bytes& rec : e.added) out.insert(out.end(), rec.begin(), rec.end());
+    return out;
+}
+
+bool validObjects(uint8_t section, const Bytes& data, size_t unitTypes) {
+    if (section >= kObjSections) return false;
+    const ObjDef& d = kObj[section];
+    if (data.size() > d.maxBytes || (d.record && data.size() % d.record)) return false;
+    if (section == oUnits && unitTypes)
+        for (size_t at = 0; at + 36 <= data.size(); at += 36)
+            if (size_t(data[at + 8] | data[at + 9] << 8) >= unitTypes) return false;  // (the unit's type: bytes 8 and 9)
+    return true;
+}
+
 // --- Keys ---------------------------------------------------------------------------------------------------------------
 
 struct Session::Link {
@@ -512,6 +660,14 @@ std::unique_ptr<Session> Session::host(Editor& editor, const std::string& server
     s->name_ = cleanName(name);
     s->seenRevision_ = editor.revision();
     s->maxState_ = editor.stateId();
+    for (uint8_t k = 0; k < kObjSections; ++k) {
+        s->objBase_[k] = readObjects(editor.chk(), k);
+        if (!validObjects(k, s->objBase_[k], 0)) {
+            error = "This map's units, doodads, sprites, locations or strings are larger than collaborative editing takes.";
+            return nullptr;
+        }
+        s->slotWriter_[k].assign(kObj[k].slots ? s->objBase_[k].size() / kObj[k].record : 0, 0);
+    }
     for (int k = 0; k < kSections; ++k) s->writer_[k].assign(s->base_.cells[k].size(), 0);
     return s;
 }
@@ -746,6 +902,18 @@ void Session::hostMessage(uint32_t from, const Bytes& m) {
         if (ev_.peersChanged) ev_.peersChanged();
         return;
     }
+    if (type == mObjEdit) {
+        const uint32_t seq = r.u32();
+        ObjEdit e;
+        if (!readObjEdit(r, e) || !r.done()) return drop("A change was not valid.");
+        if (pr->role != Role::Edit) {  // (view only: the host's state goes back to it)
+            objAck_[from] = seq;
+            objDirty_[e.section] = true;
+            return;
+        }
+        hostObjects(from, seq, std::move(e));
+        return;
+    }
     if (type == mPatch) {
         const uint32_t seq = r.u32();
         Patch p;
@@ -771,7 +939,15 @@ void Session::guestMessage(const Bytes& m) {
         hostName_ = cleanName(r.str());
         tileGroups_ = r.u32();
         Terrain t;
-        if (!readTerrainFrom(r, t) || !r.done() || (role != uint8_t(Role::View) && role != uint8_t(Role::Edit))) return bad();
+        if (!readTerrainFrom(r, t) || (role != uint8_t(Role::View) && role != uint8_t(Role::Edit))) return bad();
+        for (uint8_t s = 0; s < kObjSections; ++s) {
+            const uint32_t n = r.u32();
+            if (!r.ok || n > kObj[s].maxBytes || !r.need(n)) return bad();
+            objBase_[s].assign(r.p + r.i, r.p + r.i + n);
+            r.i += n;
+            if (!validObjects(s, objBase_[s], 0)) return bad();
+        }
+        if (!r.done()) return bad();
         role_ = Role(role);
         base_ = t;
         for (int s = 0; s < kSections; ++s) writer_[s].assign(base_.cells[s].size(), 0);
@@ -830,6 +1006,17 @@ void Session::guestMessage(const Bytes& m) {
         }
         if (!r.done()) return bad();
         if (ev_.peersChanged) ev_.peersChanged();
+        return;
+    }
+    case mObjState: {
+        if (!ed_) return bad();
+        const uint8_t section = r.u8();
+        const uint32_t ack = r.u32(), writer = r.u32(), n = r.u32();
+        if (!r.ok || section >= kObjSections || n > kObj[section].maxBytes || !r.need(n)) return bad();
+        Bytes data(r.p + r.i, r.p + r.i + n);
+        r.i += n;
+        if (!r.done() || !validObjects(section, data, ed_->unitTypes().size())) return bad();
+        objLater_.push_back({section, ack, writer, std::move(data)});
         return;
     }
     case mPatch: {
@@ -987,6 +1174,8 @@ bool Session::flushLocal(bool force) {
     const bool undone = undoFilter_ || ed_->stateId() < maxState_;  // (an older state: the editor's undo or redo)
     undoFilter_ = false;
     maxState_ = std::max(maxState_, ed_->stateId());
+    flushObjects(undone);
+    if (ended_) return false;
     Terrain cur;
     std::string err;
     if (!readTerrain(ed_->chk(), cur, err)) {
@@ -1024,6 +1213,145 @@ bool Session::flushLocal(bool force) {
     return true;
 }
 
+// This user's records (the undo takes back only these): added ones, and removed ones (an undo may put them back).
+void Session::noteMine(uint8_t section, const ObjEdit& e) {
+    for (const Bytes& r : e.removed) {
+        auto it = mineAdded_[section].find(r);
+        if (it != mineAdded_[section].end() && it->second > 0) --it->second;
+        else ++mineRemoved_[section][r];
+    }
+    for (const Bytes& r : e.added) {
+        auto it = mineRemoved_[section].find(r);
+        if (it != mineRemoved_[section].end() && it->second > 0) --it->second;
+        else ++mineAdded_[section][r];
+    }
+    for (const auto& [i, rec] : e.slots) {
+        if (slotWriter_[section].size() <= i) slotWriter_[section].resize(i + 1, 0);
+        slotWriter_[section][i] = me();
+    }
+    if (e.whole) objWriter_[section] = me();
+}
+
+// An undo's or a redo's edit of the objects: only what this user added, removed or wrote last.
+ObjEdit Session::filterUndo(uint8_t section, const ObjEdit& e, const Bytes&) {
+    ObjEdit keep;
+    keep.section = section;
+    std::map<Bytes, int> added = mineAdded_[section], removed = mineRemoved_[section];
+    for (const Bytes& r : e.removed)
+        if (auto it = added.find(r); it != added.end() && it->second > 0) --it->second, keep.removed.push_back(r);
+    for (const Bytes& r : e.added)
+        if (auto it = removed.find(r); it != removed.end() && it->second > 0) --it->second, keep.added.push_back(r);
+    for (const auto& s : e.slots)
+        if (s.first < slotWriter_[section].size() && slotWriter_[section][s.first] == me()) keep.slots.push_back(s);
+    if (e.whole && objWriter_[section] == me()) keep.whole = true, keep.data = e.data;
+    return keep;
+}
+
+// This program's edits of the objects: sent (host: the new state goes to the members).
+void Session::flushObjects(bool undone) {
+    for (uint8_t s = 0; s < kObjSections && !ended_; ++s) {
+        const Bytes cur = readObjects(ed_->chk(), s);
+        Bytes& shown = host_ ? objBase_[s] : objShown_[s];
+        if (cur == shown) continue;
+        ObjEdit e = diffObjects(s, shown, cur);
+        if (e.empty()) continue;
+        if (role_ != Role::Edit) {  // view only: back as the host has it
+            applyObjectsToEditor(s, shown);
+            if (ev_.status) ev_.status("View only: edits are not sent");
+            continue;
+        }
+        if (undone) e = filterUndo(s, e, shown);
+        const Bytes next = applyObjects(s, shown, e);
+        if (!validObjects(s, next, ed_->unitTypes().size())) {
+            applyObjectsToEditor(s, shown);
+            if (ev_.status) ev_.status("The change is larger than collaborative editing takes: it was put back");
+            continue;
+        }
+        if (next != cur) applyObjectsToEditor(s, next);  // (an undo's part that is not this user's: back)
+        if (e.empty()) continue;
+        noteMine(s, e);
+        shown = next;
+        if (host_) {
+            objWriter_[s] = 0;
+            objDirty_[s] = true;
+            continue;
+        }
+        const uint32_t seq = nextSeq_++;
+        objPending_[s].push_back({seq, e});
+        Writer w;
+        w.u8(mObjEdit), w.u32(seq);
+        writeObjEdit(w, e);
+        sendTo(0, w.b);
+    }
+}
+
+void Session::applyObjectsToEditor(uint8_t section, const Bytes& data) {
+    if (!ed_) return;
+    if (!ed_->editSections([&](Chk& c) { writeObjects(c, section, data); })) return;
+    seenRevision_ = ed_->revision();
+    maxState_ = std::max(maxState_, ed_->stateId());
+}
+
+// Host: a member's edit of the objects, merged into the map as it is now (this program's edits were sent first).
+void Session::hostObjects(uint32_t from, uint32_t seq, ObjEdit e) {
+    if (!ed_ || ended_) return;
+    flushLocal(true);
+    if (ended_) return;
+    const uint8_t s = e.section;
+    Bytes merged = applyObjects(s, objBase_[s], e);
+    if (s == oUnits && merged.size() % 36 == 0) {  // (a unit added with a serial that another unit has: a new one)
+        std::set<uint32_t> serials;
+        uint32_t top = 0;
+        const size_t kept = merged.size() / 36 - e.added.size();
+        for (size_t k = 0; k < merged.size() / 36; ++k) {
+            uint8_t* u = merged.data() + k * 36;
+            uint32_t serial = uint32_t(u[0]) | uint32_t(u[1]) << 8 | uint32_t(u[2]) << 16 | uint32_t(u[3]) << 24;
+            if (k >= kept && serials.count(serial)) {
+                serial = top + 1;
+                for (int b = 0; b < 4; ++b) u[b] = uint8_t(serial >> (8 * b));
+            }
+            serials.insert(serial), top = std::max(top, serial);
+        }
+    }
+    objAck_[from] = seq;
+    objDirty_[s] = true;  // (also when nothing changed: the member's state comes back)
+    if (!validObjects(s, merged, ed_->unitTypes().size())) return;
+    if (merged == objBase_[s]) return;
+    applyObjectsToEditor(s, merged);
+    objBase_[s] = merged;
+    objWriter_[s] = from;
+    for (const auto& [i, rec] : e.slots) {
+        if (slotWriter_[s].size() <= i) slotWriter_[s].resize(i + 1, 0);
+        slotWriter_[s][i] = from;
+    }
+    for (const Bytes& r : e.removed)  // (the host's own records that a member removed are not the host's to undo)
+        if (auto it = mineAdded_[s].find(r); it != mineAdded_[s].end() && it->second > 0) --it->second;
+}
+
+// Guest: the host's state of a section. This program's edits that the host did not take yet stay on top of it.
+void Session::objectsFromHost(uint8_t section, uint32_t ack, uint32_t writer, Bytes data) {
+    if (!ed_) return;
+    flushObjects(false);  // (this program's last edits go first: they become waiting edits)
+    if (ended_) return;
+    auto& pending = objPending_[section];
+    std::erase_if(pending, [&](const ObjPending& p) { return p.seq <= ack; });
+    const Bytes old = objBase_[section];
+    objBase_[section] = std::move(data);
+    if (kObj[section].slots) {  // (the slots that the host changed: their last writer)
+        const size_t rec = kObj[section].record, n = objBase_[section].size() / rec;
+        if (slotWriter_[section].size() < n) slotWriter_[section].resize(n, 0);
+        for (size_t i = 0; i < n; ++i)
+            if (i * rec + rec > old.size() || !std::equal(old.begin() + long(i * rec), old.begin() + long(i * rec + rec), objBase_[section].begin() + long(i * rec)))
+                slotWriter_[section][i] = writer;
+    } else if (old != objBase_[section]) {
+        objWriter_[section] = writer;
+    }
+    Bytes shown = objBase_[section];
+    for (const ObjPending& p : pending) shown = applyObjects(section, shown, p.edit);
+    if (shown != readObjects(ed_->chk(), section)) applyObjectsToEditor(section, shown);
+    objShown_[section] = std::move(shown);
+}
+
 void Session::afterUndo() {
     if (ended_ || !ed_) return;
     undoFilter_ = true;
@@ -1048,6 +1376,30 @@ void Session::tick() {
             for (const Waiting& w : batch) {
                 if (ended_) break;
                 applyRemote(w, have ? &cur : nullptr);  // (it keeps `cur` as the editor has it)
+            }
+        }
+    }
+    if (ed_ && !ended_ && !ed_->inStroke() && !objLater_.empty()) {
+        std::vector<ObjWaiting> batch = std::move(objLater_);
+        objLater_.clear();
+        for (ObjWaiting& w : batch)
+            if (!ended_) objectsFromHost(w.section, w.ack, w.writer, std::move(w.data));
+    }
+    if (host_ && !ended_ && now() - objSent_ >= kObjectsEvery) {
+        bool any = false;
+        for (bool d : objDirty_) any |= d;
+        if (any) {
+            objSent_ = now();
+            for (uint8_t s = 0; s < kObjSections; ++s) {
+                if (!objDirty_[s]) continue;
+                objDirty_[s] = false;
+                for (const Peer& p : peers_) {
+                    if (!p.approved) continue;
+                    Writer w;
+                    w.u8(mObjState), w.u8(s), w.u32(objAck_[p.id]), w.u32(objWriter_[s]), w.u32(uint32_t(objBase_[s].size()));
+                    w.b.insert(w.b.end(), objBase_[s].begin(), objBase_[s].end());
+                    sendTo(p.id, w.b);
+                }
             }
         }
     }
@@ -1106,7 +1458,15 @@ void Session::setEditor(Editor* ed) {
         return;
     }
     applyToEditor(diffTerrain(cur, base_));
+    ed_->editSections([&](Chk& c) {
+        for (uint8_t s = 0; s < kObjSections; ++s) writeObjects(c, s, objBase_[s]);
+    });
+    for (uint8_t s = 0; s < kObjSections; ++s) {
+        objShown_[s] = readObjects(ed_->chk(), s);
+        slotWriter_[s].assign(kObj[s].slots ? objBase_[s].size() / kObj[s].record : 0, 0);
+    }
     seenRevision_ = ed_->revision();
+    maxState_ = std::max(maxState_, ed_->stateId());
 }
 
 // --- The host's controls ------------------------------------------------------------------------------------------------
@@ -1149,6 +1509,19 @@ void Session::approve(uint32_t id, bool allow) {
     Writer w;
     w.u8(mWelcome), w.u8(uint8_t(p->role)), w.u32(id), w.str(name_), w.u32(uint32_t(ed_ ? ed_->tileset().groups.size() : 0));
     writeTerrainTo(w, base_);
+    for (uint8_t s = 0; s < kObjSections; ++s) {
+        w.u32(uint32_t(objBase_[s].size()));
+        w.b.insert(w.b.end(), objBase_[s].begin(), objBase_[s].end());
+    }
+    if (w.b.size() > 1000 * 1000) {  // (more than the relay takes in one message)
+        Writer no;
+        no.u8(mDeny), no.str("too large");
+        sendTo(id, no.b);
+        out_->text("{\"t\":\"kick\",\"id\":" + std::to_string(id) + "}");
+        forget(id);
+        if (ev_.status) ev_.status("The map is too large for collaborative editing (the preview takes at most 1 MB of terrain, units and strings)");
+        return;
+    }
     sendTo(id, w.b);
     broadcastPeers();
     if (ev_.peersChanged) ev_.peersChanged();

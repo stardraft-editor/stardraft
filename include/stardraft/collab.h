@@ -1,5 +1,5 @@
 #pragma once
-// Shared maps (collaborative terrain editing, roadmap: phase 1, terrain only). One program hosts the map; others join it
+// Collaborative editing (a preview): the terrain, units, doodads, sprites and locations of a map, edited live. One program hosts the map; others join it
 // with an invite link (to edit or to view). All messages go through a relay (tools/collab-relay) that cannot read them:
 // each member and the host agree on keys (X25519) bound to the invite link's secret, which only the link holds, and every
 // message after that is encrypted and authenticated (XChaCha20-Poly1305) with counters, so none can be read, changed,
@@ -80,6 +80,26 @@ void writePatch(Chk& chk, const Patch& p);  // the cells into the sections (they
 // Every run in the terrain's sections, in order, at most all cells; tile values (MTXM, TILE) of a group < tileGroups.
 bool validPatch(const Terrain& shape, const Patch& p, size_t tileGroups);
 size_t patchCells(const Patch& p);
+
+// --- Units, doodads, sprites, locations (the map's objects) ---------------------------------------------------------------
+// Each is a section of the map: UNIT, DD2 and THG2 are lists of records (an edit: the records removed and the records
+// added, merged by the host); MRGN is a list of slots (an edit: the slots that changed); STR and STRx (the locations'
+// names) are whole (the last edit wins).
+enum ObjSection : uint8_t { oUnits = 0, oDoodads, oSprites, oLocations, oStrings, oStringsX, kObjSections };
+struct ObjEdit {
+    uint8_t section = 0;
+    std::vector<Bytes> removed, added;              // records
+    std::vector<std::pair<uint32_t, Bytes>> slots;  // slots
+    bool whole = false;                             // the whole section (strings)
+    Bytes data;
+    bool empty() const { return removed.empty() && added.empty() && slots.empty() && !whole; }
+};
+Bytes readObjects(const Chk& chk, uint8_t section);                // all sections of that name, one after the other
+void writeObjects(Chk& chk, uint8_t section, const Bytes& data);   // one section (strings: none when empty)
+ObjEdit diffObjects(uint8_t section, const Bytes& from, const Bytes& to);
+Bytes applyObjects(uint8_t section, const Bytes& data, const ObjEdit& e);
+// The section's limits: its record or slot size, at most so many bytes, and (units) the unit types there are.
+bool validObjects(uint8_t section, const Bytes& data, size_t unitTypes);
 
 // --- The session ------------------------------------------------------------------------------------------------------
 struct Outbox {
@@ -171,6 +191,12 @@ private:
     void hostMessage(uint32_t from, const Bytes& m);
     void guestMessage(const Bytes& m);
     bool flushLocal(bool force = false);
+    void flushObjects(bool undone);
+    void objectsFromHost(uint8_t section, uint32_t ack, uint32_t writer, Bytes data);
+    void applyObjectsToEditor(uint8_t section, const Bytes& data);
+    void hostObjects(uint32_t from, uint32_t seq, ObjEdit e);
+    void noteMine(uint8_t section, const ObjEdit& e);
+    ObjEdit filterUndo(uint8_t section, const ObjEdit& e, const Bytes& shown);
     void applyRemote(const Waiting& w, Terrain* editorNow);
     void sendCursors();
     uint32_t me() const { return host_ ? 0 : myId_; }
@@ -210,6 +236,26 @@ private:
     uint8_t nextColor_ = 1;
     uint32_t myId_ = 0;  // guest: the relay's number for this program
     std::vector<Waiting> later_;  // patches that wait for a stroke to end (in order)
+    // The objects. objBase_: the host's (host: as sent; guest: as the host sent it). Guest: objShown_, what the editor
+    // has (the host's with this program's edits that the host did not confirm yet, objPending_).
+    struct ObjPending {
+        uint32_t seq = 0;
+        ObjEdit edit;
+    };
+    Bytes objBase_[kObjSections], objShown_[kObjSections];
+    std::vector<ObjPending> objPending_[kObjSections];
+    uint32_t objWriter_[kObjSections] = {};
+    bool objDirty_[kObjSections] = {};
+    double objSent_ = 0;
+    std::map<uint32_t, uint32_t> objAck_;  // host: each member's last edit that the host applied
+    std::map<Bytes, int> mineAdded_[kObjSections], mineRemoved_[kObjSections];  // this user's records (the undo's filter)
+    std::vector<uint32_t> slotWriter_[kObjSections];
+    struct ObjWaiting {
+        uint8_t section = 0;
+        uint32_t ack = 0, writer = 0;
+        Bytes data;
+    };
+    std::vector<ObjWaiting> objLater_;  // guest: the host's object states that wait for a stroke to end
 };
 
 }  // namespace collab

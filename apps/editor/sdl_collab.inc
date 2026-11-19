@@ -1,8 +1,9 @@
-// File > Collaborative editing (a preview: terrain only): the open map's terrain edited live by several people. The
+// File > Collaborative editing (a preview): the open map's terrain, units, doodads, sprites and locations edited live by
+// several people. The
 // host invites with a link (edit or view), accepts each request, and can change roles or remove people in the session
 // window; the others join with the link. include/stardraft/collab.h has the model; tools/collab-relay the server. One
 // session at a time. The socket's events go to the UI thread (shellPost); a timer reads this program's edits and
-// cursor every 50 ms. A participant (not the host) has the Terrain mode of the Map workspace only.
+// cursor every 50 ms. A participant (not the host) has the Map workspace only, and no Map layers.
 
 namespace collabui {
 
@@ -146,10 +147,10 @@ void tickTimer() {
     } else if (gSession && !gEnded) {
         gSession->cursor(0, 0, false);
     }
-    // A participant edits the terrain only (the preview): the Map workspace in Terrain mode.
+    // A participant edits the map only (the preview): the Map workspace, not Map layers.
     if (guestHere() && !gState.ed->inStroke()) {
-        if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map), setMessage(shellTr(L"Collaborative editing preview: terrain only"));
-        if (gState.mode != Mode::Terrain) setMode(Mode::Terrain);
+        if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map), setMessage(shellTr(L"Collaborative editing preview: invited users edit the map only"));
+        if (gState.mode == Mode::Layers) setMode(Mode::Terrain);
     }
     pump();
 }
@@ -453,17 +454,13 @@ bool sdlCollabEnabled(int id) {
     }
 }
 
-// A participant's tab (the preview: terrain only): the other modes are off (gray in the mode bar).
-bool collabModeLocked(int mode) { return mode != int(Mode::Terrain) && collabui::guestHere(); }
+// A participant's tab (the preview): Map layers is off (gray in the mode bar).
+bool collabModeLocked(int mode) { return mode == int(Mode::Layers) && collabui::guestHere(); }
 
-// A participant's tab (the preview: terrain only): the other modes, workspaces and map pages are off.
+// A participant's tab (the preview): Map layers, the other workspaces and the map pages are off.
 bool sdlCollabLocks(int id) {
     if (!collabui::guestHere()) return false;
     switch (id) {
-    case ID_MODE_UNITS:
-    case ID_MODE_DOODADS:
-    case ID_MODE_LOCATIONS:
-    case ID_MODE_SPRITES:
     case ID_MODE_LAYERS:
     case ID_SCEN_PROPS:
     case ID_SCEN_PLAYERS:

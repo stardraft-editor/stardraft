@@ -202,7 +202,7 @@ struct TopBarView final : stardraft::draw::View {
             c.setFont(ofi);
             if (on)
                 surface.add({ib, nullptr, [] { command(ID_COLLAB_SHARE); },
-                             state.empty() ? L"Invite people to edit this map's terrain with you (collaborative editing preview)" : L"Show the collaborative editing session",
+                             state.empty() ? L"Invite people to edit this map with you (collaborative editing preview)" : L"Show the collaborative editing session",
                              draw::Cursor::Hand});
         }
         c.fill({0, h - 1, w, h}, kBorder);  // the line under the bar

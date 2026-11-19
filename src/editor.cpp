@@ -589,6 +589,16 @@ bool Editor::editTerrainSections(const std::function<void(Chk&)>& edit) {
     return true;
 }
 
+bool Editor::editSections(const std::function<void(Chk&)>& edit) {
+    if (!open_ || inStroke_) return false;
+    edit(chk_);
+    reload();
+    modified_ = true;
+    state_ = nextRevision();
+    revision_ = nextRevision();
+    return true;
+}
+
 void Editor::commit(bool terrain) {
     lastRedo_.clear();  // a change: the cleared redo steps are gone for good
     modified_ = true;
