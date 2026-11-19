@@ -708,8 +708,10 @@ bool commandMapEdit(AppState& app, int id) {
 // and rules, the terrain copy, the names in locations, the grid's size, the pathing overlays).
 bool dataTableViewOn();  // (core/data_table.inc: the Data workspace shows its Table view)
 extern bool gClassicTableOn;  // (classic_table.inc: Map data's Form | Table)
+bool collabMinimapShown();  // (sdl_collab.inc: View > Collaborators on the minimap)
 int mapMenuCheck(int id) {
     const AppState& app = shellState();
+    if (id == ID_COLLAB_MINIMAP) return collabMinimapShown();
     if (id == ID_SNAP_UNITS) return app.snapUnits;
     if (id == ID_SNAP_SPRITES) return app.snapSprites;
     if (id == ID_SNAP_LOCATIONS) return app.snapLocations;

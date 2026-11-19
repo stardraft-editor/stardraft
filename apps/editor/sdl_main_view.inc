@@ -253,6 +253,7 @@ void simFrame();
 
 // The map view: the texture of the map (drawn by the frame hook) and the core's map input.
 void collabCursorsPaint(draw::Canvas& c, draw::Rect view);  // (sdl_collab.inc)
+bool collabMapClick(int x, int y);                          // (sdl_collab.inc)
 bool collabChatKey(const draw::KeyEvent& e, bool typing);    // (sdl_collab.inc: cursor chat)
 bool collabChatText(const std::string& utf8);
 struct MapView final : draw::View {
@@ -403,6 +404,7 @@ struct MapView final : draw::View {
                 return true;
             }
             if (e.button == 1 || !open()) return false;
+            if (collabMapClick(e.pt.x, e.pt.y)) return true;  // (an arrow at the edge to another person: the view goes there)
             if (draw::Host* h = host()) h->capture(*this, true);
             gState.mouseX = e.pt.x, gState.mouseY = e.pt.y, gState.mouseIn = true;
             mapMouseDown(gState, e.pt.x, e.pt.y, e.mods);

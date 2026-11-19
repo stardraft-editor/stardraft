@@ -63,16 +63,35 @@ struct Program final : cb::Outbox {
         std::lock_guard<std::mutex> lock(m);
         q.push_back(std::move(f));
     }
+    // (each connection has a number: the events of one that was dropped do not reach the session)
+    int gen = 0;
+    bool autoReconnect = true;
+    double retryAt = 0;
+    std::vector<cb::Change> changes;
+    std::vector<std::array<uint32_t, 3>> pings;
     void connect(const std::string& url) {
         platform::WebSocket::Handlers h;
-        h.opened = [this] { push([this] { if (s) s->opened(); }); };
-        h.text = [this](std::string t) { push([this, t] { if (s) s->received(t); }); };
-        h.binary = [this](std::vector<uint8_t> b) { push([this, b] { if (s) s->received(Bytes(b.begin(), b.end())); }); };
-        h.closed = [this](std::string why) { push([this, why] { if (s) s->closed(why); }); };
+        const int g = ++gen;
+        auto in = [this, g](std::function<void()> f) { push([this, g, f] { if (s && g == gen) f(); }); };
+        h.opened = [this, in] { in([this] { s->opened(); }); };
+        h.text = [this, in](std::string t) { in([this, t] { s->received(t); }); };
+        h.binary = [this, in](std::vector<uint8_t> b) { in([this, b] { s->received(Bytes(b.begin(), b.end())); }); };
+        h.closed = [this, in](std::string why) { in([this, why] { s->closed(why); }); };
         ws = platform::WebSocket::connect(url, h);
+    }
+    // The connection is lost (as a network that goes away).
+    void drop() {
+        ++gen;
+        ws.reset();
+        push([this] { if (s) s->closed("the connection was lost"); });
     }
     cb::Session::Events events() {
         cb::Session::Events ev;
+        ev.connection = [this](bool lost) {
+            if (lost) retryAt = seconds() + 0.3;
+        };
+        ev.changed = [this](const cb::Change& c) { changes.push_back(c); };
+        ev.ping = [this](uint32_t who, int x, int y) { pings.push_back({who, uint32_t(x), uint32_t(y)}); };
         ev.joinRequest = [this](const cb::Peer& p) { requests.push_back(p); };
         ev.status = [this](const std::string& t) { lastStatus = t; };
         ev.ended = [this](const std::string& why) { ended = why.empty() ? "(ended)" : why; };
@@ -93,6 +112,10 @@ struct Program final : cb::Outbox {
             now.swap(q);
         }
         for (auto& f : now) f();
+        if (s && retryAt && autoReconnect && seconds() >= retryAt) {
+            retryAt = 0;
+            if (s->reconnecting()) ++gen, ws.reset(), connect(s->reconnectUrl());
+        }
         if (s) s->tick();
     }
 };
@@ -315,12 +338,29 @@ static int hostFor(const GameData& data, const std::string& server, const std::s
             waitFor([] { return false; }, 1.0);
             paint(*ed, 400, 400, 4, 3);
             host.s->cursor(1500, 600, true);
+            // (for a look at the guest's screen: two units the host selected, its brush, a chat, a ping)
+            ed->placeUnit(0, 0, 700, 1300), ed->placeUnit(0, 0, 760, 1340);
+            cb::Presence pr;
+            pr.viewX = 900, pr.viewY = 200, pr.viewW = 1000, pr.viewH = 700, pr.tool = cb::Tool::Terrain, pr.brushW = 3, pr.brushH = 3;
+            for (const Unit& u : ed->units()) pr.units.push_back(u.serial);
+            host.s->presence(pr);
+            host.s->chat("Ramp to the high ground here?");
+            host.s->ping(1200, 1500);
             mine = mtxm(*ed);
             painted = true;
             std::printf("host: painted and moved the cursor\n");
             std::fflush(stdout);
         }
-        if (painted && !gotUnit && ed->units().size() > units) {
+        static double nextPaint = 0;  // (more edits, each second: the guest sees them flash)
+        if (painted && seconds() > nextPaint) {
+            static int k = 0;
+            nextPaint = seconds() + 1.0;
+            paint(*ed, 1300 + (k % 4) * 64, 700 + (k / 4 % 3) * 64, uint16_t(4 + k % 2), 2);
+            if (k % 3 == 0) host.s->ping(1200, 1500);
+            ++k;
+            mine = mtxm(*ed);
+        }
+        if (painted && !gotUnit && ed->units().size() > units + 2) {
             gotUnit = true;
             std::printf("host: a guest's unit arrived\n");
             std::fflush(stdout);
@@ -698,6 +738,87 @@ int main(int argc, char** argv) {
     a.s->rename("Ann");
     CHECK(waitFor([&] { return named(b, 1, "Ann"); }), "and back");
 
+    // Presence: Ann's view, tool and selection reach all.
+    {
+        cb::Presence pr;
+        pr.viewX = 64, pr.viewY = 96, pr.viewW = 640, pr.viewH = 480, pr.tool = cb::Tool::Terrain, pr.brushW = 3, pr.brushH = 2;
+        pr.units = {7, 9}, pr.locations = {2};
+        a.s->presence(pr);
+        auto sees = [&](Program& who) {
+            for (const cb::Peer& p : who.s->peers())
+                if (p.name == "Ann" && p.presence == pr) return true;
+            return false;
+        };
+        CHECK(waitFor([&] { return sees(b) && sees(host); }), "Ann's view, tool and selection reach all");
+        cb::Presence hp;
+        hp.viewW = 100, hp.viewH = 100, hp.tool = cb::Tool::Units;
+        host.s->presence(hp);
+        CHECK(waitFor([&] {
+                  for (const cb::Peer& p : a.s->peers())
+                      if (p.id == 0 && p.presence == hp) return true;
+                  return false;
+              }),
+              "the host's presence reaches the members");
+    }
+    // Pings: all but the one who pings see it, with who.
+    {
+        a.pings.clear(), host.pings.clear(), b.pings.clear();
+        b.s->ping(100, 200);
+        CHECK(waitFor([&] { return a.pings.size() == 1 && host.pings.size() == 1; }) && b.pings.empty(), "Bob's ping reaches the others");
+        CHECK(!a.pings.empty() && a.pings[0][1] == 100 && a.pings[0][2] == 200 && a.pings[0][0] == host.pings[0][0], "at its place, from Bob");
+        host.s->ping(300, 40);
+        CHECK(waitFor([&] { return a.pings.size() == 2 && b.pings.size() == 1; }) && b.pings[0][0] == 0, "the host's ping reaches the members");
+    }
+    // Change reports: the others' edits, with their places.
+    {
+        a.changes.clear(), b.changes.clear(), host.changes.clear();
+        CHECK(paint(*a.ed, 900, 300, 5), "Ann paints again");
+        auto terrain = [](const Program& p) {
+            for (const cb::Change& c : p.changes)
+                if (c.what == 0 && c.count && !c.rects.empty() && c.who != 0) return true;
+            return false;
+        };
+        CHECK(waitFor([&] { return terrain(b) && terrain(host); }) && a.changes.empty(), "Ann's terrain edit is reported to the others, with its place");
+        hostEd->placeUnit(0, 0, 640, 640);
+        CHECK(waitFor([&] {
+                  for (const cb::Change& c : a.changes)
+                      if (c.what == 1 && c.who == 0 && !c.rects.empty() && c.rects[0][0] <= 640 && c.rects[0][2] >= 640) return true;
+                  return false;
+              }),
+              "the host's unit is reported to Ann, at its place");
+    }
+    // The host's connection is lost: all come back to the same room, with their tickets (no new requests).
+    {
+        const size_t asked = host.requests.size();
+        host.drop();
+        CHECK(waitFor([&] { return host.s->reconnecting() || a.s->reconnecting(); }, 2), "the host's connection is lost");
+        CHECK(waitFor([&] { return !host.s->reconnecting() && !a.s->reconnecting() && !b.s->reconnecting() && host.s->peers().size() == 2 &&
+                                   a.s->peers().size() == 2 && b.s->peers().size() == 2; },
+                      15),
+              "all are back in the session");
+        CHECK(host.ended.empty() && a.ended.empty() && b.ended.empty() && host.requests.size() == asked, "with their tickets: no new join requests");
+        CHECK(paint(*a.ed, 1000, 1000, 4), "Ann paints after it");
+        CHECK(waitFor([&] { return sameTerrain(*a.ed, *hostEd) && sameTerrain(*b.ed, *hostEd); }), "the edit reaches all");
+    }
+    // Ann's connection is lost; what she paints while it is away goes to the others when she is back.
+    {
+        a.autoReconnect = false;
+        a.drop();
+        CHECK(waitFor([&] { return a.s->reconnecting() && host.s->peers().size() == 1; }, 5), "Ann's connection is lost");
+        CHECK(paint(*a.ed, 1300, 400, 5), "Ann paints while away");
+        const size_t units = hostEd->units().size();
+        a.ed->placeUnit(0, 0, 1800, 300);
+        CHECK(host.s->newLinks(), "the host makes new links while she is away");
+        a.autoReconnect = true, a.retryAt = seconds();
+        CHECK(waitFor([&] { return !a.s->reconnecting() && sameTerrain(*a.ed, *hostEd) && sameTerrain(*b.ed, *hostEd); }, 15),
+              "she is back (with the old link: the members' secret), and her edit reaches all");
+        CHECK(waitFor([&] { return hostEd->units().size() == units + 1 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }),
+              "the unit she placed while away reaches all, once");
+        CHECK(a.ended.empty() && named(host, 1, "Ann"), "as Ann");
+        for (const cb::Peer& p : host.s->peers())
+            if (p.name != "Ann") bobId = p.id;
+    }
+
     // A wrong secret for the room, then the old links after new ones.
     Program c;
     c.label = "C", c.data = &data;
@@ -727,6 +848,40 @@ int main(int argc, char** argv) {
     host.s->stop();
     CHECK(waitFor([&] { return !a.ended.empty(); }) && a.ended.find("stopped sharing") != std::string::npos, "the host stops sharing: Ann's session ends");
     CHECK(a.ed && a.ed->isOpen(), "Ann keeps her copy of the map");
+
+    // Handing the session over: Ann hosts it, Bob comes back to her with his ticket.
+    {
+        settle(0.3);
+        host.ended.clear(), host.requests.clear(), a.requests.clear();
+        host.s = cb::Session::host(*hostEd, server, "Host", host, host.events(), err);
+        CHECK(host.s != nullptr, "a new session");
+        if (!host.s) return 1;
+        host.s->setClock(seconds), host.connect(cb::relayUrl(server));
+        CHECK(waitFor([&] { return !host.s->link(cb::Role::Edit).empty(); }), "its links");
+        CHECK(joinAs(a, host.s->link(cb::Role::Edit), "Ann") && joinAs(b, host.s->link(cb::Role::View), "Bob"), "two join it");
+        CHECK(waitFor([&] { return host.requests.size() == 2; }), "two requests");
+        for (const cb::Peer& r : host.requests) host.s->approve(r.id, true);
+        CHECK(waitFor([&] { return a.ed && b.ed && a.s->editor() && b.s->editor() && a.s->peers().size() == 2 && b.s->peers().size() == 2; }), "both are in");
+        uint32_t annId = 0, viewer = 0;
+        for (const cb::Peer& p : host.s->peers()) {
+            if (p.name == "Ann") annId = p.id;
+            if (p.name == "Bob") viewer = p.id;
+        }
+        CHECK(host.s->newLinks(), "new links before the handover (Bob comes back with the members' secret)");
+        settle(0.2);
+        CHECK(!host.s->handOver(viewer), "a viewer cannot get the session");
+        CHECK(host.s->handOver(annId), "the host hands the session to Ann");
+        CHECK(waitFor([&] { return !host.ended.empty() && a.s->isHost() && !a.s->reconnecting() && !b.s->reconnecting() && a.s->peers().size() == 1 &&
+                                   b.s->peers().size() == 1; },
+                      15),
+              "Ann hosts the session now; Bob is back");
+        CHECK(host.ended.find("handed") != std::string::npos && a.requests.empty() && b.ended.empty(), "with his ticket: no request; the old host left");
+        CHECK(!a.s->link(cb::Role::Edit).empty(), "Ann has the links");
+        CHECK(paint(*a.ed, 500, 1500, 4), "Ann paints as the host");
+        CHECK(waitFor([&] { return sameTerrain(*a.ed, *b.ed); }), "Bob gets it");
+        a.s->stop();
+        CHECK(waitFor([&] { return !b.ended.empty(); }), "Ann ends it");
+    }
 
     for (Program* p : gAll)
         if (p->ws) p->ws->close();

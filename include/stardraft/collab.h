@@ -115,6 +115,28 @@ struct Outbox {
     virtual void close() = 0;
 };
 
+// Where a person works (all see it): the part of the map in their view, their tool and brush, what they selected.
+enum class Tool : uint8_t { None = 0, Terrain, Units, Doodads, Sprites, Locations };
+constexpr size_t kMaxSelected = 64;  // selected units or locations that the others see (the first ones)
+struct Presence {
+    int viewX = 0, viewY = 0, viewW = 0, viewH = 0;  // map pixels (no size: no view)
+    Tool tool = Tool::None;
+    uint8_t brushW = 0, brushH = 0;    // terrain brush: tiles (0: none)
+    std::vector<uint32_t> units;       // the selected units (their serials)
+    std::vector<uint16_t> locations;   // the selected locations (their indexes)
+    bool operator==(const Presence&) const = default;
+};
+
+// An edit of another person, as this program applied it: who, what (0: terrain; 1 + ObjSection: units, doodads, ...),
+// how many cells or records, and where (map pixels: left, top, right, bottom; at most kMaxChangeRects).
+constexpr size_t kMaxChangeRects = 64;
+struct Change {
+    uint32_t who = 0;
+    uint8_t what = 0;
+    uint32_t count = 0;
+    std::vector<std::array<int, 4>> rects;
+};
+
 struct Peer {
     uint32_t id = 0;  // 0: the host
     std::string name;
@@ -126,6 +148,7 @@ struct Peer {
     int x = 0, y = 0;  // map pixels
     double cursorTime = 0;  // when it last moved (seconds, the session's clock)
     std::string chat;       // cursor chat: the text at the cursor ("": none), at most kMaxChat bytes
+    Presence presence;
 };
 
 class Session {
@@ -139,6 +162,12 @@ public:
         std::function<void(const std::string&)> ended;    // the session ended (why); the Session can be deleted
         std::function<void()> peersChanged;              // members, roles or cursors changed
         std::function<void()> linksChanged;              // host: the room is ready, or new links
+        std::function<void(const Change&)> changed;      // another person's edit was applied (the change flash, the activity)
+        std::function<void(uint32_t who, int x, int y)> ping;  // someone points at a place (map pixels)
+        // The connection to the server was lost (true): make a new one to reconnectUrl() (and call opened() etc. as for
+        // the first), or reconnectFailed() to give up. False: the session is live again.
+        std::function<void(bool lost)> connection;
+        std::function<void()> becameHost;                // guest: the host handed the session over: this program hosts now
     };
     using Clock = std::function<double()>;  // seconds
 
@@ -166,6 +195,9 @@ public:
     void setEditor(Editor* ed);  // guest: the map that welcome made
     const std::vector<Peer>& peers() const { return peers_; }  // host: everyone but the host; guest: the others and the host
     std::string link(Role r) const;  // host: the invite link (empty until the relay made the room, or when it is off)
+    // Guest: the safety code of the connection to the host ("" until the keys are made); whether the server took the join.
+    std::string safetyCode() const;
+    const std::string& hostName() const { return hostName_; }
 
     // Host.
     void approve(uint32_t id, bool allow);
@@ -187,6 +219,19 @@ public:
     void chat(const std::string& text);
     // A new display name (Program options): the others see it at once.
     void rename(const std::string& name);
+    // This user's view, tool and selection (sent at most 5 times a second, when it changed).
+    void presence(const Presence& p);
+    const Presence& myPresence() const { return presence_; }
+    // Points at a place of the map for all (map pixels).
+    void ping(int x, int y);
+
+    // Reconnecting: the connection was lost and a new one is on its way (the session waits up to kReconnectFor).
+    bool reconnecting() const { return reconnecting_; }
+    std::string reconnectUrl() const { return relayUrl(server_, room_); }
+    void reconnectFailed();
+    static constexpr double kReconnectFor = 120;  // seconds (the relay keeps a room that long without its host)
+    // Host: gives the session to an editor (who hosts it from then on, with the same links); this program leaves it.
+    bool handOver(uint32_t id);
 
     struct Link;  // (a member's keys and counters: collab.cpp)
 
@@ -282,6 +327,40 @@ private:
     std::map<std::pair<uint32_t, uint32_t>, uint32_t> serialMap_;  // host: (member, its unit's serial) -> the serial the host gave
     size_t slotLimit_ = 0;  // locations: at most the map's slots at the start (64 or 255)
     bool hold_ = false;
+    // Presence: this user's (sent when dirty), the host's list of all (sent when dirty).
+    Presence presence_;
+    bool presenceDirty_ = false, presencesDirty_ = false;
+    double presenceSent_ = 0, presencesSent_ = 0;
+    // Reconnecting. The host gives each member a ticket at the welcome: a member that comes back with it is let in
+    // again at once, as the same person (name, color, role). hostSecret_: the room's host token's secret (the relay
+    // gives the room back to the host that has it).
+    struct Ticket {
+        std::string name;
+        uint8_t color = 0;
+        Role role = Role::None;
+        uint32_t lastSeq = 0;  // the member's last edit that the host applied (it does not go again after a reconnect)
+    };
+    bool reconnecting_ = false;
+    Secret hostSecret_{};
+    // The members' secret (all who are in have it, from the welcome): a member comes back with it, also after new links.
+    Secret memberSecret_{};
+    bool hasMemberSecret_ = false;
+    std::map<uint32_t, uint32_t> resumeAck_;  // host: a member that came back with its ticket: its last applied edit
+    // Guest: a welcome or a handover that waits for the stroke or the hold to end (as the others' edits do).
+    bool welcomeWaiting_ = false, handoverWaiting_ = false;
+    Terrain welcomeTerrain_;
+    Bytes welcomeObjs_[kObjSections];
+    uint32_t welcomeAck_ = 0;
+    Bytes handover_;
+    void noteApplied(uint32_t from, uint32_t seq);
+    std::string ticket_;                       // guest: this program's ticket (16 bytes)
+    std::map<std::string, Ticket> tickets_;    // host: the members' tickets
+    std::map<uint32_t, std::string> ticketOf_; // host: each member's ticket
+    void lost();
+    void welcomeAgain(const Terrain& t, Bytes* objs, uint32_t ack);
+    bool becomeHost(const uint8_t* p, size_t n);
+    void sendPresences();
+    void report(uint32_t who, uint8_t what, const Patch* p, const Bytes* before, const Bytes* after);
 };
 
 }  // namespace collab

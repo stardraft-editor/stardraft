@@ -1,7 +1,10 @@
 // StarDraft's collaboration relay on Cloudflare (collab.stardraft.app): the same protocol as ../relay.mjs, with a
 // Durable Object for each room (WebSocket hibernation: an idle room costs nothing). It forwards encrypted frames between
-// the host and each member and cannot read them; it keeps a room's two link tokens (hashes, not the links' secrets)
-// while the room is open, and nothing after. It logs no addresses, room ids or contents.
+// the host and each member and cannot read them; it keeps a room's two link tokens and its host token (hashes, not the
+// secrets) while the room is open, and nothing after. It logs no addresses, room ids or contents.
+//
+// A host that loses its connection gets the room back with the host token ({"t":"resume"}) for HOST_GRACE_MS: the
+// members' connections close then (they come back and wait for the host); a resume also closes them (a new host).
 //
 //   GET /                the server's name
 //   GET /j/<room>        an invite link's page: it opens stardraft://join?link=... (the program asks first)
@@ -15,6 +18,7 @@ const MAX_SOCKETS = 16;  // in a room, with the ones that did not join yet
 const ROOM_LIFETIME_MS = 24 * 3600e3;
 const IDLE_MS = 30 * 60e3;
 const HELLO_MS = 10e3;
+const HOST_GRACE_MS = 120e3;  // a room waits this long for its host to come back (Session::kReconnectFor)
 const RATE = {
   host: { bytes: 8 << 20, burstBytes: 16 << 20, msgs: 1500, burstMsgs: 3000 },
   member: { bytes: 1 << 20, burstBytes: 2 << 20, msgs: 100, burstMsgs: 200 },
@@ -165,6 +169,7 @@ export class Room {
     if (!a.role) {
       if (a.create && m.t === 'create') return this.create(ws, a, m);
       if (!a.create && m.t === 'join') return this.join(ws, a, m);
+      if (!a.create && m.t === 'resume') return this.resume(ws, a, m);
       return this.close(ws, 1008, 'hello');
     }
     if (a.role !== 'host') return this.close(ws, 1008, 'not host');
@@ -189,10 +194,10 @@ export class Room {
 
   async create(ws, a, m) {
     if (m.v !== 1) return this.close(ws, 1008, 'version');
-    if (!validToken(m.view) || !validToken(m.edit) || (!m.view && !m.edit)) return this.close(ws, 1003, 'token');
+    if (!validToken(m.view) || !validToken(m.edit) || (!m.view && !m.edit) || !validToken(m.host ?? null) || !validToken(m.member ?? null)) return this.close(ws, 1003, 'token');
     if (await this.ctx.storage.get('meta')) return this.close(ws, 1008, 'exists');
     const created = Date.now();
-    await this.ctx.storage.put('meta', { view: m.view, edit: m.edit, created, next: 1 });
+    await this.ctx.storage.put('meta', { view: m.view, edit: m.edit, host: m.host ?? null, member: m.member ?? null, created, next: 1, hostGone: 0 });
     ws.serializeAttachment({ ...a, role: 'host', id: 0 });
     this.lastData = created;
     await this.ctx.storage.setAlarm(created + 60e3);
@@ -206,20 +211,56 @@ export class Room {
     };
     const meta = await this.ctx.storage.get('meta');
     const host = this.hostSocket();
-    if (m.v !== 1 || m.room !== a.room || !meta || !host || !(sameToken(m.token, meta.view) || sameToken(m.token, meta.edit))) return notFound();
-    if (this.sockets('member').length >= MAX_MEMBERS) {
+    if (m.v !== 1 || m.room !== a.room || !meta || (!host && !meta.host) || !(sameToken(m.token, meta.view) || sameToken(m.token, meta.edit) || sameToken(m.token, meta.member))) return notFound();
+    if (this.sockets('member').length + this.sockets('waiting').length >= MAX_MEMBERS) {
       this.send(ws, JSON.stringify({ t: 'error', code: 'full' }));
       return this.close(ws, 1008, 'full');
     }
     const id = meta.next++;
     await this.ctx.storage.put('meta', meta);
+    if (!host) {  // (the host's connection was lost: the member waits for it)
+      ws.serializeAttachment({ ...a, role: 'waiting', id });
+      return;
+    }
     ws.serializeAttachment({ ...a, role: 'member', id });
     this.send(ws, JSON.stringify({ t: 'joined', id }));
     this.send(host, JSON.stringify({ t: 'peer', id }));
   }
 
+  // The host (or a new host it handed the room to) with the host token: the room is its again. The members connected
+  // to the one before have its keys: their connections close (they come back); the waiting members join now.
+  async resume(ws, a, m) {
+    const meta = await this.ctx.storage.get('meta');
+    if (m.v !== 1 || m.room !== a.room || !meta || !meta.host || !sameToken(m.token ?? m.host, meta.host) || !validToken(m.view) ||
+        !validToken(m.edit) || !validToken(m.host) || !m.host || !validToken(m.member ?? null)) {
+      this.send(ws, JSON.stringify({ t: 'error', code: 'not-found' }));
+      return this.close(ws, 1008, 'not found');
+    }
+    for (const w of this.sockets('host')) {
+      w.serializeAttachment({ ...w.deserializeAttachment(), role: 'replaced' });
+      this.close(w, 1000, 'replaced');
+    }
+    for (const w of this.sockets('member')) {
+      w.serializeAttachment({ ...w.deserializeAttachment(), role: 'gone' });
+      this.close(w, 1012, 'new host');
+    }
+    meta.view = m.view, meta.edit = m.edit, meta.host = m.host, meta.member = m.member ?? meta.member ?? null, meta.hostGone = 0;
+    await this.ctx.storage.put('meta', meta);
+    ws.serializeAttachment({ ...a, role: 'host', id: 0 });
+    this.lastData = Date.now();
+    this.send(ws, JSON.stringify({ t: 'resumed', room: a.room }));
+    for (const w of this.sockets('waiting')) {
+      const wa = w.deserializeAttachment();
+      w.serializeAttachment({ ...wa, role: 'member' });
+      this.send(w, JSON.stringify({ t: 'joined', id: wa.id }));
+      this.send(ws, JSON.stringify({ t: 'peer', id: wa.id }));
+    }
+    await this.ctx.storage.setAlarm(Date.now() + 60e3);
+  }
+
   binary(ws, a, msg) {
-    if (!a.role || a.role === 'gone') return this.close(ws, 1008, 'hello');
+    if (a.role === 'waiting') return;  // (no host to give it to yet)
+    if (!a.role || a.role === 'gone' || a.role === 'replaced') return this.close(ws, 1008, 'hello');
     this.lastData = Date.now();
     const data = new Uint8Array(msg);
     if (a.role === 'host') {
@@ -243,7 +284,18 @@ export class Room {
     const a = ws.deserializeAttachment();
     this.buckets.delete(ws);
     if (!a) return;
-    if (a.role === 'host') return this.end('host left');
+    if (a.role === 'host') {  // (the host may come back with the host token: the members' connections close)
+      const meta = await this.ctx.storage.get('meta');
+      if (!meta || !meta.host) return this.end('host left');
+      meta.hostGone = Date.now();
+      await this.ctx.storage.put('meta', meta);
+      for (const w of this.sockets('member')) {
+        w.serializeAttachment({ ...w.deserializeAttachment(), role: 'gone' });
+        this.close(w, 1012, 'host away');
+      }
+      await this.ctx.storage.setAlarm(Date.now() + 30e3);
+      return;
+    }
     if (a.role === 'member' || a.role === 'gone') {
       const host = this.hostSocket();
       if (host) this.send(host, JSON.stringify({ t: 'left', id: a.id }));
@@ -263,7 +315,13 @@ export class Room {
       if (this.ctx.getWebSockets().length) await this.ctx.storage.setAlarm(now + HELLO_MS);
       return;
     }
-    if (now - meta.created > ROOM_LIFETIME_MS || now - this.lastData > IDLE_MS || !this.hostSocket()) return this.end('expired');
+    if (!this.hostSocket()) {  // (a room that woke with no host, after a restart of the server: the grace starts now)
+      if (!meta.host) return this.end('expired');
+      if (!meta.hostGone) meta.hostGone = now, await this.ctx.storage.put('meta', meta);
+      if (now - meta.hostGone > HOST_GRACE_MS) return this.end('expired');
+      return this.ctx.storage.setAlarm(now + 30e3);
+    }
+    if (now - meta.created > ROOM_LIFETIME_MS || now - this.lastData > IDLE_MS) return this.end('expired');
     await this.ctx.storage.setAlarm(now + 60e3);
   }
 }

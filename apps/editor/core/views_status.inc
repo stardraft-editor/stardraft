@@ -61,13 +61,15 @@ struct StatusView final : stardraft::draw::View {
         collabRc = {};
         {
             std::wstring collabStatusText(bool& live);  // (sdl_collab.inc)
+            bool collabReconnecting();
             bool live = false;
             const std::wstring t = collabStatusText(live);
+            const bool lost = collabReconnecting();  // (yellow while the connection comes back)
             const int cw = t.empty() ? 0 : c.measure(t) + 2 * pad;
             if (cw && right - cw >= x) {
                 collabRc = {right - cw, scale(3), right, h - scale(2)};
-                if (live) c.roundBox(collabRc, kGoodFill, kGoodLine, float(scale(3)));
-                c.text({collabRc.left + pad, 1, collabRc.right - pad, h}, t, live ? kGood : kDim, kMiddle);
+                if (live || lost) c.roundBox(collabRc, lost ? kCtl : kGoodFill, lost ? kWarn : kGoodLine, float(scale(3)));
+                c.text({collabRc.left + pad, 1, collabRc.right - pad, h}, t, lost ? kWarn : live ? kGood : kDim, kMiddle);
                 sep(right - cw);
                 right -= cw + scale(4);
             }

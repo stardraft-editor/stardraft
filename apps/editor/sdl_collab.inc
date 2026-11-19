@@ -5,6 +5,8 @@
 // session at a time. The socket's events go to the UI thread (shellPost); a timer reads this program's edits and
 // cursor every 50 ms. A participant (not the host) has the Map workspace only, and no Map layers.
 
+void collabFollowToggle(uint32_t id);  // (below: the top bar's circles, the pop-out)
+
 namespace collabui {
 
 namespace cb = stardraft::collab;
@@ -35,7 +37,6 @@ bool gPumping = false, gEnded = false, gShowWindow = false;
 std::wstring gEndWhy;
 int gTimer = 0;
 int gSharedKey = 0;  // the tab (Doc::key) of the session's map
-stardraft::kit::Dialog* gWindowDlg = nullptr;
 draw::View* gWindowView = nullptr;
 
 double clockNow() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
@@ -81,6 +82,11 @@ bool guestHere() {
 void finish();
 void pump();
 void tickTimer();
+void awarenessReset();
+void closePopover();
+void joinProgressChanged();
+void showJoinProgress();
+void awarenessTick();
 
 // Cursor chat (as Figma's): / on the map opens a bubble at the mouse, the text goes to the others as it is typed, Enter
 // keeps it for kChatKeep seconds, Esc removes it at once.
@@ -120,7 +126,9 @@ void finish() {
     gSession.reset();
     gConn.reset();  // (its socket's threads end first)
     gSharedKey = 0;
-    if (gWindowDlg) gWindowDlg->close(0);
+    awarenessReset();
+    closePopover();
+    joinProgressChanged();
     invalidateMapView();
     shellMenusChanged();
     shellStatusChanged();
@@ -136,6 +144,7 @@ void changed() {
     shellStatusChanged();
     if (gWindowView) gWindowView->invalidate();
     if (gRoot) gRoot->tabs.invalidate();  // (the tab's session dot)
+    joinProgressChanged();
 }
 
 void pump() {
@@ -173,6 +182,7 @@ void tickTimer() {
     } else if (gSession && !gEnded) {
         gSession->cursor(0, 0, false);
     }
+    awarenessTick();
     // A participant edits the map only (the preview): the Map workspace, not Map layers.
     if (guestHere() && !gState.ed->inStroke()) {
         if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map), setMessage(shellTr(L"Collaborative editing (experimental): invited users edit the map only"));
@@ -181,28 +191,64 @@ void tickTimer() {
     pump();
 }
 
-void post(std::function<void()> f) {
-    if (!gConn) return;
+// Each socket has a number: the events of one that a reconnect replaced do not reach the session.
+std::atomic<int> gConnGen{0};
+void post(int gen, std::function<void()> f) {
+    if (!gConn || gen != gConnGen.load()) return;
     {
         std::lock_guard<std::mutex> lock(gConn->m);
-        gConn->q.push_back(std::move(f));
+        gConn->q.push_back([gen, f = std::move(f)] {
+            if (gen == gConnGen.load()) f();
+        });
     }
     shellPost(pump);
 }
 
 void connect(const std::string& url) {
     stardraft::platform::WebSocket::Handlers h;
-    h.opened = [] { post([] { gSession->opened(); }); };
-    h.text = [](std::string t) { post([t] { gSession->received(t); }); };
-    h.binary = [](std::vector<uint8_t> b) { post([b] { gSession->received(Bytes(b.begin(), b.end())); }); };
-    h.closed = [](std::string why) { post([why] { gSession->closed(why); }); };
+    const int g = ++gConnGen;
+    h.opened = [g] { post(g, [] { gSession->opened(); }); };
+    h.text = [g](std::string t) { post(g, [t] { gSession->received(t); }); };
+    h.binary = [g](std::vector<uint8_t> b) { post(g, [b] { gSession->received(Bytes(b.begin(), b.end())); }); };
+    h.closed = [g](std::string why) { post(g, [why] { gSession->closed(why); }); };
     gConn->ws = stardraft::platform::WebSocket::connect(url, h);
     armTimer();
+}
+
+// The connection was lost: tries again after 1, 2, 4, 8, 8, ... seconds, for Session::kReconnectFor; then the session ends.
+double gReconnectSince = 0;
+int gReconnectTries = 0;
+bool gReconnectTimer = false;  // (one try at a time)
+void reconnectLater() {
+    if (!gSession || gEnded || !gHost || gReconnectTimer) return;
+    if (!gReconnectSince) gReconnectSince = clockNow(), gReconnectTries = 0;
+    if (clockNow() - gReconnectSince > cb::Session::kReconnectFor) {
+        gSession->reconnectFailed();
+        return shellPost(pump);
+    }
+    const int ms = 1000 * std::min(8, 1 << std::min(gReconnectTries, 3));
+    ++gReconnectTries;
+    gReconnectTimer = true;
+    gHost->timer(ms, [] {
+        gReconnectTimer = false;
+        if (!gSession || gEnded || !gSession->reconnecting() || !gConn) return;
+        ++gConnGen;  // (the old socket's last events are not this connection's)
+        gConn->ws.reset();
+        {
+            std::lock_guard<std::mutex> lock(gConn->m);
+            gConn->q.clear();
+        }
+        connect(gSession->reconnectUrl());
+    });
 }
 
 std::wstring roleText(cb::Role r) { return r == cb::Role::Edit ? shellTr(L"edit") : shellTr(L"view"); }
 
 void showWindow();
+void closePopover();
+void addChange(const cb::Change& c);
+void addPing(uint32_t who, int x, int y);
+bool gAutoAccept = false;  // host: people with a link come in without the question (the session window; this session only)
 
 cb::Session::Events events() {
     cb::Session::Events ev;
@@ -215,12 +261,31 @@ cb::Session::Events events() {
         gEndWhy = widen(why);
     };
     ev.peersChanged = [] { changed(); };
+    ev.connection = [](bool lost) {
+        if (lost) reconnectLater();
+        else gReconnectSince = 0, gReconnectTries = 0;
+        changed();
+    };
+    ev.changed = [](const cb::Change& c) { addChange(c); };
+    ev.ping = [](uint32_t who, int x, int y) { addPing(who, x, y); };
+    ev.becameHost = [] {
+        ++gConnGen;  // (the member's socket: its close is not the new host's)
+        gAutoAccept = false;
+        changed();
+    };
     ev.linksChanged = [] {
         changed();
         if (gShowWindow) gShowWindow = false, shellPost(showWindow);
     };
     ev.joinRequest = [](const cb::Peer& p) {
         const uint32_t id = p.id;
+        if (gAutoAccept) {  // (the host lets people with a link in without asking: the session window's option)
+            shellPost([id] {
+                if (gSession && !gEnded) gSession->approve(id, true);
+                shellPost(pump);
+            });
+            return;
+        }
         const std::wstring text = widen(p.name) + (p.role == cb::Role::Edit ? shellTr(L" requests edit access.") : shellTr(L" requests view access.")) +
                                   L"\n\n" + shellTr(L"Verification code: ") + widen(p.code) + L"\n" +
                                   shellTr(L"The same code shows on their computer. Compare the codes if you do not know who sent the request.");
@@ -330,6 +395,59 @@ void join(const std::string& text) {
     setMessage(shellTr(L"Connecting to ") + widen(link.server) + L"\x2026");
     connect(cb::relayUrl(link.server, link.room));
     changed();
+    shellPost(showJoinProgress);
+}
+
+// --- Joining: the steps, until the map opens ------------------------------------------------------------------------------
+// A box with the steps of a join (connect, the host's answer with the safety code, the map) and Cancel. It closes when
+// the map opens or the join ends.
+struct JoinView final : draw::View {
+    void paint(draw::Canvas& c) override {
+        const int w = width(), rowH = scale(26);
+        c.fill({0, 0, w, height()}, kBg);
+        if (!gSession) return;
+        const std::string code = gSession->safetyCode();
+        const bool map = gSession->editor() != nullptr, keyed = !code.empty();
+        const int step = map ? 3 : keyed ? 1 : 0;
+        const std::wstring names[3] = {shellTr(L"Connect to the server"), shellTr(L"Wait for the host to let you in"), shellTr(L"Get the map")};
+        int y = 0;
+        for (int i = 0; i < 3; ++i) {
+            const bool done = i < step, now = i == step;
+            const draw::Rect mark{0, y + scale(6), scale(14), y + scale(20)};
+            if (done) c.ellipse(mark, kGood, kGood);
+            else if (now) c.ring(mark, kAccentBright, std::max(1, scale(2)));
+            else c.ring(mark, kBorder);
+            c.text({scale(24), y, w, y + rowH}, names[i], done ? kDim : now ? kText : kFaint, draw::kMiddle);
+            y += rowH;
+        }
+        if (keyed && !map) {
+            const std::wstring t = shellTr(L"Safety code: ") + widen(code) + L"\n" + shellTr(L"The host sees the same code. If the codes are not the same, cancel.");
+            c.text({0, y + scale(8), w, height()}, t, kDim, draw::kWrap);
+        }
+    }
+};
+JoinView gJoinView;
+stardraft::kit::Dialog* gJoinDlg = nullptr;
+
+void showJoinProgress() {
+    if (!gSession || gEnded || gSession->editor() || !gRoot || gJoinDlg) return;
+    stardraft::kit::Dialog dlg;
+    dlg.setContent(gJoinView);
+    dlg.setButtons({{shellTr(L"Cancel"), 1, false, true}});
+    gJoinDlg = &dlg;
+    const int r = dlg.run(*gRoot, shellTr(L"Joining the session"), draw::Point{scale(420), scale(170)});
+    gJoinDlg = nullptr;
+    // (Cancel before the map came; a host that does not wait, a snapshot's, returns at once: no answer then)
+    if (r == 1 && dlg.closed() && gSession && !gEnded && !gSession->editor()) {
+        gSession->stop();
+        shellPost(pump);
+    }
+}
+// (changed(): the steps again; the map came or the join ended: the box closes)
+void joinProgressChanged() {
+    if (!gJoinDlg) return;
+    gJoinView.invalidate();
+    if (!gSession || gEnded || gSession->editor()) gJoinDlg->close(0);
 }
 
 void joinPrompt() {
@@ -350,21 +468,412 @@ draw::Color personColor(const cb::Peer& p) {
     return draw::rgb(uint8_t(rgb >> 16), uint8_t(rgb >> 8), uint8_t(rgb));
 }
 
+// --- Awareness: pings, the others' edits (a flash and the activity list), following, the others' selections ----------------
+const cb::Peer* findPeer(uint32_t id) {
+    if (!gSession) return nullptr;
+    for (const cb::Peer& p : gSession->peers())
+        if (p.id == id) return &p;
+    return nullptr;
+}
+draw::Color darker(draw::Color c) { return draw::rgb(uint8_t(GetRValue(c) / 3), uint8_t(GetGValue(c) / 3), uint8_t(GetBValue(c) / 3)); }
+std::wstring initialOf(const std::string& name) {
+    const std::wstring w = widen(name);
+    return w.empty() ? L"?" : std::wstring(1, wchar_t(std::towupper(w[0])));
+}
+
+struct PingMark {
+    uint32_t who = 0;
+    int x = 0, y = 0;
+    double at = 0;
+};
+std::vector<PingMark> gPings;
+constexpr double kPingFor = 4;
+struct Flash {
+    std::vector<std::array<int, 4>> rects;
+    draw::Color color = 0;
+    double at = 0;
+};
+std::vector<Flash> gFlashes;
+constexpr double kFlashFor = 1.2;
+struct Activity {
+    uint32_t who = 0;
+    std::wstring name;
+    draw::Color color = 0;
+    uint8_t what = 0;
+    uint32_t count = 0;
+    int x = 0, y = 0;  // where (map pixels)
+    double at = 0;
+};
+std::deque<Activity> gActivity;  // the newest first
+int64_t gFollow = -1;            // the person whose view this user follows (-1: none)
+float gFollowCamX = -1e9f, gFollowCamY = -1e9f, gFollowCx = -1, gFollowCy = -1;
+struct Chip {  // an arrow at the map's edge to a person or a ping out of the view (a click goes there)
+    draw::Rect r;
+    int x = 0, y = 0;
+};
+std::vector<Chip> gChips;
+std::string gSoftLockSaid;
+bool gMinimapOthers = true;  // View > Collaborators on the minimap (prefs CollabMinimap)
+
+void minimapChanged() {
+    if (gRoot) gRoot->minimap.invalidate();
+}
+// The session ended: all of it goes.
+void awarenessReset() {
+    gPings.clear(), gFlashes.clear(), gActivity.clear(), gChips.clear(), gSoftLockSaid.clear();
+    gFollow = -1, gAutoAccept = false, gReconnectSince = 0, gReconnectTries = 0;
+    minimapChanged();
+}
+
+// The text of an activity: "changed 24 tiles", "changed a unit".
+std::wstring activityText(const Activity& a) {
+    static const wchar_t* const kOne[] = {L"a tile", L"a unit", L"a doodad", L"a sprite", L"a location"};
+    static const wchar_t* const kMany[] = {L" tiles", L" units", L" doodads", L" sprites", L" locations"};
+    const int k = std::min<int>(a.what, 4);
+    return a.count == 1 ? shellTr(L"changed ") + shellTr(kOne[k]) : shellTr(L"changed ") + std::to_wstring(a.count) + shellTr(kMany[k]);
+}
+
+void addChange(const cb::Change& c) {
+    const cb::Peer* p = findPeer(c.who);
+    if (!p) return;
+    const double now = clockNow();
+    const draw::Color col = personColor(*p);
+    if (!c.rects.empty()) {
+        gFlashes.push_back({c.rects, col, now});
+        if (gFlashes.size() > 64) gFlashes.erase(gFlashes.begin());
+        invalidateMapView();
+    }
+    int x = 0, y = 0;
+    if (!c.rects.empty()) x = (c.rects[0][0] + c.rects[0][2]) / 2, y = (c.rects[0][1] + c.rects[0][3]) / 2;
+    // (one person's edits of one kind in a row are one line: a stroke sends many)
+    if (!gActivity.empty() && gActivity.front().who == c.who && gActivity.front().what == c.what && now - gActivity.front().at < 5) {
+        Activity& a = gActivity.front();
+        a.count += c.count, a.at = now, a.name = widen(p->name), a.color = col;
+        if (!c.rects.empty()) a.x = x, a.y = y;
+    } else {
+        gActivity.push_front({c.who, widen(p->name), col, c.what, c.count, x, y, now});
+        if (gActivity.size() > 30) gActivity.pop_back();
+    }
+    if (gWindowView) gWindowView->invalidate();
+}
+
+void addPing(uint32_t who, int x, int y) {
+    gPings.push_back({who, x, y, clockNow()});
+    if (gPings.size() > 16) gPings.erase(gPings.begin());
+    invalidateMapView();
+    minimapChanged();
+}
+
+// The camera to a map point (its middle there), as a jump; the zoom stays.
+void centerOn(float x, float y) {
+    int vw = 0, vh = 0;
+    shellViewSize(vw, vh);
+    if (!gState.ed || gState.zoom <= 0 || vw <= 0) return;
+    mapViewGlideTo(gState, gState.zoom, x, y);
+    gState.dirty = true;
+    invalidateMapView();
+    minimapChanged();
+}
+
+void follow(int64_t id) {
+    gFollow = id;
+    gFollowCamX = gFollowCamY = -1e9f, gFollowCx = gFollowCy = -1;
+    const cb::Peer* p = id >= 0 ? findPeer(uint32_t(id)) : nullptr;
+    setMessage(p ? shellTr(L"Following ") + widen(p->name) + shellTr(L". Move the map to stop.") : shellTr(L"Stopped following"));
+    changed();
+}
+
+// Each timer tick: this user's presence (view, tool, selection); following; a note when another person has the same
+// unit or location selected.
+void awarenessTick() {
+    Editor* ed = gSession && !gEnded ? gSession->editor() : nullptr;
+    if (!ed) return;
+    const double now = clockNow();
+    if (std::erase_if(gPings, [&](const PingMark& m) { return now - m.at > kPingFor; })) invalidateMapView(), minimapChanged();
+    std::erase_if(gFlashes, [&](const Flash& f) { return now - f.at > kFlashFor; });
+    if (gState.ed.get() != ed || gWorkspace != Workspace::Map) return;
+    int vw = 0, vh = 0;
+    shellViewSize(vw, vh);
+    cb::Presence pr;
+    if (gState.zoom > 0 && vw > 0 && vh > 0)
+        pr.viewX = int(gState.camX), pr.viewY = int(gState.camY), pr.viewW = int(float(vw) / gState.zoom), pr.viewH = int(float(vh) / gState.zoom);
+    switch (gState.mode) {
+    case Mode::Terrain: pr.tool = cb::Tool::Terrain; break;
+    case Mode::Units: pr.tool = cb::Tool::Units; break;
+    case Mode::Doodads: pr.tool = cb::Tool::Doodads; break;
+    case Mode::Sprites: pr.tool = cb::Tool::Sprites; break;
+    case Mode::Locations: pr.tool = cb::Tool::Locations; break;
+    default: break;
+    }
+    if (pr.tool == cb::Tool::Terrain && !inSelection()) {
+        pr.brushW = uint8_t(std::clamp<long>(std::lround(gState.brushSize), 1, 64));
+        pr.brushH = uint8_t(std::clamp<long>(std::lround(brushHeightOf(gState)), 1, 64));
+    }
+    for (int i : ed->selection())
+        if (i >= 0 && size_t(i) < ed->units().size() && pr.units.size() < cb::kMaxSelected) pr.units.push_back(ed->units()[size_t(i)].serial);
+    for (int i : ed->selectedLocations())
+        if (i >= 0 && pr.locations.size() < cb::kMaxSelected) pr.locations.push_back(uint16_t(i));
+    gSession->presence(pr);
+    // Following: the camera goes with the other's view (its middle); a move of this user's own stops it.
+    if (gFollow >= 0) {
+        const cb::Peer* p = findPeer(uint32_t(gFollow));
+        if (!p) {
+            follow(-1);
+        } else if (gFollowCamX > -1e8f && (std::abs(gState.camX - gFollowCamX) > 2 || std::abs(gState.camY - gFollowCamY) > 2)) {
+            follow(-1);
+        } else if (p->presence.viewW > 0 && gState.zoom > 0) {
+            const float cx = float(p->presence.viewX + p->presence.viewW / 2), cy = float(p->presence.viewY + p->presence.viewH / 2);
+            if (cx != gFollowCx || cy != gFollowCy) {
+                gFollowCx = cx, gFollowCy = cy;
+                gState.camX = cx - float(vw) / 2.0f / gState.zoom, gState.camY = cy - float(vh) / 2.0f / gState.zoom;
+                clampCamera();
+                gState.dirty = true;
+                invalidateMapView(), minimapChanged();
+            }
+            gFollowCamX = gState.camX, gFollowCamY = gState.camY;
+        }
+    }
+    // Soft locks: the same unit or location selected by another person: a note (once for each new overlap).
+    std::string said;
+    std::wstring note;
+    for (const cb::Peer& p : gSession->peers()) {
+        for (uint32_t s : p.presence.units)
+            if (std::find(pr.units.begin(), pr.units.end(), s) != pr.units.end()) {
+                said += p.name + "/u" + std::to_string(s) + ";";
+                if (note.empty()) note = widen(p.name) + shellTr(L" has this unit selected too");
+            }
+        for (uint16_t l : p.presence.locations)
+            if (std::find(pr.locations.begin(), pr.locations.end(), l) != pr.locations.end()) {
+                said += p.name + "/l" + std::to_string(l) + ";";
+                if (note.empty()) note = widen(p.name) + shellTr(L" has this location selected too");
+            }
+    }
+    if (said != gSoftLockSaid) {
+        if (!said.empty()) setMessage(note);
+        gSoftLockSaid = said;
+    }
+}
+
+// The overlays on the map, under the cursors: the change flashes, the others' selections and brushes, the pings, and
+// the arrows at the edge to people and pings out of the view. `view`: the map view (its pixels).
+void awarenessPaint(draw::Canvas& c, draw::Rect view) {
+    const Editor& ed = *gSession->editor();
+    const double now = clockNow();
+    const float z = gState.zoom;
+    auto sx = [&](float x) { return view.left + int(std::lround((x - gState.camX) * z)); };
+    auto sy = [&](float y) { return view.top + int(std::lround((y - gState.camY) * z)); };
+    bool animate = false;
+    for (const Flash& f : gFlashes) {
+        const double t = (now - f.at) / kFlashFor;
+        if (t >= 1) continue;
+        animate = true;
+        const uint8_t a = uint8_t(110 * (1 - t));
+        for (const auto& r : f.rects) c.fill({sx(float(r[0])), sy(float(r[1])), sx(float(r[2])), sy(float(r[3]))}, f.color, a);
+    }
+    const auto old = c.setFont(c.font({draw::Face::Ui, scale(11)}));
+    auto tag = [&](int x, int y, const std::wstring& text, draw::Color col) {
+        const int w = c.measure(text) + scale(8), h = c.metrics().height + scale(2);
+        const draw::Rect r{x, y - h, x + w, y};
+        c.roundBox(r, col, darker(col), float(scale(3)));
+        c.text(r, text, draw::rgb(16, 16, 16), draw::kCenter | draw::kMiddle);
+    };
+    for (const cb::Peer& p : gSession->peers()) {
+        const draw::Color col = personColor(p);
+        // Their selected units: a box in their color (the unit's place in the middle).
+        bool named = false;
+        for (uint32_t s : p.presence.units)
+            for (const Unit& u : ed.units())
+                if (u.serial == s) {
+                    const draw::Rect r{sx(float(u.x) - 20), sy(float(u.y) - 20), sx(float(u.x) + 20), sy(float(u.y) + 20)};
+                    c.frame(r, col, std::max(1, scale(2)));
+                    if (!named) tag(r.left, r.top - scale(1), widen(p.name), col), named = true;
+                    break;
+                }
+        for (uint16_t l : p.presence.locations)
+            if (l < ed.locations().size()) {
+                const Location& L = ed.locations()[l];
+                const float x0 = float(std::min(L.left, L.right)), x1 = float(std::max(L.left, L.right));
+                const float y0 = float(std::min(L.top, L.bottom)), y1 = float(std::max(L.top, L.bottom));
+                const draw::Rect r{sx(x0), sy(y0), sx(x1), sy(y1)};
+                c.frame(r, col, std::max(1, scale(2)), draw::LineStyle::Dash);
+                if (!named) tag(r.left, r.top - scale(1), widen(p.name), col), named = true;
+            }
+        // Their terrain brush at their cursor (a diamond is 64 x 32 map pixels).
+        if (p.cursorOn && p.presence.tool == cb::Tool::Terrain && p.presence.brushW && now - p.cursorTime < 30) {
+            const float w = float(p.presence.brushW) * 32, h = float(p.presence.brushH) * 16;
+            const float cx = std::round(float(p.x) / 32) * 32, cy = std::round(float(p.y) / 16) * 16;
+            const draw::Point d[4] = {{sx(cx), sy(cy - h)}, {sx(cx + w), sy(cy)}, {sx(cx), sy(cy + h)}, {sx(cx - w), sy(cy)}};
+            for (int k = 0; k < 4; ++k) c.line(d[k].x, d[k].y, d[(k + 1) % 4].x, d[(k + 1) % 4].y, col, std::max(1, scale(2)), draw::LineStyle::Dash);
+        }
+    }
+    // Pings: rings that grow, in the color of the person who pinged, with the name.
+    for (const PingMark& m : gPings) {
+        const double t = now - m.at;
+        if (t > kPingFor) continue;
+        animate = true;
+        const cb::Peer* p = findPeer(m.who);
+        const draw::Color col = p ? personColor(*p) : draw::rgb(240, 240, 240);
+        const int x = sx(float(m.x)), y = sy(float(m.y));
+        for (int k = 0; k < 2; ++k) {
+            const double f = std::fmod(t + k * 0.5, 1.0);
+            const int rad = scale(8) + int(f * scale(36));
+            c.ring({x - rad, y - rad, x + rad, y + rad}, col, std::max(1, scale(3) - int(f * scale(2))));
+        }
+        c.ellipse({x - scale(5), y - scale(5), x + scale(5), y + scale(5)}, col, darker(col));
+        tag(x + scale(8), y - scale(8), p ? widen(p->name) : shellTr(L"You"), col);
+    }
+    // Arrows at the edge: people (their cursor, else the middle of their view) and pings out of the view.
+    gChips.clear();
+    const int m = scale(14), cr = scale(11);
+    auto chip = [&](float mx, float my, const std::wstring& text, draw::Color col) {
+        const int x = sx(mx), y = sy(my);
+        if (x >= view.left && x < view.right && y >= view.top && y < view.bottom) return;
+        const int cx = std::clamp(x, view.left + m, view.right - m), cy = std::clamp(y, view.top + m, view.bottom - m);
+        const draw::Rect r{cx - cr, cy - cr, cx + cr, cy + cr};
+        // (a small triangle from the circle toward the place)
+        const float dx = float(x - cx), dy = float(y - cy), len = std::max(1.0f, std::sqrt(dx * dx + dy * dy));
+        const float ux = dx / len, uy = dy / len;
+        const draw::Point tri[3] = {{cx + int(ux * (cr + scale(7))), cy + int(uy * (cr + scale(7)))},
+                                    {cx + int(-uy * cr * 0.7f + ux * cr * 0.6f), cy + int(ux * cr * 0.7f + uy * cr * 0.6f)},
+                                    {cx + int(uy * cr * 0.7f + ux * cr * 0.6f), cy + int(-ux * cr * 0.7f + uy * cr * 0.6f)}};
+        c.polygon(tri, 3, col, darker(col));
+        c.ellipse(r, col, darker(col));
+        c.text(r, text, draw::rgb(16, 16, 16), draw::kCenter | draw::kMiddle);
+        gChips.push_back({r, int(mx), int(my)});
+    };
+    for (const cb::Peer& p : gSession->peers()) {
+        if (p.cursorOn && now - p.cursorTime < 30) chip(float(p.x), float(p.y), initialOf(p.name), personColor(p));
+        else if (p.presence.viewW > 0)
+            chip(float(p.presence.viewX + p.presence.viewW / 2), float(p.presence.viewY + p.presence.viewH / 2), initialOf(p.name), personColor(p));
+    }
+    for (const PingMark& pm : gPings) {
+        const cb::Peer* p = findPeer(pm.who);
+        chip(float(pm.x), float(pm.y), L"!", p ? personColor(*p) : draw::rgb(240, 240, 240));
+    }
+    c.setFont(old);
+    if (animate) shellPost([] { invalidateMapView(); });
+}
+
+}  // namespace collabui
+
+// A click on the map: an arrow at the edge (to a person or a ping out of the view) moves the view there. True: taken.
+bool collabMapClick(int x, int y) {
+    using namespace collabui;
+    if (!gSession || gEnded || gSession->editor() != gState.ed.get()) return false;  // (the arrows are the shared map's)
+    for (const Chip& ch : gChips)
+        if (x >= ch.r.left && x < ch.r.right && y >= ch.r.top && y < ch.r.bottom) {
+            if (gFollow >= 0) follow(-1);
+            centerOn(float(ch.x), float(ch.y));
+            return true;
+        }
+    return false;
+}
+
+// A session shows the active map (the map's menu has Ping here).
+bool collabPingable() {
+    using namespace collabui;
+    return gSession && !gEnded && gSession->editor() && gSession->editor() == gState.ed.get() && !gSession->reconnecting();
+}
+// A ping at a map point (the map's menu, Alt+click on the minimap): the others see it; this user too.
+bool collabPing(int x, int y) {
+    using namespace collabui;
+    if (!collabPingable()) return false;
+    gSession->ping(x, y);
+    addPing(gSession->isHost() ? 0 : 0xFFFFFFFFu, x, y);
+    shellPost(pump);
+    return true;
+}
+
+// The minimap: the others' views (boxes in their colors; View > Collaborators on the minimap) and the pings.
+void collabMinimapPaint(draw::Canvas& c, RECT rr, float sc) {
+    using namespace collabui;
+    if (!collabPingable() || sc <= 0) return;
+    const draw::Rect r = rr;
+    auto mx = [&](float x) { return r.left + int(x * sc); };
+    auto my = [&](float y) { return r.top + int(y * sc); };
+    bool collabMinimapShown();
+    if (collabMinimapShown())
+        for (const cb::Peer& p : gSession->peers())
+            if (p.presence.viewW > 0) {
+                const draw::Rect v{mx(float(p.presence.viewX)), my(float(p.presence.viewY)), mx(float(p.presence.viewX + p.presence.viewW)),
+                                   my(float(p.presence.viewY + p.presence.viewH))};
+                c.fill(v, personColor(p), 30);
+                c.frame(v, personColor(p));
+            }
+    const double now = clockNow();
+    bool any = false;
+    for (const PingMark& m : gPings) {
+        const double t = now - m.at;
+        if (t > kPingFor) continue;
+        any = true;
+        const cb::Peer* p = findPeer(m.who);
+        const draw::Color col = p ? personColor(*p) : draw::rgb(240, 240, 240);
+        const int x = mx(float(m.x)), y = my(float(m.y)), rad = scale(3) + int(std::fmod(t, 1.0) * scale(8));
+        c.ring({x - rad, y - rad, x + rad, y + rad}, col, std::max(1, scale(2)));
+        c.ellipse({x - scale(2), y - scale(2), x + scale(2), y + scale(2)}, col, col);
+    }
+    if (any) shellPost([] { if (gRoot) gRoot->minimap.invalidate(); });
+}
+
+namespace collabui {
+
+// The session's pop-out (the top bar's Invite button, File > Collaborative editing > Invite): the state, the invite links
+// (host), the people (host: role, Make host, Remove; this user: Rename), what the others changed last (a click goes there),
+// and End or Leave. It closes on a click outside it or Esc; the map stays usable. It is drawn again as the session
+// changes; a new height opens it again at that height.
+bool gPopOpen = false;
+int gPopH = 0;  // the height it opened at (the paint measures what it needs)
+void closePopover();
+void reopenPopover();
+
+std::wstring agoText(double seconds) {
+    if (seconds < 5) return shellTr(L"now");
+    if (seconds < 60) return std::to_wstring(int(seconds)) + shellTr(L" s ago");
+    return std::to_wstring(int(seconds / 60)) + shellTr(L" min ago");
+}
+
+void renameMe() {
+    std::wstring name = savedName();
+    if (!shellPromptText(shellTr(L"Display name in the session"), name)) return;
+    while (!name.empty() && name.back() == L' ') name.pop_back();
+    while (!name.empty() && name.front() == L' ') name.erase(name.begin());
+    if (name.empty()) return;
+    prefs::setText(L"CollabName", name.substr(0, 32));
+    if (gSession && !gEnded) gSession->rename(narrow(name.substr(0, 32)));
+    shellSettingsChanged();
+    changed();
+}
+
+void makeHost(uint32_t id) {
+    const cb::Peer* p = findPeer(id);
+    if (!gSession || !gRoot || !p) return;
+    const std::wstring name = widen(p->name);
+    if (msgbox::ask(*gRoot, shellTr(L"Make host"),
+                    shellTr(L"Make ") + name + shellTr(L" the host of the session? You leave the session. You keep your map, and the others stay in the session."),
+                    {shellTr(L"Make host"), shellTr(L"Cancel")}, msgbox::Icon::Question) != 0)
+        return;
+    if (gSession && !gEnded && !gSession->handOver(id)) setMessage(shellTr(L"Could not make ") + name + shellTr(L" the host"));
+    shellPost(pump);
+}
+
 struct SessionView final : draw::View {
     kitui::Surface surface;
-    stardraft::kit::Dialog* dlg = nullptr;
     bool mouse(const draw::MouseEvent& e) override { return surface.mouse(*this, e); }
-    bool key(const draw::KeyEvent& e) override {
-        if (e.down && e.key == draw::Key::Escape && dlg) return dlg->close(0), true;
-        return false;
-    }
-    void button(draw::Canvas& c, draw::Rect r, const std::wstring& label, kitpaint::Tone tone, std::function<void()> fn, bool on = true) {
+    // (a button that opens a box closes the pop-out first: `closes`)
+    void button(draw::Canvas& c, draw::Rect r, const std::wstring& label, kitpaint::Tone tone, std::function<void()> fn, bool on = true, bool closes = false) {
         kitpaint::drawButtonFace(c, r, label, tone, !on ? kitpaint::ButtonState::Disabled : surface.hot(r) ? kitpaint::ButtonState::Hot : kitpaint::ButtonState::Normal);
-        if (on) surface.add({r, nullptr, [fn] { shellPost(fn); }, label, draw::Cursor::Hand});
+        if (on)
+            surface.add({r, nullptr,
+                         [fn, closes] {
+                             if (closes) closePopover();
+                             shellPost(fn);
+                         },
+                         label, draw::Cursor::Hand});
     }
     void paint(draw::Canvas& c) override {
-        const int w = width(), h = height(), pad = scale(16), bh = scale(28);
-        c.fill({0, 0, w, h}, kBg);
+        const int w = width(), pad = scale(16), bh = scale(28), sbh = scale(24);
+        c.fill({0, 0, w, height()}, kBg);
+        c.frame({0, 0, w, height()}, kBorder);
         surface.begin();
         int y = pad;
         if (!gSession || gEnded) {
@@ -374,54 +883,90 @@ struct SessionView final : draw::View {
         const bool host = gSession->isHost();
         size_t in = 0;
         for (const cb::Peer& p : gSession->peers()) in += p.approved;
-        // The state: a green box while others are in the session.
-        const std::wstring state = host ? (in ? shellTr(L"Hosting: ") + std::to_wstring(in) + (in == 1 ? shellTr(L" participant") : shellTr(L" participants"))
-                                              : gSession->link(cb::Role::Edit).empty() ? shellTr(L"Connecting\x2026") : shellTr(L"Hosting: waiting for participants"))
-                                         : (gSession->editor() ? shellTr(L"Joined: ") + roleText(gSession->role()) + shellTr(L" access") : shellTr(L"Waiting for the host\x2026"));
-        const draw::Rect stateR{pad, y, w - pad, y + bh};
-        kitpaint::drawBox(c, stateR, in || (!host && gSession->editor()) ? kGoodFill : kCtl, in || (!host && gSession->editor()) ? kGoodLine : kBorder);
-        c.text({stateR.left + scale(10), stateR.top, stateR.right - scale(10), stateR.bottom}, state, in || (!host && gSession->editor()) ? kGood : kText, draw::kMiddle);
-        y += bh + pad;
+        auto header = [&](const std::wstring& t) {
+            c.text({pad, y, w - pad, y + scale(20)}, t, kDim, draw::kMiddle);
+            y += scale(22);
+        };
+        // The state: green while others are in the session, yellow while the connection comes back.
+        const bool lost = gSession->reconnecting(), live = in || (!host && gSession->editor());
+        const std::wstring state = lost ? shellTr(L"Reconnecting\x2026 Your edits wait and go when the connection is back.")
+                                   : host ? (in ? shellTr(L"Hosting: ") + std::to_wstring(in) + (in == 1 ? shellTr(L" participant") : shellTr(L" participants"))
+                                                : gSession->link(cb::Role::Edit).empty() ? shellTr(L"Connecting\x2026") : shellTr(L"Hosting: waiting for participants"))
+                                          : (gSession->editor() ? shellTr(L"Joined ") + widen(gSession->hostName()) + shellTr(L"'s session: ") + roleText(gSession->role()) + shellTr(L" access")
+                                                                : shellTr(L"Waiting for the host\x2026"));
+        const int sh = std::max(bh, c.measureBox(state, w - 2 * pad - scale(20), draw::kWrap).y + scale(10));
+        const draw::Rect stateR{pad, y, w - pad, y + sh};
+        kitpaint::drawBox(c, stateR, lost ? kCtl : live ? kGoodFill : kCtl, lost ? kWarn : live ? kGoodLine : kBorder);
+        c.text({stateR.left + scale(10), stateR.top + scale(5), stateR.right - scale(10), stateR.bottom - scale(5)}, state, lost ? kWarn : live ? kGood : kText,
+               draw::kWrap | draw::kMiddle);
+        y += sh + scale(14);
         if (host) {
-            c.text({pad, y, w - pad, y + scale(20)}, shellTr(L"Invite links"), kDim, draw::kMiddle);
-            y += scale(24);
+            header(shellTr(L"Invite links"));
             // What each link lets people do (the guest locks: sdlCollabLocks, collabModeLocked).
             const std::wstring note =
                 shellTr(L"Invite people to view or to edit the map. With the edit link, they can change terrain, units, doodads, sprites and "
-                        L"locations. They cannot change triggers, map layers or other map data. When the session ends, each collaborator keeps "
-                        L"a copy of the map and can save it on their own computer. This feature is experimental.");
+                        L"locations. They cannot change triggers, map layers or other map data. Each collaborator works on a local copy of "
+                        L"the map. They can save that copy as it was when they last had access, also after you remove them, reset the links "
+                        L"or end the session. This feature is experimental.");
             const int nh = c.measureBox(note, w - 2 * pad, draw::kWrap).y;
-            c.text({pad, y, w - pad, y + nh}, note, kText, draw::kWrap);
-            y += nh + scale(12);
+            c.text({pad, y, w - pad, y + nh}, note, kDim, draw::kWrap);
+            y += nh + scale(10);
             const bool ready = !gSession->link(cb::Role::Edit).empty();
             const int bw = (w - 2 * pad - 2 * scale(8)) / 3;
             button(c, {pad, y, pad + bw, y + bh}, shellTr(L"Copy edit link"), kitpaint::Tone::Primary, [] { copyLink(cb::Role::Edit); }, ready);
             button(c, {pad + bw + scale(8), y, pad + 2 * bw + scale(8), y + bh}, shellTr(L"Copy view link"), kitpaint::Tone::Normal, [] { copyLink(cb::Role::View); }, ready);
-            button(c, {pad + 2 * (bw + scale(8)), y, w - pad, y + bh}, shellTr(L"Reset links\x2026"), kitpaint::Tone::Normal, [] { newLinks(); }, ready);
-            y += bh + pad;
+            button(c, {pad + 2 * (bw + scale(8)), y, w - pad, y + bh}, shellTr(L"Reset links\x2026"), kitpaint::Tone::Normal, [] { newLinks(); }, ready, true);
+            y += bh + scale(10);
+            // Let people in without the question (this session only).
+            const draw::Rect box{pad, y + scale(4), pad + scale(16), y + scale(20)};
+            const draw::Rect hit{pad, y, w - pad, y + sbh};
+            const bool over = surface.hot(hit);
+            kitpaint::drawCheckMark(c, box, gAutoAccept, over, true);
+            c.text({box.right + scale(8), y, w - pad, y + sbh}, shellTr(L"Let people with a link in without asking me"), kText, draw::kMiddle);
+            surface.add({hit, nullptr,
+                         [] {
+                             gAutoAccept = !gAutoAccept;
+                             changed();
+                         },
+                         shellTr(L"Let people with a link in without asking me"), draw::Cursor::Hand});
+            y += sbh + scale(14);
         }
-        c.text({pad, y, w - pad, y + scale(20)}, shellTr(L"Participants"), kDim, draw::kMiddle);
-        y += scale(24);
+        header(shellTr(L"People"));
         auto row = [&](const cb::Peer& p, bool self) {
             const draw::Rect r{pad, y, w - pad, y + bh};
-            c.fill({r.left, r.top + scale(9), r.left + scale(10), r.top + scale(19)}, personColor(p));
-            std::wstring label = widen(p.name) + (self ? shellTr(L" (you)") : L"");
-            const std::wstring role = p.id == 0 ? shellTr(L"host") : roleText(p.role);
-            c.text({r.left + scale(18), r.top, r.right - scale(200), r.bottom}, label, kText, draw::kMiddle | draw::kEllipsis);
-            c.text({r.right - scale(196), r.top, r.right - scale(150), r.bottom}, role, kDim, draw::kMiddle);
-            if (host && p.id != 0) {
+            const draw::Color col = personColor(p);
+            const draw::Rect dot{r.left, r.top + scale(4), r.left + scale(20), r.top + scale(24)};
+            c.ellipse(dot, col, darker(col));
+            c.text(dot, initialOf(p.name), draw::rgb(16, 16, 16), draw::kCenter | draw::kMiddle);
+            int right = r.right;
+            auto rowButton = [&](const std::wstring& label, kitpaint::Tone tone, std::function<void()> fn, bool closes = false) {
+                const int bw = c.measure(label) + scale(16);
+                button(c, {right - bw, r.top + scale(2), right, r.bottom - scale(2)}, label, tone, std::move(fn), true, closes);
+                right -= bw + scale(4);
+            };
+            if (self) {
+                rowButton(shellTr(L"Rename\x2026"), kitpaint::Tone::Normal, [] { renameMe(); }, true);
+            } else if (host) {
                 const uint32_t id = p.id;
-                const cb::Role to = p.role == cb::Role::Edit ? cb::Role::View : cb::Role::Edit;
-                button(c, {r.right - scale(146), r.top + scale(2), r.right - scale(74), r.bottom - scale(2)}, to == cb::Role::Edit ? shellTr(L"Set edit") : shellTr(L"Set view"),
-                       kitpaint::Tone::Normal, [id, to] {
-                           if (gSession && !gEnded) gSession->setRole(id, to);
-                           changed();
-                       });
-                button(c, {r.right - scale(70), r.top + scale(2), r.right, r.bottom - scale(2)}, shellTr(L"Remove"), kitpaint::Tone::Danger, [id] {
+                rowButton(shellTr(L"Remove"), kitpaint::Tone::Danger, [id] {
                     if (gSession && !gEnded) gSession->remove(id);
                     changed();
                 });
+                if (p.role == cb::Role::Edit) rowButton(shellTr(L"Make host\x2026"), kitpaint::Tone::Normal, [id] { makeHost(id); }, true);
+                const cb::Role to = p.role == cb::Role::Edit ? cb::Role::View : cb::Role::Edit;
+                rowButton(to == cb::Role::Edit ? shellTr(L"Set edit") : shellTr(L"Set view"), kitpaint::Tone::Normal, [id, to] {
+                    if (gSession && !gEnded) gSession->setRole(id, to);
+                    changed();
+                });
+            } else if (gFollow == int64_t(p.id) || p.presence.viewW > 0) {
+                const uint32_t id = p.id;
+                rowButton(gFollow == int64_t(id) ? shellTr(L"Stop following") : shellTr(L"Follow"), kitpaint::Tone::Normal, [id] { collabFollowToggle(id); });
             }
+            const std::wstring label = widen(p.name) + (self ? shellTr(L" (you)") : L"");
+            const std::wstring role = p.id == 0 ? shellTr(L"host") : roleText(p.role);
+            const int roleW = c.measure(role) + scale(10);
+            c.text({dot.right + scale(8), r.top, right - roleW, r.bottom}, label, kText, draw::kMiddle | draw::kEllipsis);
+            c.text({right - roleW, r.top, right, r.bottom}, role, kDim, draw::kMiddle);
             y += bh + scale(4);
         };
         cb::Peer me;
@@ -430,36 +975,91 @@ struct SessionView final : draw::View {
         for (const cb::Peer& p : gSession->peers())
             if (p.approved) row(p, false);
         if (!host) row(me, true);
-        const draw::Rect endR{pad, h - pad - bh, pad + scale(130), h - pad};
-        button(c, endR, host ? shellTr(L"End session") : shellTr(L"Leave session"), kitpaint::Tone::Danger, [] { endSession(); });
-        button(c, {w - pad - scale(90), h - pad - bh, w - pad, h - pad}, shellTr(L"Close"), kitpaint::Tone::Normal, [] {
-            if (gWindowDlg) gWindowDlg->close(0);
-        });
+        y += scale(10);
+        // What the others changed last (a click: the view goes there).
+        header(shellTr(L"Recent changes by others"));
+        const double now = clockNow();
+        if (gActivity.empty()) {
+            c.text({pad, y, w - pad, y + sbh}, shellTr(L"None yet"), kFaint, draw::kMiddle);
+            y += sbh;
+        }
+        for (size_t i = 0; i < gActivity.size() && i < 5; ++i) {
+            const Activity& a = gActivity[i];
+            const draw::Rect r{pad, y, w - pad, y + sbh};
+            const bool over = surface.hot(r);
+            if (over) kitpaint::drawBox(c, r, kCtlHot, draw::kNone);
+            c.ellipse({r.left + scale(4), r.top + scale(8), r.left + scale(12), r.top + scale(16)}, a.color, a.color);
+            const std::wstring ago = agoText(now - a.at);
+            const int agoW = c.measure(ago) + scale(8);
+            c.text({r.left + scale(18), r.top, r.right - agoW, r.bottom}, a.name + L" " + activityText(a), kText, draw::kMiddle | draw::kEllipsis);
+            c.text({r.right - agoW, r.top, r.right - scale(4), r.bottom}, ago, kDim, draw::kMiddle | draw::kRight);
+            const int ax = a.x, ay = a.y;
+            surface.add({r, nullptr,
+                         [ax, ay] {
+                             closePopover();
+                             shellPost([ax, ay] { centerOn(float(ax), float(ay)); });
+                         },
+                         shellTr(L"Show the place on the map"), draw::Cursor::Hand});
+            y += sbh;
+        }
+        y += pad;
+        const draw::Rect endR{pad, y, pad + scale(130), y + bh};
+        button(c, endR, host ? shellTr(L"End session") : shellTr(L"Leave session"), kitpaint::Tone::Danger, [] { endSession(); }, true, true);
+        // (the display name and the server: Program options > Collaboration)
+        button(c, {w - pad - scale(100), y, w - pad, y + bh}, shellTr(L"Options\x2026"), kitpaint::Tone::Normal, [] { serverAddress(); }, true, true);
+        y += bh + pad;
         surface.paintFocus(c, *this);
+        if (std::abs(y - gPopH) > scale(2)) gPopH = y, shellPost(reopenPopover);  // (another height: open it again at that one)
     }
 };
+SessionView gSessionView;
+
+void closePopover() {
+    if (!gPopOpen) return;
+    gPopOpen = false;
+    gWindowView = nullptr;
+    if (gHost) gHost->closeWindow(gSessionView);
+}
+
+void openPopover() {
+    if (!gSession || !gRoot || !gHost || gPopOpen) return;
+    const int w = scale(440), h = std::max(gPopH, scale(200));
+    if (!gPopH) gPopH = h;
+    draw::Rect a = gCollabAnchor;
+    if (a.right <= a.left) a = {gRoot->width() - scale(12), scale(40), gRoot->width() - scale(12), scale(40)};
+    const int x = std::clamp(a.right - w, scale(8), std::max(scale(8), gRoot->width() - w - scale(8)));
+    const int y = a.bottom + scale(4);
+    gPopOpen = true;
+    gWindowView = &gSessionView;
+    gHost->openWindow(*gRoot, gSessionView, draw::WindowSpec{draw::WindowKind::Popup, draw::Rect(x, y, x + w, y + gPopH), L""}, [] {
+        gPopOpen = false;  // (a click outside, or Esc)
+        gWindowView = nullptr;
+    });
+}
+
+void reopenPopover() {
+    if (!gPopOpen) return;
+    closePopover();
+    openPopover();
+}
 
 void showWindow() {
-    if (!gSession || !gRoot || gWindowDlg) return;
-    SessionView view;
-    stardraft::kit::Dialog dlg;
-    dlg.setContent(view);
-    dlg.setInsets({0, 0, 0, 0, 0, 0});
-    dlg.setCenterOnWorkArea(true);
-    view.dlg = &dlg;
-    gWindowDlg = &dlg, gWindowView = &view;
-    size_t rows = 1;
-    for (const cb::Peer& p : gSession->peers()) rows += p.approved;
-    rows = std::max<size_t>(rows, 4);
-    dlg.run(*gRoot, shellTr(L"Collaborative editing session (experimental)"), draw::Point{scale(480), scale(190) + int(rows) * scale(32) + (gSession->isHost() ? scale(140) : 0)});
-    gWindowDlg = nullptr, gWindowView = nullptr;
+    if (gPopOpen) return closePopover();
+    openPopover();
 }
 
 }  // namespace collabui
 
 // --- What the rest of the program asks ----------------------------------------------------------------------------------
 
-bool sdlCollabRuns(int id) { return id >= ID_COLLAB_SHARE && id <= ID_COLLAB_SERVER; }
+bool sdlCollabRuns(int id) { return id >= ID_COLLAB_SHARE && id <= ID_COLLAB_MINIMAP; }
+
+// View > Collaborators on the minimap (the default: on).
+bool collabMinimapShown() {
+    static bool read = false;
+    if (!read) read = true, prefs::flag(L"CollabMinimap", collabui::gMinimapOthers);
+    return collabui::gMinimapOthers;
+}
 
 bool sdlCollabEnabled(int id) {
     using namespace collabui;
@@ -473,7 +1073,8 @@ bool sdlCollabEnabled(int id) {
     case ID_COLLAB_STOP: return host;
     case ID_COLLAB_LEAVE: return on && !host;
     case ID_COLLAB_JOIN: return !on;
-    case ID_COLLAB_SERVER: return true;
+    case ID_COLLAB_SERVER:
+    case ID_COLLAB_MINIMAP: return true;
     default: return false;
     }
 }
@@ -512,6 +1113,11 @@ bool sdlCollabCommand(int id) {
     case ID_COLLAB_LEAVE: endSession(); break;
     case ID_COLLAB_JOIN: joinPrompt(); break;
     case ID_COLLAB_SERVER: serverAddress(); break;
+    case ID_COLLAB_MINIMAP:
+        gMinimapOthers = !collabMinimapShown();
+        prefs::setNumber(L"CollabMinimap", gMinimapOthers ? 1 : 0);
+        minimapChanged();
+        break;
     }
     shellMenusChanged();
     return true;
@@ -547,14 +1153,36 @@ std::wstring collabStatusText(bool& live) {
     using namespace collabui;
     live = false;
     if (!gSession || gEnded) return {};
+    if (gSession->reconnecting()) return shellTr(L"Reconnecting\x2026");
     size_t in = 0;
     for (const stardraft::collab::Peer& p : gSession->peers()) in += p.approved;
     if (gSession->isHost()) {
         live = in > 0;
-        return live ? shellTr(L"Live: ") + std::to_wstring(in + 1) + shellTr(L" users") : shellTr(L"Session: waiting for participants");
+        return live ? shellTr(L"Live \x00B7 ") + std::to_wstring(in + 1) + shellTr(L" people") : shellTr(L"Session: waiting for participants");
     }
     live = gSession->editor() != nullptr;
-    return live ? shellTr(L"Live: ") + std::to_wstring(in + 1) + shellTr(L" users") : shellTr(L"Session: connecting\x2026");
+    return live ? shellTr(L"Live \x00B7 ") + std::to_wstring(in + 1) + shellTr(L" people") : shellTr(L"Session: connecting\x2026");
+}
+bool collabReconnecting() { return collabui::gSession && !collabui::gEnded && collabui::gSession->reconnecting(); }
+
+// The top bar's circles: the others in the session (a guest: the host first).
+std::vector<CollabAvatar> collabAvatars() {
+    using namespace collabui;
+    std::vector<CollabAvatar> out;
+    if (!gSession || gEnded || !gSession->editor()) return out;
+    for (const cb::Peer& p : gSession->peers())
+        if (p.approved) out.push_back({p.id, widen(p.name), initialOf(p.name), personColor(p), gFollow == int64_t(p.id)});
+    std::stable_sort(out.begin(), out.end(), [](const CollabAvatar& a, const CollabAvatar& b) { return a.id < b.id; });
+    return out;
+}
+void collabFollowToggle(uint32_t id) {
+    using namespace collabui;
+    if (!gSession || gEnded) return;
+    if (gSession->editor() && gSession->editor() != gState.ed.get()) {  // (the session's map to the front first)
+        for (size_t i = 0; i < gDocs.size(); ++i)
+            if (gDocs[i].key == gSharedKey) activateDoc(int(i));
+    }
+    follow(gFollow == int64_t(id) ? -1 : int64_t(id));
 }
 
 // A snapshot's --wait while a session is open: that time passes in real time too, with the network's events and the
@@ -639,8 +1267,9 @@ void collabCursorsPaint(draw::Canvas& c, draw::Rect view) {
     const float k = float(1.0 - std::exp(-dt / 0.06));
     std::map<uint32_t, Shown> next;
     bool moving = false;
-    const auto old = c.setFont(c.font({draw::Face::Ui, scale(12)}));
     c.pushClip(view);
+    awarenessPaint(c, view);
+    const auto old = c.setFont(c.font({draw::Face::Ui, scale(12)}));
     for (const stardraft::collab::Peer& p : gSession->peers()) {
         if (!p.cursorOn || now - p.cursorTime > 30) continue;  // (a cursor that did not move for 30 seconds goes)
         Shown at{float(p.x), float(p.y)};
@@ -737,4 +1366,13 @@ int collabTabState(int doc) {
     for (const stardraft::collab::Peer& p : gSession->peers())
         if (p.approved) return 2;
     return 1;
+}
+
+// A snapshot: the session's pop-out closes with the input's windows; it opens again as a picture at its place.
+bool sdlCollabPopoverOpen() { return collabui::gPopOpen; }
+void sdlCollabPopoverInputEnd(kit_sdl::SdlHost& host, draw::View& root, bool was) {
+    if (!was || collabui::gPopOpen || !gRoot || !gHost) return;
+    root.attach(&host);
+    collabui::openPopover();
+    root.attach(nullptr);
 }

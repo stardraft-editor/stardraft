@@ -27,7 +27,7 @@ namespace stardraft::collab {
 
 namespace {
 
-constexpr uint8_t kProto = 1;
+constexpr uint8_t kProto = 2;  // (2: tickets, presence, pings, handover)
 constexpr size_t kMaxName = 32;
 constexpr size_t kMaxChat = 100;  // cursor chat: bytes
 constexpr size_t kMaxWaiting = 8;  // connections that have no keys yet (the relay takes 8 members)
@@ -38,7 +38,10 @@ const char kKdfLabel[] = "stardraft-collab-1";
 // Frames (the first byte of a binary message, inside the relay's).
 enum Frame : uint8_t { kHello = 1, kHelloBack = 2, kSealed = 3 };
 // Messages (the first byte of a sealed frame's text).
-enum Msg : uint8_t { mJoin = 1, mWelcome, mDeny, mPatch, mAck, mReject, mCursor, mPeers, mRole, mBye, mCursors, mObjEdit, mObjState, mObjResync, mRename };
+enum Msg : uint8_t { mJoin = 1, mWelcome, mDeny, mPatch, mAck, mReject, mCursor, mPeers, mRole, mBye, mCursors, mObjEdit, mObjState, mObjResync, mRename,
+           mPresence, mPresences, mPing, mPinged, mHandover };
+constexpr double kPresenceEvery = 0.2;  // seconds: presence at most 5 times a second
+constexpr size_t kMaxTickets = 64;
 constexpr double kObjectsEvery = 0.1;  // seconds: the host sends a changed object section at most 10 times a second
 constexpr double kCursorsEvery = 0.1;  // seconds: the host sends the cursors of all at most 10 times a second
 constexpr double kFlushEvery = 0.05;   // seconds: this program's edits go at most 20 times a second
@@ -158,6 +161,47 @@ bool roomId(const std::string& s) {
 }
 
 uint64_t cellKey(uint8_t section, uint32_t cell) { return uint64_t(section) << 32 | cell; }
+
+// --- Presence in messages -----------------------------------------------------------------------------------------------
+uint16_t clamp16(int v) { return uint16_t(std::clamp(v, 0, 65535)); }
+void writePresence(Writer& w, const Presence& p) {
+    w.u16(clamp16(p.viewX)), w.u16(clamp16(p.viewY)), w.u16(clamp16(p.viewW)), w.u16(clamp16(p.viewH));
+    w.u8(uint8_t(p.tool)), w.u8(p.brushW), w.u8(p.brushH);
+    const size_t nu = std::min(p.units.size(), kMaxSelected), nl = std::min(p.locations.size(), kMaxSelected);
+    w.u8(uint8_t(nu));
+    for (size_t i = 0; i < nu; ++i) w.u32(p.units[i]);
+    w.u8(uint8_t(nl));
+    for (size_t i = 0; i < nl; ++i) w.u16(p.locations[i]);
+}
+bool readPresence(Reader& r, Presence& p) {
+    p = Presence{};
+    p.viewX = r.u16(), p.viewY = r.u16(), p.viewW = r.u16(), p.viewH = r.u16();
+    const uint8_t tool = r.u8();
+    p.brushW = r.u8(), p.brushH = r.u8();
+    if (tool > uint8_t(Tool::Locations)) return false;
+    p.tool = Tool(tool);
+    const uint8_t nu = r.u8();
+    if (nu > kMaxSelected) return false;
+    for (int i = 0; i < nu && r.ok; ++i) p.units.push_back(r.u32());
+    const uint8_t nl = r.u8();
+    if (nl > kMaxSelected) return false;
+    for (int i = 0; i < nl && r.ok; ++i) p.locations.push_back(r.u16());
+    return r.ok;
+}
+
+// The places of a change (map pixels), at most kMaxChangeRects: more become their bounding box.
+void addChangeRect(Change& c, int l, int t, int r, int b) {
+    if (r <= l || b <= t) return;
+    if (!c.rects.empty()) {  // (the next tiles of a run in the same row: one rectangle)
+        auto& last = c.rects.back();
+        if (last[1] == t && last[3] == b && last[2] == l) return void(last[2] = r);
+    }
+    if (c.rects.size() < kMaxChangeRects) return c.rects.push_back({l, t, r, b});
+    std::array<int, 4> box = c.rects[0];
+    for (const auto& x : c.rects) box = {std::min(box[0], x[0]), std::min(box[1], x[1]), std::max(box[2], x[2]), std::max(box[3], x[3])};
+    box = {std::min(box[0], l), std::min(box[1], t), std::max(box[2], r), std::max(box[3], b)};
+    c.rects.assign(1, box);
+}
 
 // --- Patches in messages ----------------------------------------------------------------------------------------------
 void writePatchTo(Writer& w, const Patch& p) {
@@ -761,11 +805,13 @@ std::unique_ptr<Session> Session::host(Editor& editor, const std::string& server
     }
     if (!readTerrain(editor.chk(), s->base_, error)) return nullptr;
     if (!normalizeServer(server, s->server_, error)) return nullptr;
-    if (!randomBytes(s->secrets_[1].data(), s->secrets_[1].size()) || !randomBytes(s->secrets_[2].data(), s->secrets_[2].size())) {
+    if (!randomBytes(s->secrets_[1].data(), s->secrets_[1].size()) || !randomBytes(s->secrets_[2].data(), s->secrets_[2].size()) ||
+        !randomBytes(s->hostSecret_.data(), s->hostSecret_.size()) || !randomBytes(s->memberSecret_.data(), s->memberSecret_.size())) {
         error = "The system gave no random numbers.";
         return nullptr;
     }
     s->host_ = true, s->role_ = Role::Edit, s->ed_ = &editor, s->out_ = &out, s->ev_ = std::move(ev);
+    s->hasMemberSecret_ = true;
     s->name_ = cleanName(name);
     s->seenRevision_ = editor.revision();
     s->maxState_ = editor.stateId();
@@ -796,22 +842,63 @@ void Session::end(const std::string& why, bool notify) {
     out_->close();
     links_.clear();  // (the keys wiped)
     for (Secret& k : secrets_) crypto_wipe(k.data(), k.size());
+    crypto_wipe(hostSecret_.data(), hostSecret_.size()), crypto_wipe(memberSecret_.data(), memberSecret_.size());
+    tickets_.clear(), ticketOf_.clear();
     if (notify && ev_.ended) ev_.ended(why);
 }
 
 void Session::opened() {
     if (ended_) return;
-    if (host_) {
-        out_->text("{\"t\":\"create\",\"v\":1,\"view\":" + quote(relayToken(secrets_[1])) + ",\"edit\":" + quote(relayToken(secrets_[2])) + "}");
+    const std::string tokens = ",\"view\":" + quote(relayToken(secrets_[1])) + ",\"edit\":" + quote(relayToken(secrets_[2])) + ",\"host\":" + quote(relayToken(hostSecret_)) +
+                               ",\"member\":" + quote(relayToken(memberSecret_));
+    if (host_ && !room_.empty()) {  // (a new connection after one was lost: the room back)
+        out_->text("{\"t\":\"resume\",\"v\":1,\"room\":" + quote(room_) + tokens + "}");
+        if (ev_.status) ev_.status("Connected to the server again; resuming the session");
+    } else if (host_) {
+        out_->text("{\"t\":\"create\",\"v\":1" + tokens + "}");
         if (ev_.status) ev_.status("Connected to the server; making the invite links");
     } else {
         out_->text("{\"t\":\"join\",\"v\":1,\"room\":" + quote(room_) + ",\"token\":" + quote(relayToken(secrets_[0])) + "}");
-        if (ev_.status) ev_.status("Connected to the server; waiting for the host");
+        if (ev_.status) ev_.status(reconnecting_ ? "Connected to the server again; waiting for the host" : "Connected to the server; waiting for the host");
     }
 }
 
+// The connection ended. A session that runs (the host has a room; a member has the map) tries again when the connection
+// was lost (not when the server closed it on purpose: removed, ended, not valid).
 void Session::closed(const std::string& why) {
-    if (!ended_) end(why.empty() ? "The connection to the server ended." : "The connection to the server ended (" + why + ").");
+    if (ended_) return;
+    if (reconnecting_) {  // (a try that did not work: the program tries again, or gives up)
+        if (ev_.connection) ev_.connection(true);
+        return;
+    }
+    const bool established = host_ ? !room_.empty() : ed_ != nullptr;
+    const bool onPurpose = why.empty() || why.find("(1008)") != std::string::npos || why.find("(1003)") != std::string::npos ||
+                           why.find("(1009)") != std::string::npos;
+    if (established && !onPurpose && ev_.connection) return lost();
+    end(why.empty() ? "The connection to the server ended." : "The connection to the server ended (" + why + ").");
+}
+
+void Session::lost() {
+    reconnecting_ = true;
+    links_.clear(), linkTime_.clear();  // (new keys with each member: their old counters are of no use)
+    later_.clear();
+    if (host_) {  // (the members come back with their tickets)
+        peers_.clear();
+        objSentTo_.clear(), objKnown_.clear(), objAck_.clear();
+        hostObjLater_.clear();
+        ticketOf_.clear();
+    } else {
+        myId_ = 0;
+        objLater_.clear();
+        for (Peer& p : peers_) p.cursorOn = false, p.chat.clear(), p.presence = {};
+    }
+    if (ev_.status) ev_.status("The connection to the server was lost. Reconnecting");
+    if (ev_.peersChanged) ev_.peersChanged();
+    if (ev_.connection) ev_.connection(true);
+}
+
+void Session::reconnectFailed() {
+    if (!ended_) end("The connection to the server was lost. The session ended.");
 }
 
 void Session::received(const std::string& text) {
@@ -823,6 +910,7 @@ void Session::received(const std::string& text) {
     const std::string t = j.str("t");
     if (t == "error") {
         const std::string code = j.str("code");
+        if (code == "not-found" && reconnecting_) return end("The session ended while the connection was lost.");
         if (code == "not-found") return end("The invite link does not work: the session ended, or the host made new links.");
         if (code == "full") return end("The shared map is full.");
         if (code == "busy" || code == "too-many-rooms") return end("The server cannot take more shared maps now. Try again later.");
@@ -835,7 +923,12 @@ void Session::received(const std::string& text) {
             if (!roomId(room)) return end("The server sent a message that is not valid.");
             room_ = room;
             if (ev_.linksChanged) ev_.linksChanged();
-            if (ev_.status) ev_.status("Sharing the map: copy an invite link (File > Shared map)");
+            if (ev_.status) ev_.status("Sharing the map: copy an invite link");
+        } else if (t == "resumed") {
+            reconnecting_ = false;
+            if (ev_.status) ev_.status("Reconnected: the session is live again");
+            if (ev_.connection) ev_.connection(false);
+            if (ev_.linksChanged) ev_.linksChanged();
         } else if (t == "peer") {
             const int id = j.integer("id", 0);
             if (id <= 0) return;
@@ -904,6 +997,7 @@ void Session::forget(uint32_t id) {
     links_.erase(id);
     objSentTo_.erase(id), objKnown_.erase(id), objAck_.erase(id);
     linkTime_.erase(id);
+    ticketOf_.erase(id);  // (its ticket stays: the member may come back with it)
     const bool had = peer(id) != nullptr;
     const bool wasIn = had && peer(id)->approved;
     std::string name = had ? peer(id)->name : "";
@@ -936,9 +1030,10 @@ void Session::hostFrame(uint32_t from, const uint8_t* p, size_t n) {
     if (p[0] != kSealed || !l.gotHello) return drop();
     Bytes plain;
     if (!l.keyed) {  // the first sealed message: which link's secret opens it gives the role
-        for (Role r : {Role::Edit, Role::View}) {
+        for (Role r : {Role::Edit, Role::View, Role::None}) {
+            if (r == Role::None && !hasMemberSecret_) continue;
             Key j2h, h2j;
-            Link::derive(secrets_[int(r)], l.dh, l.peerPub.data(), l.ePub.data(), j2h, h2j);
+            Link::derive(r == Role::None ? memberSecret_ : secrets_[int(r)], l.dh, l.peerPub.data(), l.ePub.data(), j2h, h2j);
             if (Link::open(j2h, 0, p + 1, n - 1, plain)) {
                 l.rx = j2h, l.tx = h2j, l.keyed = true, l.rxN = 1;
                 l.code = Link::safetyCode(l.dh, l.peerPub.data(), l.ePub.data());
@@ -947,7 +1042,19 @@ void Session::hostFrame(uint32_t from, const uint8_t* p, size_t n) {
                 Peer np;
                 np.id = from, np.name = cleanName(rd.str()), np.role = r, np.code = l.code;
                 rd.str();  // (the program's version: not used yet)
+                const std::string ticket = rd.str();
                 if (!rd.done()) return drop();
+                // A member that comes back (its connection was lost, or the session has a new host) with its ticket: in
+                // at once, as the same person (the ticket is used: the welcome gives a new one).
+                if (auto t = tickets_.find(ticket); !ticket.empty() && t != tickets_.end()) {
+                    np.color = t->second.color, np.role = t->second.role;
+                    resumeAck_[from] = t->second.lastSeq;
+                    tickets_.erase(t);
+                    peers_.push_back(np);
+                    approve(from, true);
+                    return;
+                }
+                if (r == Role::None) return drop();  // (the members' secret with no ticket: a removed member, or not one)
                 size_t asking = 0;
                 for (const Peer& o : peers_) asking += !o.approved;
                 if (asking >= kMaxAsking) return drop();  // (no more questions at one time)
@@ -978,7 +1085,7 @@ void Session::guestFrame(const uint8_t* p, size_t n) {
         l.keyed = true;
         l.code = Link::safetyCode(l.dh, l.ePub.data(), l.peerPub.data());
         Writer w;
-        w.u8(mJoin), w.u8(kProto), w.str(name_), w.str(version_);
+        w.u8(mJoin), w.u8(kProto), w.str(name_), w.str(version_), w.str(ticket_);
         sendSealed(l, 0, w.b);
         if (ev_.status) ev_.status("Waiting for the host to let you in (safety code " + l.code + ")");
         return;
@@ -1002,8 +1109,28 @@ void Session::hostMessage(uint32_t from, const Bytes& m) {
         out_->text("{\"t\":\"kick\",\"id\":" + std::to_string(from) + "}");
         forget(from);
     };
-    if (type == mBye) return forget(from);
+    if (type == mBye) {  // (left on purpose: no coming back with the ticket)
+        if (auto t = ticketOf_.find(from); t != ticketOf_.end()) tickets_.erase(t->second), ticketOf_.erase(t);
+        return forget(from);
+    }
     if (!pr->approved) return;  // (nothing but goodbye before the host's yes)
+    if (type == mPresence) {
+        Presence p;
+        if (!readPresence(r, p) || !r.done()) return drop("A message was not valid.");
+        if (!(p == pr->presence)) pr->presence = std::move(p), presencesDirty_ = true;
+        if (ev_.peersChanged) ev_.peersChanged();
+        return;
+    }
+    if (type == mPing) {
+        const uint16_t x = r.u16(), y = r.u16();
+        if (!r.done()) return drop("A message was not valid.");
+        Writer w;
+        w.u8(mPinged), w.u32(from), w.u16(x), w.u16(y);
+        for (const Peer& o : peers_)
+            if (o.approved && o.id != from) sendTo(o.id, w.b);
+        if (ev_.ping) ev_.ping(from, x, y);
+        return;
+    }
     if (type == mRename) {  // (a member's new display name: everyone gets the list again)
         const std::string name = cleanName(r.str());
         if (!r.done()) return drop("A message was not valid.");
@@ -1059,22 +1186,35 @@ void Session::guestMessage(const Bytes& m) {
     auto bad = [&] { end("The host sent data that is not valid. The session ended."); };
     switch (type) {
     case mWelcome: {
-        if (ed_) return bad();
+        if (ed_ && !reconnecting_) return bad();
         const uint8_t role = r.u8();
-        myId_ = r.u32();
-        hostName_ = cleanName(r.str());
-        tileGroups_ = r.u32();
+        const uint32_t id = r.u32();
+        const std::string hostName = cleanName(r.str());
+        const uint32_t groups = r.u32();
+        const std::string ticket = r.str(), members = r.str();
+        const uint32_t ack = r.u32();
         Terrain t;
-        if (!readTerrainFrom(r, t) || (role != uint8_t(Role::View) && role != uint8_t(Role::Edit))) return bad();
+        if (!readTerrainFrom(r, t) || (role != uint8_t(Role::View) && role != uint8_t(Role::Edit)) || ticket.size() != 16 || members.size() != 16) return bad();
+        Bytes objs[kObjSections];
         for (uint8_t s = 0; s < kObjSections; ++s) {
             const uint32_t n = r.u32();
             if (!r.ok || n > kObj[s].maxBytes || !r.need(n)) return bad();
-            objBase_[s].assign(r.p + r.i, r.p + r.i + n);
+            objs[s].assign(r.p + r.i, r.p + r.i + n);
             r.i += n;
-            if (!validObjects(s, objBase_[s], 0)) return bad();
+            if (!validObjects(s, objs[s], 0)) return bad();
         }
         if (!r.done()) return bad();
+        myId_ = id, hostName_ = hostName, ticket_ = ticket;
+        std::memcpy(secrets_[0].data(), members.data(), 16);  // (from now on this program comes back with the members' secret)
         role_ = Role(role);
+        if (ed_) {  // (back after a lost connection, or with a new host: the map in its tab is the host's again)
+            if (groups != tileGroups_) return bad();
+            welcomeTerrain_ = std::move(t), welcomeAck_ = ack, welcomeWaiting_ = true;  // (tick: not in a stroke or a hold)
+            for (uint8_t s = 0; s < kObjSections; ++s) welcomeObjs_[s] = std::move(objs[s]);
+            return;
+        }
+        tileGroups_ = groups;
+        for (uint8_t s = 0; s < kObjSections; ++s) objBase_[s] = std::move(objs[s]);
         base_ = t;
         for (int s = 0; s < kSections; ++s) writer_[s].assign(base_.cells[s].size(), 0);
         if (!ev_.welcome || !ev_.welcome(t, hostName_, role_)) return end("The shared map could not be opened.");
@@ -1113,7 +1253,8 @@ void Session::guestMessage(const Bytes& m) {
             p.role = Role(role);
             p.color &= 7;
             if (p.id == myId_) continue;
-            if (const Peer* old = peer(p.id)) p.cursorOn = old->cursorOn, p.x = old->x, p.y = old->y, p.cursorTime = old->cursorTime, p.chat = old->chat;
+            if (const Peer* old = peer(p.id))
+                p.cursorOn = old->cursorOn, p.x = old->x, p.y = old->y, p.cursorTime = old->cursorTime, p.chat = old->chat, p.presence = old->presence;
             list.push_back(p);
         }
         if (!r.done()) return bad();
@@ -1174,6 +1315,30 @@ void Session::guestMessage(const Bytes& m) {
         later_.push_back({type == mReject ? 0xFFFFFFFEu : 0xFFFFFFFFu, seq, std::move(correction)});
         return;
     }
+    case mPresences: {
+        const uint8_t n = r.u8();
+        for (int i = 0; i < n && r.ok; ++i) {
+            const uint32_t id = r.u32();
+            Presence p;
+            if (!readPresence(r, p)) return bad();
+            if (Peer* o = id == myId_ ? nullptr : peer(id)) o->presence = std::move(p);
+        }
+        if (!r.done()) return bad();
+        if (ev_.peersChanged) ev_.peersChanged();
+        return;
+    }
+    case mPinged: {
+        const uint32_t id = r.u32();
+        const uint16_t x = r.u16(), y = r.u16();
+        if (!r.done()) return bad();
+        if (id != myId_ && ev_.ping) ev_.ping(id, x, y);
+        return;
+    }
+    case mHandover: {
+        if (!ed_ || handoverWaiting_) return bad();
+        handover_.assign(m.begin() + 1, m.end()), handoverWaiting_ = true;  // (tick: after the host's last edits are in)
+        return;
+    }
     default: return bad();
     }
 }
@@ -1230,12 +1395,14 @@ void Session::applyRemote(const Waiting& w, Terrain* editorNow) {
         for (const Run& r : w.patch) std::fill_n(writer_[r.section].begin() + r.at, r.values.size(), w.from);
         Writer ack;
         ack.u8(mAck), ack.u32(w.seq);
+        noteApplied(w.from, w.seq);
         sendTo(w.from, ack.b);
         Writer out;
         out.u8(mPatch), out.u32(w.from);
         writePatchTo(out, w.patch);
         for (const Peer& o : peers_)
             if (o.approved && o.id != w.from) sendTo(o.id, out.b);
+        report(w.from, 0, &use, nullptr, nullptr);
         return;
     }
     // Guest. An answer to one of this program's changes: its cells are no longer waiting.
@@ -1276,6 +1443,54 @@ void Session::applyRemote(const Waiting& w, Terrain* editorNow) {
     }
     if (use.empty()) return;
     applyToEditor(use);
+    if (w.from < 0xFFFFFFFEu) report(w.from, 0, &use, nullptr, nullptr);
+}
+
+// Another person's edit, as this program applied it: the program shows where (Events::changed). Terrain: the tiles
+// (MTXM) of the patch; objects: the records that were added or removed, and the slots that changed (locations).
+void Session::report(uint32_t who, uint8_t what, const Patch* p, const Bytes* before, const Bytes* after) {
+    if (!ev_.changed || who == me()) return;
+    Change c;
+    c.who = who, c.what = what;
+    if (p) {
+        const uint32_t w = base_.width ? base_.width : 1;
+        for (const Run& r : *p) {
+            if (r.section != kMtxm) continue;
+            c.count += uint32_t(r.values.size());
+            for (size_t i = 0; i < r.values.size(); ++i) {
+                const uint32_t cell = uint32_t(r.at + i), x = cell % w, y = cell / w;
+                addChangeRect(c, int(x * 32), int(y * 32), int(x * 32 + 32), int(y * 32 + 32));
+            }
+        }
+        if (!c.count) c.count = uint32_t(patchCells(*p));
+    } else if (before && after && what >= 1 && what <= kObjSections) {
+        const uint8_t s = uint8_t(what - 1);
+        if (s == oStrings || s == oStringsX) return;  // (the locations' names: no place of their own)
+        const ObjEdit e = diffObjects(s, *before, *after);
+        const size_t rec = kObj[s].record;
+        auto u16at = [](const Bytes& r, size_t at) { return at + 2 <= r.size() ? int(r[at] | r[at + 1] << 8) : 0; };
+        auto u32at = [](const Bytes& r, size_t at) { return at + 4 <= r.size() ? int(r[at] | r[at + 1] << 8 | r[at + 2] << 16 | (r[at + 3] & 0x7F) << 24) : 0; };
+        auto place = [&](const Bytes& r) {
+            if (s == oLocations) {
+                int l = u32at(r, 0), t = u32at(r, 4), rr = u32at(r, 8), b = u32at(r, 12);
+                if (l > rr) std::swap(l, rr);
+                if (t > b) std::swap(t, b);
+                return addChangeRect(c, l, t, std::max(rr, l + 1), std::max(b, t + 1));
+            }
+            const size_t at = s == oUnits ? 4 : 2;  // (UNIT: serial, x, y; DD2, THG2: id, x, y)
+            const int x = u16at(r, at), y = u16at(r, at + 2);
+            addChangeRect(c, x - 16, y - 16, x + 16, y + 16);
+        };
+        for (const Bytes& r : e.added) place(r), ++c.count;
+        for (const Bytes& r : e.removed) place(r), ++c.count;
+        for (const auto& [i, r] : e.slots) {
+            ++c.count;
+            const bool empty = std::all_of(r.begin(), r.end(), [](uint8_t b) { return b == 0; });
+            if (!empty) place(r);
+            else if ((i + 1) * rec <= before->size()) place(Bytes(before->begin() + long(i * rec), before->begin() + long((i + 1) * rec)));
+        }
+    }
+    if (c.count) ev_.changed(c);
 }
 
 void Session::sendPatch(const Patch& p) {
@@ -1300,6 +1515,8 @@ void Session::sendPatch(const Patch& p) {
 
 bool Session::flushLocal(bool force) {
     if (!ed_ || ed_->revision() == seenRevision_) return false;
+    // (a member without the host: the edits stay in the editor; the next welcome sends them on top of the host's map)
+    if (!host_ && (reconnecting_ || welcomeWaiting_)) return false;
     if (!force && now() - lastFlush_ < kFlushEvery) return false;
     if (role_ != Role::Edit && ed_->inStroke()) return false;  // (view only: put back after the stroke, which locks the map)
     lastFlush_ = now();
@@ -1464,12 +1681,15 @@ void Session::hostObjects(uint32_t from, uint32_t seq, ObjEdit e) {
         }
     }
     objAck_[from] = seq;
+    noteApplied(from, seq);
     objDirty_[s] = true;  // (also when nothing changed: the member's state comes back)
     if (!validObjects(s, merged, ed_->unitTypes().size()) || (s == oLocations && merged.size() > slotLimit_)) return;
     if (merged == objBase_[s]) return;
     applyObjectsToEditor(s, merged);
     if (readObjects(ed_->chk(), s) != merged) return;  // (the editor did not take it: nothing changes, the member gets the state back)
+    const Bytes old = std::move(objBase_[s]);
     objBase_[s] = merged;
+    report(from, uint8_t(1 + s), nullptr, &old, &objBase_[s]);
     objWriter_[s] = from;
     for (const auto& [i, rec] : e.slots) {
         if (slotWriter_[s].size() <= i) slotWriter_[s].resize(i + 1, 0);
@@ -1504,6 +1724,7 @@ void Session::objectsFromHost(uint8_t section, uint32_t ack, uint32_t writer, By
     } else if (old != objBase_[section]) {
         objWriter_[section] = writer;
     }
+    if (writer != me() && old != objBase_[section]) report(writer, uint8_t(1 + section), nullptr, &old, &objBase_[section]);
     if (section == oUnits && objBase_[section].size() % 36 == 0)  // (this user's units that the host gave a new serial: still this user's)
         for (auto it = mineAdded_[section].begin(); it != mineAdded_[section].end();) {
             const Bytes& r = it->first;
@@ -1556,6 +1777,18 @@ void Session::tick() {
                 applyRemote(w, have ? &cur : nullptr);  // (it keeps `cur` as the editor has it)
             }
         }
+    }
+    if (!host_ && ed_ && !ended_ && welcomeWaiting_ && !hold_ && !ed_->inStroke()) {  // (back in the session: the host's map again)
+        welcomeWaiting_ = false;
+        welcomeAgain(welcomeTerrain_, welcomeObjs_, welcomeAck_);
+        welcomeTerrain_ = Terrain{};
+    }
+    // The handover: after the old host's last edits are in this map (they came before it).
+    if (!host_ && ed_ && !ended_ && handoverWaiting_ && !hold_ && !ed_->inStroke() && later_.empty() && objLater_.empty() && !welcomeWaiting_) {
+        handoverWaiting_ = false;
+        const Bytes h = std::move(handover_);
+        handover_.clear();
+        if (!becomeHost(h.data(), h.size())) end("The host sent data that is not valid. The session ended.");
     }
     if (host_ && ed_ && !ended_ && !hold_ && !ed_->inStroke() && !hostObjLater_.empty()) {
         std::vector<ObjEditWaiting> batch = std::move(hostObjLater_);
@@ -1628,7 +1861,53 @@ void Session::tick() {
         cursorDirty_ = false, cursorSent_ = now();
     }
     if (!ended_ && host_ && (cursorDirty_ || cursorsDirty_) && now() - cursorsSent_ >= kCursorsEvery) sendCursors();
+    if (!ended_ && !host_ && ed_ && presenceDirty_ && links_.count(0) && now() - presenceSent_ >= kPresenceEvery) {
+        Writer w;
+        w.u8(mPresence);
+        writePresence(w, presence_);
+        sendTo(0, w.b);
+        presenceDirty_ = false, presenceSent_ = now();
+    }
+    if (!ended_ && host_ && (presenceDirty_ || presencesDirty_) && now() - presencesSent_ >= kPresenceEvery) sendPresences();
     inTick_ = false;
+}
+
+// Host: the presence of all, one message to each member (the member's own is not in it).
+void Session::sendPresences() {
+    presenceDirty_ = presencesDirty_ = false, presencesSent_ = now();
+    std::vector<const Peer*> in;
+    for (const Peer& p : peers_)
+        if (p.approved) in.push_back(&p);
+    for (const Peer* to : in) {
+        Writer w;
+        w.u8(mPresences), w.u8(uint8_t(in.size()));
+        w.u32(0);
+        writePresence(w, presence_);
+        for (const Peer* p : in)
+            if (p != to) w.u32(p->id), writePresence(w, p->presence);
+        sendTo(to->id, w.b);
+    }
+}
+
+void Session::presence(const Presence& p) {
+    Presence q = p;
+    if (q.units.size() > kMaxSelected) q.units.resize(kMaxSelected);
+    if (q.locations.size() > kMaxSelected) q.locations.resize(kMaxSelected);
+    if (q == presence_) return;
+    presence_ = std::move(q), presenceDirty_ = true;
+}
+
+void Session::ping(int x, int y) {
+    if (ended_ || reconnecting_) return;
+    Writer w;
+    if (host_) {
+        w.u8(mPinged), w.u32(0), w.u16(clamp16(x)), w.u16(clamp16(y));
+        for (const Peer& o : peers_)
+            if (o.approved) sendTo(o.id, w.b);
+    } else if (ed_) {
+        w.u8(mPing), w.u16(clamp16(x)), w.u16(clamp16(y));
+        sendTo(0, w.b);
+    }
 }
 
 // Host: the cursors of all (the host's and the members'), one message to each member, at most 10 times a second.
@@ -1700,7 +1979,149 @@ void Session::setEditor(Editor* ed) {
     maxState_ = std::max(maxState_, ed_->stateId());
 }
 
+// Guest: the host's map again (after a lost connection, or from a new host). The map in the tab becomes the host's;
+// this program's terrain edits that the host may not have (not sent, or not confirmed: a patch has values, so it can go
+// twice) and its object edits that were not sent go again on top of it.
+void Session::welcomeAgain(const Terrain& t, Bytes* objs, uint32_t ack) {
+    Terrain cur;
+    std::string err;
+    if (!readTerrain(ed_->chk(), cur, err) || cur.width != t.width || cur.height != t.height || cur.hasTile != t.hasTile)
+        return end("The shared map changed while the connection was lost. The session ended.");
+    // The edits the host applied (up to `ack`) are in its map: they do not go again (another person may have changed
+    // those cells or records after them). The others go again on top of the host's map.
+    for (auto it = unconfirmed_.begin(); it != unconfirmed_.end();) it = it->first <= ack ? unconfirmed_.erase(it) : std::next(it);
+    std::set<uint64_t> again;
+    for (const auto& [seq, patch] : unconfirmed_)
+        for (const Run& r : patch)
+            for (size_t i = 0; i < r.values.size(); ++i) again.insert(cellKey(r.section, uint32_t(r.at + i)));
+    Patch mine;
+    for (uint8_t s = 0; s < kSections; ++s)
+        for (uint32_t c = 0; c < cur.cells[s].size() && c < t.cells[s].size(); ++c) {
+            const bool local = cur.cells[s][c] != base_.cells[s][c] || again.count(cellKey(s, c));
+            if (!local || cur.cells[s][c] == t.cells[s][c]) continue;
+            if (mine.empty() || mine.back().section != s || mine.back().at + mine.back().values.size() != c) mine.push_back(Run{s, c, {}});
+            mine.back().values.push_back(cur.cells[s][c]);
+        }
+    // Objects: the edits sent that the host did not apply, then the ones not sent yet (the editor's against what it showed).
+    std::vector<ObjEdit> redo[kObjSections];
+    for (uint8_t s = 0; s < kObjSections; ++s) {
+        for (const ObjPending& op : objPending_[s])
+            if (op.seq > ack) redo[s].push_back(op.edit);
+        ObjEdit unsent = diffObjects(s, objShown_[s], readObjects(ed_->chk(), s));
+        if (!unsent.empty()) redo[s].push_back(std::move(unsent));
+    }
+    base_ = t;
+    for (uint8_t s = 0; s < kSections; ++s) writer_[s].assign(base_.cells[s].size(), 0);
+    pending_.clear(), unconfirmed_.clear(), later_.clear(), objLater_.clear();
+    applyToEditor(diffTerrain(cur, t));
+    for (uint8_t s = 0; s < kObjSections; ++s) {
+        objBase_[s] = std::move(objs[s]);
+        objPending_[s].clear();
+        objShown_[s] = objBase_[s];
+        objWriter_[s] = 0;
+        slotWriter_[s].assign(kObj[s].slots ? objBase_[s].size() / kObj[s].record : 0, 0);
+        if (readObjects(ed_->chk(), s) != objBase_[s]) applyObjectsToEditor(s, objBase_[s]);
+    }
+    seenRevision_ = ed_->revision();
+    // (this program's edits on top: the next flush sends them)
+    if (!mine.empty()) ed_->editTerrainSections([&](Chk& c) { writePatch(c, mine); });
+    for (uint8_t s = 0; s < kObjSections; ++s) {
+        if (redo[s].empty()) continue;
+        Bytes next = objBase_[s];
+        for (const ObjEdit& e : redo[s]) next = applyObjects(s, next, e);
+        if (next != objBase_[s] && validObjects(s, next, ed_->unitTypes().size())) ed_->editSections([&](Chk& c) { writeObjects(c, s, next); });
+    }
+    maxState_ = std::max(maxState_, ed_->stateId());
+    reconnecting_ = false;
+    presenceDirty_ = cursorDirty_ = true;
+    if (ev_.status) ev_.status("Reconnected: the session is live again");
+    if (ev_.connection) ev_.connection(false);
+    if (ev_.peersChanged) ev_.peersChanged();
+}
+
+// Host: a member's edit was applied (its ticket keeps the number: after a reconnect, that edit does not go again).
+void Session::noteApplied(uint32_t from, uint32_t seq) {
+    auto t = ticketOf_.find(from);
+    if (t == ticketOf_.end()) return;
+    if (auto k = tickets_.find(t->second); k != tickets_.end()) k->second.lastSeq = std::max(k->second.lastSeq, seq);
+}
+
+// --- Handing the session over -------------------------------------------------------------------------------------------
+// The host gives an editor the room's secrets (the host token's and the links') and the members' tickets, then leaves.
+// The new host takes the room on the server with the host token (the server closes the others' connections), and the
+// members come back with their tickets: in at once, and each gets the map from the new host.
+bool Session::handOver(uint32_t id) {
+    Peer* p = peer(id);
+    if (!host_ || ended_ || reconnecting_ || !p || !p->approved || p->role != Role::Edit) return false;
+    flushLocal(true);
+    objSent_ = -1e9;  // (the members' edits that this program applied: their state goes now, before the handover)
+    tick();
+    if (ended_ || !(p = peer(id))) return false;
+    Writer w;
+    w.u8(mHandover);
+    for (const Secret* s : {&hostSecret_, &secrets_[1], &secrets_[2], &memberSecret_}) w.b.insert(w.b.end(), s->begin(), s->end());
+    w.u8(nextColor_);
+    const std::string own = ticketOf_.count(id) ? ticketOf_[id] : std::string();
+    std::vector<std::pair<const std::string*, const Ticket*>> give;
+    for (const auto& [k, t] : tickets_)
+        if (k != own && give.size() < 255) give.push_back({&k, &t});
+    w.u8(uint8_t(give.size()));
+    for (const auto& [k, t] : give) w.str(*k), w.str(t->name), w.u8(t->color), w.u8(uint8_t(t->role)), w.u32(t->lastSeq);
+    sendTo(id, w.b);
+    const std::string name = p->name;
+    end("You handed the session to " + name + ". You keep your map.");
+    return true;
+}
+
+bool Session::becomeHost(const uint8_t* p, size_t n) {
+    Reader r{p, n};
+    Secret s[4];
+    for (Secret& k : s)
+        if (r.need(k.size())) std::memcpy(k.data(), r.p + r.i, k.size()), r.i += k.size();
+    const uint8_t color = r.u8(), count = r.u8();
+    std::map<std::string, Ticket> tickets;
+    for (int i = 0; i < count && r.ok; ++i) {
+        const std::string k = r.str();
+        Ticket t;
+        t.name = cleanName(r.str()), t.color = uint8_t(r.u8() & 7);
+        const uint8_t role = r.u8();
+        if (k.size() != 16 || (role != uint8_t(Role::View) && role != uint8_t(Role::Edit))) return false;
+        t.role = Role(role);
+        t.lastSeq = r.u32();
+        tickets[k] = t;
+    }
+    if (!r.done()) return false;
+    hostSecret_ = s[0], secrets_[1] = s[1], secrets_[2] = s[2], memberSecret_ = s[3], hasMemberSecret_ = true;
+    for (Secret& k : s) crypto_wipe(k.data(), k.size());
+    crypto_wipe(secrets_[0].data(), secrets_[0].size());
+    // The cells and records this program wrote are the host's now (0); the old host's are no one's here (it left).
+    const uint32_t mine = myId_, gone = 0xFFFFFFF0u;
+    auto remap = [&](uint32_t& w) { w = w == mine ? 0 : w == 0 ? gone : w; };
+    for (auto& v : writer_)
+        for (uint32_t& w : v) remap(w);
+    for (auto& v : slotWriter_)
+        for (uint32_t& w : v) remap(w);
+    for (uint32_t& w : objWriter_) remap(w);
+    // The map as this program shows it is the session's map from now on (its edits that the old host did not confirm too).
+    for (uint8_t k = 0; k < kObjSections; ++k) objBase_[k] = objShown_[k], objPending_[k].clear(), objDirty_[k] = false;
+    pending_.clear(), unconfirmed_.clear(), later_.clear(), objLater_.clear(), hostObjLater_.clear(), serialMap_.clear();
+    host_ = true, role_ = Role::Edit, myId_ = 0, nextColor_ = uint8_t(std::max<uint8_t>(1, color & 7));
+    hostName_ = name_;
+    tickets_ = std::move(tickets), ticketOf_.clear();
+    peers_.clear();
+    slotLimit_ = std::max<size_t>(objBase_[oLocations].size(), slotLimit_);
+    lost();  // (a new connection, as the host: it takes the room)
+    if (ev_.becameHost) ev_.becameHost();
+    if (ev_.status) ev_.status("You host the session now. Reconnecting as the host");
+    return true;
+}
+
 // --- The host's controls ------------------------------------------------------------------------------------------------
+
+std::string Session::safetyCode() const {
+    auto it = links_.find(0);
+    return !host_ && it != links_.end() && it->second->keyed ? it->second->code : std::string();
+}
 
 std::string Session::link(Role r) const {
     if (!host_ || room_.empty() || ended_) return {};
@@ -1737,8 +2158,21 @@ void Session::approve(uint32_t id, bool allow) {
     if (ended_) return;
     // Patches that wait (a stroke): the new member gets them after the map, as the others do.
     p->approved = true;
+    // The member's ticket: with it, the member comes back in at once after a lost connection (one ticket each).
+    Secret raw{};
+    if (!randomBytes(raw.data(), raw.size())) return end("The system gave no random numbers.");
+    const std::string ticket(reinterpret_cast<const char*>(raw.data()), raw.size());
+    crypto_wipe(raw.data(), raw.size());
+    if (auto old = ticketOf_.find(id); old != ticketOf_.end()) tickets_.erase(old->second);
+    while (tickets_.size() >= kMaxTickets) tickets_.erase(tickets_.begin());
+    tickets_[ticket] = {p->name, p->color, p->role, resumeAck_.count(id) ? resumeAck_[id] : 0};
+    ticketOf_[id] = ticket;
     Writer w;
-    w.u8(mWelcome), w.u8(uint8_t(p->role)), w.u32(id), w.str(name_), w.u32(uint32_t(ed_ ? ed_->tileset().groups.size() : 0));
+    w.u8(mWelcome), w.u8(uint8_t(p->role)), w.u32(id), w.str(name_), w.u32(uint32_t(ed_ ? ed_->tileset().groups.size() : 0)), w.str(ticket);
+    w.str(std::string(reinterpret_cast<const char*>(memberSecret_.data()), memberSecret_.size()));
+    uint32_t lastSeq = 0;
+    if (auto a = resumeAck_.find(id); a != resumeAck_.end()) lastSeq = a->second, resumeAck_.erase(a);
+    w.u32(lastSeq);
     writeTerrainTo(w, base_);
     for (uint8_t s = 0; s < kObjSections; ++s) {
         w.u32(uint32_t(objBase_[s].size()));
@@ -1764,6 +2198,8 @@ void Session::setRole(uint32_t id, Role r) {
     Peer* p = peer(id);
     if (!host_ || ended_ || !p || !p->approved || (r != Role::View && r != Role::Edit) || p->role == r) return;
     p->role = r;
+    if (auto t = ticketOf_.find(id); t != ticketOf_.end())
+        if (auto k = tickets_.find(t->second); k != tickets_.end()) k->second.role = r;
     Writer w;
     w.u8(mRole), w.u8(uint8_t(r));
     sendTo(id, w.b);
@@ -1773,6 +2209,7 @@ void Session::setRole(uint32_t id, Role r) {
 
 void Session::remove(uint32_t id) {
     if (!host_ || ended_ || !peer(id)) return;
+    if (auto t = ticketOf_.find(id); t != ticketOf_.end()) tickets_.erase(t->second), ticketOf_.erase(t);  // (no coming back)
     Writer w;
     w.u8(mBye), w.str("The host removed you from the shared map.");
     sendTo(id, w.b);

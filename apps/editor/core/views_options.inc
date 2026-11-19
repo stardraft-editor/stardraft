@@ -1062,7 +1062,7 @@ void OptionsView::paint(draw::Canvas& c) {
         place(collabServer_, {fx, fieldTop(y), colRight, fieldTop(y) + fieldH}, true);
         parts_["collabserver"] = collabServer_.frame();
         y += rowH;
-        note(fx, y - scale(4), L"For new sessions. Empty: https://collab.stardraft.app");
+        note(fx, y - scale(4), L"For new sessions. The default value is collab.stardraft.app.");
         y += scale(20) + pad;
     }
 

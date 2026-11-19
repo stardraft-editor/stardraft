@@ -5,6 +5,16 @@
 // topBarModesRect), the turn and mirror buttons while something is on the cursor to place, then Build and Debug mode (a
 // project), and Report feedback at the right end.
 
+// Collaborative editing (sdl_collab.inc): the others in the session, as the bar shows them; the Invite button's place in
+// the main window (the session's pop-out opens under it).
+struct CollabAvatar {
+    uint32_t id = 0;
+    std::wstring name, initial;
+    stardraft::draw::Color color = 0;
+    bool followed = false;
+};
+stardraft::draw::Rect gCollabAnchor{};
+
 // Defined by each program (main.cpp, sdl_menus.inc and sdl_main_view.inc).
 void command(int id);
 bool commandEnabled(int id);  // the command's menu item is enabled now (the icons are gray when it is not)
@@ -187,6 +197,8 @@ struct TopBarView final : stardraft::draw::View {
         // others are in it; a click shows the session window.
         {
             std::wstring collabStatusText(bool& live);  // (sdl_collab.inc)
+            std::vector<CollabAvatar> collabAvatars();
+            void collabFollowToggle(uint32_t id);
             bool live = false;
             const std::wstring state = collabStatusText(live);
             const std::wstring label = state.empty() ? std::wstring(tr(L"Invite")) : live ? state : std::wstring(tr(L"Session"));
@@ -204,6 +216,31 @@ struct TopBarView final : stardraft::draw::View {
                 surface.add({ib, nullptr, [] { command(ID_COLLAB_SHARE); },
                              state.empty() ? L"Invite people to edit this map with you (collaborative editing, experimental)" : L"Show the collaborative editing session",
                              draw::Cursor::Hand});
+            gCollabAnchor = {ib.left + frame().left, ib.top + frame().top, ib.right + frame().left, ib.bottom + frame().top};
+            // The others in the session: a circle each in their color with their initial (at most 5, then +N); a click
+            // follows that person's view (again: stops).
+            const std::vector<CollabAvatar> avatars = collabAvatars();
+            const int d = scale(24), step = scale(19), shown = int(std::min<size_t>(avatars.size(), 5));
+            const bool more = avatars.size() > 5;
+            int ax = ib.left - scale(10) - d - (shown - 1 + (more ? 1 : 0)) * step;
+            const int ay = (h - d) / 2;
+            const Font ofa = c.setFont(c.font({draw::Face::Ui, scale(11), true}));
+            for (int i = 0; i < shown; ++i, ax += step) {
+                const CollabAvatar& a = avatars[size_t(i)];
+                const draw::Rect r{ax, ay, ax + d, ay + d};
+                if (a.followed) c.ellipse({r.left - scale(3), r.top - scale(3), r.right + scale(3), r.bottom + scale(3)}, kBg, a.color);
+                c.ellipse(r, a.color, kBg);
+                c.text(r, a.initial, draw::rgb(16, 16, 16), draw::kCenter | kMiddle);
+                const uint32_t id = a.id;
+                surface.add({r, nullptr, [id] { collabFollowToggle(id); },
+                             a.followed ? L"Stop following " + a.name : L"Follow " + a.name + L" (the map shows what they see)", draw::Cursor::Hand});
+            }
+            if (more) {
+                const draw::Rect r{ax, ay, ax + d, ay + d};
+                c.ellipse(r, kCtl, kBorder);
+                c.text(r, L"+" + std::to_wstring(avatars.size() - 5), kText, draw::kCenter | kMiddle);
+            }
+            c.setFont(ofa);
         }
         c.fill({0, h - 1, w, h}, kBorder);  // the line under the bar
         surface.paintFocus(c, *this);

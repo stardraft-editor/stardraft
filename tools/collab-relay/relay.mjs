@@ -28,7 +28,8 @@ const JOINS_PER_MIN_PER_IP = 20;     // (guessing room ids or tokens)
 const ROOM_LIFETIME_MS = 24 * 3600e3;
 const IDLE_MS = 30 * 60e3;           // a room with no data for this long ends
 const PING_MS = 25e3;                // (Cloudflare ends idle sockets at 100 s)
-const HELLO_MS = 10e3;               // a connection must create or join within this time
+const HELLO_MS = 10e3;
+const HOST_GRACE_MS = 120e3;         // a room waits this long for its host to come back (with the host token)               // a connection must create or join within this time
 const RATE = {                       // token buckets: bytes/s and messages/s, burst
   host: { bytes: 8 << 20, burstBytes: 16 << 20, msgs: 1500, burstMsgs: 3000 },  // (each change goes to each member)
   member: { bytes: 1 << 20, burstBytes: 2 << 20, msgs: 100, burstMsgs: 200 },
@@ -228,10 +229,19 @@ class Conn {
     if (n > 0) connsPerIp.set(this.ip, n); else connsPerIp.delete(this.ip);
     const room = this.room;
     if (!room) return;
-    if (this.role === 'host') endRoom(room, 'host left');
-    else if (room.members.get(this.id) === this) {
+    if (this.role === 'host' && room.host === this) {  // (the host may come back: the members' connections close)
+      if (!room.hostToken) endRoom(room, 'host left');
+      else {
+        room.host = null;
+        room.hostGone = Date.now();
+        for (const c of room.members.values()) { c.room = null; c.close(1012, 'host away'); }
+        room.members.clear();
+      }
+    } else if (room.members.get(this.id) === this) {
       room.members.delete(this.id);
-      room.host.sendJson({ t: 'left', id: this.id });
+      if (room.host) room.host.sendJson({ t: 'left', id: this.id });
+    } else if (room.waiting.get(this.id) === this) {
+      room.waiting.delete(this.id);
     }
     this.socket.destroy();
   }
@@ -244,6 +254,7 @@ class Conn {
     if (!this.role) {
       if (m.t === 'create' && !this.urlRoom) return this.create(m);
       if (m.t === 'join' && this.urlRoom) return this.join(m);
+      if (m.t === 'resume' && this.urlRoom) return this.resume(m);
       return this.close(1008, 'hello');
     }
     if (this.role !== 'host') return this.close(1008, 'not host');
@@ -264,7 +275,7 @@ class Conn {
 
   create(m) {
     if (m.v !== 1) return this.close(1008, 'version');
-    if (!validToken(m.view) || !validToken(m.edit) || (!m.view && !m.edit)) return this.close(1003, 'token');
+    if (!validToken(m.view) || !validToken(m.edit) || (!m.view && !m.edit) || !validToken(m.host ?? null) || !validToken(m.member ?? null)) return this.close(1003, 'token');
     if (rooms.size >= MAX_ROOMS) { this.sendJson({ t: 'error', code: 'busy' }); return this.close(1013, 'busy'); }
     let mine = 0;
     for (const r of rooms.values()) if (r.ip === this.ip) ++mine;
@@ -272,7 +283,8 @@ class Conn {
     clearTimeout(this.helloTimer);
     let id;
     do id = randomId(); while (rooms.has(id));
-    const room = { id, host: this, members: new Map(), next: 1, view: m.view, edit: m.edit, created: Date.now(), lastData: Date.now(), ip: this.ip };
+    const room = { id, host: this, members: new Map(), waiting: new Map(), next: 1, view: m.view, edit: m.edit, hostToken: m.host ?? null, member: m.member ?? null, hostGone: 0,
+                   created: Date.now(), lastData: Date.now(), ip: this.ip };
     rooms.set(id, room);
     this.room = room; this.role = 'host'; this.id = 0;
     this.bucket = { rate: RATE.host, t: Date.now(), bytes: RATE.host.burstBytes, msgs: RATE.host.burstMsgs };
@@ -290,19 +302,45 @@ class Conn {
     if (m.v !== 1 || typeof m.room !== 'string' || m.room !== this.urlRoom) return notFound();
     const room = rooms.get(m.room);
     // (one answer for a room that is not there and a wrong token: no way to tell rooms apart)
-    if (!room || !(sameToken(m.token, room.view) || sameToken(m.token, room.edit))) return notFound();
-    if (room.members.size >= MAX_MEMBERS) { this.sendJson({ t: 'error', code: 'full' }); return this.close(1008, 'full'); }
+    if (!room || !(sameToken(m.token, room.view) || sameToken(m.token, room.edit) || sameToken(m.token, room.member))) return notFound();
+    if (room.members.size + room.waiting.size >= MAX_MEMBERS) { this.sendJson({ t: 'error', code: 'full' }); return this.close(1008, 'full'); }
     clearTimeout(this.helloTimer);
     this.room = room; this.role = 'member'; this.id = room.next++;
     this.bucket = { rate: RATE.member, t: Date.now(), bytes: RATE.member.burstBytes, msgs: RATE.member.burstMsgs };
+    if (!room.host) return void room.waiting.set(this.id, this);  // (the host's connection was lost: it waits for it)
     room.members.set(this.id, this);
     this.sendJson({ t: 'joined', id: this.id });
     room.host.sendJson({ t: 'peer', id: this.id });
   }
 
+  // The host (or a new host it handed the room to) with the host token: the room is its again. The members connected
+  // to the one before have its keys: their connections close (they come back); the waiting members join now.
+  resume(m) {
+    const room = rooms.get(m.room);
+    const notFound = () => { this.sendJson({ t: 'error', code: 'not-found' }); this.close(1008, 'not found'); };
+    if (m.v !== 1 || m.room !== this.urlRoom || !room || !room.hostToken || !sameToken(m.host, room.hostToken) || !validToken(m.view) || !validToken(m.edit) || !validToken(m.member ?? null))
+      return notFound();
+    clearTimeout(this.helloTimer);
+    const old = room.host;
+    if (old) { old.room = null; old.close(1000, 'replaced'); }
+    for (const c of room.members.values()) { c.room = null; c.close(1012, 'new host'); }
+    room.members.clear();
+    room.host = this; room.hostGone = 0; room.view = m.view; room.edit = m.edit; room.member = m.member ?? room.member; room.lastData = Date.now();
+    this.room = room; this.role = 'host'; this.id = 0;
+    this.bucket = { rate: RATE.host, t: Date.now(), bytes: RATE.host.burstBytes, msgs: RATE.host.burstMsgs };
+    this.sendJson({ t: 'resumed', room: room.id });
+    for (const [id, c] of room.waiting) {
+      room.members.set(id, c);
+      c.sendJson({ t: 'joined', id });
+      this.sendJson({ t: 'peer', id });
+    }
+    room.waiting.clear();
+  }
+
   binary(msg) {
     const room = this.room;
     if (!room) return this.close(1008, 'hello');
+    if (this.role === 'member' && (!room.host || !room.members.has(this.id))) return;  // (waiting for the host)
     room.lastData = Date.now();
     if (this.role === 'host') {
       if (msg.length < 4) return this.close(1003, 'short');
@@ -321,15 +359,16 @@ function endRoom(room, why) {
   rooms.delete(room.id);
   for (const c of room.members.values()) { c.room = null; c.close(1000, why); }
   room.members.clear();
-  room.host.room = null;
-  room.host.close(1000, why);
+  for (const c of room.waiting.values()) { c.room = null; c.close(1000, why); }
+  room.waiting.clear();
+  if (room.host) { room.host.room = null; room.host.close(1000, why); }
   log('room ended; rooms:', rooms.size);
 }
 
 setInterval(() => {
   const now = Date.now();
   for (const room of [...rooms.values()])
-    if (now - room.created > ROOM_LIFETIME_MS || now - room.lastData > IDLE_MS) endRoom(room, 'expired');
+    if (now - room.created > ROOM_LIFETIME_MS || now - room.lastData > IDLE_MS || (!room.host && now - room.hostGone > HOST_GRACE_MS)) endRoom(room, 'expired');
   for (const [ip, t] of joinTimes) if (!t.length || now - t[t.length - 1] > 60e3) joinTimes.delete(ip);
 }, 30e3).unref();
 
