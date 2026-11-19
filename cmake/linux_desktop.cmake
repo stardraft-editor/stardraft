@@ -2,7 +2,7 @@
 # and the software centers' metainfo, with their texts in each language of apps/editor/res/lang/*.tsv (the English
 # text is the key, as the program's tr() has it). Included by CMakeLists.txt on Linux and the BSDs.
 
-set(STARDRAFT_LANGS ko es ru zh fr)
+set(STARDRAFT_LANGS ko es ru zh fr pt de)
 
 # The translation of `english` in `lang` (its .tsv), or "" when it has none.
 function(stardraft_tsv_text english lang out)
@@ -16,10 +16,12 @@ function(stardraft_tsv_text english lang out)
     set(${out} "${text}" PARENT_SCOPE)
 endfunction()
 
-# The language's code in these files (zh: Simplified Chinese).
+# The language's code in these files (zh: Simplified Chinese, pt: Brazilian Portuguese).
 function(stardraft_locale lang out)
     if(lang STREQUAL "zh")
         set(${out} zh_CN PARENT_SCOPE)
+    elseif(lang STREQUAL "pt")
+        set(${out} pt_BR PARENT_SCOPE)
     else()
         set(${out} ${lang} PARENT_SCOPE)
     endif()

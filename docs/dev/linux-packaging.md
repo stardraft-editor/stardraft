@@ -28,7 +28,7 @@ hyphen of `stardraft-editor` becomes an underscore.)
 
 The .desktop file, the file types and the metainfo are made by CMake (`cmake/linux_desktop.cmake`) from the `.in`
 files and the translations in `apps/editor/res/lang/*.tsv`: a new text there gets its Korean, Spanish, Russian,
-Chinese and French in the .tsv files, as the program's texts do.
+Chinese, French, Portuguese (Brazil) and German in the .tsv files, as the program's texts do.
 
 ## What the program does on the desktop
 

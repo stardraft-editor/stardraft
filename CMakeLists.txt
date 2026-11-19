@@ -800,7 +800,7 @@ if(STARDRAFT_RENDERER)
     set(sdlEditor stardraft_editor)
     set(sdlEditorName "${STARDRAFT_EXE_NAME}")
     add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/core/html_view.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
-                   apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/res/lang/fr.cpp apps/common/build_stamp.cpp apps/editor/build_time.cpp ${STARDRAFT_BUILD_TIME})
+                   apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/res/lang/fr.cpp apps/editor/res/lang/pt.cpp apps/editor/res/lang/de.cpp apps/common/build_stamp.cpp apps/editor/build_time.cpp ${STARDRAFT_BUILD_TIME})
     target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}"
                                STARDRAFT_PUBLIC_BUILD=${publicBuild} STARDRAFT_IMMERSIVE=$<BOOL:${STARDRAFT_IMMERSIVE}>
                                STARDRAFT_TITLE_TAG="${STARDRAFT_TITLE_TAG}")
@@ -858,12 +858,14 @@ if(STARDRAFT_RENDERER)
                               "-framework Security" "-framework ImageIO" "-framework CoreGraphics")
         # The map type's name in Finder ("StarCraft map", Info.plist) in each language of res/lang/*.tsv:
         # <language>.lproj/InfoPlist.strings in Resources.
-        foreach(lang ko es ru zh fr)
+        foreach(lang ko es ru zh fr pt de)
             file(STRINGS ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/${lang}.tsv typeLine ENCODING UTF-8 REGEX "^StarCraft map\t")
             string(REGEX REPLACE "^StarCraft map\t([^\r]*).*" "\\1" typeText "${typeLine}")
             set(lproj ${lang})
             if(lang STREQUAL "zh")
                 set(lproj zh-Hans)
+            elseif(lang STREQUAL "pt")
+                set(lproj pt-BR)
             endif()
             set(stringsFile ${CMAKE_BINARY_DIR}/generated/lproj/${lproj}.lproj/InfoPlist.strings)
             file(CONFIGURE OUTPUT ${stringsFile} CONTENT "\"StarCraft map\" = \"${typeText}\";\n")
@@ -872,7 +874,8 @@ if(STARDRAFT_RENDERER)
         endforeach()
         set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/ko.tsv
                      ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/es.tsv ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/ru.tsv
-                     ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/zh.tsv ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/fr.tsv)
+                     ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/zh.tsv ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/fr.tsv
+                     ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/pt.tsv ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/de.tsv)
         # The Quick Look extensions (apps/quicklook): Finder's icon of a map (thumbnail) and the space bar's preview,
         # each a .appex in the app's Contents/PlugIns. An extension must be in a sandbox (quicklook.entitlements): the
         # build signs it ad hoc with it; tools/ci/mac_dist.sh signs it again for a release (a Developer ID).
@@ -987,8 +990,9 @@ if(UNIX AND NOT APPLE AND STARDRAFT_RENDERER)
 endif()
 
 # --- StarDraft-latest.exe (Windows): starts a copy of the newest build of the editor (stardraft-testing.exe, else
-# StarDraft 2.exe; pin it to Start), so builds can go on while it runs.
-if(WIN32 AND STARDRAFT_RENDERER)
+# StarDraft 2.exe; pin it to Start), so builds can go on while it runs. Only the checkout's own build folder (build/)
+# makes it: another build folder (a release candidate's) would point it at its own editor.
+if(WIN32 AND STARDRAFT_RENDERER AND CMAKE_BINARY_DIR STREQUAL "${CMAKE_SOURCE_DIR}/build")
     add_executable(stardraft_latest WIN32 apps/latest/main.cpp apps/latest/latest.rc)
     target_link_libraries(stardraft_latest PRIVATE shell32 ole32 advapi32)
     target_compile_definitions(stardraft_latest PRIVATE UNICODE _UNICODE)
