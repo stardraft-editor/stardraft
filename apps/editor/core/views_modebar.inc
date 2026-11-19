@@ -3,6 +3,7 @@
 
 // Defined by the program (main_sdl.cpp and its sdl_*.inc files) until they move into the core.
 void setMode(Mode m);
+bool collabModeLocked(int mode);  // (sdl_collab.inc: a collaborative editing session's invited user has Terrain only)
 // The modes give the focus back to the top bar (sdl_main_view.inc): its first part after them (back: its last part
 // before them), else the view after the bar (back: before it).
 void topBarBesideModes(bool back);
@@ -53,7 +54,7 @@ struct ModeBarView final : stardraft::draw::View {
             c.roundBox(seg, active ? kSel : down ? kCtlDown : kCtl, active ? kAccentLine : kBorder, float(scale(kModeBoxRadius)));
             if (k + 1 < kModeCount) c.fill({r.right - 1, r.top + 1, r.right, r.bottom - 1}, kBorder);  // the line to the next segment
             // The mode's icon, then its name; the icon alone when the name does not fit.
-            const stardraft::draw::Color col = active ? kAccent : kText;
+            const stardraft::draw::Color col = active ? kAccent : collabModeLocked(i) ? kFaint : kText;
             const int nameW = c.measure(kModeNames[i]);
             const bool showName = is + gap + widest + scale(10) <= r.right - r.left;
             const int x0 = showName ? r.left + (r.right - r.left - (is + gap + nameW)) / 2 : r.left + (r.right - r.left - is) / 2;

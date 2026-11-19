@@ -725,7 +725,12 @@ void enterSelection() {
 struct PanelState;
 PanelState* panelHomeOf(Mode m);
 void activatePanel(PanelState* p);
-void setMode(Mode m) { activatePanel(panelHomeOf(m)); }
+bool collabModeLocked(int mode);  // (sdl_collab.inc)
+void setMessage(const std::wstring& m);
+void setMode(Mode m) {
+    if (collabModeLocked(int(m))) return setMessage(tr(L"Collaborative editing preview: invited users edit the terrain only"));
+    activatePanel(panelHomeOf(m));
+}
 
 // The palette's selection: the picked units or terrains (Ctrl+click), else the one picked; in Locations, the rows the
 // list has selected.

@@ -149,7 +149,7 @@ void tickTimer() {
     // A participant edits the terrain only (the preview): the Map workspace in Terrain mode.
     if (guestHere() && !gState.ed->inStroke()) {
         if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map), setMessage(shellTr(L"Collaborative editing preview: terrain only"));
-        if (gState.mode != Mode::Terrain) setMode(Mode::Terrain), setMessage(shellTr(L"Collaborative editing preview: terrain only"));
+        if (gState.mode != Mode::Terrain) setMode(Mode::Terrain);
     }
     pump();
 }
@@ -283,7 +283,12 @@ void join(const std::string& text) {
     cb::InviteLink link;
     std::string err;
     if (!cb::parseInviteLink(text, link, err)) return shellErrorBox(widen(err), shellTr(L"Could not join the session"));
-    if (gSession) return shellErrorBox(shellTr(L"A session is open. Leave it or end it first."), shellTr(L"Could not join the session"));
+    if (gSession)
+        return shellErrorBox(gSession->isHost() ? shellTr(L"This program hosts a session, so it cannot join one. An invite link opens the StarDraft that runs "
+                                                          L"first. To try a session on one computer, paste the link in the other program: File > "
+                                                          L"Collaborative editing > Join session.")
+                                                : shellTr(L"A session is open. Leave it first."),
+                             shellTr(L"Could not join the session"));
     if (!stardraft::platform::webSocketsAvailable())
         return shellErrorBox(shellTr(L"Collaborative editing is not available on this system yet."), shellTr(L"Could not join the session"));
     if (!shellMapsReady())
@@ -447,6 +452,9 @@ bool sdlCollabEnabled(int id) {
     default: return false;
     }
 }
+
+// A participant's tab (the preview: terrain only): the other modes are off (gray in the mode bar).
+bool collabModeLocked(int mode) { return mode != int(Mode::Terrain) && collabui::guestHere(); }
 
 // A participant's tab (the preview: terrain only): the other modes, workspaces and map pages are off.
 bool sdlCollabLocks(int id) {
