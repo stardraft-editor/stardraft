@@ -279,7 +279,7 @@ void invite() {
     changed();
 }
 
-// An invite link (pasted, or from the stardraft:// handler): a question first, never a join without it.
+// An invite link (pasted, or from the stardraft:// handler): the join starts at once (the host accepts it or not).
 void join(const std::string& text) {
     cb::InviteLink link;
     std::string err;
@@ -295,9 +295,6 @@ void join(const std::string& text) {
     if (!shellMapsReady())
         return shellErrorBox(shellTr(L"No StarCraft game files found. Select the StarCraft folder on the start page (Browse)."), shellTr(L"Could not join the session"));
     if (!gRoot) return;
-    const std::wstring q = (link.role == cb::Role::Edit ? shellTr(L"Join the session with edit access?") : shellTr(L"Join the session with view access?")) +
-                           L"\n\n" + shellTr(L"Server: ") + widen(link.server) + L"\n" + shellTr(L"The host sees your display name and accepts the request.");
-    if (msgbox::ask(*gRoot, shellTr(L"Join session"), q, {shellTr(L"Join"), shellTr(L"Cancel")}, msgbox::Icon::Question) != 0) return;
     if (!askName()) return;
     auto conn = std::make_unique<Conn>();
     auto s = cb::Session::join(link, narrow(savedName()), narrow(shellVersion()), *conn, events());
