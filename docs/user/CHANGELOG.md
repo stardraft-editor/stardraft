@@ -2,6 +2,14 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.9.1.1
+
+### Fixes
+
+- Cosmonarchy BW: maps save in the format the mod opens. Maps made with File > New could not be played in the mod.
+- Downloads for macOS and Linux are back (0.9.1 had only Windows).
+- Town areas: an area's town hall place can be over the mod's markers and over the map's own town halls.
+
 ## 0.9.1
 
 [Video: the new features of 0.9.1](images/0.9.1/whats-new.mp4)
