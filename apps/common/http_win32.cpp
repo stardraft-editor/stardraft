@@ -7,6 +7,8 @@
 #include <winhttp.h>
 
 #include <fstream>
+#include <map>
+#include <mutex>
 
 namespace stardraft::platform {
 
@@ -28,6 +30,17 @@ std::string utf8(const std::wstring& w) {
     return s;
 }
 
+// The sessions of keepAlive requests, one for each user agent: they stay open while the program runs (WinHTTP keeps
+// their connections for the next requests; a session handle can be used by several threads).
+HINTERNET sharedSession(const std::wstring& agent) {
+    static std::mutex& m = *new std::mutex;  // (never freed: a detached thread can ask while the program ends)
+    static std::map<std::wstring, HINTERNET>* sessions = new std::map<std::wstring, HINTERNET>;
+    std::lock_guard<std::mutex> lock(m);
+    HINTERNET& s = (*sessions)[agent];
+    if (!s) s = WinHttpOpen(agent.c_str(), WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    return s;
+}
+
 }  // namespace
 
 HttpReply httpRequest(const HttpRequest& request, std::string* text, const std::filesystem::path* file) {
@@ -41,7 +54,9 @@ HttpReply httpRequest(const HttpRequest& request, std::string* text, const std::
     if (!WinHttpCrackUrl(url.c_str(), 0, 0, &uc)) return r;
     host.resize(uc.dwHostNameLength), path.resize(uc.dwUrlPathLength), extra.resize(uc.dwExtraInfoLength);
     const std::wstring object = path + extra, method = wide(request.method);
-    HINTERNET s = WinHttpOpen(L"StarDraft", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    const std::wstring agent = wide(request.userAgent.empty() ? std::string("StarDraft") : request.userAgent);
+    HINTERNET s = request.keepAlive ? sharedSession(agent)
+                                    : WinHttpOpen(agent.c_str(), WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     HINTERNET c = s ? WinHttpConnect(s, host.c_str(), uc.nPort, 0) : nullptr;
     HINTERNET q = c ? WinHttpOpenRequest(c, method.c_str(), object.c_str(), nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE)
                     : nullptr;
@@ -70,6 +85,10 @@ HttpReply httpRequest(const HttpRequest& request, std::string* text, const std::
                     if (r.status == 200) out.open(*file, std::ios::binary);
                     open = r.status == 200 && out;
                 }
+                DWORD length = 0, lengthSize = sizeof length;  // (0 when the reply has no Content-Length)
+                if (!WinHttpQueryHeaders(q, WINHTTP_QUERY_CONTENT_LENGTH | WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_HEADER_NAME_BY_INDEX, &length, &lengthSize, WINHTTP_NO_HEADER_INDEX))
+                    length = 0;
+                uint64_t done = 0;
                 for (DWORD n = 0; open;) {
                     if (!WinHttpQueryDataAvailable(q, &n)) break;
                     if (n == 0) {
@@ -84,6 +103,8 @@ HttpReply httpRequest(const HttpRequest& request, std::string* text, const std::
                     } else if (text) {
                         text->append(chunk.data(), read);
                     }
+                    done += read;
+                    if (request.progress && !request.progress(done, length)) break;  // (stopped: incomplete)
                 }
                 if (file && out.is_open()) {
                     out.close();
@@ -94,7 +115,7 @@ HttpReply httpRequest(const HttpRequest& request, std::string* text, const std::
         WinHttpCloseHandle(q);
     }
     if (c) WinHttpCloseHandle(c);
-    if (s) WinHttpCloseHandle(s);
+    if (s && !request.keepAlive) WinHttpCloseHandle(s);
     return r;
 }
 

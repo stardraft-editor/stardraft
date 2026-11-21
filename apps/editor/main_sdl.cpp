@@ -215,6 +215,7 @@ bool gKeysFromOpener = false;
 #include "sdl_dist.inc"  // what a map that opens gives the system (macOS: Quick Look, Spotlight), and --check
 #include "sdl_xdg.inc"  // Linux and the BSDs: the recently used files, Build's notification and progress, --check desktop
 #include "shell_sdl_win.inc"  // the Windows parts: the crash handler, the map files, one program for all maps
+#include "sdl_scmscx.inc"  // File > Import from SCMSCX: search and download maps from scmscx.com
 
 namespace {
 
@@ -1274,6 +1275,8 @@ int main(int argc, char** argv) {
                 for (int k = 0; k < 3 && importShot.step() == 3; ++k) std::printf("summary %d:\n%s\n", k + 1, narrow(importShot.summaryText(k)).c_str());
                 shown = &importDlg, width = sz.x, height = sz.y;
             }
+            else if (dialogArg == "scmscx" || dialogArg.rfind("scmscx:", 0) == 0)  // scmscx[:<query>[|<row>]]: File > Import from SCMSCX, searched (and that row downloaded and opened: sdl_scmscx.inc)
+                shown = scmscxShot(dialogArg.size() > 7 ? dialogArg.substr(7) : std::string(), width, height);
             else if (dialogArg == "prompt") shown = &promptShot;
             else if (dialogArg == "numbers") shown = &numbersShot;
             else if (dialogArg == "listpick") shown = &pickShot;

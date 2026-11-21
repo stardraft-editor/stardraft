@@ -55,6 +55,7 @@ HttpReply httpRequest(const HttpRequest& request, std::string* text, const fs::p
     const fs::path headerFile = tmp.path / "headers", bodyFile = tmp.path / "body", outFile = tmp.path / "out";
     if (!writeText(headerFile, headers) || (!request.body.empty() && !writeText(bodyFile, request.body))) return r;
     std::vector<std::string> args = {"curl", "-sS", "--proto", "=https", "--connect-timeout", "30", "--max-time", "600",  // (no endless wait)
+                                     "-A", request.userAgent.empty() ? std::string("StarDraft") : request.userAgent,
                                      "-X", request.method, "-H", "@" + headerFile.string(), "-o", outFile.string(),
                                      "-w", "%{http_code}\n%{redirect_url}\n"};
     if (request.followRedirects) args.push_back("-L");
@@ -74,6 +75,10 @@ HttpReply httpRequest(const HttpRequest& request, std::string* text, const fs::p
         if (r.status != 200) return r;
         fs::copy_file(outFile, *file, fs::copy_options::overwrite_existing, ec);
         r.complete = !ec;
+        if (r.complete && request.progress) {
+            const uint64_t size = fs::file_size(*file, ec);
+            r.complete = request.progress(ec ? 0 : size, ec ? 0 : size);
+        }
         return r;
     }
     if (text) {
@@ -83,6 +88,10 @@ HttpReply httpRequest(const HttpRequest& request, std::string* text, const fs::p
         *text += ss.str();
     }
     r.complete = true;
+    if (request.progress) {
+        const uint64_t size = text ? uint64_t(text->size()) : 0;
+        r.complete = request.progress(size, size);
+    }
     return r;
 }
 

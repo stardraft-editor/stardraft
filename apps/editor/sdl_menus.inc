@@ -185,6 +185,7 @@ bool sdlOptionsCommand(int id);
 // Whether the SDL program runs the command now. The others are grayed, and their keys do nothing.
 bool sdlUpdatesRuns(int id);  // (sdl_updates.inc: Look for updates on start, Crash reports, Maps)
 bool sdlHelpRuns(int id);  // (sdl_help.inc: Help > Documentation, F1)
+void showScmscxSdl();  // (sdl_scmscx.inc: File > Import from SCMSCX)
 void sdlShowHelp(const std::string& topic);  // (sdl_help.inc: the Help workspace, or its window)
 void sdlDataTableCommand(int view = -1);  // (sdl_data.inc: View > Data: 0 the entry view, 1 the table view, -1 the other one)
 bool sdlDataTableTab(int tab);
@@ -239,6 +240,7 @@ bool sdlRuns(int id) {
     case ID_CAMPAIGN_OPEN:
     case ID_CAMPAIGN_SHOW:
     case ID_PROJ_IMPORT: return true;
+    case ID_FILE_SCMSCX: return true;  // (sdl_scmscx.inc)
     case ID_TRIG_FIND: return gWorkspace == Workspace::Triggers || gWorkspace == Workspace::ClassicTriggers;
     case ID_CT_ADD_TRIGGER:
     case ID_CT_ADD_CONDITION:
@@ -1269,7 +1271,7 @@ void sdlCommandShot(const std::string& name) {
     static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.animate", ID_OPT_ANIMATE}, {"options.dragobjects", ID_OPT_DRAGOBJECTS}, {"craftmode", ID_OPT_FUNMODE}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
                                                          {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO}, {"edit.history", ID_EDIT_HISTORY},
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT}, {"project.addmusic", ID_PROJ_ADDMUSIC}, {"project.adddots", ID_PROJ_ADDDOTS},
-                                                         {"file.exit", ID_FILE_EXIT}, {"file.save", ID_FILE_SAVE}, {"tab.next", ID_TAB_NEXT}, {"options.restart", ID_OPT_RESTART},
+                                                         {"file.exit", ID_FILE_EXIT}, {"file.scmscx", ID_FILE_SCMSCX},{"file.save", ID_FILE_SAVE}, {"tab.next", ID_TAB_NEXT}, {"options.restart", ID_OPT_RESTART},
                                                          {"options.unitsnap", ID_SNAP_UNITS},  // (Options > Units > Snap to the grid)
                                                          {"options.stack", ID_OPT_STACK},  // (Options > Units > Can be on top of others)
                                                          {"options.tinticons", ID_OPT_TINTICONS},
@@ -1576,6 +1578,7 @@ void commandSdl(int id) {
     case ID_FILE_EXPORTIMAGE:
         sdlExportMapImage();  // (sdl_map_image.inc; as Save as, its dialogs run here)
         return;
+    case ID_FILE_SCMSCX: showScmscxSdl(); return;  // File > Import from SCMSCX (sdl_scmscx.inc)
     case ID_FILE_EXIT: requestQuit(); return;
     case ID_EDIT_UNDO:
     case ID_EDIT_REDO: sdlUndoSteps(id == ID_EDIT_REDO, 1); return;  // (sdl_history.inc: the workspace's own steps)

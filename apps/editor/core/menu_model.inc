@@ -193,6 +193,7 @@ MenuModel buildMenuModel() {
                    menuSeparator(),
                    menuPopup(L"&Project", project),  // EUD projects: new, open, build, settings
                    menuItem(ID_PROJ_IMPORT, L"&Import a project (experimental)\x2026"),  // EUD Editor 3 and 2, euddraft (core/views_import_project.inc)
+                   menuItem(ID_FILE_SCMSCX, L"Import &from SCMSCX\x2026"),  // maps from scmscx.com (sdl_scmscx.inc)
                    // (File > Campaign, roadmap R25: not offered until the campaign editor is ready; core/views_campaign.inc)
                    menuSeparator(),
                    menuItem(ID_FILE_SAVE, L"&Save", L"Ctrl+S"),
