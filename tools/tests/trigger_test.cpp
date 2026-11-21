@@ -716,6 +716,24 @@ int main(int argc, char** argv) {
     more.actions.push_back(ifDead);
     more.actions.push_back(block("act.setunitvartarget", {"boss", "boss"}));
     set.roots[2].children.push_back(more);
+    {  // EUD Editor 3's TETools: build, morph, train, control groups, a location turned, a weapon fired, counts, distances, orders caught
+        TriggerNode te = TriggerSet::newTrigger("TETools");
+        TriggerCall eachT = make("act.foreachunit");
+        TriggerCall casts = make("act.if");
+        casts.lists[0] = {block("cond.unitcasts", {"the unit", "142", "320", "1", "64"}), block("cond.unitcastsunit", {"the unit", "113", "256", "1", "64"})};
+        casts.lists[1] = {block("act.unitbuild", {"the unit", "109", "64"}), block("act.unitmorph", {"the unit", "38"}),
+                          block("act.unittrain", {"the unit", "Terran Marine"}), block("act.unithotkey", {"the unit", "P2", "3", "4"})};
+        eachT.lists[0] = {casts};
+        te.actions = {eachT, block("act.rotateloc", {"1", "64", "8"}), block("act.attackfx", {"Terran Marine", "P8", "1", "Terran Marine", "64"})};
+        for (const auto& v : {valueOf("val.countat", {"Zerg Zergling", "P8", "64"}), valueOf("val.locdistance", {"1", "64"}),
+                              valueOf("val.pointdistance", {"0", "0", "96", "128"}), valueOf("val.locangle", {"1", "64"})}) {
+            TriggerCall s = make("act.setvar");
+            s.args[2] = "gold";
+            s.argBlocks[1] = {v};
+            te.actions.push_back(s);
+        }
+        set.roots[2].children.push_back(te);
+    }
 
     std::vector<TriggerIssue> issues;
     const std::string code = set.generate(map, issues);
@@ -885,6 +903,33 @@ int main(int argc, char** argv) {
           "scroll lock, the game speed and the camera on a unit");
     check(code.find("sd_polarLoc(1, 16, 64);") != std::string::npos && code.find("import .sdlib.f_sd_polarLoc;") != std::string::npos,
           "shift a location in a direction (lengthdir_256)");
+    {  // EUD Editor 3's TETools
+        const std::string lib = TriggerSet::helperLibrary();
+        check(code.find("sd_unitBuild(cu1, $U(\"Terran Supply Depot\"), 64);") != std::string::npos &&
+                  code.find("sd_unitMorph(cu1, $U(\"Zerg Hydralisk\"));") != std::string::npos && code.find("sd_unitTrain(cu1, $U(\"Terran Marine\"));") != std::string::npos &&
+                  code.find("sd_unitHotkey(cu1, 1, 3, 4);") != std::string::npos && code.find("import .sdlib.f_sd_unitBuild;") != std::string::npos &&
+                  code.find("import .sdlib.f_sd_unitHotkey;") != std::string::npos && lib.find("function sd_unitBuild(u: CUnit, b, loc)") != std::string::npos &&
+                  lib.find("if (k == 41) o = 25;") != std::string::npos && lib.find("bwrite(u.ptr + 0xA6, 38);") != std::string::npos,
+              "TETools: a worker builds (its race's order), a larva morphs, a unit trains, a unit goes in a control group");
+        check(code.find("sd_rotateLoc(1, 64, 8);") != std::string::npos && code.find("sd_attackFx($U(\"Terran Marine\"), 7, 1, $U(\"Terran Marine\"), 64);") != std::string::npos &&
+                  code.find("v_gold = sd_countAt(P8, $U(\"Zerg Zergling\"), 64);") != std::string::npos && code.find("v_gold = sd_locDistance(1, 64);") != std::string::npos &&
+                  code.find("v_gold = sd_pointDistance(0, 0, 96, 128);") != std::string::npos && code.find("v_gold = sd_locAngle(1, 64);") != std::string::npos &&
+                  code.find("import .sdlib.f_sd_locAngle;") != std::string::npos,
+              "TETools: a location turned around another, a weapon fired, units at a location, distances and a direction between locations");
+        check(code.find("(sd_castsOrder(cu1, EncodeUnitOrder(\"Cast Psionic Storm\"), 320, 1, 64, 0) != 0)") != std::string::npos &&
+                  code.find("(sd_castsOrder(cu1, EncodeUnitOrder(\"Cast Yamato Gun\"), 256, 1, 64, 1) != 0)") != std::string::npos &&
+                  code.find("import .sdlib.f_sd_castsOrder;") != std::string::npos,
+              "TETools: an order on a point and on a unit, caught (the locations put there, the unit stopped)");
+        TriggerSet one;
+        TriggerNode t = TriggerSet::newTrigger("not a worker");
+        t.actions = {block("act.unitbuild", {"@7", "109", "64"}), block("act.unitmorph", {"@7", "38"})};
+        one.roots[1].children.push_back(t);
+        std::vector<TriggerIssue> is;
+        one.generate(map, is);
+        int warn = 0;
+        for (const auto& i : is) warn += i.level == TriggerIssue::Level::Warning && (i.message.rfind("Only a Terran SCV", 0) == 0 || i.message.rfind("Only a Zerg Larva", 0) == 0);
+        check(warn == 2, "TETools: a Command Center on the map cannot build or morph: a warning for each (" + std::to_string(warn) + " of 2)");
+    }
     check(code.find("PVariable(list($U(\"Terran Marine\"), $U(\"Zerg Zergling\"), $U(\"Protoss Zealot\"), 228, 228, 228, 228, 228))") != std::string::npos &&
               code.find("PVariable(list(1, 1, 1, 1, 1, 1, 1, 1))") != std::string::npos && code.find("[getcurpl()], ") != std::string::npos,
           "per player: unit types and locations with a default value for each player; a block takes the current player's");

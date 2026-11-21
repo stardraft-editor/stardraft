@@ -1677,6 +1677,18 @@ struct Gen {
             helpers.insert("distance");
             return "sd_distance(" + a + ", " + b + ")";
         }
+        if (id == "val.countat") {  // EUD Editor's CountAtLoc: Bring at most n, 11 times
+            helpers.insert("countat");
+            return "sd_countAt(" + arg(c, *d, "player") + ", " + arg(c, *d, "unit") + ", " + arg(c, *d, "where") + ")";
+        }
+        if (id == "val.locdistance" || id == "val.locangle") {
+            helpers.insert("locdist");
+            return std::string(id == "val.locangle" ? "sd_locAngle(" : "sd_locDistance(") + arg(c, *d, "a") + ", " + arg(c, *d, "b") + ")";
+        }
+        if (id == "val.pointdistance") {
+            helpers.insert("locdist");
+            return "sd_pointDistance(" + arg(c, *d, "x1") + ", " + arg(c, *d, "y1") + ", " + arg(c, *d, "x2") + ", " + arg(c, *d, "y2") + ")";
+        }
         if (d->code.empty()) {
             issue(TriggerIssue::Level::Error, &c, -1, d->title + ": this block cannot be built yet");
             return "0";
@@ -2135,6 +2147,11 @@ struct Gen {
             helpers.insert("unitin");
             return "(sd_unitIn(" + arg(c, *d, "unit") + ", " + arg(c, *d, "where") + ") != 0)";
         }
+        if (d->id == "cond.unitcasts" || d->id == "cond.unitcastsunit") {  // EUD Editor's CheckNoneTargetSkill and CheckTargetSkill
+            helpers.insert("casts");
+            return "(sd_castsOrder(" + arg(c, *d, "unit") + ", " + arg(c, *d, "order") + ", " + arg(c, *d, "range") + ", " + arg(c, *d, "unitloc") + ", " +
+                   arg(c, *d, "pointloc") + ", " + (d->id == "cond.unitcastsunit" ? "1" : "0") + ") != 0)";
+        }
         return fill(c, *d, d->code);
     }
 
@@ -2270,6 +2287,38 @@ struct Gen {
                 return "sd_order(" + u + ", " + o + ", " + t + ".posX, " + t + ".posY, " + t + ".ptr);" + tag + "\n";
             }
             return "sd_order(" + u + ", " + o + ", " + u + ".posX, " + u + ".posY, 0);" + tag + "\n";
+        }
+        if (id == "act.unitbuild" || id == "act.unitmorph" || id == "act.unittrain" || id == "act.unithotkey") {  // EUD Editor's TETools
+            const std::string v = raw(c, *d, "unit"), u = unitRef(c, d->param("unit"), v);
+            if (map.known && v.size() > 1 && v[0] == '@' && (id == "act.unitbuild" || id == "act.unitmorph")) {  // a unit on the map: its type is known
+                const uint32_t serial = uint32_t(std::strtoul(v.c_str() + 1, nullptr, 10));
+                const auto it = std::find_if(map.units.begin(), map.units.end(), [&](const auto& mu) { return mu.serial == serial; });
+                const bool build = id == "act.unitbuild";
+                if (it != map.units.end() && (build ? it->type != 7 && it->type != 41 && it->type != 64 : it->type != 35 && it->type != 36 && it->type != 59))
+                    issue(TriggerIssue::Level::Warning, &c, d->param("unit"),
+                          build ? "Only a Terran SCV, a Zerg Drone or a Protoss Probe builds with this block. For other units, it does nothing"
+                                : "Only a Zerg Larva, a Zerg Egg or a Zerg Cocoon morphs with this block. For other units, it does nothing");
+            }
+            if (id == "act.unitbuild") {
+                helpers.insert("unitbuild");
+                return "sd_unitBuild(" + u + ", " + arg(c, *d, "building") + ", " + arg(c, *d, "where") + ");" + tag + "\n";
+            }
+            if (id == "act.unithotkey") {
+                helpers.insert("unithotkey");
+                return "sd_unitHotkey(" + u + ", " + playerNumber(c, d->param("player"), raw(c, *d, "player")) + ", " + arg(c, *d, "group") + ", " +
+                       arg(c, *d, "slot") + ");" + tag + "\n";
+            }
+            helpers.insert(id == "act.unitmorph" ? "unitmorph" : "unittrain");
+            return std::string(id == "act.unitmorph" ? "sd_unitMorph(" : "sd_unitTrain(") + u + ", " + arg(c, *d, "type") + ");" + tag + "\n";
+        }
+        if (id == "act.rotateloc") {
+            helpers.insert("rotateloc");
+            return "sd_rotateLoc(" + arg(c, *d, "where") + ", " + arg(c, *d, "center") + ", " + arg(c, *d, "a") + ");" + tag + "\n";
+        }
+        if (id == "act.attackfx") {
+            helpers.insert("attackfx");
+            return "sd_attackFx(" + arg(c, *d, "attacker") + ", " + playerNumber(c, d->param("player"), raw(c, *d, "player")) + ", " + arg(c, *d, "src") + ", " +
+                   arg(c, *d, "target") + ", " + arg(c, *d, "dst") + ");" + tag + "\n";
         }
         if (id == "act.unitvital") {  // up to the unit's most; down to 0 (no hit points: the unit dies)
             helpers.insert("vital"), helpers.insert("upgrade");
@@ -3140,6 +3189,56 @@ std::string TriggerSet::helperLibrary() {
     out += "function sd_distance(a: CUnit, b: CUnit) {  // pixels between the middles of two units\n"
            "    var dx = a.posX - b.posX;\n    var dy = a.posY - b.posY;\n"
            "    if (a.posX < b.posX) dx = b.posX - a.posX;\n    if (a.posY < b.posY) dy = b.posY - a.posY;\n    return sqrt(dx * dx + dy * dy);\n}\n";
+    // From EUD Editor 3's TETools (third_party/eud-editor-3/TriggerEditor/TETools.eps): the CUnit offsets are its offsets.
+    // 0x4D order, 0x4E order state, 0x58 order target x and y, 0x5C order target unit, 0x64 unit type, 0x98 build queue
+    // (5 unit types), 0xA4 the queue's current place, 0xA5 uniqueness, 0xA6 secondary order, 0x110 remove timer.
+    // (A square of a negative difference is correct: the numbers wrap around at 2^32.)
+    out += "function sd_unitBuild(u: CUnit, b, loc) {  // BuildSCV, BuildDrone, BuildProbe: the worker's race gives the order\n"
+           "    const k = wread(u.ptr + 0x64);\n    var o = 0;\n"
+           "    if (k == 7) o = 30;\n    else if (k == 41) o = 25;\n    else if (k == 64) o = 31;\n    else return;\n"
+           "    wwrite(u.ptr + 0x98, b);\n    sd_orderAt(u, o, sd_locAddr(loc));\n}\n"
+           "function sd_unitMorph(u: CUnit, t) {  // MorphLarva, SpawnEgg, SpawnCocoon: the order Unit Morph (42)\n"
+           "    const k = wread(u.ptr + 0x64);\n"
+           "    if (k == 35) {\n        bwrite(u.ptr + 0x4D, 42);\n        bwrite(u.ptr + 0x4E, 0);\n"
+           "    } else if ((k == 36 || k == 59) && bread(u.ptr + 0x4E) == 0) {\n        bwrite(u.ptr + 0x4D, 42);\n        bwrite(u.ptr + 0x4E, 1);\n"
+           "    } else return;\n    wwrite(u.ptr + 0x98, t);\n}\n"
+           "function sd_unitTrain(u: CUnit, t) {  // TrainUnit: the queue's current place, and the secondary order Train (38); no cost\n"
+           "    const s = bread(u.ptr + 0xA4);\n    if (s >= 5) return;\n    wwrite(u.ptr + 0x98 + 2 * s, t);\n    bwrite(u.ptr + 0xA6, 38);\n}\n"
+           "function sd_unitHotkey(u: CUnit, pl, group, place) {  // hotkeyUnit: 18 groups of 12 for each player (0x57FE60); uniqueness x 2048 + index + 1\n"
+           "    dwwrite(0x57FE60 + 864 * pl + 48 * group + 4 * place, bread(u.ptr + 0xA5) * 2048 + (u.ptr - 0x59CCA8) / 336 + 1);\n}\n"
+           "function sd_rotateLoc(loc, center, a) {  // RotateLocation, in the game's directions (0 is up); two times the middles\n"
+           "    const t = sd_locAddr(loc);\n    const c = sd_locAddr(center);\n"
+           "    const tx = dwread(t) + dwread(t + 8);\n    const ty = dwread(t + 4) + dwread(t + 12);\n"
+           "    const cx = dwread(c) + dwread(c + 8);\n    const cy = dwread(c + 4) + dwread(c + 12);\n"
+           "    const dx = tx - cx;\n    const dy = ty - cy;\n"
+           "    const nx, ny = lengthdir_256(sqrt(dx * dx + dy * dy), (atan2_256(dx, dy) + a) % 256);\n"
+           "    addloc(loc, (cx + nx) / 2 - tx / 2, (cy + ny) / 2 - ty / 2);\n}\n"
+           "function sd_attackFx(au, pl, la, tu, lb) {  // AttackGround: a unit at la attacks a unit at lb; both go after 2 frames\n"
+           "    const ap = dwread(0x628438);  // the slot of the next unit (0: no slot)\n    if (ap == 0) return;\n"
+           "    CreateUnit(1, au, la, pl);\n    if (dwread(0x628438) == ap) return;  // not created\n"
+           "    dwwrite(ap + 0x110, dwread(ap + 0x110) + 2);\n"
+           "    const tp = dwread(0x628438);\n    if (tp == 0) return;\n"
+           "    CreateUnit(1, tu, lb, pl);\n    if (dwread(0x628438) == tp) return;\n"
+           "    dwwrite(tp + 0x110, dwread(tp + 0x110) + 2);\n    dwwrite(ap + 0x5C, tp);\n    bwrite(ap + 0x4D, 10);  // Attack\n}\n"
+           "function sd_countAt(pl, u, loc) {  // CountAtLoc: the count from 11 checks of Bring at most (0 to 1700)\n"
+           "    var x = 1700;\n    foreach(i : py_range(10, -1, -1)) {\n        if (x >= py_pow(2, i)) {\n            x -= py_pow(2, i);\n"
+           "            if (!Bring(pl, AtMost, x, u, loc)) x += py_pow(2, i);\n        }\n    }\n    return x;\n}\n"
+           "function sd_locDistance(a, b) {  // LocationDistance: pixels between the middles of two locations\n"
+           "    const la = sd_locAddr(a);\n    const lb = sd_locAddr(b);\n"
+           "    const dx = dwread(lb) + dwread(lb + 8) - dwread(la) - dwread(la + 8);\n"
+           "    const dy = dwread(lb + 4) + dwread(lb + 12) - dwread(la + 4) - dwread(la + 12);\n    return sqrt(dx * dx + dy * dy) / 2;\n}\n"
+           "function sd_pointDistance(x1, y1, x2, y2) {  // Distance\n    const dx = x2 - x1;\n    const dy = y2 - y1;\n    return sqrt(dx * dx + dy * dy);\n}\n"
+           "function sd_locAngle(a, b) {  // LocationAngle, in the game's directions (0 to 255, 0 is up)\n"
+           "    const la = sd_locAddr(a);\n    const lb = sd_locAddr(b);\n"
+           "    const dx = dwread(lb) + dwread(lb + 8) - dwread(la) - dwread(la + 8);\n"
+           "    const dy = dwread(lb + 4) + dwread(lb + 12) - dwread(la + 4) - dwread(la + 12);\n    return atan2_256(dx, dy);\n}\n"
+           "// CheckNoneTargetSkill (unit 0) and CheckTargetSkill (unit 1): the order in range puts the two locations at the unit\n"
+           "// and the order's place, and stops the unit (order 1, the move target where it is).\n"
+           "function sd_castsOrder(u: CUnit, order, r, ul, pl, unit) {\n"
+           "    if (bread(u.ptr + 0x4D) != order) return 0;\n    if (unit && dwread(u.ptr + 0x5C) == 0) return 0;\n"
+           "    const x = u.posX;\n    const y = u.posY;\n    const tx = wread(u.ptr + 0x58);\n    const ty = wread(u.ptr + 0x5A);\n"
+           "    const dx = tx - x;\n    const dy = ty - y;\n    if (dx * dx + dy * dy >= r * r) return 0;\n"
+           "    setloc(ul, x, y);\n    setloc(pl, tx, ty);\n    dwwrite(u.ptr + 0x10, x + y * 65536);\n    bwrite(u.ptr + 0x4D, 1);\n    return 1;\n}\n";
     return out;
 }
 
@@ -3441,6 +3540,15 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
             {"locmid", "sd_locX sd_locY"},
             {"unitin", "sd_unitIn"},
             {"distance", "sd_distance"},
+            {"unitbuild", "sd_unitBuild"},
+            {"unitmorph", "sd_unitMorph"},
+            {"unittrain", "sd_unitTrain"},
+            {"unithotkey", "sd_unitHotkey"},
+            {"rotateloc", "sd_rotateLoc"},
+            {"attackfx", "sd_attackFx"},
+            {"countat", "sd_countAt"},
+            {"locdist", "sd_locDistance sd_pointDistance sd_locAngle"},
+            {"casts", "sd_castsOrder"},
             {"speed", "sd_gameSpeed"}};
         std::string imports;
         for (const auto& [key, list] : kNames)
