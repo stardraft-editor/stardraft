@@ -96,6 +96,10 @@ public:
     // blended, as a game's palette change): `map` changes a color in place; null: none. `key` names the change: the art
     // is made again only when it is another (0 with null). Main thread only.
     void setColorMap(std::function<void(uint8_t& r, uint8_t& g, uint8_t& b)> map, uint64_t key);
+    // A mod's palette recolor (shaders/recolor.hlsl: the exe plugin's math) over the drawn map, before the screen-space
+    // rects: `stops` count x (r, g, b, gamma, saturation), 1 to 16 stops; count 0: none. A pass of the GPU each frame, so a
+    // change costs nothing. False when the driver has no such pass (Direct3D 12 only): use setColorMap then.
+    bool setColorGrade(const float* stops, int count);
     // Each owner's team color, 0xRRGGBB (the map's player colors): `count` of them from owner 0 (up to 65: a Hyperion
     // map's players; an owner past them has the last's color).
     void setPlayerColors(const uint32_t* rgb, int count);

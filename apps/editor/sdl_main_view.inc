@@ -187,9 +187,13 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
         colors.stops = rp.value.stops;
         const std::string line = stardraft::cmbw::recolorLineText(colors);
         std::vector<stardraft::cmbw::Recolor> stops = rp.value.stops;
-        gRenderer->setColorMap([stops](uint8_t& r, uint8_t& g, uint8_t& b) { stardraft::cmbw::recolorRgb(stops, r, g, b); },
-                               std::hash<std::string>{}(line) | 1);
-    } else gRenderer->setColorMap(nullptr, 0);
+        std::vector<float> grade;  // (the GPU's pass: Direct3D 12; else the SD art's colors on the CPU)
+        for (const stardraft::cmbw::Recolor& s : stops) grade.insert(grade.end(), {s.r, s.g, s.b, s.gamma, s.saturation});
+        if (gRenderer->setColorGrade(grade.data(), int(stops.size()))) gRenderer->setColorMap(nullptr, 0);
+        else
+            gRenderer->setColorMap([stops](uint8_t& r, uint8_t& g, uint8_t& b) { stardraft::cmbw::recolorRgb(stops, r, g, b); },
+                                   std::hash<std::string>{}(line) | 1);
+    } else gRenderer->setColorGrade(nullptr, 0), gRenderer->setColorMap(nullptr, 0);
     // The scene (core/map_scene.inc), with the units' idle animations at the game's speed (View > Animate units).
     if (gState.animate) advanceAnims();
     render::Scene scene = buildScene();

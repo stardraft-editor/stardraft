@@ -31,6 +31,8 @@
 #ifdef STARDRAFT_SHADERS_DXIL
 #include "shaders/downsample_ps.h"
 #include "shaders/downsample_vs.h"
+#include "shaders/recolor_ps.h"
+#include "shaders/recolor_vs.h"
 #include "shaders/solid_ps.h"
 #include "shaders/solid_vs.h"
 #include "shaders/sprite_ps.h"
@@ -173,6 +175,14 @@ struct Renderer::Impl {
     SDL_GPUGraphicsPipeline* glowPipe = nullptr;  // sprites added onto what is drawn (glows)
     SDL_GPUGraphicsPipeline* solidPipe = nullptr;
     SDL_GPUGraphicsPipeline* downPipe = nullptr;  // RGBA8 target, no depth
+    SDL_GPUGraphicsPipeline* gradePipe = nullptr;  // setColorGrade (Direct3D 12 only): the target's format, no depth
+    SDL_GPUTexture* gradeSource = nullptr;         // (a copy of the target that the pass reads)
+    uint32_t gradeW = 0, gradeH = 0;
+    struct GradeUniforms {
+        float rgbGamma[16][4];
+        float sat[16];
+        float count, pad[3];
+    } grade{};
     SDL_GPUSampler* pointClamp = nullptr;
     SDL_GPUSampler* linearClamp = nullptr;
     SDL_GPUSampler* linearMip = nullptr;
@@ -616,6 +626,20 @@ bool Renderer::Impl::createPipelines(std::string& err) {
     downPipe = dvs && dps ? SDL_CreateGPUGraphicsPipeline(device, &di) : nullptr;
     if (dvs) SDL_ReleaseGPUShader(device, dvs);
     if (dps) SDL_ReleaseGPUShader(device, dps);
+#ifdef STARDRAFT_SHADERS_DXIL
+    if (shaderFormat == SDL_GPU_SHADERFORMAT_DXIL) {  // (setColorGrade's pass: no SPIR-V or MSL of it)
+        SDL_GPUShader* gvs = shader(ShaderCode{g_recolor_vs, nullptr, nullptr, sizeof g_recolor_vs, 0, 0}, SDL_GPU_SHADERSTAGE_VERTEX, "VSMain", 0, 0, 0);
+        SDL_GPUShader* gps = shader(ShaderCode{g_recolor_ps, nullptr, nullptr, sizeof g_recolor_ps, 0, 0}, SDL_GPU_SHADERSTAGE_FRAGMENT, "PSMain", 1, 0, 1);
+        SDL_GPUColorTargetDescription gc{};
+        gc.format = colorFormat;
+        SDL_GPUGraphicsPipelineCreateInfo gi = di;
+        gi.target_info.color_target_descriptions = &gc;
+        gi.vertex_shader = gvs, gi.fragment_shader = gps;
+        gradePipe = gvs && gps ? SDL_CreateGPUGraphicsPipeline(device, &gi) : nullptr;  // (none: setColorGrade is false)
+        if (gvs) SDL_ReleaseGPUShader(device, gvs);
+        if (gps) SDL_ReleaseGPUShader(device, gps);
+    }
+#endif
     if (!terrainPipe || !spritePipe || !glowPipe || !solidPipe || !downPipe) {
         err = std::string("pipeline creation failed: ") + SDL_GetError();
         return false;
@@ -801,7 +825,8 @@ void Renderer::shutdown() {
     if (r.uploadBuf) SDL_ReleaseGPUTransferBuffer(r.device, r.uploadBuf);
     for (SDL_GPUSampler* s : {r.pointClamp, r.linearClamp, r.linearMip})
         if (s) SDL_ReleaseGPUSampler(r.device, s);
-    for (SDL_GPUGraphicsPipeline* p : {r.terrainPipe, r.terrainBlendPipe, r.spritePipe, r.glowPipe, r.solidPipe, r.downPipe})
+    if (r.gradeSource) SDL_ReleaseGPUTexture(r.device, r.gradeSource);
+    for (SDL_GPUGraphicsPipeline* p : {r.terrainPipe, r.terrainBlendPipe, r.spritePipe, r.glowPipe, r.solidPipe, r.downPipe, r.gradePipe})
         if (p) SDL_ReleaseGPUGraphicsPipeline(r.device, p);
     if (r.overlayIndex) SDL_ReleaseGPUTexture(r.device, r.overlayIndex);
     if (r.overlayUpload) SDL_ReleaseGPUTransferBuffer(r.device, r.overlayUpload);
@@ -987,6 +1012,18 @@ void Renderer::setColorMap(std::function<void(uint8_t&, uint8_t&, uint8_t&)> map
     if (!map) key = 0;
     if (key == r.colorKey && bool(map) == bool(r.colorMap)) return;
     r.colorMap = std::move(map), r.colorKey = key, r.colorDirty = true;
+}
+bool Renderer::setColorGrade(const float* stops, int count) {
+    Impl& r = *impl_;
+    if (!r.gradePipe) return false;
+    count = stops ? std::clamp(count, 0, 16) : 0;
+    r.grade = {};
+    r.grade.count = float(count);
+    for (int i = 0; i < count; ++i) {
+        for (int c = 0; c < 4; ++c) r.grade.rgbGamma[i][c] = stops[i * 5 + c];
+        r.grade.sat[i] = stops[i * 5 + 4];
+    }
+    return true;
 }
 // The SD art in the colors of the color map now: each known color looked up again, the SD atlas and the frames on the
 // pages uploaded again (in this frame's copy pass: sendPageUploads).
@@ -1692,6 +1729,37 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     }
     drawSprites(3, 3, bends ? backdrop : nullptr);
     drawSprites(2, 2, nullptr);  // (the glows last: a cloak drawn after a glow in front of it would cover the glow)
+
+    if (gradePipe && grade.count >= 1) {  // setColorGrade: the picture so far, recolored (the rects after it stay as they are)
+        SDL_EndGPURenderPass(pass);
+        if (!gradeSource || gradeW != w || gradeH != h) {
+            if (gradeSource) SDL_ReleaseGPUTexture(device, gradeSource);
+            gradeSource = createTexture(colorFormat, w, h, 1, SDL_GPU_TEXTUREUSAGE_SAMPLER);
+            gradeW = w, gradeH = h;
+        }
+        if (gradeSource) {
+            SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+            SDL_GPUTextureLocation from{};
+            from.texture = target;
+            SDL_GPUTextureLocation to{};
+            to.texture = gradeSource;
+            SDL_CopyGPUTextureToTexture(copy, &from, &to, w, h, 1, false);
+            SDL_EndGPUCopyPass(copy);
+            SDL_GPUColorTargetInfo gt{};
+            gt.texture = target, gt.load_op = SDL_GPU_LOADOP_DONT_CARE, gt.store_op = SDL_GPU_STOREOP_STORE;
+            SDL_GPURenderPass* gp = SDL_BeginGPURenderPass(cmd, &gt, 1, nullptr);
+            SDL_BindGPUGraphicsPipeline(gp, gradePipe);
+            SDL_GPUTextureSamplerBinding tb{gradeSource, pointClamp};
+            SDL_BindGPUFragmentSamplers(gp, 0, &tb, 1);
+            SDL_PushGPUFragmentUniformData(cmd, 0, &grade, sizeof grade);
+            SDL_DrawGPUPrimitives(gp, 3, 1, 0, 0);
+            SDL_EndGPURenderPass(gp);
+            ++stats.drawCalls;
+        }
+        ct.texture = target, ct.load_op = SDL_GPU_LOADOP_LOAD;
+        dt.load_op = SDL_GPU_LOADOP_CLEAR, dt.store_op = SDL_GPU_STOREOP_DONT_CARE;  // (the rects test no depth)
+        pass = SDL_BeginGPURenderPass(cmd, &ct, 1, &dt);
+    }
 
     if (!rects.empty()) {
         SDL_BindGPUGraphicsPipeline(pass, solidPipe);

@@ -28,7 +28,7 @@ public:
 
     SdlMapImageJob(const MapImageOptions& o, const fs::path& file) : o_(o), file_(file), part_(file) {
         recolorPreview().paused = true;  // (no Recolor preview in the picture: the map's own colors)
-        if (gRenderer) gRenderer->setColorMap(nullptr, 0);
+        if (gRenderer) gRenderer->setColorMap(nullptr, 0), gRenderer->setColorGrade(nullptr, 0);
         part_ += ".part";
         area_ = mapImageRect(o), size_ = mapImageSize(o), zoom_ = float(o.px) / 32.0f;
         cols_ = (size_.x + kPart - 1) / kPart, rows_ = (size_.y + kPart - 1) / kPart;
