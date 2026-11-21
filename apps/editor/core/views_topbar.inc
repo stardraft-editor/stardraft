@@ -121,6 +121,7 @@ struct TopBarView final : stardraft::draw::View {
             afterModes = tx - scale(3);
         }
         // The right end: Build (a project; its icon and name), then Report feedback in the corner.
+        int usedRight = (topBarModesShown() ? afterModes : topBarIconsWidth()) + scale(8);  // (the session's circles stay right of it)
         if (activeProject()) {
             const std::wstring text = gBuilding ? L"Building" : L"Build";
             const Font of2 = c.setFont(ui);
@@ -144,6 +145,7 @@ struct TopBarView final : stardraft::draw::View {
             const bool on = pr->debugBuild() || pr->traceBuild();
             const int side = int(bb.bottom - bb.top);
             const RECT dr{bb.right + scale(6), bb.top, bb.right + scale(6) + side, bb.bottom};
+            usedRight = int(dr.right) + scale(8);
             // A toggle button: on, selected (the accent fill and line); off, a plain button.
             const bool dhot = surface.hot(dr);
             kitpaint::drawBox(c, dr, on ? kSel : dhot ? kCtlHot : kCtl, on ? kAccentLine : dhot ? kBorderHot : kBorder);
@@ -220,8 +222,14 @@ struct TopBarView final : stardraft::draw::View {
             // The others in the session: a circle each in their color with their initial (at most 5, then +N); a click
             // follows that person's view (again: stops).
             const std::vector<CollabAvatar> avatars = collabAvatars();
-            const int d = scale(24), step = scale(19), shown = int(std::min<size_t>(avatars.size(), 5));
-            const bool more = avatars.size() > 5;
+            const int d = scale(24), step = scale(19);
+            // (as many as there is room for between the bar's other parts and the button, at most 5; the rest: +N)
+            const int room = int(ib.left) - scale(10) - usedRight;
+            const int fit = room < d ? 0 : 1 + (room - d) / step;
+            int shown = int(std::min<size_t>(avatars.size(), 5));
+            bool more = avatars.size() > size_t(shown);
+            if (shown + (more ? 1 : 0) > fit) shown = std::max(0, fit - 1), more = fit > 0;
+            if (fit <= 0) shown = 0, more = false;
             int ax = ib.left - scale(10) - d - (shown - 1 + (more ? 1 : 0)) * step;
             const int ay = (h - d) / 2;
             const Font ofa = c.setFont(c.font({draw::Face::Ui, scale(11), true}));
@@ -238,7 +246,7 @@ struct TopBarView final : stardraft::draw::View {
             if (more) {
                 const draw::Rect r{ax, ay, ax + d, ay + d};
                 c.ellipse(r, kCtl, kBorder);
-                c.text(r, L"+" + std::to_wstring(avatars.size() - 5), kText, draw::kCenter | kMiddle);
+                c.text(r, L"+" + std::to_wstring(avatars.size() - size_t(shown)), kText, draw::kCenter | kMiddle);
             }
             c.setFont(ofa);
         }

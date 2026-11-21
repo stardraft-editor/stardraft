@@ -889,10 +889,10 @@ struct SessionView final : draw::View {
         };
         // The state: green while others are in the session, yellow while the connection comes back.
         const bool lost = gSession->reconnecting(), live = in || (!host && gSession->editor());
-        const std::wstring state = lost ? shellTr(L"Reconnecting\x2026 Your edits wait and go when the connection is back.")
-                                   : host ? (in ? shellTr(L"Hosting: ") + std::to_wstring(in) + (in == 1 ? shellTr(L" participant") : shellTr(L" participants"))
-                                                : gSession->link(cb::Role::Edit).empty() ? shellTr(L"Connecting\x2026") : shellTr(L"Hosting: waiting for participants"))
-                                          : (gSession->editor() ? shellTr(L"Joined ") + widen(gSession->hostName()) + shellTr(L"'s session: ") + roleText(gSession->role()) + shellTr(L" access")
+        const std::wstring state = lost ? shellTr(L"Reconnecting\x2026")
+                                   : host ? (in ? shellTr(L"Live \x00B7 ") + std::to_wstring(in + 1) + shellTr(L" people")
+                                                : gSession->link(cb::Role::Edit).empty() ? shellTr(L"Connecting\x2026") : shellTr(L"Waiting for people"))
+                                          : (gSession->editor() ? (gSession->role() == cb::Role::Edit ? shellTr(L"Editing ") : shellTr(L"Viewing ")) + widen(gSession->hostName()) + shellTr(L"'s map")
                                                                 : shellTr(L"Waiting for the host\x2026"));
         const int sh = std::max(bh, c.measureBox(state, w - 2 * pad - scale(20), draw::kWrap).y + scale(10));
         const draw::Rect stateR{pad, y, w - pad, y + sh};
@@ -901,13 +901,11 @@ struct SessionView final : draw::View {
                draw::kWrap | draw::kMiddle);
         y += sh + scale(14);
         if (host) {
-            header(shellTr(L"Invite links"));
+            header(shellTr(L"Invite"));
             // What each link lets people do (the guest locks: sdlCollabLocks, collabModeLocked).
             const std::wstring note =
-                shellTr(L"Invite people to view or to edit the map. With the edit link, they can change terrain, units, doodads, sprites and "
-                        L"locations. They cannot change triggers, map layers or other map data. Each collaborator works on a local copy of "
-                        L"the map. They can save that copy as it was when they last had access, also after you remove them, reset the links "
-                        L"or end the session. This feature is experimental.");
+                shellTr(L"Editors can change terrain, units, doodads, sprites and locations. Each person keeps a local copy of the map, also "
+                        L"after you remove them.");
             const int nh = c.measureBox(note, w - 2 * pad, draw::kWrap).y;
             c.text({pad, y, w - pad, y + nh}, note, kDim, draw::kWrap);
             y += nh + scale(10);
@@ -922,13 +920,13 @@ struct SessionView final : draw::View {
             const draw::Rect hit{pad, y, w - pad, y + sbh};
             const bool over = surface.hot(hit);
             kitpaint::drawCheckMark(c, box, gAutoAccept, over, true);
-            c.text({box.right + scale(8), y, w - pad, y + sbh}, shellTr(L"Let people with a link in without asking me"), kText, draw::kMiddle);
+            c.text({box.right + scale(8), y, w - pad, y + sbh}, shellTr(L"Let people in without asking"), kText, draw::kMiddle);
             surface.add({hit, nullptr,
                          [] {
                              gAutoAccept = !gAutoAccept;
                              changed();
                          },
-                         shellTr(L"Let people with a link in without asking me"), draw::Cursor::Hand});
+                         shellTr(L"Let people in without asking"), draw::Cursor::Hand});
             y += sbh + scale(14);
         }
         header(shellTr(L"People"));
@@ -977,10 +975,10 @@ struct SessionView final : draw::View {
         if (!host) row(me, true);
         y += scale(10);
         // What the others changed last (a click: the view goes there).
-        header(shellTr(L"Recent changes by others"));
+        header(shellTr(L"Recent changes"));
         const double now = clockNow();
         if (gActivity.empty()) {
-            c.text({pad, y, w - pad, y + sbh}, shellTr(L"None yet"), kFaint, draw::kMiddle);
+            c.text({pad, y, w - pad, y + sbh}, shellTr(L"None"), kFaint, draw::kMiddle);
             y += sbh;
         }
         for (size_t i = 0; i < gActivity.size() && i < 5; ++i) {
