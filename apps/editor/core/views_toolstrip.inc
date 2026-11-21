@@ -74,8 +74,11 @@ bool objectSprayOn() {
     return (app.mode == Mode::Units && currentTool() == USpray) || (app.mode == Mode::Doodads && currentTool() == DSpray) ||
            (app.mode == Mode::Sprites && currentTool() == SSpray);
 }
-// The brush size: Terrain, and the sprays and Erase of Units, Doodads, Sprites and Locations (their radius).
-bool stripHasSize() { return appState().mode == Mode::Terrain || objectSprayOn() || objectEraseOn(); }
+// Terrain's Fog of war tool: its rows (the player, Add fog or Remove fog, the shape: core/fog_layer.inc).
+bool stripHasFog() { return appState().mode == Mode::Terrain && currentTool() == TFog; }
+// The brush size: Terrain (the Fog of war: its Brush only), and the sprays and Erase of Units, Doodads, Sprites and
+// Locations (their radius).
+bool stripHasSize() { return (appState().mode == Mode::Terrain && !(stripHasFog() && gFogTool.shape != 0)) || objectSprayOn() || objectEraseOn(); }
 // Density: the sprays (Terrain, Units, Doodads, Sprites) and the Fill of Units and Doodads (how many).
 bool stripHasDensity() {
     const AppState& app = appState();
@@ -86,7 +89,7 @@ bool stripHasDensity() {
 bool stripHasMix() { return appState().mode == Mode::Terrain && currentTool() == TFill && terrainKind() != 2; }  // (not Custom)
 // More: the terrain tools' less used values, under a fold at the strip's end (Isometric and Rectangle: Detailed tiles,
 // GitHub #257). Its fold, open or closed, is kept in the settings (ToolStripMore).
-bool stripHasMore() { return appState().mode == Mode::Terrain && (terrainKind() == 0 || terrainKind() == 3); }
+bool stripHasMore() { return appState().mode == Mode::Terrain && (terrainKind() == 0 || terrainKind() == 3) && !stripHasFog(); }
 bool& stripMoreOpen() {
     static bool open = [] {
         bool v = false;
@@ -96,9 +99,10 @@ bool& stripMoreOpen() {
     return open;
 }
 // The mirrors: the modes whose edits repeat with them (Rectangle too: its tiles at the mirror images; sprites as units do).
+// Not the Fog of war: the fog has no mirrors.
 bool stripHasMirrors() {
     const AppState& app = appState();
-    return app.mode == Mode::Terrain || app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites;
+    return (app.mode == Mode::Terrain && !stripHasFog()) || app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites;
 }
 
 // The Terrain tool strip's Isometric | Tile: what the terrain tools work on (ISOM terrains, or tiles as they are; Tile
@@ -329,6 +333,7 @@ int toolStripHeight(int width, bool titled) {
     const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + (turnsBeside ? 0 : scale(26) + gap) : 0) +
                       (stripHasDensity() ? scale(26) + gap : 0) +
                       (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0) +  // Terrain: Isometric | Rectangle
+                      (stripHasFog() ? 3 * (scale(26) + gap) : 0) +  // (the Fog of war's rows)
                       (stripHasMore() ? scale(22) + gap + (stripMoreOpen() ? scale(26) + gap : 0) : 0);  // (More, and its rows)
     return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
 }
@@ -718,6 +723,56 @@ public:
             next();
         }
         if (x > 0) x = 0, y += b + gap;
+        // The Fog of war tool's rows (core/fog_layer.inc): the player (1 to 8, All), Add fog or Remove fog, and the
+        // shape. Each row is a segmented choice of equal segments, as the Terrain choice above.
+        if (stripHasFog()) {
+            auto segRow = [&](int n, const std::function<std::wstring(int)>& label, const std::function<std::wstring(int)>& tip, int chosen,
+                              const std::function<void(int)>& pick) {
+                const int sh = scale(26), over = scale(8);
+                for (int i = 0; i < n; ++i) {
+                    const draw::Rect r{W * i / n, y, W * (i + 1) / n, y + sh};
+                    const bool on = chosen == i;
+                    c.pushClip(r);
+                    draw::Rect seg = r;  // (the box drawn wider on the inner sides: the segment's clip cuts it)
+                    if (i > 0) seg.left -= over;
+                    if (i < n - 1) seg.right += over;
+                    c.roundBox(seg, on ? kSel : hot(r) ? kCtlHot : kCtl, on ? kAccentLine : kBorder, float(scale(kModeBoxRadius)));
+                    if (i < n - 1) c.fill({r.right - 1, r.top + 1, r.right, r.bottom - 1}, kBorder);  // the line to the next segment
+                    c.text(r, label(i), on ? kAccent : kText, draw::kCenter | draw::kMiddle | draw::kEllipsis);
+                    c.popClip();
+                    addHit(r, [pick, i] {
+                        pick(i);
+                        shellToolsChanged();
+                        void shellRelayout();
+                        shellRelayout();  // (the Size row comes and goes with the shape)
+                        appState().dirty = true;
+                        shellFocusView();
+                    }, tip(i));
+                }
+                y += sh + gap;
+            };
+            segRow(9, [](int i) { return i < 8 ? std::to_wstring(i + 1) : std::wstring(tr(L"All")); },
+                   [](int i) {
+                       wchar_t buf[160];
+                       if (i < 8) std::swprintf(buf, 160, tr(L"Paint the fog of war of Player %d (%d)"), i + 1, i + 1);
+                       else std::swprintf(buf, 160, L"%ls", tr(L"Paint the fog of war of Player 1 to Player 8 together (9)"));
+                       return std::wstring(buf);
+                   },
+                   std::clamp(gFogTool.player, 0, 8), [](int i) { gFogTool.player = i; });
+            segRow(2, [](int i) { return std::wstring(tr(i ? L"Remove fog" : L"Add fog")); },
+                   [](int i) {
+                       return std::wstring(tr(i ? L"Remove fog: the tiles that you paint are explored when the game starts. Their terrain shows, gray."
+                                                : L"Add fog: the tiles that you paint are black when the game starts, until a unit sees them."));
+                   },
+                   gFogTool.remove ? 1 : 0, [](int i) { gFogTool.remove = i == 1; });
+            segRow(3, [](int i) { return std::wstring(tr(i == 0 ? L"Brush" : i == 1 ? L"Rectangle" : L"Fill")); },
+                   [](int i) {
+                       return std::wstring(tr(i == 0   ? L"Brush: paint with the brush size and shape. Drag to paint more."
+                                              : i == 1 ? L"Rectangle: drag from one corner to the other. Hold Shift for a square."
+                                                       : L"Fill: click to fill the connected tiles that have the same fog. Shift+click fills every tile. A click in the selection fills the selection."));
+                   },
+                   std::clamp(gFogTool.shape, 0, 2), [](int i) { gFogTool.shape = i; });
+        }
         // The brush size and the spray's density: number boxes (the name, the value, up and down arrows).
         // A stepper: - and + at the ends of the box, the value between them (a click there types one).
         // A number's box: its name inside at the left, its value (and a small unit) at the right, the spin's arrows after it,

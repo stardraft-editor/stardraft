@@ -3765,3 +3765,16 @@ A unit casts an order on a point	Eine Einheit wirkt einen Befehl auf einen Punkt
 A unit casts an order on a unit	Eine Einheit wirkt einen Befehl auf eine Einheit
 {unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target	{unit} wirkt {order} auf eine Einheit weniger als {range} Pixel entfernt; {unitloc} auf die Einheit und {pointloc} auf das Ziel setzen
 Key:	Taste:
+Fog of war: paint the fog of war of the player that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.	Kriegsnebel: Malt den Kriegsnebel des Spielers, den Sie unter den Werkzeugen auswählen. Ein Feld mit Nebel ist im Spiel schwarz, bis eine Einheit dieses Spielers es sieht.
+Player 1 to Player 8	Spieler 1 bis Spieler 8
+Paint the fog of war of Player %d (%d)	Kriegsnebel von Spieler %d malen (%d)
+Paint the fog of war of Player 1 to Player 8 together (9)	Kriegsnebel von Spieler 1 bis Spieler 8 zusammen malen (9)
+Add fog	Nebel hinzufügen
+Remove fog	Nebel entfernen
+Add fog: the tiles that you paint are black when the game starts, until a unit sees them.	Nebel hinzufügen: Die gemalten Felder sind beim Spielstart schwarz, bis eine Einheit sie sieht.
+Remove fog: the tiles that you paint are explored when the game starts. Their terrain shows, gray.	Nebel entfernen: Die gemalten Felder sind beim Spielstart erkundet. Ihr Gelände ist grau sichtbar.
+Brush: paint with the brush size and shape. Drag to paint more.	Pinsel: Mit Pinselgröße und -form malen. Ziehen, um mehr zu malen.
+Rectangle: drag from one corner to the other. Hold Shift for a square.	Rechteck: Von einer Ecke zur anderen ziehen. Umschalt halten für ein Quadrat.
+Fill: click to fill the connected tiles that have the same fog. Shift+click fills every tile. A click in the selection fills the selection.	Füllen: Klicken füllt die verbundenen Felder mit demselben Nebel. Umschalt+Klick füllt jedes Feld. Ein Klick in die Auswahl füllt die Auswahl.
+1 to 9	1 bis 9
+Fill every tile	Jedes Feld füllen

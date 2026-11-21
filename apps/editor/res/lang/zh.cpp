@@ -3764,6 +3764,19 @@ constexpr UiText kRows[] = {
     {L"A unit casts an order on a unit", L"\u5355\u4F4D\u5BF9\u5355\u4F4D\u65BD\u653E\u547D\u4EE4"},
     {L"{unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target", L"{unit} \u5BF9\u5C0F\u4E8E {range} \u50CF\u7D20\u8FDC\u7684\u5355\u4F4D\u65BD\u653E {order}\uFF1B\u5C06 {unitloc} \u653E\u5728\u5355\u4F4D\u4E0A\uFF0C\u5C06 {pointloc} \u653E\u5728\u76EE\u6807\u4E0A"},
     {L"Key:", L"\u5FEB\u6377\u952E\uFF1A"},
+    {L"Fog of war: paint the fog of war of the player that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.", L"\u6218\u4E89\u8FF7\u96FE\uFF1A\u7ED8\u5236\u5728\u5DE5\u5177\u4E0B\u65B9\u9009\u62E9\u7684\u73A9\u5BB6\u7684\u6218\u4E89\u8FF7\u96FE\u3002\u6709\u8FF7\u96FE\u7684\u683C\u5B50\u5728\u6E38\u620F\u4E2D\u662F\u9ED1\u8272\u7684\uFF0C\u76F4\u5230\u8BE5\u73A9\u5BB6\u7684\u5355\u4F4D\u770B\u5230\u5B83\u3002"},
+    {L"Player 1 to Player 8", L"\u73A9\u5BB6 1 \u81F3\u73A9\u5BB6 8"},
+    {L"Paint the fog of war of Player %d (%d)", L"\u7ED8\u5236\u73A9\u5BB6 %d \u7684\u6218\u4E89\u8FF7\u96FE (%d)"},
+    {L"Paint the fog of war of Player 1 to Player 8 together (9)", L"\u540C\u65F6\u7ED8\u5236\u73A9\u5BB6 1 \u81F3\u73A9\u5BB6 8 \u7684\u6218\u4E89\u8FF7\u96FE (9)"},
+    {L"Add fog", L"\u6DFB\u52A0\u8FF7\u96FE"},
+    {L"Remove fog", L"\u79FB\u9664\u8FF7\u96FE"},
+    {L"Add fog: the tiles that you paint are black when the game starts, until a unit sees them.", L"\u6DFB\u52A0\u8FF7\u96FE\uFF1A\u7ED8\u5236\u7684\u683C\u5B50\u5728\u6E38\u620F\u5F00\u59CB\u65F6\u662F\u9ED1\u8272\u7684\uFF0C\u76F4\u5230\u6709\u5355\u4F4D\u770B\u5230\u5B83\u4EEC\u3002"},
+    {L"Remove fog: the tiles that you paint are explored when the game starts. Their terrain shows, gray.", L"\u79FB\u9664\u8FF7\u96FE\uFF1A\u7ED8\u5236\u7684\u683C\u5B50\u5728\u6E38\u620F\u5F00\u59CB\u65F6\u5DF2\u63A2\u7D22\u3002\u5176\u5730\u5F62\u4EE5\u7070\u8272\u663E\u793A\u3002"},
+    {L"Brush: paint with the brush size and shape. Drag to paint more.", L"\u753B\u7B14\uFF1A\u4EE5\u753B\u7B14\u7684\u5927\u5C0F\u548C\u5F62\u72B6\u7ED8\u5236\u3002\u62D6\u52A8\u4EE5\u7ED8\u5236\u66F4\u591A\u3002"},
+    {L"Rectangle: drag from one corner to the other. Hold Shift for a square.", L"\u77E9\u5F62\uFF1A\u4ECE\u4E00\u4E2A\u89D2\u62D6\u5230\u53E6\u4E00\u4E2A\u89D2\u3002\u6309\u4F4F Shift \u7ED8\u5236\u6B63\u65B9\u5F62\u3002"},
+    {L"Fill: click to fill the connected tiles that have the same fog. Shift+click fills every tile. A click in the selection fills the selection.", L"\u586B\u5145\uFF1A\u5355\u51FB\u4EE5\u586B\u5145\u5177\u6709\u76F8\u540C\u8FF7\u96FE\u7684\u76F8\u8FDE\u683C\u5B50\u3002Shift+\u5355\u51FB\u586B\u5145\u6240\u6709\u683C\u5B50\u3002\u5728\u9009\u533A\u5185\u5355\u51FB\u586B\u5145\u9009\u533A\u3002"},
+    {L"1 to 9", L"1 \u81F3 9"},
+    {L"Fill every tile", L"\u586B\u5145\u6240\u6709\u683C\u5B50"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

@@ -6,11 +6,11 @@ enum class Drag { None, Pan, AutoPan, PlaceStroke, MoveUnits, BoxSelect, Pending
                   MoveDoodad, MoveSprite, Tiles, PasteStroke, PasteUnitsStroke, Shape, Jumble, Erase, SymmetryCenter, LayerTool, TerrainMove, TerrainLasso, Fog };  // Erase: Units, Doodads, Sprites, Locations  // Shape: a Line or Contour press (core/terrain_shapes.inc)
 
 // Tools per mode (index into these lists).
-const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select", L"Line", L"Contour", L"Polygon", L"Jumble", L"Erase", L"Rectangle", L"Filled rectangle", L"Ellipse", L"Filled ellipse", L"Diamond", L"Filled diamond", L"Bridge", L"Ramp", L"Magic wand", L"Move", L"Lasso"};
+const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select", L"Line", L"Contour", L"Polygon", L"Jumble", L"Erase", L"Rectangle", L"Filled rectangle", L"Ellipse", L"Filled ellipse", L"Diamond", L"Filled diamond", L"Bridge", L"Ramp", L"Magic wand", L"Move", L"Lasso", L"Fog of war"};
 const wchar_t* kLayersTools[] = {L"Move layer"};
 const wchar_t* kUnitTools[] = {L"Place / select", L"Spray", L"Replace (click unit)", L"Fill", L"Erase"};
 const wchar_t* kDoodadTools[] = {L"Place", L"Spray", L"Fill", L"Erase"};
-enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect, TLine, TContour, TPolygon, TJumble, TErase, TRect, TRectFill, TEllipse, TEllipseFill, TDiamond, TDiamondFill, TBridge, TRamp, TWand, TMoveSel, TLasso };
+enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect, TLine, TContour, TPolygon, TJumble, TErase, TRect, TRectFill, TEllipse, TEllipseFill, TDiamond, TDiamondFill, TBridge, TRamp, TWand, TMoveSel, TLasso, TFog };
 enum LayersTool { LayersMove };  // Map Layers (core/map_layers.inc)  // (Line to Polygon, Bridge, Ramp: core/terrain_shapes.inc)
 // Rectangle, Ellipse and Diamond, outline or filled: a drag from one corner to the other (core/terrain_shapes.inc).
 inline bool isBoxTool(int tool) { return tool == TRect || tool == TRectFill || tool == TEllipse || tool == TEllipseFill || tool == TDiamond || tool == TDiamondFill; }
@@ -20,17 +20,21 @@ inline bool isStrokeShape(int tool) { return tool == TLine || tool == TRect || t
 // map's diagonals. Ramp: a stroke along a cliff edge (src/ramps.cpp), as Contour's.
 // The Terrain tools that change the terrain there without the list's pick (it stays picked, faded in the list):
 // Bridge and Ramp (their kits' tiles), Jumble (the terrains under the brush).
-inline bool terrainToolIgnoresPick(int tool) { return tool == TBridge || tool == TRamp || tool == TJumble || tool == TWand || tool == TMoveSel || tool == TLasso; }
-// The "Fog of war" entry at the end of the Isometric terrain list (core/fog_layer.inc): its value in the list (no
-// terrain has it: terrains are 16 bits). With it picked, Brush adds fog for the Units palette's player, Erase removes it,
-// Fill and the filled shapes add it (Drag::Fog).
-constexpr int kFogPick = 0x10000;
-bool fogPicked();                                          // Terrain mode, Isometric, the entry picked
-bool fogMouseDown(float wx, float wy, unsigned mods);      // false: the tool works as with a terrain (Select, Ctrl+click)
+inline bool terrainToolIgnoresPick(int tool) { return tool == TBridge || tool == TRamp || tool == TJumble || tool == TWand || tool == TMoveSel || tool == TLasso || tool == TFog; }
+// Terrain's Fog of war tool (TFog, core/fog_layer.inc): paints the map's fog of war (CHK MASK) of the player that the
+// tool strip selects (Drag::Fog).
+bool fogToolOn();                                     // Terrain mode, the Fog of war tool, a map open
+// The tool's choices in the tool strip (core/views_toolstrip.inc): the player (0 to 7; 8: Player 1 to Player 8 together;
+// the keys 1 to 9), add or remove fog, and the shape (0 Brush, 1 Rectangle, 2 Fill).
+struct FogTool {
+    int player = 0;
+    bool remove = false;
+    int shape = 0;
+};
+inline FogTool gFogTool;
+void fogMouseDown(float wx, float wy, unsigned mods);
 void fogMouseMove(float wx, float wy, unsigned mods);
 void fogMouseUp(float wx, float wy, unsigned mods);
-std::wstring fogPickText();  // the status text: "Fog of war: Player 3. ..."
-std::wstring fogEntryTip();  // the entry's tooltip
 inline bool isShapeTool(int tool) { return tool == TLine || tool == TContour || tool == TPolygon || isBoxTool(tool) || tool == TBridge || tool == TRamp; }
 // The Terrain tool strip's choices (core/views_toolstrip.inc: terrainKind): 0 Isometric, 1 Tile, 2 Custom, 3 Rectangle,
 // and their order in the strip and Mode > Terrain tools: Isometric, Rectangle, Tile, Custom.

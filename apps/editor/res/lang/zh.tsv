@@ -3765,3 +3765,16 @@ A unit casts an order on a point	单位对一点施放命令
 A unit casts an order on a unit	单位对单位施放命令
 {unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target	{unit} 对小于 {range} 像素远的单位施放 {order}；将 {unitloc} 放在单位上，将 {pointloc} 放在目标上
 Key:	快捷键：
+Fog of war: paint the fog of war of the player that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.	战争迷雾：绘制在工具下方选择的玩家的战争迷雾。有迷雾的格子在游戏中是黑色的，直到该玩家的单位看到它。
+Player 1 to Player 8	玩家 1 至玩家 8
+Paint the fog of war of Player %d (%d)	绘制玩家 %d 的战争迷雾 (%d)
+Paint the fog of war of Player 1 to Player 8 together (9)	同时绘制玩家 1 至玩家 8 的战争迷雾 (9)
+Add fog	添加迷雾
+Remove fog	移除迷雾
+Add fog: the tiles that you paint are black when the game starts, until a unit sees them.	添加迷雾：绘制的格子在游戏开始时是黑色的，直到有单位看到它们。
+Remove fog: the tiles that you paint are explored when the game starts. Their terrain shows, gray.	移除迷雾：绘制的格子在游戏开始时已探索。其地形以灰色显示。
+Brush: paint with the brush size and shape. Drag to paint more.	画笔：以画笔的大小和形状绘制。拖动以绘制更多。
+Rectangle: drag from one corner to the other. Hold Shift for a square.	矩形：从一个角拖到另一个角。按住 Shift 绘制正方形。
+Fill: click to fill the connected tiles that have the same fog. Shift+click fills every tile. A click in the selection fills the selection.	填充：单击以填充具有相同迷雾的相连格子。Shift+单击填充所有格子。在选区内单击填充选区。
+1 to 9	1 至 9
+Fill every tile	填充所有格子

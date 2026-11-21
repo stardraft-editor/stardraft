@@ -3765,3 +3765,16 @@ A unit casts an order on a point	Uma unidade lança uma ordem em um ponto
 A unit casts an order on a unit	Uma unidade lança uma ordem em uma unidade
 {unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target	{unit} lança {order} em uma unidade a menos de {range} pixels; colocar {unitloc} nela e {pointloc} no alvo
 Key:	Tecla:
+Fog of war: paint the fog of war of the player that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.	Névoa de guerra: pinta a névoa de guerra do jogador que você seleciona abaixo das ferramentas. Um ladrilho com névoa fica preto no jogo até que uma unidade desse jogador o veja.
+Player 1 to Player 8	Jogador 1 a Jogador 8
+Paint the fog of war of Player %d (%d)	Pintar a névoa de guerra do Jogador %d (%d)
+Paint the fog of war of Player 1 to Player 8 together (9)	Pintar a névoa de guerra do Jogador 1 ao Jogador 8 juntos (9)
+Add fog	Adicionar névoa
+Remove fog	Remover névoa
+Add fog: the tiles that you paint are black when the game starts, until a unit sees them.	Adicionar névoa: os ladrilhos que você pinta ficam pretos no início do jogo, até que uma unidade os veja.
+Remove fog: the tiles that you paint are explored when the game starts. Their terrain shows, gray.	Remover névoa: os ladrilhos que você pinta ficam explorados no início do jogo. O terreno aparece, em cinza.
+Brush: paint with the brush size and shape. Drag to paint more.	Pincel: pinta com o tamanho e a forma do pincel. Arraste para pintar mais.
+Rectangle: drag from one corner to the other. Hold Shift for a square.	Retângulo: arraste de um canto ao outro. Segure Shift para um quadrado.
+Fill: click to fill the connected tiles that have the same fog. Shift+click fills every tile. A click in the selection fills the selection.	Preencher: clique para preencher os ladrilhos conectados que têm a mesma névoa. Shift+clique preenche todos os ladrilhos. Um clique na seleção preenche a seleção.
+1 to 9	1 a 9
+Fill every tile	Preencher todos os ladrilhos

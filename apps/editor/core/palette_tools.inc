@@ -322,7 +322,6 @@ std::wstring itemLabel(const AppState& app, int v) {
     Editor& ed = *app.ed;
     switch (app.mode) {
     case Mode::Terrain: {
-        if (v == kFogPick) return tr(L"Fog of war");
         return widen(ed.terrainName(uint16_t(v)));
     }
     case Mode::Units:
@@ -357,7 +356,6 @@ void rebuildList(AppState& app) {
                 for (uint16_t i = 1; i <= t->terrainCount(); ++i)
                     if (t->isTerrain(i)) all.push_back(i);
                 for (const Tileset::ModTerrain& m : ed.tileset().modTerrains) all.push_back(m.id);  // (a mod's own: Cosmonarchy tabs)
-                all.push_back(kFogPick);  // (core/fog_layer.inc)
             }
             break;
 
@@ -485,7 +483,6 @@ void recentPickAdd(const AppState& app, int v);  // (core/palette_items.inc: the
 inline bool gRecentPickHold = false;  // (a step through the palette's list, shellPaletteStep: not a pick to keep)
 void pickUnit(AppState& app, int v, bool add) {
     if (!app.ed || v < 0) return;
-    if (app.mode == Mode::Terrain && (v == kFogPick || app.palette == kFogPick)) add = false;  // (the Fog of war is no terrain to mix)
     if (!add && !gRecentPickHold) recentPickAdd(app, v);
     if (app.mode == Mode::Terrain || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
         // Terrain: paint with it (leaving Select / copy); doodads and sprites: place it. Ctrl adds it to the picks (or
@@ -509,8 +506,6 @@ void pickUnit(AppState& app, int v, bool add) {
             setMessage(app, L"Selected " + std::to_wstring(shellPaletteChosen().size()) +
                                 (app.mode == Mode::Terrain ? L" terrains" : app.mode == Mode::Sprites ? L" sprites" : L" doodads") +
                                 L": Spray and Fill put them at random");
-        else if (app.mode == Mode::Terrain && app.palette == kFogPick)
-            setMessage(app, fogPickText());
         else if (app.palette >= 0)
             setMessage(app, (app.mode == Mode::Terrain ? L"Painting " : app.mode == Mode::Sprites ? L"Placing sprite " : L"Placing doodad ") + paletteItemName(app.palette) +
 
@@ -582,9 +577,16 @@ constexpr const wchar_t* kDiamondFillTip = L"Filled diamond: drag across the box
 constexpr const wchar_t* kPolygonTip = L"Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.";
 constexpr const wchar_t* kBridgeTip = L"Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.";
 constexpr const wchar_t* kRampTip = L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces. Hold Shift to make a ramp the cliff again.";
+constexpr const wchar_t* kFogTip = L"Fog of war: paint the fog of war of the player that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.";
 // The Terrain tools with the Bridge and the Ramp at their end, where the map's tileset has them (src/bridges.cpp,
-// src/ramps.cpp): one group's button when it has both.
+// src/ramps.cpp): one group's button when it has both. Then the Fog of war (core/fog_layer.inc).
+std::vector<StripItem> withBridgeOnly(std::vector<StripItem> tools);
 std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
+    tools = withBridgeOnly(std::move(tools));
+    tools.push_back({UiIcon::Fog, kFogTip, TFog, false});
+    return tools;
+}
+std::vector<StripItem> withBridgeOnly(std::vector<StripItem> tools) {
     AppState& app = appState();
     // Move: first, beside Select, as it works on what Select selected.
     tools.insert(tools.begin(), StripItem{UiIcon::MoveAll, L"Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.", TMoveSel, false});
@@ -667,7 +669,8 @@ std::vector<StripItem> stripTools(Mode m) {
 }
 // The key of a strip tool (ID_TOOL_KEY + it): 0 V select, 1 B brush or place, 2 A spray, 3 F fill; (ID_SHAPE_KEY + it - 4)
 // 4 I line, 5 O contour, 6 P polygon, 7 X jumble, 8 E erase, 9 H bridge, 10 J ramp, 11 W magic wand, 12 K lasso,
-// 13 M move, 14 N rectangle (Shift: filled), 16 C ellipse (Shift: filled), 18 Z diamond (Shift: filled); -1 none.
+// 13 M move, 14 N rectangle (Shift: filled), 16 C ellipse (Shift: filled), 18 Z diamond (Shift: filled), 20 Shift+F fog of
+// war; -1 none.
 int stripToolKey(const StripItem& it) {
     if (it.select) return 0;
     if (it.icon == UiIcon::Spray) return 2;
@@ -689,12 +692,13 @@ int stripToolKey(const StripItem& it) {
     if (it.icon == UiIcon::EllipseFill) return 17;
     if (it.icon == UiIcon::Diamond) return 18;
     if (it.icon == UiIcon::DiamondFill) return 19;
+    if (it.icon == UiIcon::Fog) return 20;
     return -1;
 }
 
 // The name of that key, for a tool's tip.
 const wchar_t* stripKeyName(int key) {
-    static const wchar_t* const names[] = {L"V", L"B", L"A", L"F", L"I", L"O", L"P", L"X", L"E", L"H", L"J", L"W", L"K", L"M", L"N", L"Shift+N", L"C", L"Shift+C", L"Z", L"Shift+Z"};
+    static const wchar_t* const names[] = {L"V", L"B", L"A", L"F", L"I", L"O", L"P", L"X", L"E", L"H", L"J", L"W", L"K", L"M", L"N", L"Shift+N", L"C", L"Shift+C", L"Z", L"Shift+Z", L"Shift+F"};
     return names[key];
 }
 // The key of a strip tool at the end of its tip: " Key: V." (-1: none).

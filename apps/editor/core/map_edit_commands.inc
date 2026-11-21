@@ -39,7 +39,7 @@ constexpr ProgramKey kProgramKeys[] = {
     {"T", ID_CT_ADD_TRIGGER},      {"C", ID_CT_ADD_CONDITION},       {"A", ID_CT_ADD_ACTION},  // (before the tools' A: on the Classic triggers page only)
     {"V", ID_TOOL_KEY},            {"K", ID_SHAPE_KEY + 8},        {"M", ID_SHAPE_KEY + 9},          {"N", ID_SHAPE_KEY + 10},
     {"Shift+N", ID_SHAPE_KEY + 11}, {"C", ID_SHAPE_KEY + 12},        {"Shift+C", ID_SHAPE_KEY + 13},     {"Z", ID_SHAPE_KEY + 14},
-    {"Shift+Z", ID_SHAPE_KEY + 15},
+    {"Shift+Z", ID_SHAPE_KEY + 15}, {"Shift+F", ID_SHAPE_KEY + 16},
     {"B", ID_TOOL_KEY + 1},        {"A", ID_TOOL_KEY + 2},           {"F", ID_TOOL_KEY + 3},             {"I", ID_SHAPE_KEY},          {"W", ID_SHAPE_KEY + 7},
     {"O", ID_SHAPE_KEY + 1},       {"P", ID_SHAPE_KEY + 2},          {"X", ID_SHAPE_KEY + 3},            {"E", ID_SHAPE_KEY + 4},            {"H", ID_SHAPE_KEY + 5},            {"J", ID_SHAPE_KEY + 6},            {"Ctrl+1", ID_RAIL_KEY},
     {"Ctrl+2", ID_RAIL_KEY + 1},   {"Ctrl+3", ID_RAIL_KEY + 2},      {"Ctrl+4", ID_RAIL_KEY + 3},        {"Ctrl+5", ID_RAIL_KEY + 4},
@@ -478,6 +478,14 @@ bool commandMapEdit(AppState& app, int id) {
         const int player = id - ID_PLAYER_1;
         // Terrain mode: the key picks the palette's terrain at that place (1 the first, 0 the tenth; the headers do not
         // count), as a click on its row does.
+        if (app.ed && app.mode == Mode::Terrain && currentTool(app) == TFog) {  // the Fog of war tool: its player (9: Player 1 to Player 8)
+            if (player <= 8) {
+                gFogTool.player = player;
+                shellToolsChanged();
+                app.dirty = true;
+            }
+            return true;
+        }
         if (app.ed && app.mode == Mode::Terrain) {
             int nth = 0;
             for (size_t i = 0; i < app.items.size(); ++i)
@@ -710,7 +718,8 @@ bool commandMapEdit(AppState& app, int id) {
     case ID_SHAPE_KEY + 12:
     case ID_SHAPE_KEY + 13:
     case ID_SHAPE_KEY + 14:
-    case ID_SHAPE_KEY + 15: stripToolByKey(4 + id - ID_SHAPE_KEY); break;
+    case ID_SHAPE_KEY + 15:
+    case ID_SHAPE_KEY + 16: stripToolByKey(4 + id - ID_SHAPE_KEY); break;
     case ID_TERRAIN_KIND_NEXT:  // (the Terrain tool strip's choice: another mode has none)
         if (app.mode == Mode::Terrain) setTerrainKind(nextTerrainKind(terrainKind()));
         break;

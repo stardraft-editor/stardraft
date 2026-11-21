@@ -141,7 +141,7 @@ bool tilesStampOn() { return !gTiles->solid && (gTiles->stamp.size() > 1 || (!gT
 void tilesToBrush() {
     AppState& app = appState();
     app.terrainPasting = false;
-    if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || currentTool(app) == TWand || currentTool(app) == TLasso || currentTool(app) == TErase)) {
+    if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || currentTool(app) == TWand || currentTool(app) == TLasso || currentTool(app) == TErase || currentTool(app) == TFog)) {
         app.toolByMode[int(Mode::Terrain)] = TBrush;
         fillToolCombo(app);
     }

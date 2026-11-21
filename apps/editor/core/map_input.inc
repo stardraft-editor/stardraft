@@ -329,7 +329,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     if (modeLayerHidden()) return modeLayerHiddenClick();  // (core/map_edit.inc)
     if (terrainEditBlockedAt(app, wx, wy)) return terrainEditBlockedMessage();  // (Terrain: on the map only)
     if (trigUnitPickClick(wx, wy)) return;
-    if (mapLayersEraseOn(app) && !(mods & draw::kCtrl) && !fogPicked()) return mapLayersEraseDown(app, wx, wy);  // (Ctrl+click: picks the terrain, below)
+    if (mapLayersEraseOn(app) && !(mods & draw::kCtrl)) return mapLayersEraseDown(app, wx, wy);  // (Ctrl+click: picks the terrain, below)
     if (app.mode == Mode::Layers) return mapLayersMoveDown(app, wx, wy);
     if (app.pasting) {
         // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted
@@ -437,7 +437,10 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         break;
     }
     case Mode::Terrain: {
-        if (fogPicked() && fogMouseDown(wx, wy, mods)) break;  // the list's Fog of war (core/fog_layer.inc)
+        if (fogToolOn()) {  // the Fog of war tool (core/fog_layer.inc)
+            fogMouseDown(wx, wy, mods);
+            break;
+        }
         if (currentTool(app) == TMoveSel) {  // Move: the selection follows the drag; it moves at the release
             if (!app.hasTerrainSel) {
                 setMessage(app, L"Select terrain first, with Select, the Lasso or the Magic wand");
@@ -1160,7 +1163,8 @@ bool fillClickFills(AppState& app) {
 bool terrainEditBlockedAt(const AppState& app, float wx, float wy) {
     if (app.mode != Mode::Terrain || !app.ed || app.drag != Drag::None || shapeOn()) return false;
     const int tool = currentTool(app);
-    if (tool == TSelect || tool == TMoveSel || tool == TLasso || tool == TWand || tool == TLine || tool == TContour || tool == TPolygon || isBoxTool(tool))
+    if (tool == TSelect || tool == TMoveSel || tool == TLasso || tool == TWand || tool == TLine || tool == TContour || tool == TPolygon || isBoxTool(tool) ||
+        (tool == TFog && gFogTool.shape == 1))  // (the Fog of war's Rectangle: its tiles on the map only)
         return false;
     return wx < 0 || wy < 0 || wx >= app.ed->width() * 32.0f || wy >= app.ed->height() * 32.0f;
 }
@@ -1230,7 +1234,7 @@ bool mapCancelStep(AppState& app) {
         return true;
     }
     if (const bool pressed = app.drag == Drag::Shape; shapeCancel()) return pressed;  // (Line, Contour, Polygon: the shape only)
-    if (app.drag == Drag::Fog) {  // (the list's Fog of war: the brush's press so far is one undo step; a box: nothing)
+    if (app.drag == Drag::Fog) {  // (the Fog of war tool: the brush's press so far is one undo step; a box: nothing)
         if (app.ed) app.ed->endStroke();
         app.drag = Drag::None, app.dirty = true;
         return true;
@@ -1376,7 +1380,7 @@ bool mapArrowKey(AppState& app, int dx, int dy, bool big, bool ctrl) {
 bool mapBrushActive(const AppState& app) {
     return (app.mode == Mode::Terrain && (currentTool() == TBrush || currentTool() == TSpray || isStrokeShape(currentTool()) ||
                                           currentTool() == TBridge || currentTool() == TRamp || (currentTool() == TJumble && !app.terrainRect))) ||
-           objectSprayOn() || objectEraseOn() || (app.mode == Mode::Terrain && currentTool() == TErase);
+           objectSprayOn() || objectEraseOn() || (app.mode == Mode::Terrain && (currentTool() == TErase || (currentTool() == TFog && gFogTool.shape == 0)));
 }
 bool mapBrushWheel(AppState& app, bool up) {
     if (!mapBrushActive(app)) return false;

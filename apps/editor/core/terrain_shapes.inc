@@ -38,8 +38,7 @@ void shapeReset() { gShape = TerrainShape{}; }
 bool shapeOn() {
     if (gShape.tool < 0) return false;
     const AppState& app = appState();
-    // (the list's Fog of war: no shape; one under way goes, as its terrain is no longer picked)
-    if (app.ed && gShape.ed == app.ed.get() && app.ed->isOpen() && app.mode == Mode::Terrain && currentTool(app) == gShape.tool && !fogPicked()) return true;
+    if (app.ed && gShape.ed == app.ed.get() && app.ed->isOpen() && app.mode == Mode::Terrain && currentTool(app) == gShape.tool) return true;
     shapeReset();
     return false;
 }

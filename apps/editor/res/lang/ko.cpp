@@ -3792,6 +3792,19 @@ constexpr UiText kRows[] = {
     {L"A unit casts an order on a unit", L"\uC720\uB2DB\uC774 \uC720\uB2DB\uC5D0 \uBA85\uB839\uC744 \uC0AC\uC6A9"},
     {L"{unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target", L"{unit}\uC774(\uAC00) {range}\uD53D\uC140 \uBBF8\uB9CC \uAC70\uB9AC\uC758 \uC720\uB2DB\uC5D0 {order} \uC0AC\uC6A9; {unitloc}\uC744(\uB97C) \uC720\uB2DB\uC5D0, {pointloc}\uC744(\uB97C) \uB300\uC0C1\uC5D0 \uB193\uAE30"},
     {L"Key:", L"\uB2E8\uCD95\uD0A4:"},
+    {L"Fog of war: paint the fog of war of the player that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.", L"\uC804\uC7A5\uC758 \uC548\uAC1C: \uB3C4\uAD6C \uC544\uB798\uC5D0\uC11C \uC120\uD0DD\uD55C \uD50C\uB808\uC774\uC5B4\uC758 \uC804\uC7A5\uC758 \uC548\uAC1C\uB97C \uCE60\uD569\uB2C8\uB2E4. \uC548\uAC1C\uAC00 \uC788\uB294 \uD0C0\uC77C\uC740 \uADF8 \uD50C\uB808\uC774\uC5B4\uC758 \uC720\uB2DB\uC774 \uBCFC \uB54C\uAE4C\uC9C0 \uAC8C\uC784\uC5D0\uC11C \uAC80\uC740\uC0C9\uC785\uB2C8\uB2E4."},
+    {L"Player 1 to Player 8", L"\uD50C\uB808\uC774\uC5B4 1 ~ \uD50C\uB808\uC774\uC5B4 8"},
+    {L"Paint the fog of war of Player %d (%d)", L"\uD50C\uB808\uC774\uC5B4 %d\uC758 \uC804\uC7A5\uC758 \uC548\uAC1C \uCE60\uD558\uAE30 (%d)"},
+    {L"Paint the fog of war of Player 1 to Player 8 together (9)", L"\uD50C\uB808\uC774\uC5B4 1 ~ \uD50C\uB808\uC774\uC5B4 8\uC758 \uC804\uC7A5\uC758 \uC548\uAC1C\uB97C \uD568\uAED8 \uCE60\uD558\uAE30 (9)"},
+    {L"Add fog", L"\uC548\uAC1C \uCD94\uAC00"},
+    {L"Remove fog", L"\uC548\uAC1C \uC81C\uAC70"},
+    {L"Add fog: the tiles that you paint are black when the game starts, until a unit sees them.", L"\uC548\uAC1C \uCD94\uAC00: \uCE60\uD55C \uD0C0\uC77C\uC740 \uAC8C\uC784 \uC2DC\uC791 \uC2DC \uC720\uB2DB\uC774 \uBCFC \uB54C\uAE4C\uC9C0 \uAC80\uC740\uC0C9\uC785\uB2C8\uB2E4."},
+    {L"Remove fog: the tiles that you paint are explored when the game starts. Their terrain shows, gray.", L"\uC548\uAC1C \uC81C\uAC70: \uCE60\uD55C \uD0C0\uC77C\uC740 \uAC8C\uC784 \uC2DC\uC791 \uC2DC \uD0D0\uC0C9\uB41C \uC0C1\uD0DC\uC785\uB2C8\uB2E4. \uC9C0\uD615\uC774 \uD68C\uC0C9\uC73C\uB85C \uBCF4\uC785\uB2C8\uB2E4."},
+    {L"Brush: paint with the brush size and shape. Drag to paint more.", L"\uBE0C\uB7EC\uC2DC: \uBE0C\uB7EC\uC2DC \uD06C\uAE30\uC640 \uBAA8\uC591\uC73C\uB85C \uCE60\uD569\uB2C8\uB2E4. \uB4DC\uB798\uADF8\uD558\uBA74 \uB354 \uCE60\uD569\uB2C8\uB2E4."},
+    {L"Rectangle: drag from one corner to the other. Hold Shift for a square.", L"\uC0AC\uAC01\uD615: \uD55C \uBAA8\uC11C\uB9AC\uC5D0\uC11C \uB2E4\uB978 \uBAA8\uC11C\uB9AC\uB85C \uB4DC\uB798\uADF8\uD569\uB2C8\uB2E4. Shift\uB97C \uB204\uB974\uBA74 \uC815\uC0AC\uAC01\uD615\uC785\uB2C8\uB2E4."},
+    {L"Fill: click to fill the connected tiles that have the same fog. Shift+click fills every tile. A click in the selection fills the selection.", L"\uCC44\uC6B0\uAE30: \uD074\uB9AD\uD558\uBA74 \uAC19\uC740 \uC548\uAC1C\uB97C \uAC00\uC9C4 \uC5F0\uACB0\uB41C \uD0C0\uC77C\uC744 \uCC44\uC6C1\uB2C8\uB2E4. Shift+\uD074\uB9AD\uC740 \uBAA8\uB4E0 \uD0C0\uC77C\uC744 \uCC44\uC6C1\uB2C8\uB2E4. \uC120\uD0DD \uC601\uC5ED \uC548\uC744 \uD074\uB9AD\uD558\uBA74 \uC120\uD0DD \uC601\uC5ED\uC744 \uCC44\uC6C1\uB2C8\uB2E4."},
+    {L"1 to 9", L"1 ~ 9"},
+    {L"Fill every tile", L"\uBAA8\uB4E0 \uD0C0\uC77C \uCC44\uC6B0\uAE30"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

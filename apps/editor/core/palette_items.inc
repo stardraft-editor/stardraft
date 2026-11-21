@@ -176,7 +176,6 @@ std::vector<PaletteUnit> paletteItems(AppState& app) {
             if (t->isTerrain(i)) add(i, widen(ed.terrainName(i))), under(i, 0);
         for (size_t k = 0; k < mods.size(); ++k)
             if (!listed[k] && !mods[k].variantOf) listed[k] = true, add(mods[k].id, widen(mods[k].name)), under(mods[k].id, 0);
-        add(kFogPick, tr(L"Fog of war"));  // (not a terrain: Brush and Erase paint the MASK, core/fog_layer.inc)
         return out;
 
     }

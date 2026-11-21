@@ -3764,6 +3764,19 @@ constexpr UiText kRows[] = {
     {L"A unit casts an order on a unit", L"Eine Einheit wirkt einen Befehl auf eine Einheit"},
     {L"{unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target", L"{unit} wirkt {order} auf eine Einheit weniger als {range} Pixel entfernt; {unitloc} auf die Einheit und {pointloc} auf das Ziel setzen"},
     {L"Key:", L"Taste:"},
+    {L"Fog of war: paint the fog of war of the player that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.", L"Kriegsnebel: Malt den Kriegsnebel des Spielers, den Sie unter den Werkzeugen ausw\u00E4hlen. Ein Feld mit Nebel ist im Spiel schwarz, bis eine Einheit dieses Spielers es sieht."},
+    {L"Player 1 to Player 8", L"Spieler 1 bis Spieler 8"},
+    {L"Paint the fog of war of Player %d (%d)", L"Kriegsnebel von Spieler %d malen (%d)"},
+    {L"Paint the fog of war of Player 1 to Player 8 together (9)", L"Kriegsnebel von Spieler 1 bis Spieler 8 zusammen malen (9)"},
+    {L"Add fog", L"Nebel hinzuf\u00FCgen"},
+    {L"Remove fog", L"Nebel entfernen"},
+    {L"Add fog: the tiles that you paint are black when the game starts, until a unit sees them.", L"Nebel hinzuf\u00FCgen: Die gemalten Felder sind beim Spielstart schwarz, bis eine Einheit sie sieht."},
+    {L"Remove fog: the tiles that you paint are explored when the game starts. Their terrain shows, gray.", L"Nebel entfernen: Die gemalten Felder sind beim Spielstart erkundet. Ihr Gel\u00E4nde ist grau sichtbar."},
+    {L"Brush: paint with the brush size and shape. Drag to paint more.", L"Pinsel: Mit Pinselgr\u00F6\u00DFe und -form malen. Ziehen, um mehr zu malen."},
+    {L"Rectangle: drag from one corner to the other. Hold Shift for a square.", L"Rechteck: Von einer Ecke zur anderen ziehen. Umschalt halten f\u00FCr ein Quadrat."},
+    {L"Fill: click to fill the connected tiles that have the same fog. Shift+click fills every tile. A click in the selection fills the selection.", L"F\u00FCllen: Klicken f\u00FCllt die verbundenen Felder mit demselben Nebel. Umschalt+Klick f\u00FCllt jedes Feld. Ein Klick in die Auswahl f\u00FCllt die Auswahl."},
+    {L"1 to 9", L"1 bis 9"},
+    {L"Fill every tile", L"Jedes Feld f\u00FCllen"},
 };
 }  // namespace
 std::span<const UiText> langTableDe() { return kRows; }

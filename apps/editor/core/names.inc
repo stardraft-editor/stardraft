@@ -42,7 +42,6 @@ std::wstring paletteItemNameOf(Mode mode, int v) {
     AppState& app = shellState();
     if (!app.ed || v < 0) return L"";
     if (mode == Mode::Terrain) {
-        if (v == kFogPick) return tr(L"Fog of war");
         return widen(app.ed->terrainName(uint16_t(v)));
     }
 

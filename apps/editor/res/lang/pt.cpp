@@ -3764,6 +3764,19 @@ constexpr UiText kRows[] = {
     {L"A unit casts an order on a unit", L"Uma unidade lan\u00E7a uma ordem em uma unidade"},
     {L"{unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target", L"{unit} lan\u00E7a {order} em uma unidade a menos de {range} pixels; colocar {unitloc} nela e {pointloc} no alvo"},
     {L"Key:", L"Tecla:"},
+    {L"Fog of war: paint the fog of war of the player that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.", L"N\u00E9voa de guerra: pinta a n\u00E9voa de guerra do jogador que voc\u00EA seleciona abaixo das ferramentas. Um ladrilho com n\u00E9voa fica preto no jogo at\u00E9 que uma unidade desse jogador o veja."},
+    {L"Player 1 to Player 8", L"Jogador 1 a Jogador 8"},
+    {L"Paint the fog of war of Player %d (%d)", L"Pintar a n\u00E9voa de guerra do Jogador %d (%d)"},
+    {L"Paint the fog of war of Player 1 to Player 8 together (9)", L"Pintar a n\u00E9voa de guerra do Jogador 1 ao Jogador 8 juntos (9)"},
+    {L"Add fog", L"Adicionar n\u00E9voa"},
+    {L"Remove fog", L"Remover n\u00E9voa"},
+    {L"Add fog: the tiles that you paint are black when the game starts, until a unit sees them.", L"Adicionar n\u00E9voa: os ladrilhos que voc\u00EA pinta ficam pretos no in\u00EDcio do jogo, at\u00E9 que uma unidade os veja."},
+    {L"Remove fog: the tiles that you paint are explored when the game starts. Their terrain shows, gray.", L"Remover n\u00E9voa: os ladrilhos que voc\u00EA pinta ficam explorados no in\u00EDcio do jogo. O terreno aparece, em cinza."},
+    {L"Brush: paint with the brush size and shape. Drag to paint more.", L"Pincel: pinta com o tamanho e a forma do pincel. Arraste para pintar mais."},
+    {L"Rectangle: drag from one corner to the other. Hold Shift for a square.", L"Ret\u00E2ngulo: arraste de um canto ao outro. Segure Shift para um quadrado."},
+    {L"Fill: click to fill the connected tiles that have the same fog. Shift+click fills every tile. A click in the selection fills the selection.", L"Preencher: clique para preencher os ladrilhos conectados que t\u00EAm a mesma n\u00E9voa. Shift+clique preenche todos os ladrilhos. Um clique na sele\u00E7\u00E3o preenche a sele\u00E7\u00E3o."},
+    {L"1 to 9", L"1 a 9"},
+    {L"Fill every tile", L"Preencher todos os ladrilhos"},
 };
 }  // namespace
 std::span<const UiText> langTablePt() { return kRows; }

@@ -3764,6 +3764,19 @@ constexpr UiText kRows[] = {
     {L"A unit casts an order on a unit", L"Une unit\u00E9 lance un ordre sur une unit\u00E9"},
     {L"{unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target", L"{unit} lance {order} sur une unit\u00E9 \u00E0 moins de {range} pixels ; mettre {unitloc} sur elle et {pointloc} sur la cible"},
     {L"Key:", L"Touche:"},
+    {L"Fog of war: paint the fog of war of the player that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.", L"Brouillard de guerre : peint le brouillard de guerre du joueur que vous s\u00E9lectionnez sous les outils. Une case avec du brouillard est noire dans le jeu jusqu'\u00E0 ce qu'une unit\u00E9 de ce joueur la voie."},
+    {L"Player 1 to Player 8", L"Joueur 1 \u00E0 Joueur 8"},
+    {L"Paint the fog of war of Player %d (%d)", L"Peindre le brouillard de guerre du Joueur %d (%d)"},
+    {L"Paint the fog of war of Player 1 to Player 8 together (9)", L"Peindre le brouillard de guerre du Joueur 1 au Joueur 8 ensemble (9)"},
+    {L"Add fog", L"Ajouter du brouillard"},
+    {L"Remove fog", L"Retirer le brouillard"},
+    {L"Add fog: the tiles that you paint are black when the game starts, until a unit sees them.", L"Ajouter du brouillard : les cases peintes sont noires au d\u00E9but de la partie, jusqu'\u00E0 ce qu'une unit\u00E9 les voie."},
+    {L"Remove fog: the tiles that you paint are explored when the game starts. Their terrain shows, gray.", L"Retirer le brouillard : les cases peintes sont explor\u00E9es au d\u00E9but de la partie. Leur terrain se voit, en gris."},
+    {L"Brush: paint with the brush size and shape. Drag to paint more.", L"Pinceau : peint avec la taille et la forme du pinceau. Faites glisser pour peindre plus."},
+    {L"Rectangle: drag from one corner to the other. Hold Shift for a square.", L"Rectangle : faites glisser d'un coin \u00E0 l'autre. Maintenez Maj pour un carr\u00E9."},
+    {L"Fill: click to fill the connected tiles that have the same fog. Shift+click fills every tile. A click in the selection fills the selection.", L"Remplissage : cliquez pour remplir les cases connect\u00E9es qui ont le m\u00EAme brouillard. Maj+clic remplit toutes les cases. Un clic dans la s\u00E9lection remplit la s\u00E9lection."},
+    {L"1 to 9", L"1 \u00E0 9"},
+    {L"Fill every tile", L"Remplir toutes les cases"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }
