@@ -1,5 +1,5 @@
 // The recolor CRIGs (include/stardraft/mods/cmbw.h: Recolor): the mod's exe plugin's palette recolor, its line's
-// syntax as the plugin's trigger parser reads it, and the map's recolor lines.
+// syntax as the plugin's trigger parser reads it.
 
 #include <algorithm>
 #include <cctype>
@@ -8,6 +8,12 @@
 #include <cstdio>
 
 #include "stardraft/mods/cmbw.h"
+
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma fp_contract(off)
+#else
+#pragma STDC FP_CONTRACT OFF
+#endif
 
 namespace stardraft::cmbw {
 
@@ -58,11 +64,16 @@ bool readFloat(const std::string& s, size_t& at, float& out) {
     while (at < s.size() && wordChar(s[at])) ++at;
     if (at == start) return false;
     const auto r = std::from_chars(s.data() + start, s.data() + at, out);
-    return r.ec == std::errc{};
+    return r.ec == std::errc{} && r.ptr == s.data() + at;
 }
 
 // The parser's get_time_seconds_raw: numbers with h, m, s, t (ticks: 1/24 s) or ms; a last number without one is
 // whole seconds (rounded up).
+bool toNumber(const std::string& token, double& v) {
+    const size_t skip = !token.empty() && token[0] == '+' ? 1 : 0;
+    const auto r = std::from_chars(token.data() + skip, token.data() + token.size(), v);
+    return r.ec == std::errc{} && r.ptr == token.data() + token.size();
+}
 bool readSeconds(const std::string& s, size_t& at, double& out) {
     out = 0;
     std::string token;
@@ -73,7 +84,7 @@ bool readSeconds(const std::string& s, size_t& at, double& out) {
             continue;
         }
         double v = 0;
-        if (std::from_chars(token.data(), token.data() + token.size(), v).ec != std::errc{}) return false;
+        if (!toNumber(token, v)) return false;
         if (c == 'm' && at + 1 < s.size() && s[at + 1] == 's') out += v / 1000, at += 2;
         else if (c == 'h') out += v * 3600, ++at;
         else if (c == 'm') out += v * 60, ++at;
@@ -84,7 +95,7 @@ bool readSeconds(const std::string& s, size_t& at, double& out) {
     }
     if (!token.empty()) {
         double v = 0;
-        if (std::from_chars(token.data(), token.data() + token.size(), v).ec != std::errc{}) return false;
+        if (!toNumber(token, v)) return false;
         out += std::ceil(v);
     }
     return true;
@@ -119,18 +130,19 @@ bool parseRecolorLine(const std::string& line, RecolorValue& out) {
     for (;;) {  // (get_recolor_set: the stops while the next character after the spaces is "(")
         while (at < line.size() && spaceChar(line[at])) ++at;
         if (at >= line.size() || line[at] != '(') break;
-        if (v.stops.size() >= kRecolorStops) return false;  // (the plugin reads 16; the rest would be the time)
+        if (v.stops.size() >= kRecolorStops) break;  // (the plugin reads 16; the rest is read as the time, which fails: 0)
         ++at;
         Recolor r;
         if (!readFloat(line, at, r.r) || !readFloat(line, at, r.g) || !readFloat(line, at, r.b) || !readFloat(line, at, r.gamma) ||
             !readFloat(line, at, r.saturation))
             return false;
+        while (at < line.size() && line[at] != '\n' && spaceChar(line[at])) ++at;  // (get_char skips the spaces)
         if (at < line.size() && line[at] == ')') ++at;
         v.stops.push_back(r);
     }
     if (v.stops.empty()) return false;
     while (at < line.size() && spaceChar(line[at])) ++at;
-    if (at < line.size() && !readSeconds(line, at, v.seconds)) return false;
+    if (at < line.size() && !readSeconds(line, at, v.seconds)) v.seconds = 0;  // (the plugin: a time it cannot read is 0)
     out = std::move(v);
     return true;
 }
@@ -154,27 +166,6 @@ void recolorRgb(const std::vector<Recolor>& stops, uint8_t& r, uint8_t& g, uint8
     const uint8_t ng = mixColor(float(g / 255.0), c.g * c.gamma, c.saturation, brightness);
     const uint8_t nb = mixColor(float(b / 255.0), c.b * c.gamma, c.saturation, brightness);
     r = nr, g = ng, b = nb;
-}
-
-std::vector<RecolorLineRef> recolorLines(const Chk& chk) {
-    std::vector<RecolorLineRef> out;
-    const ClassicTriggers t = readClassicTriggers(chk);
-    const StringTable strings = StringTable::read(chk);
-    for (size_t ti = 0; ti < t.triggers.size(); ++ti)
-        for (const ClassicAction& a : t.triggers[ti].actions) {
-            if (a.type != 47 || !a.text || (a.flags & 2) || a.text > strings.size()) continue;  // (Comments that are on)
-            const std::string& text = strings.get(a.text);
-            size_t start = 0;
-            while (start < text.size()) {
-                size_t end = start;
-                while (end < text.size() && text[end] != '\n' && text[end] != '\r') ++end;
-                const std::string line = text.substr(start, end - start);
-                start = end + 1;
-                RecolorValue v;
-                if (parseRecolorLine(line, v)) out.push_back({int(ti + 1), line});
-            }
-        }
-    return out;
 }
 
 }  // namespace stardraft::cmbw

@@ -8,6 +8,7 @@
 // for terrain when zoomed far out (mipmapped).
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -91,6 +92,10 @@ public:
     void setSources(const GameData* data, UnitSprites* sprites, const Tileset* tileset, uint16_t era);
     // The sprites' images changed (other draw functions or remappings): load each image again when it shows.
     void reloadImages();
+    // A change of every color of the SD art (the terrain's tiles and the sprites' palette colors, before they are drawn or
+    // blended, as a game's palette change): `map` changes a color in place; null: none. `key` names the change: the art
+    // is made again only when it is another (0 with null). Main thread only.
+    void setColorMap(std::function<void(uint8_t& r, uint8_t& g, uint8_t& b)> map, uint64_t key);
     // Each owner's team color, 0xRRGGBB (the map's player colors): `count` of them from owner 0 (up to 65: a Hyperion
     // map's players; an owner past them has the last's color).
     void setPlayerColors(const uint32_t* rgb, int count);

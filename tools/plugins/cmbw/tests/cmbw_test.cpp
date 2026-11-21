@@ -42,6 +42,9 @@ int main(int argc, char** argv) {
     if (!cmbw::open(data, argv[1], err)) return std::fprintf(stderr, "cannot open the Cosmonarchy data: %s\n", err.c_str()), 1;
     {  // The recolor CRIG (src/mods/cmbw_recolor.cpp): its line both ways and the plugin's math (no map needed).
         cmbw::RecolorValue v;
+        CHECK(cmbw::parseRecolorLine("recolor (1 0.8 0.8 1 0.5 ) +2s", v) && v.seconds == 2 &&
+                  cmbw::parseRecolorLine("recolor (1 1 1 1 1) 2sec", v) && v.seconds == 0 && cmbw::parseRecolorLine("recolor (1 1 1 1 1) 1.2.3s", v) && v.seconds == 0,
+              "recolor lines as the plugin reads them: a space before ); a time it cannot read is 0");
         CHECK(cmbw::parseRecolorLine("Recolor (0.6, 0.7, 1.2, 1, 0.4) (1.3 1 0.7 1.1 1) 1.5s", v) && v.command == "recolor" && v.stops.size() == 2 &&
                   v.stops[0].b == 1.2f && v.stops[1].gamma == 1.1f && v.seconds == 1.5 &&
                   cmbw::recolorLineText(v) == "recolor (0.6 0.7 1.2 1 0.4) (1.3 1 0.7 1.1 1) 1.5s",
@@ -1041,21 +1044,6 @@ int main(int argc, char** argv) {
             ed.renameLocation(loc, "North Gate");
             CHECK(comment() == "move_unit \"Old Zone\" * 13 men 10 true" && twin >= 0,
                   "Rename location leaves the CRIG lines when another location has the old name (either could be the one)");
-        }
-    }
-    {  // The recolor CRIG: the map's lines (a Comment's line with its trigger).
-        Editor ed(data);
-        std::string e;
-        if (ed.open(argv[2], e)) {
-            StringTable strings = ed.strings();
-            ClassicTrigger t;
-            ClassicAction c;
-            c.type = 47, c.text = uint32_t(strings.add("Night\nrecolor (0.5 0.5 1 1 1) 3"));
-            t.actions[0] = c;
-            ed.addClassicTrigger(t, -1, &strings);
-            const auto lines = cmbw::recolorLines(ed.chk());
-            CHECK(!lines.empty() && lines.back().line == "recolor (0.5 0.5 1 1 1) 3" && lines.back().trigger == int(ed.classicTriggers().triggers.size()),
-                  "the map's recolor lines: a Comment's line with its trigger");
         }
     }
     std::printf("%s\n", failures ? "FAILED" : "all passed");

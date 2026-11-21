@@ -3721,7 +3721,6 @@ constexpr UiText kRows[] = {
     {L"{a}, but at least {low} and at most {high}", L"{a}, aber mindestens {low} und h\u00F6chstens {high}"},
     {L"Recolor &preview\u2026", L"Umf\u00E4rbungs&vorschau\u2026"},
     {L"Recolor preview", L"Umf\u00E4rbungsvorschau"},
-    {L"Load", L"Laden"},
     {L"Time (s)", L"Zeit (s)"},
     {L"Stops", L"Stopps"},
     {L"Gamma", L"Gamma"},
@@ -3732,14 +3731,15 @@ constexpr UiText kRows[] = {
     {L"Factor on R, G and B", L"Faktor auf R, G und B"},
     {L"0: gray. 1: as it is. Above 1 it goes down again (the plugin's curve).", L"0: grau. 1: unver\u00E4ndert. \u00DCber 1 sinkt sie wieder (die Kurve des Plugins)."},
     {L"0: at once", L"0: sofort"},
-    {L"No recolor CRIGs in the map", L"Keine Umf\u00E4rbungs-CRIGs in der Karte"},
     {L"Add stop", L"Stopp hinzuf\u00FCgen"},
     {L"Remove stop", L"Stopp entfernen"},
-    {L"Original", L"Original"},
     {L"Copied", L"Kopiert"},
     {L"all colors", L"alle Farben"},
     {L"darkest", L"am dunkelsten"},
     {L"brightest", L"am hellsten"},
+    {L"Keep recolor preview", L"Umf\u00E4rbungsvorschau behalten"},
+    {L"The map shows the recolor also when this window is closed", L"Die Karte zeigt die Umf\u00E4rbung auch bei geschlossenem Fenster"},
+    {L"One stop, every value 1, time 0 (no change of the colors)", L"Ein Stopp, alle Werte 1, Zeit 0 (keine Farb\u00E4nderung)"},
 };
 }  // namespace
 std::span<const UiText> langTableDe() { return kRows; }

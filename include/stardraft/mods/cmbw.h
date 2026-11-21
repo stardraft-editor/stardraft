@@ -211,20 +211,14 @@ struct RecolorValue {
     std::vector<Recolor> stops{Recolor{}};  // 1 to kRecolorStops, dark to bright
     double seconds = 0;                   // the time to change to it (0: at once)
 };
-// A recolor line ("recolor (1 0.8 0.8 1 0.5) 2s"; the command's name in any case). False when it is no recolor line
-// or a stop has not all 5 numbers.
+// A recolor line ("recolor (1 0.8 0.8 1 0.5) 2s"). False when it is no recolor line or a stop has not all 5 numbers. As
+// the plugin: past 16 stops and a time it cannot read, the time is 0.
 bool parseRecolorLine(const std::string& line, RecolorValue& out);
 // The line of a value, as parseRecolorLine reads it (numbers with up to 3 decimals; a whole number of seconds without
 // "s", others with it).
 std::string recolorLineText(const RecolorValue& v);
 // A color (0 to 255 each) after the recolor, as the plugin's set_palette_recolor gives it.
 void recolorRgb(const std::vector<Recolor>& stops, uint8_t& r, uint8_t& g, uint8_t& b);
-// The recolor lines of a map's turned-on Comments, each with its trigger (from 1).
-struct RecolorLineRef {
-    int trigger = 0;
-    std::string line;
-};
-std::vector<RecolorLineRef> recolorLines(const Chk& chk);
 
 // An 8-bit PCX picture (the game's pictures: its palette at the end) as RGBA. False when it is not one.
 bool decodePcxRgba(const std::vector<uint8_t>& file, int& width, int& height, std::vector<uint8_t>& rgba);

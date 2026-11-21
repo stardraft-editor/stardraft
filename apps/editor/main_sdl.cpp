@@ -750,7 +750,10 @@ int main(int argc, char** argv) {
         else if (a == "--pie") pieArg = true;  // the pie palette (hold Space in Terrain mode) open, the mouse at a slice, for a snapshot
         else if (a == "--restart") restartPid = std::uint32_t(std::strtoul(next().c_str(), nullptr, 10));  // the old program's process id (sdl_options.inc)
         else if (a == "--passages") passagesArg = next();  // a passages file (.scpass) for the Ramp brush and the Bridge tool, for a snapshot
-        else if (a == "--cmbw") cmbwArg = gCmbwForced = true;  // a new Cosmonarchy BW map (the start page's button) before the map argument opens, for a snapshot
+        else if (a == "--recolor") {  // a recolor line the map shows (Tools > Cosmonarchy > Recolor preview with Keep on), for a snapshot
+            stardraft::cmbw::parseRecolorLine(next(), recolorPreview().value);
+            recolorPreview().keep = true;
+        } else if (a == "--cmbw") cmbwArg = gCmbwForced = true;  // a new Cosmonarchy BW map (the start page's button) before the map argument opens, for a snapshot
         else if (a == "--hyperion") gHyperionForced = true;  // the Hyperion plugin loaded for the run (core/hyperion.inc), for a snapshot
         else if (a == "--untitled") untitledArg = true;  // a new project that is not saved yet (core/documents.inc), for a snapshot
         else if (a == "--midpan") midPanArg = true;  // the middle button's pan and drag of the map as text, after the snapshot
@@ -1005,6 +1008,7 @@ int main(int argc, char** argv) {
             sdlIsomRulesFrame();  // (the Custom isom terrain editor's place and size: sdl_options.inc)
             sdlTerrainMapperFrame();  // (the Mod terrain mapper's)
             sdlPassagesFrame();   // (the Ramp and bridge mapper's window place)
+            sdlRecolorFrame();    // (the Recolor preview's window place)
             sdlPalettePanelsFrame();  // (the palette panels of the active tab show, and their places: sdl_palette_panels.inc)
             mapLayersFrame();  // (the map's layers: core/map_layers.inc)
             protectedTerrainSync();  // (the active tab's protected terrain kept in its project: core/protected_layer.inc)

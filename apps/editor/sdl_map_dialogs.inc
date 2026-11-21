@@ -9,11 +9,6 @@ bool showMapRevealersDialog(std::vector<uint8_t>& owners) {
     return gRoot && runRevealersDialog(*gRoot, owners);
 }
 
-// Tools > Cosmonarchy > Recolor preview over the window (core/views_recolor.inc), with the open map's part (none: a chart).
-void recolorShow() {
-    if (gRoot) runRecolorDialog(*gRoot, gState.ed && gState.ed->isOpen() ? gState.ed.get() : nullptr);
-}
-
 // The prompt (Rename location, a sound's name): OK puts the typed text into `text` and returns true.
 bool prompt(const wchar_t* title, std::wstring& text) {
     if (!gRoot) return false;
@@ -466,12 +461,13 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
         std::string line = name.size() > 8 ? name.substr(8) : std::string();
         size_t stop = 0;
         if (const size_t bar = line.find('|'); bar != std::string::npos) stop = size_t(std::atoi(line.c_str() + bar + 1)), line.resize(bar);
-        s.recolor = std::make_unique<RecolorView>(&ed, line);
-        s.recolor->selectStop(stop);
+        s.recolor = std::make_unique<RecolorView>();
+        s.recolor->startWith(line, stop);
+        recolorPreview().windowOpen = true;  // (the map would show it: the window is open)
         gRecolorShown = s.recolor.get();  // (--check recolor)
-        s.size = recolorDialogSetup(s.dlg, *s.recolor), s.view = &s.dlg;
-        if (gSilent) std::printf("recolor: \"%s\" stop %zu of %zu; preview %dx%d\n", s.recolor->lineText().c_str(), s.recolor->selectedStop() + 1,
-                                 s.recolor->value().stops.size(), s.recolor->pictureW(), s.recolor->pictureH());
+        s.size = RecolorView::size(), s.view = s.recolor.get();
+        (void)ed;
+        if (gSilent) std::printf("recolor: \"%s\" stop %zu of %zu\n", s.recolor->lineText().c_str(), s.recolor->selectedStop() + 1, s.recolor->value().stops.size());
         return true;
     }
     if (name == "resize") {
@@ -509,21 +505,14 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
 // is the minimap of the map after the change (each tile's color), and whether the units that stay are the units from
 // before the change moved by the offset (and only those).
 // --check recolor (after the inputs): the Recolor preview's line, its chosen stop, what Copy put on the clipboard, and
-// the preview's pixels: each the plugin's recolor of the map's pixel under it (a sample of 64 places).
+// whether the map shows it (cmbw mode and the window open or Keep on).
 void sdlRecolorCheck() {
     RecolorView* v = gRecolorShown;
-    if (!v) return void(std::printf("recolor: no window (WRONG)\n"));
-    int wrong = 0, same = 0;
-    for (int k = 0; k < 64; ++k) {
-        const int x = (k * 37 + 11) % v->pictureW(), y = (k * 53 + 7) % v->pictureH();
-        const uint32_t c = v->basePixel(x, y);
-        uint8_t r = uint8_t(c), g = uint8_t(c >> 8), b = uint8_t(c >> 16);
-        stardraft::cmbw::recolorRgb(v->value().stops, r, g, b);
-        const uint32_t want = r | uint32_t(g) << 8 | uint32_t(b) << 16 | 0xFF000000u, got = v->previewPixel(x, y);
-        wrong += got != want, same += got == c;
-    }
-    std::printf("recolor: \"%s\" stop %zu of %zu; clipboard \"%s\"; preview %d of 64 pixels recolored as the plugin%s; %d unchanged\n", v->lineText().c_str(),
-                v->selectedStop() + 1, v->value().stops.size(), shellClipboardText().c_str(), 64 - wrong, wrong ? " (WRONG)" : "", same);
+    const RecolorPreviewState& rp = recolorPreview();
+    if (!v) return void(std::printf("recolor: map \"%s\" shown %s\n", stardraft::cmbw::recolorLineText(rp.value).c_str(), rp.shown() && cmbwMode() ? "yes" : "no"));
+    std::printf("recolor: \"%s\" stop %zu of %zu; clipboard \"%s\"; map %s%s\n", v->lineText().c_str(), v->selectedStop() + 1, v->value().stops.size(),
+                shellClipboardText().c_str(), stardraft::cmbw::recolorLineText(rp.value).c_str() == v->lineText() ? "the same" : "other (WRONG)",
+                rp.keep ? "; kept" : "");
 }
 
 void sdlResizeCheck() {

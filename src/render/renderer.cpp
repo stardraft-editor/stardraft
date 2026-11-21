@@ -293,13 +293,47 @@ struct Renderer::Impl {
     std::vector<Batch> batches;
     std::vector<GpuRect> rects, underRects;
     uint16_t exactTeam = 0;  // (a bit per owner)
+    // setColorMap: the change of the SD art's colors, and its key; colorDirty: the art's colors again (recolorArt). The SD
+    // art keeps each pixel's color as an id into srcColors (a few hundred: the palette's, the glows'), so a change only
+    // looks up outColors again and uploads the pixels: no picture is made again.
+    std::function<void(uint8_t&, uint8_t&, uint8_t&)> colorMap;
+    uint64_t colorKey = 0;
+    bool colorDirty = false;
+    std::vector<Rgb> srcColors, outColors;
+    std::unordered_map<uint32_t, uint16_t> srcIds;
+    static constexpr uint16_t kNoColor = 0xFFFF;  // (a transparent pixel)
+    uint16_t colorId(const Rgb& c) {
+        const uint32_t k = uint32_t(c.r) | uint32_t(c.g) << 8 | uint32_t(c.b) << 16;
+        auto it = srcIds.find(k);
+        if (it != srcIds.end()) return it->second;
+        if (srcColors.size() >= kNoColor) return 0;  // (never: SD art has a few hundred colors)
+        Rgb m = c;
+        if (colorMap) colorMap(m.r, m.g, m.b);
+        srcColors.push_back(c), outColors.push_back(m);
+        return srcIds.emplace(k, uint16_t(srcColors.size() - 1)).first->second;
+    }
+    void putColor(uint8_t* d, uint16_t id) const {
+        if (id == kNoColor) return void(d[0] = d[1] = d[2] = d[3] = 0);
+        const Rgb& c = outColors[id];
+        d[0] = c.r, d[1] = c.g, d[2] = c.b, d[3] = 255;
+    }
+    std::vector<uint16_t> sdIds;  // the SD atlas's pixels (sdAtlas's size)
+    uint32_t sdIdsW = 0, sdIdsH = 0;
+    void uploadSdAtlas() {
+        std::vector<uint8_t> px(size_t(sdIdsW) * sdIdsH * 4);
+        for (size_t i = 0; i < sdIds.size(); ++i) putColor(&px[i * 4], sdIds[i]);
+        uploadTexture(sdAtlas, sdIdsW, sdIdsH, px.data(), px.size(), true);
+    }
+    void recolorArt();
     std::vector<AtlasPage> pages;
     bool pagesFull = false;  // (the next frame starts them again)
     struct PageUpload {
         int page;
         uint32_t x, y, w, h;
         std::vector<uint8_t> rgba, mask;
+        std::vector<uint16_t> ids;  // (its pixels' colors: colorId)
     };
+    std::vector<std::vector<PageUpload>> placed;  // each page's frames (their ids and masks, no rgba): recolorArt uploads them again
     std::vector<PageUpload> pageUploads;  // (sent in the frame's own copy pass)
     double loadBudgetMs = 30;
     double frameBudgetMs = 30;  // (this frame's: a map's first frame has less, its terrain shows at once)
@@ -649,7 +683,7 @@ void Renderer::Impl::freePages() {
         if (pg.diffuse) SDL_ReleaseGPUTexture(device, pg.diffuse);
         if (pg.mask) SDL_ReleaseGPUTexture(device, pg.mask);
     }
-    pages.clear(), pageUploads.clear(), pagesFull = false;
+    pages.clear(), pageUploads.clear(), placed.clear(), pagesFull = false;
     for (auto* list : {&images, &extraImages})
         for (ImageTex& t : *list)
             for (ImageTex::Frame& f : t.frames) f.page = -1;
@@ -686,7 +720,8 @@ bool Renderer::Impl::atlasFrame(ImageTex& t, int id, size_t frame) {
         pages.push_back(pg);
     }
     AtlasPage& pg = pages.back();
-    PageUpload up{int(pages.size() - 1), pg.x, pg.y, w, h, std::vector<uint8_t>(size_t(w) * h * 4, 0), std::vector<uint8_t>(size_t(w) * h, 0)};
+    PageUpload up{int(pages.size() - 1), pg.x, pg.y, w, h, std::vector<uint8_t>(size_t(w) * h * 4, 0), std::vector<uint8_t>(size_t(w) * h, 0),
+                  std::vector<uint16_t>(size_t(w) * h, kNoColor)};
     pg.x += w, pg.shelf = std::max(pg.shelf, h);
     const std::string* extra = unitSprites->extraPath(id);
     for (int y = 0; y < fr.height; ++y)
@@ -700,13 +735,15 @@ bool Renderer::Impl::atlasFrame(ImageTex& t, int id, size_t frame) {
             const bool glowing = unitSprites->glowColor(id, idx, *tileset, glow);
             if (glowing) team = false;
             out.team = out.team || team;
-            const Rgb& c = glowing ? glow : tileset->palette[team ? unitSprites->remapRow(idx, t.row >= 0 ? t.row : 6) : idx];
             const size_t o = size_t(y + 1) * w + x + 1;
-            up.rgba[o * 4] = c.r, up.rgba[o * 4 + 1] = c.g, up.rgba[o * 4 + 2] = c.b, up.rgba[o * 4 + 3] = 255;
+            up.ids[o] = colorId(glowing ? glow : tileset->palette[team ? unitSprites->remapRow(idx, t.row >= 0 ? t.row : 6) : idx]);
+            putColor(&up.rgba[o * 4], up.ids[o]);
             if (team && t.row < 0) up.mask[o] = 255;  // (a row's own shades: nothing to tint)
         }
     out.u0 = float(up.x + 1), out.v0 = float(up.y + 1), out.u1 = out.u0 + fr.width, out.v1 = out.v0 + fr.height;
     out.page = up.page;
+    if (placed.size() < pages.size()) placed.resize(pages.size());
+    placed[size_t(up.page)].push_back({up.page, up.x, up.y, up.w, up.h, {}, up.mask, up.ids});
     pageUploads.push_back(std::move(up));
     return true;
 }
@@ -822,7 +859,7 @@ void Renderer::Impl::buildSdAtlas() {
     uint32_t cols = uint32_t(std::ceil(std::sqrt(double(n))));
     uint32_t rows = uint32_t((n + cols - 1) / cols);
     uint32_t w = cols * 32, h = rows * 32;
-    std::vector<uint8_t> px(size_t(w) * h * 4, 0);
+    sdIds.assign(size_t(w) * h, kNoColor), sdIdsW = w, sdIdsH = h;
     for (size_t m = 0; m < n; ++m) {
         uint32_t ox = uint32_t(m % cols) * 32, oy = uint32_t(m / cols) * 32;
         for (int k = 0; k < 16; ++k) {
@@ -832,15 +869,13 @@ void Renderer::Impl::buildSdAtlas() {
             if (mini >= ts.minitiles.size()) continue;
             for (int y = 0; y < 8; ++y)
                 for (int x = 0; x < 8; ++x) {
-                    const Rgb& c = ts.palette[ts.minitiles[mini][y * 8 + (flip ? 7 - x : x)]];
-                    uint8_t* d = &px[(size_t(oy + (k / 4) * 8 + y) * w + ox + (k % 4) * 8 + x) * 4];
-                    d[0] = c.r, d[1] = c.g, d[2] = c.b, d[3] = 255;
+                    sdIds[size_t(oy + (k / 4) * 8 + y) * w + ox + (k % 4) * 8 + x] = colorId(ts.palette[ts.minitiles[mini][y * 8 + (flip ? 7 - x : x)]]);
                 }
         }
     }
     sdAtlas = createTexture(SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM, w, h, mipCount(w, h),
                             SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET);
-    uploadTexture(sdAtlas, w, h, px.data(), px.size(), true);
+    uploadSdAtlas();
     sdAtlasW = float(w), sdAtlasH = float(h), sdCols = float(cols);
 }
 
@@ -947,6 +982,28 @@ void Renderer::setCarbot(bool carbot) {
 }
 void Renderer::setLoadBudget(double ms) { impl_->loadBudgetMs = ms; }
 void Renderer::setExactTeamColors(uint16_t owners) { impl_->exactTeam = owners; }
+void Renderer::setColorMap(std::function<void(uint8_t&, uint8_t&, uint8_t&)> map, uint64_t key) {
+    Impl& r = *impl_;
+    if (!map) key = 0;
+    if (key == r.colorKey && bool(map) == bool(r.colorMap)) return;
+    r.colorMap = std::move(map), r.colorKey = key, r.colorDirty = true;
+}
+// The SD art in the colors of the color map now: each known color looked up again, the SD atlas and the frames on the
+// pages uploaded again (in this frame's copy pass: sendPageUploads).
+void Renderer::Impl::recolorArt() {
+    for (size_t i = 0; i < srcColors.size(); ++i) {
+        Rgb m = srcColors[i];
+        if (colorMap) colorMap(m.r, m.g, m.b);
+        outColors[i] = m;
+    }
+    if (sdAtlas && !sdIds.empty()) uploadSdAtlas();
+    for (const auto& list : placed)
+        for (const PageUpload& f : list) {
+            PageUpload up{f.page, f.x, f.y, f.w, f.h, std::vector<uint8_t>(f.ids.size() * 4), f.mask, {}};
+            for (size_t i = 0; i < f.ids.size(); ++i) putColor(&up.rgba[i * 4], f.ids[i]);
+            pageUploads.push_back(std::move(up));
+        }
+}
 Stats Renderer::stats() const { return impl_->stats; }
 
 void Renderer::setPlayerColors(const uint32_t* rgb, int count) {
@@ -1219,6 +1276,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     stats = {};
     if (pagesFull) freePages();
     frameBudgetMs = loadBudgetMs;
+    if (colorDirty) colorDirty = false, recolorArt();  // (setColorMap: the SD tiles and sprites in the new colors)
     if (tilesetDirty) {  // (a map's first frame: the terrain at once, the sprites from the next frames)
         reloadTileset();
         if (loadBudgetMs < 1e6) frameStart = Clock::now(), frameBudgetMs = std::min(loadBudgetMs, 8.0);

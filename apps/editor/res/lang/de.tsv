@@ -3722,7 +3722,6 @@ the remainder of {a} divided by {b}	der Rest von {a} geteilt durch {b}
 {a}, but at least {low} and at most {high}	{a}, aber mindestens {low} und höchstens {high}
 Recolor &preview…	Umfärbungs&vorschau…
 Recolor preview	Umfärbungsvorschau
-Load	Laden
 Time (s)	Zeit (s)
 Stops	Stopps
 Gamma	Gamma
@@ -3733,11 +3732,12 @@ Blue factor	Blau-Faktor
 Factor on R, G and B	Faktor auf R, G und B
 0: gray. 1: as it is. Above 1 it goes down again (the plugin's curve).	0: grau. 1: unverändert. Über 1 sinkt sie wieder (die Kurve des Plugins).
 0: at once	0: sofort
-No recolor CRIGs in the map	Keine Umfärbungs-CRIGs in der Karte
 Add stop	Stopp hinzufügen
 Remove stop	Stopp entfernen
-Original	Original
 Copied	Kopiert
 all colors	alle Farben
 darkest	am dunkelsten
 brightest	am hellsten
+Keep recolor preview	Umfärbungsvorschau behalten
+The map shows the recolor also when this window is closed	Die Karte zeigt die Umfärbung auch bei geschlossenem Fenster
+One stop, every value 1, time 0 (no change of the colors)	Ein Stopp, alle Werte 1, Zeit 0 (keine Farbänderung)

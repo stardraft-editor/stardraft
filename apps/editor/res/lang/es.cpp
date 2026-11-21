@@ -3721,7 +3721,6 @@ constexpr UiText kRows[] = {
     {L"{a}, but at least {low} and at most {high}", L"{a}, pero al menos {low} y como m\u00E1ximo {high}"},
     {L"Recolor &preview\u2026", L"&Vista previa del recoloreado\u2026"},
     {L"Recolor preview", L"Vista previa del recoloreado"},
-    {L"Load", L"Cargar"},
     {L"Time (s)", L"Tiempo (s)"},
     {L"Stops", L"Paradas"},
     {L"Gamma", L"Gamma"},
@@ -3732,14 +3731,15 @@ constexpr UiText kRows[] = {
     {L"Factor on R, G and B", L"Factor sobre R, G y B"},
     {L"0: gray. 1: as it is. Above 1 it goes down again (the plugin's curve).", L"0: gris. 1: sin cambio. Por encima de 1 vuelve a bajar (la curva del plugin)."},
     {L"0: at once", L"0: al instante"},
-    {L"No recolor CRIGs in the map", L"No hay CRIG de recoloreado en el mapa"},
     {L"Add stop", L"A\u00F1adir parada"},
     {L"Remove stop", L"Quitar parada"},
-    {L"Original", L"Original"},
     {L"Copied", L"Copiado"},
     {L"all colors", L"todos los colores"},
     {L"darkest", L"m\u00E1s oscuro"},
     {L"brightest", L"m\u00E1s claro"},
+    {L"Keep recolor preview", L"Mantener la vista previa del recoloreado"},
+    {L"The map shows the recolor also when this window is closed", L"El mapa muestra el recoloreado tambi\u00E9n con esta ventana cerrada"},
+    {L"One stop, every value 1, time 0 (no change of the colors)", L"Una parada, todos los valores en 1, tiempo 0 (sin cambio de color)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

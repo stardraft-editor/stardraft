@@ -3722,7 +3722,6 @@ the remainder of {a} divided by {b}	остаток от деления {a} на 
 {a}, but at least {low} and at most {high}	{a}, но не меньше {low} и не больше {high}
 Recolor &preview…	&Предпросмотр перекраски…
 Recolor preview	Предпросмотр перекраски
-Load	Загрузить
 Time (s)	Время (с)
 Stops	Опорные точки
 Gamma	Гамма
@@ -3733,11 +3732,12 @@ Blue factor	Множитель синего
 Factor on R, G and B	Множитель для R, G и B
 0: gray. 1: as it is. Above 1 it goes down again (the plugin's curve).	0: серый. 1: без изменений. Выше 1 снова снижается (кривая плагина).
 0: at once	0: сразу
-No recolor CRIGs in the map	В карте нет CRIG перекраски
 Add stop	Добавить точку
 Remove stop	Удалить точку
-Original	Исходное
 Copied	Скопировано
 all colors	все цвета
 darkest	самые тёмные
 brightest	самые светлые
+Keep recolor preview	Оставить предпросмотр перекраски
+The map shows the recolor also when this window is closed	Карта показывает перекраску и при закрытом окне
+One stop, every value 1, time 0 (no change of the colors)	Одна точка, все значения 1, время 0 (цвета без изменений)

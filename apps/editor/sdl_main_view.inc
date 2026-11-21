@@ -181,6 +181,15 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
         exact = exactBits;
     }
     gRenderer->setExactTeamColors(exact);
+    // Tools > Cosmonarchy > Recolor preview (core/views_recolor.inc): the map in the recolor's colors, as the game's palette.
+    if (const RecolorPreviewState& rp = recolorPreview(); cmbwMode() && rp.shown()) {
+        stardraft::cmbw::RecolorValue colors;  // (the key: the stops only; the time and the command change no color)
+        colors.stops = rp.value.stops;
+        const std::string line = stardraft::cmbw::recolorLineText(colors);
+        std::vector<stardraft::cmbw::Recolor> stops = rp.value.stops;
+        gRenderer->setColorMap([stops](uint8_t& r, uint8_t& g, uint8_t& b) { stardraft::cmbw::recolorRgb(stops, r, g, b); },
+                               std::hash<std::string>{}(line) | 1);
+    } else gRenderer->setColorMap(nullptr, 0);
     // The scene (core/map_scene.inc), with the units' idle animations at the game's speed (View > Animate units).
     if (gState.animate) advanceAnims();
     render::Scene scene = buildScene();

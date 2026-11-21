@@ -3749,7 +3749,6 @@ constexpr UiText kRows[] = {
     {L"{a}, but at least {low} and at most {high}", L"{a}, \uB2E8 \uCD5C\uC18C {low}, \uCD5C\uB300 {high}"},
     {L"Recolor &preview\u2026", L"\uB9AC\uCEEC\uB7EC \uBBF8\uB9AC\uBCF4\uAE30(&P)\u2026"},
     {L"Recolor preview", L"\uB9AC\uCEEC\uB7EC \uBBF8\uB9AC\uBCF4\uAE30"},
-    {L"Load", L"\uBD88\uB7EC\uC624\uAE30"},
     {L"Time (s)", L"\uC2DC\uAC04(\uCD08)"},
     {L"Stops", L"\uC815\uC9C0\uC810"},
     {L"Gamma", L"\uAC10\uB9C8"},
@@ -3760,14 +3759,15 @@ constexpr UiText kRows[] = {
     {L"Factor on R, G and B", L"R, G, B \uACF5\uD1B5 \uBC30\uC728"},
     {L"0: gray. 1: as it is. Above 1 it goes down again (the plugin's curve).", L"0: \uD68C\uC0C9. 1: \uADF8\uB300\uB85C. 1\uBCF4\uB2E4 \uD06C\uBA74 \uB2E4\uC2DC \uB0AE\uC544\uC9D0(\uD50C\uB7EC\uADF8\uC778\uC758 \uACE1\uC120)."},
     {L"0: at once", L"0: \uC989\uC2DC"},
-    {L"No recolor CRIGs in the map", L"\uB9F5\uC5D0 \uB9AC\uCEEC\uB7EC CRIG \uC5C6\uC74C"},
     {L"Add stop", L"\uC815\uC9C0\uC810 \uCD94\uAC00"},
     {L"Remove stop", L"\uC815\uC9C0\uC810 \uC81C\uAC70"},
-    {L"Original", L"\uC6D0\uBCF8"},
     {L"Copied", L"\uBCF5\uC0AC\uB428"},
     {L"all colors", L"\uBAA8\uB4E0 \uC0C9"},
     {L"darkest", L"\uAC00\uC7A5 \uC5B4\uB450\uC6C0"},
     {L"brightest", L"\uAC00\uC7A5 \uBC1D\uC74C"},
+    {L"Keep recolor preview", L"\uB9AC\uCEEC\uB7EC \uBBF8\uB9AC\uBCF4\uAE30 \uC720\uC9C0"},
+    {L"The map shows the recolor also when this window is closed", L"\uC774 \uCC3D\uC744 \uB2EB\uC544\uB3C4 \uB9F5\uC5D0 \uB9AC\uCEEC\uB7EC\uB97C \uD45C\uC2DC"},
+    {L"One stop, every value 1, time 0 (no change of the colors)", L"\uC815\uC9C0\uC810 \uD558\uB098, \uBAA8\uB4E0 \uAC12 1, \uC2DC\uAC04 0 (\uC0C9 \uBCC0\uD654 \uC5C6\uC74C)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

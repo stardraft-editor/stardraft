@@ -1,26 +1,38 @@
-// Tools > Cosmonarchy > Recolor preview (portable, core.inc): the recolor CRIG's values (src/mods/cmbw_recolor.cpp:
-// recolor, recolor_loop_add) with a control for each, and a part of the open map (its terrain and units around the view's
-// middle) recolored as the mod's exe plugin recolors the game's palette. The line's text with Copy, for a trigger's
-// Comment; Load takes the values of a recolor line in the map. A modal kit Dialog (the host: sdl_map_dialogs.inc).
+// Tools > Cosmonarchy > Recolor preview (portable, core.inc): find the colors for the recolor CRIG (src/mods/cmbw_recolor.cpp:
+// recolor, recolor_loop_add), then Copy its line into a trigger's Comment. A control for each value; the map view shows
+// the recolor (the renderer's color map: the game's palette change) while the window is open, or while Keep recolor
+// preview is on. A tool window beside the map (the host: sdl_options.inc shellShowRecolorWindow).
 
 namespace recolorLayout {
 constexpr int kPad = 16;
-constexpr int kLeftW = 340;                       // the controls
-constexpr int kLabelW = 76, kFieldW = 60;         // a row's name and its number field
+constexpr int kW = 400;                            // the controls
+constexpr int kLabelW = 76, kFieldW = 60;          // a row's name and its number field
 constexpr int kRowH = 24, kPitch = 32;
-constexpr int kPicX = kPad + kLeftW + kPad;       // 372: the preview
-constexpr int kPicW = 512, kPicH = 384;           // 16 x 12 tiles
-constexpr int kBarY = 148, kBarH = 28;            // the stops' gradient
+constexpr int kStopsY = kPad + 2 * kPitch + 16;    // 96: Stops, the stop's color, add and remove
+constexpr int kBarY = kStopsY + 28, kBarH = 28;    // the stops' gradient
 constexpr int kTintY = kBarY + kBarH + 12, kTintH = 96;
-constexpr int kSlidersY = kTintY + kTintH + 12;   // R, G, B, Gamma, Saturation
-constexpr int kValueY = kSlidersY + 5 * kPitch + 12;  // the line and Copy (under the sliders and the preview's Original)
-constexpr int kButtonsY = kValueY + kPitch + 12;  // Close
+constexpr int kSlidersY = kTintY + kTintH + 12;    // R, G, B, Gamma, Saturation
+constexpr int kKeepY = kSlidersY + 5 * kPitch + 4;
+constexpr int kValueY = kKeepY + kPitch + 12;      // CRIG, then its line and Copy
+constexpr int kLineY = kValueY + 24;
 constexpr int kButtonH = 28;
-constexpr int kWindowW = kPicX + kPicW + kPad;    // 900
-constexpr int kWindowH = kButtonsY + kButtonH + kPad;
+constexpr int kWindowW = kW + 2 * kPad;
+constexpr int kLineH = 48;                         // the line: two rows (it wraps)
+constexpr int kWindowH = kLineY + kLineH + kPad;
 }  // namespace recolorLayout
 
-constexpr int kRecolorClose = 1;
+// The preview's values and whether the map shows them (the map view's frame reads it: sdl_main_view.inc).
+struct RecolorPreviewState {
+    stardraft::cmbw::RecolorValue value;
+    bool windowOpen = false;
+    bool keep = false;  // Keep recolor preview: the map shows it also when the window is closed
+    bool paused = false;  // (File > Export map image: the map's own colors in the picture)
+    bool shown() const { return (windowOpen || keep) && !paused; }
+};
+inline RecolorPreviewState& recolorPreview() {
+    static RecolorPreviewState s;
+    return s;
+}
 
 // The brightness that a stop's place is at: where the plugin's eased brightness is i / (n - 1) (3t^2 - 2t^3 goes up from 0
 // to 1, so the place is found by halving).
@@ -54,16 +66,13 @@ inline void recolorFromHueSat(float h, float s, float& r, float& g, float& b) {
 
 class RecolorView final : public draw::View {
 public:
-    // `ed`: the open map (null: none; the preview is then a chart of colors).
-    explicit RecolorView(Editor* ed, std::string start = {}) : ed_(ed) {
+    RecolorView() {
         using stardraft::kit::LabelTone;
-        if (ed_) lines_ = stardraft::cmbw::recolorLines(ed_->chk());
         auto label = [this](stardraft::kit::Label& l, const wchar_t* t) {
             l.setText(tr(t));
             l.setTone(LabelTone::Dim);
             add(l, {0, 0, 0, 0});
         };
-        label(loadLabel_, L"Load");
         label(commandLabel_, L"Command");
         label(timeLabel_, L"Time (s)");
         label(stopsLabel_, L"Stops");
@@ -83,23 +92,8 @@ public:
         time_.setTip(tr(L"0: at once"));
         time_.onChange = [this](int v) { value_.seconds = v / 4.0, sync(); };
         add(time_, {0, 0, 0, 0});
-        numberField(timeField_, [this](float v) { value_.seconds = v, sync(); });
+        numberField(timeField_, [this](float v) { value_.seconds = std::round(double(v) * 1000.0) / 1000.0, sync(); });
 
-        std::vector<stardraft::kit::DropdownItem> items;
-        if (lines_.empty()) items.push_back({tr(L"No recolor CRIGs in the map")});
-        else {
-            items.push_back({tr(L"Default")});
-            for (const auto& l : lines_) items.push_back({std::wstring(tr(L"Trigger ")) + std::to_wstring(l.trigger) + L": " + widen(l.line)});
-        }
-        load_.setItems(std::move(items));
-        load_.setValue(0);
-        load_.setEnabled(!lines_.empty());
-        load_.onChange = [this](int i) {
-            stardraft::cmbw::RecolorValue v;
-            if (i > 0 && size_t(i - 1) < lines_.size()) stardraft::cmbw::parseRecolorLine(lines_[size_t(i - 1)].line, v);
-            setValue(v);
-        };
-        add(load_, {0, 0, 0, 0});
         command_.setItems({{L"recolor"}, {L"recolor_loop_add"}});
         command_.setValue(0);
         command_.onChange = [this](int i) { value_.command = i == 1 ? "recolor_loop_add" : "recolor", sync(); };
@@ -116,43 +110,43 @@ public:
         removeStop_.onClick = [this] { removeStop(); };
         add(removeStop_, {0, 0, 0, 0});
 
-        original_.setLabel(tr(L"Original"));
-        original_.setPlainLabel(true);
-        original_.onChange = [this](bool) { picDirty_ = true, invalidate(); };
-        add(original_, {0, 0, 0, 0});
+        keep_.setLabel(tr(L"Keep recolor preview"));
+        keep_.setPlainLabel(true);
+        keep_.setTip(tr(L"The map shows the recolor also when this window is closed"));
+        keep_.onChange = [](bool on) { recolorPreview().keep = on, appState().dirty = true; };
+        add(keep_, {0, 0, 0, 0});
         line_.setReadOnly(true);
+        line_.setMultiline(true), line_.setWrap(true);  // (the whole line shows: a recolor of 3 stops is long)
         add(line_, {0, 0, 0, 0});
+        reset_.setText(tr(L"Reset"));
+        reset_.setTip(tr(L"One stop, every value 1, time 0 (no change of the colors)"));
+        reset_.onClick = [this] { sel_ = 0, setValue({}); };
+        add(reset_, {0, 0, 0, 0});
         copy_.setText(tr(L"Copy"));
         copy_.onClick = [this] { copyLine(); };
         add(copy_, {0, 0, 0, 0});
-
-        makeBase();
-        stardraft::cmbw::RecolorValue v;
-        if (!start.empty()) stardraft::cmbw::parseRecolorLine(start, v);
-        setValue(v);
+        setValue(recolorPreview().value);
     }
 
+    static draw::Point size() { return {scale(recolorLayout::kWindowW), scale(recolorLayout::kWindowH)}; }
+    // The window opens: the values and Keep as the map has them now.
+    void opened() {
+        keep_.setOn(recolorPreview().keep);
+        setValue(recolorPreview().value);
+    }
     const stardraft::cmbw::RecolorValue& value() const { return value_; }
     std::string lineText() const { return stardraft::cmbw::recolorLineText(value_); }
     size_t selectedStop() const { return sel_; }
-    // A snapshot's or a test's input: stop i chosen.
-    void selectStop(size_t i) {
-        if (i < value_.stops.size()) sel_ = i, sync();
+    // A snapshot's or a test's input: a line's values, stop i chosen.
+    void startWith(const std::string& line, size_t stop) {
+        stardraft::cmbw::RecolorValue v;
+        if (!line.empty()) stardraft::cmbw::parseRecolorLine(line, v);
+        setValue(v);
+        if (stop < value_.stops.size()) sel_ = stop, sync();
     }
-    // The preview's pixel at (x, y) after the recolor (0xAABBGGRR), for the checks.
-    uint32_t previewPixel(int x, int y) {
-        refreshPicture();
-        if (!pic_ || x < 0 || y < 0 || x >= pic_->width() || y >= pic_->height()) return 0;
-        return pic_->pixels()[size_t(y) * size_t(pic_->width()) + size_t(x)];
-    }
-    uint32_t basePixel(int x, int y) const {
-        if (x < 0 || y < 0 || x >= baseW_ || y >= baseH_) return 0;
-        return base_[size_t(y) * size_t(baseW_) + size_t(x)];
-    }
-    int pictureW() const { return baseW_; }
-    int pictureH() const { return baseH_; }
-    // Copy: the line to the clipboard.
+    // Copy: the line to the clipboard (for a trigger's Comment).
     void copyLine() {
+        commitFields();
         shellSetClipboardText(lineText());
         copied_ = true, invalidate();
     }
@@ -166,6 +160,7 @@ public:
         }
         if (e.kind == draw::MouseKind::Move && dragging_ == 2) return tintAt(e.pt), true;
         if (e.kind != draw::MouseKind::Down || e.button != 0) return false;
+        if (bar.contains(e.pt) || tint.contains(e.pt)) commitFields();  // (a number typed without Enter goes to the stop it was typed for)
         if (bar.contains(e.pt)) {  // the stop nearest the click
             size_t best = 0;
             int bestD = 1 << 30;
@@ -184,6 +179,11 @@ public:
     void captureLost() override { dragging_ = 0; }
 
 private:
+    // The fields with the focus take their typed numbers (the view takes no focus, so a click in it does not end them).
+    void commitFields() {
+        for (auto& c : commits_)
+            if (c.first->hasFocus()) c.second();
+    }
     void numberField(stardraft::kit::TextField& f, std::function<void(float)> set) {
         f.setFilter([](wchar_t c) { return (c >= L'0' && c <= L'9') || c == L'.'; });
         f.setMaxLength(8);
@@ -196,6 +196,7 @@ private:
         };
         f.onEnter = commit;
         f.onFocusLost = commit;
+        commits_.push_back({&f, commit});
         add(f, {0, 0, 0, 0});
     }
 
@@ -204,8 +205,9 @@ private:
         stardraft::cmbw::Recolor& r = stop();
         return k == 0 ? r.r : k == 1 ? r.g : k == 2 ? r.b : k == 3 ? r.gamma : r.saturation;
     }
+    // (a typed number rounded as the line writes it: the map shows what Copy gives)
     void setPart(int k, float v, bool typed) {
-        part(k) = typed ? v : std::round(v * 100.0f) / 100.0f;
+        part(k) = typed ? std::round(v * 1000.0f) / 1000.0f : std::round(v * 100.0f) / 100.0f;
         sync();
     }
     void setValue(const stardraft::cmbw::RecolorValue& v) {
@@ -241,7 +243,7 @@ private:
         sync();
     }
 
-    // The controls and the line after a change.
+    // The controls, the line and the map's preview after a change.
     void sync() {
         auto num = [](double v) {
             std::wstring s = widen(stardraft::cmbw::recolorLineText({"recolor", {{float(v), 1, 1, 1, 1}}, 0}));
@@ -250,107 +252,23 @@ private:
         };
         for (int k = 0; k < 5; ++k) {
             slider_[k].setValue(int(std::lround(part(k) * 100.0f)));
-            if (!field_[k].hasFocus()) field_[k].setText(num(part(k)));
+            if (!field_[k].hasFocus() || shownSel_ != sel_) field_[k].setText(num(part(k)));
         }
         time_.setValue(int(std::lround(value_.seconds * 4)));
         if (!timeField_.hasFocus()) timeField_.setText(num(value_.seconds));
+        shownSel_ = sel_;
         addStop_.setEnabled(value_.stops.size() < stardraft::cmbw::kRecolorStops);
         removeStop_.setEnabled(value_.stops.size() > 1);
         line_.setText(widen(lineText()));
-        copied_ = false, picDirty_ = true;
+        copied_ = false;
+        recolorPreview().value = value_;
+        appState().dirty = true;  // (the map view again, with these colors)
         invalidate();
     }
 
-    // The part of the map that the preview shows: 16 x 12 tiles around the view's middle (its terrain, and its units on
-    // top, as the map shows them in SD); without a map, a chart of hues (across) and brightness (down) with grays at
-    // the right.
-    void makeBase() {
-        using namespace recolorLayout;
-        baseW_ = kPicW, baseH_ = kPicH;
-        base_.assign(size_t(baseW_) * size_t(baseH_), 0xFF000000u);
-        if (ed_ && ed_->isOpen() && ed_->width() > 0) {
-            Editor& ed = *ed_;
-            const AppState& app = appState();
-            int vw = 0, vh = 0;
-            shellViewSize(vw, vh);
-            const float z = app.zoom > 0 ? app.zoom : 1;
-            const int cx = int(app.camX + float(vw) / z / 2), cy = int(app.camY + float(vh) / z / 2);
-            int tx = std::clamp(cx / 32 - 8, 0, std::max(0, int(ed.width()) - 16)), ty = std::clamp(cy / 32 - 6, 0, std::max(0, int(ed.height()) - 12));
-            const stardraft::Sprite s = stardraft::mapTilesPicture(ed.tileset(), ed.terrain().tiles, ed.width(), tx, ty, 16, 12);
-            for (int y = 0; y < std::min(s.height, baseH_); ++y)
-                for (int x = 0; x < std::min(s.width, baseW_); ++x) {
-                    const uint8_t* p = &s.rgba[(size_t(y) * size_t(s.width) + size_t(x)) * 4];
-                    if (p[3]) base_[size_t(y) * size_t(baseW_) + size_t(x)] = p[0] | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | 0xFF000000u;
-                }
-            const int ox = tx * 32, oy = ty * 32;
-            std::vector<const Unit*> units;
-            for (const Unit& u : ed.units())
-                if (int(u.x) >= ox - 128 && int(u.x) < ox + baseW_ + 128 && int(u.y) >= oy - 128 && int(u.y) < oy + baseH_ + 128) units.push_back(&u);
-            std::stable_sort(units.begin(), units.end(), [](const Unit* a, const Unit* b) { return a->y < b->y; });
-            UnitSprites& us = ed.unitSprites();
-            for (const Unit* u : units) {
-                const stardraft::Sprite* sp = us.unitSprite(u->type, u->owner, ed.tileset());
-                if (!sp || sp->width <= 0) continue;
-                const int x0 = int(u->x) - sp->originX - ox, y0 = int(u->y) - sp->originY - oy;
-                for (int y = 0; y < sp->height; ++y) {
-                    const int py = y0 + y;
-                    if (py < 0 || py >= baseH_) continue;
-                    for (int x = 0; x < sp->width; ++x) {
-                        const int px = x0 + x;
-                        if (px < 0 || px >= baseW_) continue;
-                        const uint8_t* p = &sp->rgba[(size_t(y) * size_t(sp->width) + size_t(x)) * 4];
-                        if (!p[3]) continue;
-                        uint32_t& d = base_[size_t(py) * size_t(baseW_) + size_t(px)];
-                        const int a = p[3];
-                        auto mixc = [&](int src, int sh) { return uint32_t((src * a + int((d >> sh) & 255) * (255 - a)) / 255) << sh; };
-                        d = mixc(p[0], 0) | mixc(p[1], 8) | mixc(p[2], 16) | 0xFF000000u;
-                    }
-                }
-            }
-            return;
-        }
-        for (int y = 0; y < baseH_; ++y)
-            for (int x = 0; x < baseW_; ++x) {
-                const float v = 1.0f - float(y) / float(baseH_ - 1);
-                float r = v, g = v, b = v;
-                if (x < baseW_ - 64) {
-                    recolorFromHueSat(float(x) / float(baseW_ - 64), 1, r, g, b);
-                    const float l = v * 2;  // (dark to the color to white)
-                    auto mix = [l](float c) { return l <= 1 ? c * l : c + (1 - c) * (l - 1); };
-                    r = mix(r), g = mix(g), b = mix(b);
-                }
-                base_[size_t(y) * size_t(baseW_) + size_t(x)] = uint32_t(r * 255) | uint32_t(g * 255) << 8 | uint32_t(b * 255) << 16 | 0xFF000000u;
-            }
-    }
-
-    // The preview's bitmap of the values (each color once: a map's picture has a few hundred).
-    void refreshPicture() {
-        if (!picDirty_ && pic_) return;
-        picDirty_ = false;
-        if (!pic_) pic_ = std::make_unique<draw::Bitmap>(baseW_, baseH_), pic_->opaque = true;
-        std::unordered_map<uint32_t, uint32_t> done;
-        uint32_t* out = pic_->pixels();
-        const bool original = original_.on();
-        for (size_t i = 0; i < base_.size(); ++i) {
-            const uint32_t c = base_[i];
-            if (original) {
-                out[i] = c;
-                continue;
-            }
-            auto it = done.find(c);
-            if (it == done.end()) {
-                uint8_t r = uint8_t(c), g = uint8_t(c >> 8), b = uint8_t(c >> 16);
-                stardraft::cmbw::recolorRgb(value_.stops, r, g, b);
-                it = done.emplace(c, r | uint32_t(g) << 8 | uint32_t(b) << 16 | 0xFF000000u).first;
-            }
-            out[i] = it->second;
-        }
-        pic_->changed();
-    }
-
     draw::Rect place(int x, int y, int w, int h) const { return {scale(x), scale(y), scale(x + w), scale(y + h)}; }
-    draw::Rect barRect() const { return place(recolorLayout::kPad, recolorLayout::kBarY, recolorLayout::kLeftW, recolorLayout::kBarH); }
-    draw::Rect tintRect() const { return place(recolorLayout::kPad, recolorLayout::kTintY, recolorLayout::kLeftW, recolorLayout::kTintH); }
+    draw::Rect barRect() const { return place(recolorLayout::kPad, recolorLayout::kBarY, recolorLayout::kW, recolorLayout::kBarH); }
+    draw::Rect tintRect() const { return place(recolorLayout::kPad, recolorLayout::kTintY, recolorLayout::kW, recolorLayout::kTintH); }
     int stopX(size_t i) const {
         const draw::Rect b = barRect();
         return b.left + int(recolorStopPlace(i, value_.stops.size()) * float(b.width() - 1));
@@ -405,80 +323,64 @@ private:
         {
             const stardraft::cmbw::Recolor& r = value_.stops[sel_];
             auto chan = [&](float v) { return std::clamp(int(v * r.gamma * 255.0f + 0.5f), 0, 255); };
-            const draw::Rect sw = place(kPad + kLabelW, kBarY - 28, 20, 20);
+            const draw::Rect sw = place(kPad + kLabelW, kStopsY + 2, 20, 20);
             c.fill(sw, draw::rgb(chan(std::min(1.0f, r.r)), chan(std::min(1.0f, r.g)), chan(std::min(1.0f, r.b))));
             c.frame(sw, th.border);
             const std::wstring n = std::to_wstring(sel_ + 1) + L" / " + std::to_wstring(value_.stops.size()) +
                                    (value_.stops.size() == 1 ? L": " + std::wstring(tr(L"all colors")) : sel_ == 0 ? L": " + std::wstring(tr(L"darkest"))
                                                                 : sel_ + 1 == value_.stops.size() ? L": " + std::wstring(tr(L"brightest")) : std::wstring());
-            c.text(place(kPad + kLabelW + 28, kBarY - 28, 160, 20), n, th.text);
+            c.text(place(kPad + kLabelW + 28, kStopsY + 2, 200, 20), n, th.text);
         }
-        // The preview.
-        refreshPicture();
-        const draw::Rect pr = place(kPicX, kPad, kPicW, kPicH);
-        c.bitmap(*pic_, {0, 0, pic_->width(), pic_->height()}, pr);
-        c.frame({pr.left - 1, pr.top - 1, pr.right + 1, pr.bottom + 1}, th.border);
-        if (copied_) c.text(place(kPicX + kPicW - 160, kValueY - kPitch, 160, kRowH), tr(L"Copied"), th.good, draw::kRight | draw::kMiddle);
+        if (copied_) c.text(place(kPad + kW - 160, kValueY, 160, 20), tr(L"Copied"), th.good, draw::kRight | draw::kMiddle);
     }
 
     void resized() override {
         using namespace recolorLayout;
         auto put = [this](draw::View& v, int x, int y, int w, int h) { v.setFrame(place(x, y, w, h)); };
-        const int fieldX = kPad + kLabelW, wide = kLeftW - kLabelW;
-        put(loadLabel_, kPad, kPad, kLabelW, kRowH);
-        put(load_, fieldX, kPad, wide, kRowH);
-        put(commandLabel_, kPad, kPad + kPitch, kLabelW, kRowH);
-        put(command_, fieldX, kPad + kPitch, wide, kRowH);
-        put(timeLabel_, kPad, kPad + 2 * kPitch, kLabelW, kRowH);
-        put(time_, fieldX, kPad + 2 * kPitch, wide - kFieldW - 8, kRowH);
-        put(timeField_, kPad + kLeftW - kFieldW, kPad + 2 * kPitch, kFieldW, kRowH);
-        put(stopsLabel_, kPad, kBarY - 28, kLabelW, kRowH - 4);
-        put(addStop_, kPad + kLeftW - 56, kBarY - 30, 24, 24);
-        put(removeStop_, kPad + kLeftW - 28, kBarY - 30, 24, 24);
+        const int fieldX = kPad + kLabelW, wide = kW - kLabelW;
+        put(commandLabel_, kPad, kPad, kLabelW, kRowH);
+        put(command_, fieldX, kPad, wide, kRowH);
+        put(timeLabel_, kPad, kPad + kPitch, kLabelW, kRowH);
+        put(time_, fieldX, kPad + kPitch, wide - kFieldW - 8, kRowH);
+        put(timeField_, kPad + kW - kFieldW, kPad + kPitch, kFieldW, kRowH);
+        put(stopsLabel_, kPad, kStopsY, kLabelW, kRowH);
+        put(addStop_, kPad + kW - 56, kStopsY, 24, 24);
+        put(removeStop_, kPad + kW - 28, kStopsY, 24, 24);
         for (int k = 0; k < 5; ++k) {
             const int y = kSlidersY + k * kPitch;
             put(rowLabel_[k], kPad, y, kLabelW, kRowH);
             put(slider_[k], fieldX, y, wide - kFieldW - 8, kRowH);
-            put(field_[k], kPad + kLeftW - kFieldW, y, kFieldW, kRowH);
+            put(field_[k], kPad + kW - kFieldW, y, kFieldW, kRowH);
         }
-        put(original_, kPicX, kPad + kPicH + 8, 160, kRowH);
-        put(valueLabel_, kPad, kValueY, kLabelW, kRowH);
-        put(line_, fieldX, kValueY, kPicX + kPicW - fieldX - 80, kRowH);
-        put(copy_, kPicX + kPicW - 72, kValueY - 2, 72, kButtonH);
+        put(keep_, kPad, kKeepY, kW - 88, kRowH);
+        put(reset_, kPad + kW - 72, kKeepY - 2, 72, kButtonH);
+        put(valueLabel_, kPad, kValueY, kLabelW, 20);
+        put(line_, kPad, kLineY, kW - 80, kLineH);
+        put(copy_, kPad + kW - 72, kLineY, 72, kButtonH);
     }
 
-    Editor* ed_ = nullptr;
-    std::vector<stardraft::cmbw::RecolorLineRef> lines_;
     stardraft::cmbw::RecolorValue value_;
-    size_t sel_ = 0;
+    size_t sel_ = 0, shownSel_ = 0;  // (shownSel_: the stop the fields show)
+    std::vector<std::pair<stardraft::kit::TextField*, std::function<void()>>> commits_;
     int dragging_ = 0;  // 2: the tint square
-    bool picDirty_ = true, copied_ = false;
-    std::vector<uint32_t> base_;
-    int baseW_ = 0, baseH_ = 0;
-    std::unique_ptr<draw::Bitmap> pic_, barBmp_, tintBmp_;
-    stardraft::kit::Label loadLabel_, commandLabel_, timeLabel_, stopsLabel_, valueLabel_, rowLabel_[5];
-    stardraft::kit::Dropdown load_, command_;
+    bool copied_ = false;
+    std::unique_ptr<draw::Bitmap> barBmp_, tintBmp_;
+    stardraft::kit::Label commandLabel_, timeLabel_, stopsLabel_, valueLabel_, rowLabel_[5];
+    stardraft::kit::Dropdown command_;
     stardraft::kit::Slider slider_[5], time_;
     stardraft::kit::TextField field_[5], timeField_, line_;
     stardraft::kit::IconButton addStop_, removeStop_;
-    stardraft::kit::CheckBox original_;
-    stardraft::kit::Button copy_;
+    stardraft::kit::CheckBox keep_;
+    stardraft::kit::Button copy_, reset_;
 };
 
-// The dialog around `view` (Close). Returns the window's size.
-inline draw::Point recolorDialogSetup(stardraft::kit::Dialog& dlg, RecolorView& view) {
-    using namespace recolorLayout;
-    dlg.setContent(view);
-    std::vector<stardraft::kit::DialogButton> buttons;
-    buttons.push_back({tr(L"Close"), kRecolorClose, true, true, false, 0});
-    dlg.setButtons(std::move(buttons));
-    dlg.setInsets({0, 0, kPad, kPad, -(kButtonH + kPad), 8});
-    return draw::Point{scale(kWindowW), scale(kWindowH)};
+// The one window's view (made at its first use: after the program's start, its language and settings).
+inline RecolorView& recolorView() {
+    static RecolorView v;
+    return v;
 }
-
-inline void runRecolorDialog(draw::View& from, Editor* ed) {
-    RecolorView view(ed);
-    stardraft::kit::Dialog dlg;
-    const draw::Point size = recolorDialogSetup(dlg, view);
-    dlg.run(from, tr(L"Recolor preview"), size);
+void shellShowRecolorWindow();  // (sdl_options.inc: the window, once)
+void recolorShow() {
+    recolorView().opened();
+    shellShowRecolorWindow();
 }

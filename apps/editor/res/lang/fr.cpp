@@ -3721,7 +3721,6 @@ constexpr UiText kRows[] = {
     {L"{a}, but at least {low} and at most {high}", L"{a}, mais au moins {low} et au plus {high}"},
     {L"Recolor &preview\u2026", L"&Aper\u00E7u de la recoloration\u2026"},
     {L"Recolor preview", L"Aper\u00E7u de la recoloration"},
-    {L"Load", L"Charger"},
     {L"Time (s)", L"Dur\u00E9e (s)"},
     {L"Stops", L"Arr\u00EAts"},
     {L"Gamma", L"Gamma"},
@@ -3732,14 +3731,15 @@ constexpr UiText kRows[] = {
     {L"Factor on R, G and B", L"Facteur sur R, V et B"},
     {L"0: gray. 1: as it is. Above 1 it goes down again (the plugin's curve).", L"0 : gris. 1 : inchang\u00E9. Au-dessus de 1, elle baisse de nouveau (la courbe du plugin)."},
     {L"0: at once", L"0 : imm\u00E9diat"},
-    {L"No recolor CRIGs in the map", L"Aucun CRIG de recoloration dans la carte"},
     {L"Add stop", L"Ajouter un arr\u00EAt"},
     {L"Remove stop", L"Retirer l'arr\u00EAt"},
-    {L"Original", L"Original"},
     {L"Copied", L"Copi\u00E9"},
     {L"all colors", L"toutes les couleurs"},
     {L"darkest", L"le plus sombre"},
     {L"brightest", L"le plus clair"},
+    {L"Keep recolor preview", L"Garder l'aper\u00E7u de la recoloration"},
+    {L"The map shows the recolor also when this window is closed", L"La carte montre la recoloration aussi quand cette fen\u00EAtre est ferm\u00E9e"},
+    {L"One stop, every value 1, time 0 (no change of the colors)", L"Un arr\u00EAt, toutes les valeurs \u00E0 1, dur\u00E9e 0 (couleurs inchang\u00E9es)"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

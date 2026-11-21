@@ -3721,7 +3721,6 @@ constexpr UiText kRows[] = {
     {L"{a}, but at least {low} and at most {high}", L"{a}, mas pelo menos {low} e no m\u00E1ximo {high}"},
     {L"Recolor &preview\u2026", L"&Pr\u00E9-visualiza\u00E7\u00E3o da recolora\u00E7\u00E3o\u2026"},
     {L"Recolor preview", L"Pr\u00E9-visualiza\u00E7\u00E3o da recolora\u00E7\u00E3o"},
-    {L"Load", L"Carregar"},
     {L"Time (s)", L"Tempo (s)"},
     {L"Stops", L"Paradas"},
     {L"Gamma", L"Gama"},
@@ -3732,14 +3731,15 @@ constexpr UiText kRows[] = {
     {L"Factor on R, G and B", L"Fator sobre R, G e B"},
     {L"0: gray. 1: as it is. Above 1 it goes down again (the plugin's curve).", L"0: cinza. 1: sem mudan\u00E7a. Acima de 1 volta a baixar (a curva do plugin)."},
     {L"0: at once", L"0: na hora"},
-    {L"No recolor CRIGs in the map", L"Nenhum CRIG de recolora\u00E7\u00E3o no mapa"},
     {L"Add stop", L"Adicionar parada"},
     {L"Remove stop", L"Remover parada"},
-    {L"Original", L"Original"},
     {L"Copied", L"Copiado"},
     {L"all colors", L"todas as cores"},
     {L"darkest", L"mais escuro"},
     {L"brightest", L"mais claro"},
+    {L"Keep recolor preview", L"Manter a pr\u00E9-visualiza\u00E7\u00E3o da recolora\u00E7\u00E3o"},
+    {L"The map shows the recolor also when this window is closed", L"O mapa mostra a recolora\u00E7\u00E3o tamb\u00E9m com esta janela fechada"},
+    {L"One stop, every value 1, time 0 (no change of the colors)", L"Uma parada, todos os valores 1, tempo 0 (cores sem mudan\u00E7a)"},
 };
 }  // namespace
 std::span<const UiText> langTablePt() { return kRows; }

@@ -582,6 +582,27 @@ void sdlIsomRulesFrame() {
     static WindowPlace place{L"Layout/IsomWindow"};
     if (gIsomRulesOpen && gHost) keepWindowPlace(gHost->sdlWindow(gIsomRulesView), place);
 }
+// Tools > Cosmonarchy > Recolor preview (core/views_recolor.inc; one window, beside the map). The map shows the recolor
+// while it is open (RecolorPreviewState::windowOpen).
+void shellShowRecolorWindow() {
+    if (!gRoot || !gHost) return;
+    RecolorView& v = recolorView();
+    if (recolorPreview().windowOpen) {
+        if (SDL_Window* w = gHost->sdlWindow(v)) SDL_RaiseWindow(w);
+        return;
+    }
+    recolorPreview().windowOpen = true;
+    const draw::Point sz = RecolorView::size();
+    draw::WindowSpec spec{draw::WindowKind::Dialog, draw::Rect(0, 0, sz.x, sz.y), std::wstring(tr(L"Recolor preview"))};
+    gHost->openWindow(*gRoot, v, spec, [] { recolorPreview().windowOpen = false, appState().dirty = true; });
+    SDL_Window* win = gHost->sdlWindow(v);
+    if (win) sdlNoMinimizeButton(win);
+    restoreWindowPlace(win, L"Layout/RecolorWindow");
+}
+void sdlRecolorFrame() {
+    static WindowPlace place{L"Layout/RecolorWindow"};
+    if (recolorPreview().windowOpen && gHost) keepWindowPlace(gHost->sdlWindow(recolorView()), place);
+}
 // Tools > Cosmonarchy > Ramp and bridge mapper (core/views_passages.inc; one window, beside the map). Its close button
 // asks about unsaved passages (PassagesView::closeRequested).
 bool gPassagesOpen = false;
