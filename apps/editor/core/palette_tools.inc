@@ -545,7 +545,8 @@ struct StripItem {
     const wchar_t* tip;
     int tool;     // the mode's tool it sets
     bool select;  // the Select button: the tool with nothing picked
-    // A group's button (1: Spray and Jumble; 2: Line, Contour and Polygon; 3: Bridge and Ramp; 5: Brush and Erase): it is the tool of the group in use, else the
+    // A group's button (1: Spray and Jumble; 2: Line, Contour and Polygon; 3: Bridge and Ramp; 4: Select; 5: Brush and
+    // Erase; 6: Paint fog and Erase fog): it is the tool of the group in use, else the
     // one used last (AppState::lastInGroup); a click on it picks that tool and shows the group's row, its corner's
     // arrow and a right click list them (core/views_toolstrip.inc).
     int group = 0;
@@ -577,13 +578,15 @@ constexpr const wchar_t* kDiamondFillTip = L"Filled diamond: drag across the box
 constexpr const wchar_t* kPolygonTip = L"Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.";
 constexpr const wchar_t* kBridgeTip = L"Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.";
 constexpr const wchar_t* kRampTip = L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces. Hold Shift to make a ramp the cliff again.";
-constexpr const wchar_t* kFogTip = L"Fog of war: paint the fog of war of the player that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.";
+constexpr const wchar_t* kFogTip = L"Paint fog: add fog of war to the tiles that you paint, for the players that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.";
+constexpr const wchar_t* kFogEraseTip = L"Erase fog: remove the fog of war from the tiles that you paint, for the players that you select under the tools. These tiles are explored when the game starts: their terrain shows, gray.";
 // The Terrain tools with the Bridge and the Ramp at their end, where the map's tileset has them (src/bridges.cpp,
-// src/ramps.cpp): one group's button when it has both. Then the Fog of war (core/fog_layer.inc).
+// src/ramps.cpp): one group's button when it has both. Then Paint fog and Erase fog, one group's button (6,
+// core/fog_layer.inc).
 std::vector<StripItem> withBridgeOnly(std::vector<StripItem> tools);
 std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
     tools = withBridgeOnly(std::move(tools));
-    tools.push_back({UiIcon::Fog, kFogTip, TFog, false});
+    tools.push_back(stripGroup(6, {{UiIcon::Fog, kFogTip, TFog, false}, {UiIcon::FogErase, kFogEraseTip, TFogErase, false}}));
     return tools;
 }
 std::vector<StripItem> withBridgeOnly(std::vector<StripItem> tools) {
@@ -669,8 +672,8 @@ std::vector<StripItem> stripTools(Mode m) {
 }
 // The key of a strip tool (ID_TOOL_KEY + it): 0 V select, 1 B brush or place, 2 A spray, 3 F fill; (ID_SHAPE_KEY + it - 4)
 // 4 I line, 5 O contour, 6 P polygon, 7 X jumble, 8 E erase, 9 H bridge, 10 J ramp, 11 W magic wand, 12 K lasso,
-// 13 M move, 14 N rectangle (Shift: filled), 16 C ellipse (Shift: filled), 18 Z diamond (Shift: filled), 20 Shift+F fog of
-// war; -1 none.
+// 13 M move, 14 N rectangle (Shift: filled), 16 C ellipse (Shift: filled), 18 Z diamond (Shift: filled), 20 Shift+F paint
+// fog; -1 none.
 int stripToolKey(const StripItem& it) {
     if (it.select) return 0;
     if (it.icon == UiIcon::Spray) return 2;

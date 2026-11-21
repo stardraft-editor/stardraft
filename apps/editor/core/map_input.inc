@@ -1164,7 +1164,7 @@ bool terrainEditBlockedAt(const AppState& app, float wx, float wy) {
     if (app.mode != Mode::Terrain || !app.ed || app.drag != Drag::None || shapeOn()) return false;
     const int tool = currentTool(app);
     if (tool == TSelect || tool == TMoveSel || tool == TLasso || tool == TWand || tool == TLine || tool == TContour || tool == TPolygon || isBoxTool(tool) ||
-        (tool == TFog && gFogTool.shape == 1))  // (the Fog of war's Rectangle: its tiles on the map only)
+        (isFogTool(tool) && gFogTool.shape == 1))  // (the fog tools' Rectangle: its tiles on the map only)
         return false;
     return wx < 0 || wy < 0 || wx >= app.ed->width() * 32.0f || wy >= app.ed->height() * 32.0f;
 }
@@ -1380,7 +1380,7 @@ bool mapArrowKey(AppState& app, int dx, int dy, bool big, bool ctrl) {
 bool mapBrushActive(const AppState& app) {
     return (app.mode == Mode::Terrain && (currentTool() == TBrush || currentTool() == TSpray || isStrokeShape(currentTool()) ||
                                           currentTool() == TBridge || currentTool() == TRamp || (currentTool() == TJumble && !app.terrainRect))) ||
-           objectSprayOn() || objectEraseOn() || (app.mode == Mode::Terrain && (currentTool() == TErase || (currentTool() == TFog && gFogTool.shape == 0)));
+           objectSprayOn() || objectEraseOn() || (app.mode == Mode::Terrain && (currentTool() == TErase || (isFogTool(currentTool()) && gFogTool.shape == 0)));
 }
 bool mapBrushWheel(AppState& app, bool up) {
     if (!mapBrushActive(app)) return false;

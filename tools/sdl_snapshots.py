@@ -129,10 +129,11 @@ CASES += [
     # The terrain list's Fog of war (the search finds it): Player 3 picked in the Units palette (its list: Down, Down,
     # Enter), back to Terrain; Erase (size 10) takes the fog away along three sides (gray: explored at the start), the
     # Brush puts it back on part of the top. The overlay shows while the entry is picked; the output counts the tiles.
-    # Terrain's Fog of war tool (Shift+F): Player 3 (the key 3), Remove fog with a Rectangle, then Add fog with the Brush.
-    ("map-terrain-fog", ["--mode", "terrain", "--key", "Shift+F", "--key", "3", "--click", "270,521", "--click", "203,551",
-                         "--drag", "480,180-1180,860", "--click", "136,521", "--click", "113,551", "--drag", "600,400-1000,400",
-                         "--wait", "200"], "map"),
+    # Terrain's fog tools: Paint fog (Shift+F); keys 3 and 1 make Player 3 the only player; Erase fog (the button's
+    # tools) with a Rectangle, then Paint fog with the Brush.
+    ("map-terrain-fog", ["--mode", "terrain", "--key", "Shift+F", "--key", "3", "--key", "1", "--click", "333,470", "--wait", "200",
+                         "--click", "352,494", "--click", "203,521", "--drag", "480,180-1180,860", "--key", "Shift+F", "--click", "113,521",
+                         "--drag", "600,400-1000,400", "--wait", "200"], "map"),
     ("map-classictrig", ["--workspace", "classictriggers", "--classictrig", "1:1:0"], "map"),
     ("map-dialog-unitprops", ["--dialog", "unitprops"], "map"),
     ("map-dialog-locprops", ["--dialog", "locprops"], "map"),
@@ -4767,7 +4768,7 @@ def check_terrain_off_map(output):
 
 
 CHECKS = {"map-terrain-fog": lambda o: None if "Fog of war: Player 3. Removed fog from" in o and "Fog of war: Player 3. Added fog to" in o
-          else "the Fog of war tool did not remove and add fog for Player 3",
+          else "Erase fog and Paint fog did not remove and add fog for Player 3",
           "map-revealers-place": lambda o: None if "command edit.revealers.place: ran (yes)" in o else "the place command did not run",
           "map-creep": lambda o: ("no creep tiles under the Hatchery" if not re.search(r"creep: a Hatchery placed .*; (\d+) creep tiles.* \(yes\)", o)
                                   else None if re.search(r"creep: [1-9]\d* edge sprites in the scene, \d+ tiles with an edge.* \(yes\)", o)

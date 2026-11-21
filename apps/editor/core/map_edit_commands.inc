@@ -478,9 +478,15 @@ bool commandMapEdit(AppState& app, int id) {
         const int player = id - ID_PLAYER_1;
         // Terrain mode: the key picks the palette's terrain at that place (1 the first, 0 the tenth; the headers do not
         // count), as a click on its row does.
-        if (app.ed && app.mode == Mode::Terrain && currentTool(app) == TFog) {  // the Fog of war tool: its player (9: Player 1 to Player 8)
+        if (app.ed && app.mode == Mode::Terrain && isFogTool(currentTool(app))) {  // the fog tools: 1 to 8 add or remove that player, 9 all 8
+            if (player < 8) {
+                const uint8_t bits = uint8_t(fogToolBits() ^ (1u << player));
+                gFogTool.players = bits ? bits : fogToolBits();  // (one player at least)
+            } else if (player == 8) {
+                gFogTool.players = 0xFF;
+            }
             if (player <= 8) {
-                gFogTool.player = player;
+                setMessage(fogText(tr(L"Fog of war: %ls")));
                 shellToolsChanged();
                 app.dirty = true;
             }

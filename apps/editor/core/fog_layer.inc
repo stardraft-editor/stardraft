@@ -7,9 +7,10 @@
 // The map's fog of war at the start (CHK MASK, Editor::fogMask) shows through: a tile that no unit sees is dark where
 // it starts unexplored (black in the game) and gray where it starts explored; the terrain shows under both. A unit's
 // tile is clear. Players 9 to 12: a tile is unexplored when it is unexplored for one of the players 1 to 8.
-// Terrain's Fog of war tool (TFog) paints the MASK of the player that the tool strip selects (or of Player 1 to Player 8
-// together): it adds fog or removes it, with the brush, a rectangle or a fill. While the tool is on, the overlay shows
-// that player's MASK only (no units' sight), so each painted tile shows (View > Overlays > Fog of war stays as it is).
+// Terrain's Paint fog (TFog) and Erase fog (TFogErase) tools change the MASK of the players that the tool strip selects
+// (one or more): they add fog or remove it, with the brush, a rectangle or a fill. While a fog tool is on, the overlay
+// shows the MASK of those players only (no units' sight), so each painted tile shows: dark where all of them have fog,
+// gray where some of them have it (View > Overlays > Fog of war stays as it is).
 
 bool gShowFog = false;
 
@@ -30,23 +31,30 @@ int fogPlayer() {
     const PanelState* units = panelHomeOf(Mode::Units);
     return std::clamp(units && units != gActivePanel ? units->owner : app.playerOwner, 0, 11);
 }
-// The bits of MASK that the Fog of war tool paints: its player's (Player 1 to Player 8), else all 8.
-uint8_t fogToolBits() { return gFogTool.player < 8 ? uint8_t(1u << std::clamp(gFogTool.player, 0, 7)) : uint8_t(0xFF); }
+// The bits of MASK that the fog tools change: their players' (one at least).
+uint8_t fogToolBits() { return gFogTool.players ? gFogTool.players : uint8_t(1); }
+// The fog tools' players as text: "Player 3", "Player 1, Player 4", "Player 1 to Player 8".
 std::wstring fogToolPlayerName() {
-    if (gFogTool.player >= 8) return tr(L"Player 1 to Player 8");
-    wchar_t buf[48];
-    std::swprintf(buf, 48, tr(L"Player %d"), std::clamp(gFogTool.player, 0, 7) + 1);
-    return buf;
+    const uint8_t bits = fogToolBits();
+    if (bits == 0xFF) return tr(L"Player 1 to Player 8");
+    std::wstring out;
+    for (int p = 0; p < 8; ++p)
+        if (bits >> p & 1) {
+            wchar_t buf[48];
+            std::swprintf(buf, 48, tr(L"Player %d"), p + 1);
+            out += (out.empty() ? L"" : L", ") + std::wstring(buf);
+        }
+    return out;
 }
 // A text with the tool's player for %ls (and a number for %d after it).
-std::wstring fogText(const wchar_t* format, int n = 0) {
+std::wstring fogText(const wchar_t* format, int n) {
     wchar_t buf[512];
     std::swprintf(buf, 512, format, fogToolPlayerName().c_str(), n);
     return buf;
 }
 bool fogToolOn() {
     const AppState& app = appState();
-    return app.mode == Mode::Terrain && currentTool(app) == TFog && app.ed && app.ed->isOpen();
+    return app.mode == Mode::Terrain && isFogTool(currentTool(app)) && app.ed && app.ed->isOpen();
 }
 
 const DatTable* rangeTable(const std::string& name);  // (core/map_scene.inc)
@@ -71,29 +79,29 @@ std::vector<uint8_t> fogStartClasses(const Editor& ed, int player) {
     return out;
 }
 
-// The Fog of war tool's classes: 2 where the player has fog (Player 1 to Player 8 together: where all 8 have it), 1
-// where some of the 8 have it, 0 where it has none.
-std::vector<uint8_t> fogMaskClasses(const Editor& ed, int player) {
+// The fog tools' classes for the players `bits`: 2 where all of them have fog, 1 where some of them have it, 0 where
+// none has it.
+std::vector<uint8_t> fogMaskClasses(const Editor& ed, uint8_t bits) {
     const std::vector<uint8_t> mask = ed.fogMask();
     std::vector<uint8_t> out(mask.size());
-    for (size_t i = 0; i < mask.size(); ++i)
-        out[i] = player < 8 ? ((mask[i] >> player) & 1 ? 2 : 0) : mask[i] == 0xFF ? 2 : mask[i] ? 1 : 0;
+    for (size_t i = 0; i < mask.size(); ++i) out[i] = (mask[i] & bits) == bits ? 2 : (mask[i] & bits) ? 1 : 0;
     return out;
 }
 
-// `maskOnly`: the MASK alone, as fogMaskClasses (the Fog of war tool); else the start with the units' sight.
+// `maskOnly`: the MASK alone, as fogMaskClasses (the fog tools; `player` is then their players' bits); else the start
+// with the units' sight.
 void makeFogShapes(const Editor& ed, int player, bool maskOnly) {
     const int key = gLightTheme ? 1 : 0;
     if (gFog.shapesFor == &ed && gFog.shapesRev == ed.revision() && gFog.player == player && gFog.key == key && gFog.maskOnly == maskOnly) return;
     gFog.shapesFor = &ed, gFog.shapesRev = ed.revision(), gFog.player = player, gFog.key = key, gFog.maskOnly = maskOnly;
     gFog.fills.clear();
     const int w = ed.width(), h = ed.height();
-    std::vector<uint8_t> seen = maskOnly ? fogMaskClasses(ed, player) : fogStartClasses(ed, player);  // (then 0 where a unit sees)
+    std::vector<uint8_t> seen = maskOnly ? fogMaskClasses(ed, uint8_t(player)) : fogStartClasses(ed, player);  // (then 0 where a unit sees)
     if (seen.size() != size_t(w) * h) seen.assign(size_t(w) * h, maskOnly ? 0 : 2);
     // The players whose units the player sees with: itself, and its force when the force shares vision.
     bool with[12] = {};
-    with[player] = true;
-    if (player < 8) {
+    if (!maskOnly) with[std::clamp(player, 0, 11)] = true;
+    if (!maskOnly && player < 8) {
         const int f = ed.player(player).force;
         if (f >= 0 && f < 4 && (ed.force(f).flags & Editor::SharedVision))
             for (int p = 0; p < 8; ++p) with[p] |= ed.player(p).force == f;
@@ -141,7 +149,7 @@ void makeFogShapes(const Editor& ed, int player, bool maskOnly) {
 void addFogLayer(render::Scene& s) {
     const AppState& app = appState();
     if (!app.ed || !app.ed->isOpen()) return;
-    if (fogToolOn()) makeFogShapes(*app.ed, std::clamp(gFogTool.player, 0, 8), true);
+    if (fogToolOn()) makeFogShapes(*app.ed, fogToolBits(), true);
     else if (gShowFog) makeFogShapes(*app.ed, fogPlayer(), false);
     else return;
     int vw, vh;
@@ -160,7 +168,7 @@ void fogToggle() {
                         : std::wstring(tr(L"Fog of war is hidden")));
 }
 
-// --- Painting the fog of war (the Fog of war tool) ----------------------------------------------------------------
+// --- Painting the fog of war (Paint fog, Erase fog) ----------------------------------------------------------------
 
 struct FogPaint {
     int tool = -1;             // the press's shape: TBrush (a stroke) or TRectFill (a box)
@@ -269,7 +277,7 @@ void fogMouseDown(float wx, float wy, unsigned mods) {
     int tx, ty;
     tilesAt(wx, wy, tx, ty);
     gFogPaint = {};
-    gFogPaint.add = !gFogTool.remove;
+    gFogPaint.add = currentTool(app) != TFogErase;
     if (gFogTool.shape == 2) {  // Fill
         fogDoneMessage(!gFogPaint.add, ed.setFog(fogFillTiles(tx, ty, (mods & draw::kShift) != 0), fogToolBits(), gFogPaint.add));
     } else if (gFogTool.shape == 1) {  // Rectangle
@@ -318,7 +326,7 @@ void fogMouseUp(float wx, float wy, unsigned mods) {
 void fogScene(render::Scene& s, float wx, float wy) {
     const AppState& app = appState();
     std::vector<std::pair<int, int>> tiles;
-    const bool add = app.drag == Drag::Fog ? gFogPaint.add : !gFogTool.remove;
+    const bool add = app.drag == Drag::Fog ? gFogPaint.add : currentTool(app) != TFogErase;
     if (app.drag == Drag::Fog && gFogPaint.tool == TRectFill) {
         tiles = fogBoxTiles(TRectFill, app.dragWX, app.dragWY, wx, wy, gFogPaint.shift);
     } else {

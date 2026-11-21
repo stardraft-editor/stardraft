@@ -102,6 +102,7 @@
 #include "views_classic_batch.inc"
 #include "views_classic_value.inc"
 #include "views_list_pick.inc"
+#include "fog_players_pick.inc"  // the fog tools' players: the tool strip's multi-pick (core/fog_layer.inc)
 #include "views_variations.inc"  // the side bar's Variations strip (a selected tile's variations: core/tile_variations.inc)
 #include "views_pick_pie.inc"  // the pie palette of the Units, Doodads and Sprites modes (PickPieView)
 #include "views_palette.inc"  // the palette's list and grid (PaletteGridView) and the pie palette (PieView): the SDL program's

@@ -3765,16 +3765,14 @@ A unit casts an order on a point	Юнит применяет приказ к т�
 A unit casts an order on a unit	Юнит применяет приказ к юниту
 {unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target	{unit} применяет {order} к юниту ближе {range} пикселей; поместить {unitloc} на юнит и {pointloc} на цель
 Key:	Клавиша:
-Fog of war: paint the fog of war of the player that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.	Туман войны: рисует туман войны игрока, которого вы выбираете под инструментами. Клетка с туманом в игре черная, пока ее не увидит юнит этого игрока.
 Player 1 to Player 8	Игрок 1 – Игрок 8
-Paint the fog of war of Player %d (%d)	Рисовать туман войны игрока %d (%d)
-Paint the fog of war of Player 1 to Player 8 together (9)	Рисовать туман войны игроков 1–8 вместе (9)
-Add fog	Добавить туман
-Remove fog	Убрать туман
-Add fog: the tiles that you paint are black when the game starts, until a unit sees them.	Добавить туман: нарисованные клетки в начале игры черные, пока их не увидит юнит.
-Remove fog: the tiles that you paint are explored when the game starts. Their terrain shows, gray.	Убрать туман: нарисованные клетки в начале игры разведаны. Их местность видна серой.
 Brush: paint with the brush size and shape. Drag to paint more.	Кисть: рисует с размером и формой кисти. Перетащите, чтобы рисовать дальше.
 Rectangle: drag from one corner to the other. Hold Shift for a square.	Прямоугольник: перетащите от одного угла к другому. Удерживайте Shift для квадрата.
 Fill: click to fill the connected tiles that have the same fog. Shift+click fills every tile. A click in the selection fills the selection.	Заливка: щелчок заливает связанные клетки с тем же туманом. Shift+щелчок заливает все клетки. Щелчок в выделении заливает выделение.
 1 to 9	1–9
 Fill every tile	Залить все клетки
+Paint fog	Рисовать туман
+Erase fog	Стереть туман
+Paint fog: add fog of war to the tiles that you paint, for the players that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.	Рисовать туман: добавляет туман войны на нарисованные клетки для игроков, которых вы выбираете под инструментами. Клетка с туманом в игре черная, пока ее не увидит юнит этого игрока.
+Erase fog: remove the fog of war from the tiles that you paint, for the players that you select under the tools. These tiles are explored when the game starts: their terrain shows, gray.	Стереть туман: убирает туман войны с нарисованных клеток для игроков, которых вы выбираете под инструментами. Эти клетки в начале игры разведаны: их местность видна серой.
+Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.	Игроки: игроки, туман войны которых меняет инструмент. Щелкните, чтобы выбрать одного или нескольких игроков. Клавиши 1–8 добавляют или убирают игрока, 9 выбирает всех 8.

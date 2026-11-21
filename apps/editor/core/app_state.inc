@@ -26,7 +26,7 @@ struct AppState {
     Brush::Shape otherBrushShape = Brush::Square;  // the other terrain tools' (Isometric or Rectangle) shape, GitHub #236
     Brush::Shape selectShapes[2] = {Brush::Square, Brush::Square};  // the terrain Select tool's shape: Isometric's, Rectangle's
     int toolByMode[kModeCount] = {};
-    int lastInGroup[6] = {0, TSpray, TLine, TBridge, TSelect, TBrush};  // the tool strip's groups (1 Spray, Jumble; 2 Line, Contour, Polygon; 3 Bridge, Ramp; 4 Select; 5 Brush, Erase): the tool used last
+    int lastInGroup[7] = {0, TSpray, TLine, TBridge, TSelect, TBrush, TFog};  // the tool strip's groups (1 Spray, Jumble; 2 Line, Contour, Polygon; 3 Bridge, Ramp; 4 Select; 5 Brush, Erase; 6 Paint fog, Erase fog): the tool used last
     int fillMix = 5;  // Fill with several picks (Terrain): how fine their patches are, 1 (large) to 10 (each diamond or tile)
     int sprayDensity = 10;  // the active panel's: how much of the brush one spray puts down, 1 to 100%
     uint32_t spraySeed = 1;

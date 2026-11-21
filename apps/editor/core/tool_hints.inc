@@ -24,8 +24,8 @@ std::vector<KeyHint> mapKeyHints(const AppState& app) {
     case Mode::Terrain: {
         const bool tiles = app.terrainRect;  // (Rectangle: tiles; else the terrain brushes)
         if (tool == TMoveSel || tool == TErase) break;
-        if (tool == TFog) {  // (core/fog_layer.inc)
-            add(L"1 to 9", L"Player");
+        if (isFogTool(tool)) {  // (core/fog_layer.inc)
+            add(L"1 to 9", L"Players");
             if (gFogTool.shape == 1) add(L"Shift", L"Square", draw::kShift);
             if (gFogTool.shape == 2) add(L"Shift+click", L"Fill every tile", draw::kShift);
             if (gFogTool.shape == 0) add(L"Alt+wheel", L"Brush size", draw::kAlt);

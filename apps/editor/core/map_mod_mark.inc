@@ -87,7 +87,7 @@ UiIcon dragModMark(AppState& app, float wx, float wy, bool shift, bool ctrl) {
 UiIcon terrainModMark(AppState& app, float wx, float wy, bool shift, bool ctrl) {
     const Editor& ed = *app.ed;
     const int tool = currentTool(app);
-    if (tool == TMoveSel || tool == TErase || tool == TFog) return kNoModMark;
+    if (tool == TMoveSel || tool == TErase || isFogTool(tool)) return kNoModMark;
     if (isShapeTool(tool) && !(ctrl && !gTiles->stamps)) {
         if (!shift) return kNoModMark;
         if (tool == TBridge || tool == TRamp || !app.terrainRect) {

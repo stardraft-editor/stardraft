@@ -3793,16 +3793,14 @@ A unit casts an order on a point	유닛이 지점에 명령을 사용
 A unit casts an order on a unit	유닛이 유닛에 명령을 사용
 {unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target	{unit}이(가) {range}픽셀 미만 거리의 유닛에 {order} 사용; {unitloc}을(를) 유닛에, {pointloc}을(를) 대상에 놓기
 Key:	단축키:
-Fog of war: paint the fog of war of the player that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.	전장의 안개: 도구 아래에서 선택한 플레이어의 전장의 안개를 칠합니다. 안개가 있는 타일은 그 플레이어의 유닛이 볼 때까지 게임에서 검은색입니다.
 Player 1 to Player 8	플레이어 1 ~ 플레이어 8
-Paint the fog of war of Player %d (%d)	플레이어 %d의 전장의 안개 칠하기 (%d)
-Paint the fog of war of Player 1 to Player 8 together (9)	플레이어 1 ~ 플레이어 8의 전장의 안개를 함께 칠하기 (9)
-Add fog	안개 추가
-Remove fog	안개 제거
-Add fog: the tiles that you paint are black when the game starts, until a unit sees them.	안개 추가: 칠한 타일은 게임 시작 시 유닛이 볼 때까지 검은색입니다.
-Remove fog: the tiles that you paint are explored when the game starts. Their terrain shows, gray.	안개 제거: 칠한 타일은 게임 시작 시 탐색된 상태입니다. 지형이 회색으로 보입니다.
 Brush: paint with the brush size and shape. Drag to paint more.	브러시: 브러시 크기와 모양으로 칠합니다. 드래그하면 더 칠합니다.
 Rectangle: drag from one corner to the other. Hold Shift for a square.	사각형: 한 모서리에서 다른 모서리로 드래그합니다. Shift를 누르면 정사각형입니다.
 Fill: click to fill the connected tiles that have the same fog. Shift+click fills every tile. A click in the selection fills the selection.	채우기: 클릭하면 같은 안개를 가진 연결된 타일을 채웁니다. Shift+클릭은 모든 타일을 채웁니다. 선택 영역 안을 클릭하면 선택 영역을 채웁니다.
 1 to 9	1 ~ 9
 Fill every tile	모든 타일 채우기
+Paint fog	안개 칠하기
+Erase fog	안개 지우기
+Paint fog: add fog of war to the tiles that you paint, for the players that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.	안개 칠하기: 도구 아래에서 선택한 플레이어에 대해 칠한 타일에 전장의 안개를 추가합니다. 안개가 있는 타일은 그 플레이어의 유닛이 볼 때까지 게임에서 검은색입니다.
+Erase fog: remove the fog of war from the tiles that you paint, for the players that you select under the tools. These tiles are explored when the game starts: their terrain shows, gray.	안개 지우기: 도구 아래에서 선택한 플레이어에 대해 칠한 타일에서 전장의 안개를 제거합니다. 이 타일은 게임 시작 시 탐색된 상태입니다. 지형이 회색으로 보입니다.
+Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.	플레이어: 도구가 전장의 안개를 바꾸는 플레이어입니다. 클릭하여 하나 이상의 플레이어를 선택합니다. 1 ~ 8 키는 플레이어를 추가하거나 제거하고, 9는 8명 모두를 선택합니다.

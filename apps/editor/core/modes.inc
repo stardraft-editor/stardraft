@@ -6,11 +6,11 @@ enum class Drag { None, Pan, AutoPan, PlaceStroke, MoveUnits, BoxSelect, Pending
                   MoveDoodad, MoveSprite, Tiles, PasteStroke, PasteUnitsStroke, Shape, Jumble, Erase, SymmetryCenter, LayerTool, TerrainMove, TerrainLasso, Fog };  // Erase: Units, Doodads, Sprites, Locations  // Shape: a Line or Contour press (core/terrain_shapes.inc)
 
 // Tools per mode (index into these lists).
-const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select", L"Line", L"Contour", L"Polygon", L"Jumble", L"Erase", L"Rectangle", L"Filled rectangle", L"Ellipse", L"Filled ellipse", L"Diamond", L"Filled diamond", L"Bridge", L"Ramp", L"Magic wand", L"Move", L"Lasso", L"Fog of war"};
+const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select", L"Line", L"Contour", L"Polygon", L"Jumble", L"Erase", L"Rectangle", L"Filled rectangle", L"Ellipse", L"Filled ellipse", L"Diamond", L"Filled diamond", L"Bridge", L"Ramp", L"Magic wand", L"Move", L"Lasso", L"Paint fog", L"Erase fog"};
 const wchar_t* kLayersTools[] = {L"Move layer"};
 const wchar_t* kUnitTools[] = {L"Place / select", L"Spray", L"Replace (click unit)", L"Fill", L"Erase"};
 const wchar_t* kDoodadTools[] = {L"Place", L"Spray", L"Fill", L"Erase"};
-enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect, TLine, TContour, TPolygon, TJumble, TErase, TRect, TRectFill, TEllipse, TEllipseFill, TDiamond, TDiamondFill, TBridge, TRamp, TWand, TMoveSel, TLasso, TFog };
+enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect, TLine, TContour, TPolygon, TJumble, TErase, TRect, TRectFill, TEllipse, TEllipseFill, TDiamond, TDiamondFill, TBridge, TRamp, TWand, TMoveSel, TLasso, TFog, TFogErase };
 enum LayersTool { LayersMove };  // Map Layers (core/map_layers.inc)  // (Line to Polygon, Bridge, Ramp: core/terrain_shapes.inc)
 // Rectangle, Ellipse and Diamond, outline or filled: a drag from one corner to the other (core/terrain_shapes.inc).
 inline bool isBoxTool(int tool) { return tool == TRect || tool == TRectFill || tool == TEllipse || tool == TEllipseFill || tool == TDiamond || tool == TDiamondFill; }
@@ -20,18 +20,21 @@ inline bool isStrokeShape(int tool) { return tool == TLine || tool == TRect || t
 // map's diagonals. Ramp: a stroke along a cliff edge (src/ramps.cpp), as Contour's.
 // The Terrain tools that change the terrain there without the list's pick (it stays picked, faded in the list):
 // Bridge and Ramp (their kits' tiles), Jumble (the terrains under the brush).
-inline bool terrainToolIgnoresPick(int tool) { return tool == TBridge || tool == TRamp || tool == TJumble || tool == TWand || tool == TMoveSel || tool == TLasso || tool == TFog; }
-// Terrain's Fog of war tool (TFog, core/fog_layer.inc): paints the map's fog of war (CHK MASK) of the player that the
-// tool strip selects (Drag::Fog).
-bool fogToolOn();                                     // Terrain mode, the Fog of war tool, a map open
-// The tool's choices in the tool strip (core/views_toolstrip.inc): the player (0 to 7; 8: Player 1 to Player 8 together;
-// the keys 1 to 9), add or remove fog, and the shape (0 Brush, 1 Rectangle, 2 Fill).
+inline bool terrainToolIgnoresPick(int tool) { return tool == TBridge || tool == TRamp || tool == TJumble || tool == TWand || tool == TMoveSel || tool == TLasso || tool == TFog || tool == TFogErase; }
+// Terrain's Paint fog (TFog) and Erase fog (TFogErase) tools (core/fog_layer.inc): they add or remove the map's fog of
+// war (CHK MASK) of the players that the tool strip selects (Drag::Fog).
+inline bool isFogTool(int tool) { return tool == TFog || tool == TFogErase; }
+bool fogToolOn();                                     // Terrain mode, Paint fog or Erase fog, a map open
+// The tools' choices in the tool strip (core/views_toolstrip.inc): the players (a bit each, Player 1 to Player 8; one at
+// least; the keys 1 to 8 add or remove one, 9 selects all 8), and the shape (0 Brush, 1 Rectangle, 2 Fill).
 struct FogTool {
-    int player = 0;
-    bool remove = false;
+    uint8_t players = 1;
     int shape = 0;
 };
 inline FogTool gFogTool;
+uint8_t fogToolBits();                                // (core/fog_layer.inc: the players' bits, one at least)
+std::wstring fogToolPlayerName();                     // ("Player 3", "Player 1, Player 4", "Player 1 to Player 8")
+std::wstring fogText(const wchar_t* format, int n = 0);  // (a text with the players for %ls)
 void fogMouseDown(float wx, float wy, unsigned mods);
 void fogMouseMove(float wx, float wy, unsigned mods);
 void fogMouseUp(float wx, float wy, unsigned mods);

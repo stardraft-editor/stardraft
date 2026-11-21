@@ -3765,16 +3765,14 @@ A unit casts an order on a point	Une unité lance un ordre sur un point
 A unit casts an order on a unit	Une unité lance un ordre sur une unité
 {unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target	{unit} lance {order} sur une unité à moins de {range} pixels ; mettre {unitloc} sur elle et {pointloc} sur la cible
 Key:	Touche:
-Fog of war: paint the fog of war of the player that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.	Brouillard de guerre : peint le brouillard de guerre du joueur que vous sélectionnez sous les outils. Une case avec du brouillard est noire dans le jeu jusqu'à ce qu'une unité de ce joueur la voie.
 Player 1 to Player 8	Joueur 1 à Joueur 8
-Paint the fog of war of Player %d (%d)	Peindre le brouillard de guerre du Joueur %d (%d)
-Paint the fog of war of Player 1 to Player 8 together (9)	Peindre le brouillard de guerre du Joueur 1 au Joueur 8 ensemble (9)
-Add fog	Ajouter du brouillard
-Remove fog	Retirer le brouillard
-Add fog: the tiles that you paint are black when the game starts, until a unit sees them.	Ajouter du brouillard : les cases peintes sont noires au début de la partie, jusqu'à ce qu'une unité les voie.
-Remove fog: the tiles that you paint are explored when the game starts. Their terrain shows, gray.	Retirer le brouillard : les cases peintes sont explorées au début de la partie. Leur terrain se voit, en gris.
 Brush: paint with the brush size and shape. Drag to paint more.	Pinceau : peint avec la taille et la forme du pinceau. Faites glisser pour peindre plus.
 Rectangle: drag from one corner to the other. Hold Shift for a square.	Rectangle : faites glisser d'un coin à l'autre. Maintenez Maj pour un carré.
 Fill: click to fill the connected tiles that have the same fog. Shift+click fills every tile. A click in the selection fills the selection.	Remplissage : cliquez pour remplir les cases connectées qui ont le même brouillard. Maj+clic remplit toutes les cases. Un clic dans la sélection remplit la sélection.
 1 to 9	1 à 9
 Fill every tile	Remplir toutes les cases
+Paint fog	Peindre le brouillard
+Erase fog	Effacer le brouillard
+Paint fog: add fog of war to the tiles that you paint, for the players that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.	Peindre le brouillard : ajoute du brouillard de guerre aux cases peintes, pour les joueurs que vous sélectionnez sous les outils. Une case avec du brouillard est noire dans le jeu jusqu'à ce qu'une unité de ce joueur la voie.
+Erase fog: remove the fog of war from the tiles that you paint, for the players that you select under the tools. These tiles are explored when the game starts: their terrain shows, gray.	Effacer le brouillard : retire le brouillard de guerre des cases peintes, pour les joueurs que vous sélectionnez sous les outils. Ces cases sont explorées au début de la partie : leur terrain se voit, en gris.
+Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.	Joueurs : les joueurs dont l'outil change le brouillard de guerre. Cliquez pour sélectionner un ou plusieurs joueurs. Les touches 1 à 8 ajoutent ou retirent un joueur, et 9 sélectionne les 8.
