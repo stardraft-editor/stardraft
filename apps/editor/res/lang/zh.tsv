@@ -1777,9 +1777,9 @@ The game calculates this value while it runs	游戏在运行时计算此值
 0 means all that match the other values	0 表示所有与其他值匹配的项
 Select the list first. Then the index can be 0 to the number of items minus 1.	先选择列表。然后索引可以是 0 到项数减 1。
 Each text variable reserves space in the map for this many letters. A longer text overwrites other data in the map.	每个文本变量在地图中为这么多个字符预留空间。更长的文本会覆盖地图中的其他数据。
-Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.	选择：拖出图块矩形以复制 (Ctrl+C)。Esc 返回“选择”工具。
+Select: drag a shape of tiles to copy (Ctrl+C). Esc returns to the Select tool.	选择：拖出图块形状以复制 (Ctrl+C)。Esc 返回“选择”工具。
 Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.	喷洒：在笔刷范围内的随机位置放置图块 (密度)。按住按钮可喷洒更多。
-Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.	选择：拖出地形矩形以复制 (Ctrl+C) 或移动。Esc 返回“选择”工具。
+Select: drag a shape of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.	选择：拖出地形形状以复制 (Ctrl+C) 或移动。Esc 返回“选择”工具。
 Select units: click or drag a box; drag them to move. Esc returns to the Select tool.	选择单位：点击或拖出选框；拖动它们即可移动。Esc 返回“选择”工具。
 Select a doodad: click it; drag it to move. Esc returns to the Select tool.	选择装饰物：点击它；拖动即可移动。Esc 返回“选择”工具。
 Select a sprite: click it; drag it to move. Esc returns to the Select tool.	选择精灵：点击它；拖动即可移动。Esc 返回“选择”工具。
@@ -3741,3 +3741,27 @@ brightest	最亮
 Keep recolor preview	保留重新着色预览
 The map shows the recolor also when this window is closed	关闭此窗口后地图仍显示重新着色
 One stop, every value 1, time 0 (no change of the colors)	一个色标，所有值为 1，时间 0（颜色不变）
+Order one unit to build	命令一个单位建造
+order {unit} to build {building} at {where}	命令 {unit} 在 {where} 建造 {building}
+morph {unit} into {type}	将 {unit} 变形为 {type}
+Make a unit train a unit type	让单位训练一种单位类型
+make {unit} train {type}	让 {unit} 训练 {type}
+Put a unit in a control group	将单位加入编队
+put {unit} in {player}'s control group {group}, place {slot}	将 {unit} 加入 {player} 的编队 {group}，位置 {slot}
+Turn a location around another	让位置绕另一个位置旋转
+turn {where} around {center} by {a}	让 {where} 绕 {center} 旋转 {a}
+Fire a weapon from a place to a place	从一处向另一处发射武器
+fire a {attacker} of {player} from {src} at a {target} at {dst}	让 {player} 的 {attacker} 从 {src} 向 {dst} 的 {target} 发射
+Units a player has at a location	玩家在位置拥有的单位
+how many {unit} {player} has at {where}	{player} 在 {where} 拥有的 {unit} 数量
+Distance between two locations	两个位置之间的距离
+the distance from {a} to {b}	从 {a} 到 {b} 的距离
+Distance between two points	两点之间的距离
+the distance from x {x1}, y {y1} to x {x2}, y {y2}	从 x {x1}, y {y1} 到 x {x2}, y {y2} 的距离
+Direction between two locations	两个位置之间的方向
+the direction from {a} to {b}	从 {a} 到 {b} 的方向
+A unit casts an order on a point	单位对一点施放命令
+{unit} casts {order} on a point less than {range} pixels away; put {unitloc} on it and {pointloc} on the point	{unit} 对小于 {range} 像素远的一点施放 {order}；将 {unitloc} 放在单位上，将 {pointloc} 放在该点上
+A unit casts an order on a unit	单位对单位施放命令
+{unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target	{unit} 对小于 {range} 像素远的单位施放 {order}；将 {unitloc} 放在单位上，将 {pointloc} 放在目标上
+Key:	快捷键：

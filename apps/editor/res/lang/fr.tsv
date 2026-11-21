@@ -813,11 +813,11 @@ Brush size %g	Taille du pinceau %g
 Turned the terrain; its 	Terrain pivoté; ses 
  doodads cannot turn, so they are not included	 décors ne peuvent pas pivoter et ne sont donc pas inclus
 Turned the terrain (R turns clockwise, Shift+R turns back)	Terrain pivoté (R pivote dans le sens horaire, Shift+R dans l'autre sens)
-Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.	Sélection: faites glisser un rectangle de tuiles à copier (Ctrl+C). Esc revient à l'outil Sélection.
+Select: drag a shape of tiles to copy (Ctrl+C). Esc returns to the Select tool.	Sélection: faites glisser une forme de tuiles à copier (Ctrl+C). Esc revient à l'outil Sélection.
 Brush: place the tile selected in the Tiles list, with the brush's size and shape	Pinceau: place la tuile sélectionnée dans la liste Tuiles, avec la taille et la forme du pinceau
 Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.	Aérographe: place la tuile à des endroits aléatoires dans le pinceau (Densité). Maintenez le bouton enfoncé pour pulvériser davantage.
 Fill: the connected tiles of one value. Shift+click: every tile of that value (in the selection, if there is one).	Remplissage: les tuiles connectées d'une même valeur. Shift+clic: toutes les tuiles de cette valeur (dans la sélection, s'il y en a une).
-Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.	Sélection: faites glisser un rectangle de terrain à copier (Ctrl+C) ou à déplacer. Esc revient à l'outil Sélection.
+Select: drag a shape of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.	Sélection: faites glisser une forme de terrain à copier (Ctrl+C) ou à déplacer. Esc revient à l'outil Sélection.
 Brush: paint the terrain selected in the list	Pinceau: peint le terrain sélectionné dans la liste
 Spray: random dabs of the terrain (Density). Hold the button to spray more.	Aérographe: touches aléatoires du terrain (Densité). Maintenez le bouton enfoncé pour pulvériser davantage.
 Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one).	Remplissage: la zone connectée d'un même terrain. Shift+clic: tous les endroits de ce terrain (dans la sélection, s'il y en a une).
@@ -3741,3 +3741,27 @@ brightest	le plus clair
 Keep recolor preview	Garder l'aperçu de la recoloration
 The map shows the recolor also when this window is closed	La carte montre la recoloration aussi quand cette fenêtre est fermée
 One stop, every value 1, time 0 (no change of the colors)	Un arrêt, toutes les valeurs à 1, durée 0 (couleurs inchangées)
+Order one unit to build	Ordonner à une unité de construire
+order {unit} to build {building} at {where}	ordonner à {unit} de construire {building} à {where}
+morph {unit} into {type}	transformer {unit} en {type}
+Make a unit train a unit type	Faire entraîner un type d'unité à une unité
+make {unit} train {type}	faire entraîner {type} à {unit}
+Put a unit in a control group	Mettre une unité dans un groupe de contrôle
+put {unit} in {player}'s control group {group}, place {slot}	mettre {unit} dans le groupe de contrôle {group} de {player}, place {slot}
+Turn a location around another	Tourner un emplacement autour d'un autre
+turn {where} around {center} by {a}	tourner {where} autour de {center} de {a}
+Fire a weapon from a place to a place	Tirer une arme d'un lieu vers un lieu
+fire a {attacker} of {player} from {src} at a {target} at {dst}	tirer un {attacker} de {player} depuis {src} sur un {target} à {dst}
+Units a player has at a location	Unités d'un joueur à un emplacement
+how many {unit} {player} has at {where}	combien de {unit} {player} a à {where}
+Distance between two locations	Distance entre deux emplacements
+the distance from {a} to {b}	la distance de {a} à {b}
+Distance between two points	Distance entre deux points
+the distance from x {x1}, y {y1} to x {x2}, y {y2}	la distance de x {x1}, y {y1} à x {x2}, y {y2}
+Direction between two locations	Direction entre deux emplacements
+the direction from {a} to {b}	la direction de {a} à {b}
+A unit casts an order on a point	Une unité lance un ordre sur un point
+{unit} casts {order} on a point less than {range} pixels away; put {unitloc} on it and {pointloc} on the point	{unit} lance {order} sur un point à moins de {range} pixels ; mettre {unitloc} sur elle et {pointloc} sur le point
+A unit casts an order on a unit	Une unité lance un ordre sur une unité
+{unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target	{unit} lance {order} sur une unité à moins de {range} pixels ; mettre {unitloc} sur elle et {pointloc} sur la cible
+Key:	Touche:

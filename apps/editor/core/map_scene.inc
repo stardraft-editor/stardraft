@@ -443,7 +443,8 @@ std::vector<PasteGhostUnit> unitPasteGhost(float wx, float wy) {
 }
 
 // The terrain selection (the copy area; while it is made: to the mouse at wx, wy): its outline. Returns the number of
-// lines (the tests read it).
+// lines (the tests read it). Isometric: the outline of the diamonds that Ctrl+C copies, whatever made the selection
+// (Select in each shape, Shift and Ctrl, the Lasso, the Magic wand); Rectangle: the outline of the selected tiles.
 size_t terrainSelScene(render::Scene& s, float wx, float wy) {
     AppState& app = shellState();
     Editor& ed = *app.ed;
@@ -451,53 +452,66 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
     const size_t from = s.rects.size();
     if (app.drag == Drag::TerrainMove) return 0;  // (Move: its own outline, where the selection goes)
     if (!gVarPreview.empty() || gVarStripHover) return 0;  // (the mouse over the side bar's Variations: the tiles show with no outline over them)
+    const bool iso = !app.terrainRect;
+    constexpr uint32_t kSelLine = 0xFFD040FFu, kSelLineFaint = 0xFFD04070u;
+    // Isometric while dragging: the shape exactly from the press to the mouse (bright), over what it selects (faint, as
+    // it is once the button is up)
+    auto exactShape = [&](uint32_t rgba) {
+        const float x0 = std::min(app.dragWX, wx), x1 = std::max(app.dragWX, wx), y0 = std::min(app.dragWY, wy), y1 = std::max(app.dragWY, wy);
+        const float mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+        auto line = [&](float ax, float ay, float bx, float by) {
+            render::RectDraw l;
+            l.x0 = ax, l.y0 = ay, l.x1 = bx, l.y1 = by, l.rgba = rgba, l.thickness = 2, l.line = true;
+            s.rects.push_back(l);
+        };
+        if (selectShape() == Editor::SelectShape::Rect) {
+            line(x0, y0, x1, y0), line(x1, y0, x1, y1), line(x1, y1, x0, y1), line(x0, y1, x0, y0);
+        } else if (selectShape() == Editor::SelectShape::Ellipse) {
+            const float rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
+            const int n = std::clamp(int(6.2831853f * std::max(rx, ry) * app.zoom / 4), 24, 360);
+            for (int k = 0; k < n; ++k) {
+                const float a0 = k * 6.2831853f / n, a1 = (k + 1) * 6.2831853f / n;
+                line(mx + rx * std::cos(a0), my + ry * std::sin(a0), mx + rx * std::cos(a1), my + ry * std::sin(a1));
+            }
+        } else {  // the diamond in the box (its points at the middle of its sides)
+            line(mx, y0, x1, my), line(x1, my, mx, y1), line(mx, y1, x0, my), line(x0, my, mx, y0);
+        }
+    };
     const bool combining = dragging && app.terrainSelOp;  // Shift or Ctrl: the selection and the drag's box
-    if (app.mode == Mode::Terrain && app.hasTerrainSel && (combining || (!dragging && !app.terrainSelMask.empty()))) {
-        tileOutline(s, terrainSelTiles(), 0xFFD040FFu);  // the outline of the selected tiles (any shape, in parts)
-        if (!combining) return s.rects.size() - from;
-    }
-    if (combining) {  // the drag's box: green adds, red takes out
-        outline(s, terrainSelectRect(wx, wy), app.terrainSelOp == 1 ? 0x40FF40FFu : 0xFF5050FFu, 1.5f);
+    if (combining) {  // the drag's part: green adds, red takes out
+        const Rect r = terrainSelectRect(wx, wy);
+        const bool add = app.terrainSelOp == 1;
+        const uint32_t op = add ? 0x40FF40FFu : 0xFF5050FFu, opFaint = add ? 0x40FF4090u : 0xFF505090u;
+        if (iso) {  // the result as the release makes it, the diamonds of the part, and the part's shape as dragged
+            diamondOutline(s, isomTileCorners(ed, terrainSelCombined(r, add)), kSelLine);
+            diamondOutline(s, isomTileCorners(ed, terrainShapeTiles(r)), opFaint);
+            exactShape(op);
+        } else {
+            if (app.hasTerrainSel) tileOutline(s, terrainSelTiles(), kSelLine);  // the outline of the selected tiles (any shape, in parts)
+            if (selectShape() == Editor::SelectShape::Rect) outline(s, r, op, 1.5f);
+            else tileOutline(s, terrainShapeTiles(r), op);
+        }
         return s.rects.size() - from;
     }
-    if (dragging || (app.mode == Mode::Terrain && app.hasTerrainSel)) {
-        const Rect r = dragging ? terrainSelectRect(wx, wy) : app.terrainSel;
-        // Isometric while dragging: the shape exactly from the press to the mouse (bright), over what it selects (faint,
-        // as it is once the button is up)
-        const bool exact = dragging && !app.terrainRect;
-        const uint32_t col = exact ? 0xFFD04070u : 0xFFD040FFu;
-        if (exact) {
-            const float x0 = std::min(app.dragWX, wx), x1 = std::max(app.dragWX, wx), y0 = std::min(app.dragWY, wy), y1 = std::max(app.dragWY, wy);
-            const float mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
-            auto line = [&](float ax, float ay, float bx, float by) {
-                render::RectDraw l;
-                l.x0 = ax, l.y0 = ay, l.x1 = bx, l.y1 = by, l.rgba = 0xFFD040FFu, l.thickness = 2, l.line = true;
-                s.rects.push_back(l);
-            };
-            if (selectShape() == Editor::SelectShape::Rect) {
-                line(x0, y0, x1, y0), line(x1, y0, x1, y1), line(x1, y1, x0, y1), line(x0, y1, x0, y0);
-            } else if (selectShape() == Editor::SelectShape::Ellipse) {
-                const float rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
-                const int n = std::clamp(int(6.2831853f * std::max(rx, ry) * app.zoom / 4), 24, 360);
-                for (int k = 0; k < n; ++k) {
-                    const float a0 = k * 6.2831853f / n, a1 = (k + 1) * 6.2831853f / n;
-                    line(mx + rx * std::cos(a0), my + ry * std::sin(a0), mx + rx * std::cos(a1), my + ry * std::sin(a1));
-                }
-            } else {  // the diamond in the box (its points at the middle of its sides)
-                line(mx, y0, x1, my), line(x1, my, mx, y1), line(mx, y1, x0, my), line(x0, my, mx, y0);
-            }
+    if (app.mode != Mode::Terrain || !(dragging || app.hasTerrainSel)) return 0;
+    if (!dragging && !app.terrainSelMask.empty()) {  // a selection of any form (Shift, Ctrl, the Lasso, the Magic wand)
+        if (iso) {
+            const auto corners = ed.copyCorners(app.terrainSel, Editor::SelectShape::Rect, [](int x, int y) { return terrainSelHas(x, y); });
+            diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), kSelLine);
+        } else {
+            tileOutline(s, terrainSelTiles(), kSelLine);
         }
-        if (selectShape() == Editor::SelectShape::Rect) outline(s, r, col, 1.5f);
-        else if (app.terrainRect) {  // a diamond or an ellipse: the outline of the tiles in it (on the tile edges)
-            std::vector<std::pair<int, int>> tiles;
-            for (int y = r.top / 32; y * 32 < r.bottom; ++y)
-                for (int x = r.left / 32; x * 32 < r.right; ++x)
-                    if (Editor::inSelectShape(r, selectShape(), x * 32 + 16, y * 32 + 16)) tiles.push_back({x, y});
-            tileOutline(s, tiles, 0xFFD040FFu);
-        } else {  // the outline of the diamonds whose corners are in it (on the diamonds' edges)
-            const auto corners = ed.cornersInShape(r, selectShape());
-            diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), col);
-        }
+        return s.rects.size() - from;
+    }
+    const Rect r = dragging ? terrainSelectRect(wx, wy) : app.terrainSel;
+    if (iso) {  // the outline of the diamonds whose corners are in it (on the diamonds' edges)
+        if (dragging) exactShape(kSelLine);
+        const auto corners = ed.cornersInShape(r, selectShape());
+        diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), dragging ? kSelLineFaint : kSelLine);
+    } else if (selectShape() == Editor::SelectShape::Rect) {
+        outline(s, r, kSelLine, 1.5f);
+    } else {  // a diamond or an ellipse: the outline of the tiles in it (on the tile edges)
+        tileOutline(s, terrainShapeTiles(r), kSelLine);
     }
     return s.rects.size() - from;
 }

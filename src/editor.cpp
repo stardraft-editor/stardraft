@@ -2700,19 +2700,25 @@ int Editor::replaceTerrain(uint16_t from, uint16_t to, const Rect* area, int are
 bool Editor::inSelectShape(const Rect& box, SelectShape shape, int px, int py) {
     const Rect r = box.normalized();
     if (shape == SelectShape::Rect) return r.contains(px, py);
-    if (shape == SelectShape::IsoRect || shape == SelectShape::IsoRectFlip) {
-        // (along the diamonds' edges: u and v count diamonds down to the right and down to the left)
-        const bool flip = shape == SelectShape::IsoRectFlip;
-        auto u = [](double x, double y) { return x / 64.0 + y / 32.0; };
-        auto v = [](double x, double y) { return y / 32.0 - x / 64.0; };
-        const double ax = flip ? r.right : r.left, bx = flip ? r.left : r.right, ay = r.top, by = r.bottom;
-        const double pu = u(px, py), pv = v(px, py), e = 1e-6;
-        return pu >= std::min(u(ax, ay), u(bx, by)) - e && pu <= std::max(u(ax, ay), u(bx, by)) + e &&
-               pv >= std::min(v(ax, ay), v(bx, by)) - e && pv <= std::max(v(ax, ay), v(bx, by)) + e;
+    if (shape == SelectShape::TileDiamond) {  // (the tile of the point, in the box's tiles)
+        if (!r.contains(px, py)) return false;
+        const int w = std::max(1, (r.right - r.left + 31) / 32), h = std::max(1, (r.bottom - r.top + 31) / 32);
+        const int col = (px - r.left) / 32, inset = tileDiamondInset(w, h, (py - r.top) / 32);
+        return col >= inset && col < w - inset;
     }
     const double hw = std::max(1.0, (r.right - r.left) / 2.0), hh = std::max(1.0, (r.bottom - r.top) / 2.0);
     const double dx = (px - (r.left + r.right) / 2.0) / hw, dy = (py - (r.top + r.bottom) / 2.0) / hh;
     return shape == SelectShape::Diamond ? std::abs(dx) + std::abs(dy) <= 1.0 : dx * dx + dy * dy <= 1.0;
+}
+
+int Editor::tileDiamondInset(int w, int h, int row) {
+    const int most = std::max(0, (w - 1) / 2);  // (the row keeps 1 tile, or 2 when w is even)
+    const int half = (h - 1) / 2;               // the rows above the middle row (or the two middle rows)
+    if (row < 0 || row >= h) return 0;
+    // 2 tiles a row from the top and the bottom row in: a box wider than that fills has its top and bottom rows wider
+    // (the top row's inset: 2 a row to the middle); a box taller has middle rows of the full width (the top row's inset:
+    // the most, so it is the narrowest)
+    return std::max(0, std::min(2 * half, most) - 2 * std::min(row, h - 1 - row));
 }
 
 std::vector<std::pair<int, int>> Editor::cornersInShape(const Rect& area, SelectShape shape) const {
@@ -2723,10 +2729,8 @@ std::vector<std::pair<int, int>> Editor::cornersInShape(const Rect& area, Select
     return cs;
 }
 
-bool Editor::copyTerrain(const Rect& area, bool withUnits, bool withDoodads, SelectShape shape, const std::function<bool(int, int)>& tileIn) {
-    if (!isomOk_) return false;
-    Rect r = area.normalized();
-    auto cs = cornersInShape(r, shape);
+std::vector<std::pair<int, int>> Editor::copyCorners(const Rect& area, SelectShape shape, const std::function<bool(int, int)>& tileIn) const {
+    auto cs = cornersInShape(area, shape);
     if (tileIn)  // (a corner: the tiles of the four rects round it, those on the map)
         std::erase_if(cs, [&](const std::pair<int, int>& c) {
             for (int y = c.second - 1; y <= c.second; ++y)
@@ -2734,6 +2738,13 @@ bool Editor::copyTerrain(const Rect& area, bool withUnits, bool withDoodads, Sel
                     if (x >= 0 && y >= 0 && x < width_ && y < height_ && !tileIn(x, y)) return true;
             return false;
         });
+    return cs;
+}
+
+bool Editor::copyTerrain(const Rect& area, bool withUnits, bool withDoodads, SelectShape shape, const std::function<bool(int, int)>& tileIn) {
+    if (!isomOk_) return false;
+    Rect r = area.normalized();
+    auto cs = copyCorners(r, shape, tileIn);
     if (cs.empty()) return false;
     // Origin: the top-left-most corner; offsets keep the corner lattice parity.
     int ox = cs.front().first, oy = cs.front().second;

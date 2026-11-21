@@ -46,10 +46,10 @@ Brush currentBrush(const AppState& app) {
 // brushes' so that a painting brush's shape does not change how Select selects; Isometric and Rectangle have one each.
 Editor::SelectShape selectShape(const AppState& app) {
     // (the diamond: Isometric's fills the drag's box, its points at the middle of the box's sides, as the circle fills it;
-    // Rectangle's is the area along the map's diamonds between the drag's two corners)
+    // Rectangle's is the diamond of whole tiles in the box, its rows in steps of 2 tiles as the map's diamonds)
     const Brush::Shape shape = app.selectShapes[app.terrainRect];
     if (shape == Brush::Diamond && !app.terrainRect) return Editor::SelectShape::Diamond;
-    if (shape == Brush::Diamond) return app.terrainSelFlip ? Editor::SelectShape::IsoRectFlip : Editor::SelectShape::IsoRect;
+    if (shape == Brush::Diamond) return Editor::SelectShape::TileDiamond;
     return shape == Brush::Circle ? Editor::SelectShape::Ellipse : Editor::SelectShape::Rect;
 }
 // The shape the tool strip's shape box shows and changes: the Select tool's while it is the terrain's tool, else the
@@ -614,7 +614,7 @@ std::vector<StripItem> stripTools(Mode m) {
     switch (m) {
     case Mode::Terrain:
         if (app.terrainRect && tilesSolidOn())  // Solid: Rectangle's tools with the tiles inside the terrain selected in the list
-            return withBridge({selectGroup({UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true}),
+            return withBridge({selectGroup({UiIcon::Select, L"Select: drag a shape of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true}),
                     stripGroup(5, {{UiIcon::Brush, L"Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape", TBrush, false}, {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false}}),
                     {UiIcon::Spray, L"Spray: place the tiles inside the terrain in random rects of the brush (Density). With several terrains selected (Ctrl+click), each rect gets one of them at random. Hold the button to spray more.", TSpray, false},
                     {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one). With several terrains selected (Ctrl+click), Fill puts them in patches at random (Mix).", TFill, false},
@@ -623,7 +623,7 @@ std::vector<StripItem> stripTools(Mode m) {
                                    {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false},
                                    {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})});
         if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
-            return withBridge({selectGroup({UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true}),
+            return withBridge({selectGroup({UiIcon::Select, L"Select: drag a shape of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true}),
                     stripGroup(5, {{UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.", TBrush, false}, {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false}}),
                     {UiIcon::Spray, L"Spray: place the tile at random spots in the brush (Density). With several tiles selected, each spot gets one of them at random. Hold the button to spray more.", TSpray, false},
                     {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill puts them in patches at random (Mix).", TFill, false},
@@ -631,7 +631,7 @@ std::vector<StripItem> stripTools(Mode m) {
                                    {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
                                    {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false},
                                    {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})});
-        return withBridge({selectGroup({UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true}),
+        return withBridge({selectGroup({UiIcon::Select, L"Select: drag a shape of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true}),
                 stripGroup(5, {{UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false}, {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false}}),
                 stripGroup(1, {{UiIcon::Spray, L"Spray: random dabs of the terrain (Density). With several terrains selected (Ctrl+click), each dab is one of them at random. Hold the button to spray more.", TSpray, false},
                                {UiIcon::Jumble, L"Jumble: mix the terrains in the brush at random. The edges between them are corrected. Drag to jumble more.", TJumble, false}}),
@@ -697,6 +697,8 @@ const wchar_t* stripKeyName(int key) {
     static const wchar_t* const names[] = {L"V", L"B", L"A", L"F", L"I", L"O", L"P", L"X", L"E", L"H", L"J", L"W", L"K", L"M", L"N", L"Shift+N", L"C", L"Shift+C", L"Z", L"Shift+Z"};
     return names[key];
 }
+// The key of a strip tool at the end of its tip: " Key: V." (-1: none).
+std::wstring stripKeyTip(int key) { return key < 0 ? std::wstring() : std::wstring(L" ") + tr(L"Key:") + L" " + stripKeyName(key) + L"."; }
 
 // Whether the active mode is in its selection: its Select tool with nothing picked.
 bool inSelection() {

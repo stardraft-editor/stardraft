@@ -233,13 +233,21 @@ public:
     // corners replaced; areaShape: SelectShape; tileIn: a selection of any form (as copyTerrain's)
     int replaceTerrain(uint16_t from, uint16_t to, const Rect* area = nullptr, int areaShape = 0, const std::function<bool(int, int)>& tileIn = nullptr);
     // A selection's shape in its box (feedback #31, #33, #52): the whole box, the diamond in it, or the ellipse in it.
-    // Rect, Diamond and Ellipse: in the box. IsoRect: the area along the map's diamonds (its sides run as the diamonds'
-    // edges) whose opposite corners are the box's top left and bottom right; IsoRectFlip: its top right and bottom left
-    // (the corners a drag went between: the selection starts where the drag starts).
-    enum class SelectShape { Rect, Diamond, Ellipse, IsoRect, IsoRectFlip };
+    // Rect, Diamond and Ellipse: in the box. TileDiamond (a box of whole tiles): the diamond of tiles in it, as the map's
+    // diamonds are: its rows 2 tiles narrower on each side per row from the middle row (two middle rows when the box has
+    // an even number of rows) to the top and the bottom, symmetric. A box wider than those steps fill: its top and
+    // bottom rows are wider than 2 tiles. A box taller: its top and bottom rows are 1 tile wide (2 when the box's width
+    // is even), and its middle rows have the box's full width.
+    enum class SelectShape { Rect, Diamond, Ellipse, TileDiamond };
     static bool inSelectShape(const Rect& box, SelectShape shape, int px, int py);
-    // The ISOM corners (rect-grid points) in the shape of `area` (map pixels): those copyTerrain copies.
+    // TileDiamond's row `row` (0: the top) of a box of `w` x `h` tiles: how many tiles of each side of the row are not in
+    // it (0 to (w - 1) / 2).
+    static int tileDiamondInset(int w, int h, int row);
+    // The ISOM corners (rect-grid points) in the shape of `area` (map pixels).
     std::vector<std::pair<int, int>> cornersInShape(const Rect& area, SelectShape shape) const;
+    // The ISOM corners that copyTerrain copies: cornersInShape, and with tileIn only those whose tiles round them (those
+    // on the map) are all in it.
+    std::vector<std::pair<int, int>> copyCorners(const Rect& area, SelectShape shape, const std::function<bool(int, int)>& tileIn = nullptr) const;
     // Terrain clipboard: the ISOM corners of `area` (in its shape) plus (optionally) the units and doodads in it.
     // tileIn: a selection of any form: only the corners whose tiles round them are all in it, and what stands on its tiles.
     bool copyTerrain(const Rect& area, bool withUnits, bool withDoodads, SelectShape shape = SelectShape::Rect,

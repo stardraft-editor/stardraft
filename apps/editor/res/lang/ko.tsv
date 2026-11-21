@@ -813,11 +813,11 @@ Brush size %g	브러시 크기 %g
 Turned the terrain; its 	지형을 회전했습니다. 그 
  doodads cannot turn, so they are not included	 장식물은 회전할 수 없어서 포함되지 않습니다
 Turned the terrain (R turns clockwise, Shift+R turns back)	지형을 회전했습니다 (R은 시계 방향, Shift+R은 반대 방향)
-Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.	선택: 복사(Ctrl+C)할 타일 영역을 드래그합니다. Esc를 누르면 선택 도구로 돌아갑니다.
+Select: drag a shape of tiles to copy (Ctrl+C). Esc returns to the Select tool.	선택: 복사(Ctrl+C)할 타일 영역을 드래그합니다. Esc를 누르면 선택 도구로 돌아갑니다.
 Brush: place the tile selected in the Tiles list, with the brush's size and shape	브러시: 타일 목록에서 선택한 타일을 브러시의 크기와 모양으로 배치합니다
 Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.	스프레이: 브러시 안의 무작위 위치에 타일을 놓습니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
 Fill: the connected tiles of one value. Shift+click: every tile of that value (in the selection, if there is one).	채우기: 같은 값으로 이어진 타일. Shift+클릭: 그 값의 모든 타일 (선택 영역이 있으면 그 안에서).
-Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.	선택: 복사(Ctrl+C) 또는 이동할 지형 영역을 드래그합니다. Esc를 누르면 선택 도구로 돌아갑니다.
+Select: drag a shape of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.	선택: 복사(Ctrl+C) 또는 이동할 지형 영역을 드래그합니다. Esc를 누르면 선택 도구로 돌아갑니다.
 Brush: paint the terrain selected in the list	브러시: 목록에서 선택한 지형을 칠합니다
 Spray: random dabs of the terrain (Density). Hold the button to spray more.	스프레이: 지형을 무작위로 흩뿌립니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
 Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one).	채우기: 같은 지형으로 이어진 영역. Shift+클릭: 그 지형의 모든 곳 (선택 영역이 있으면 그 안에서).
@@ -3769,3 +3769,27 @@ brightest	가장 밝음
 Keep recolor preview	리컬러 미리보기 유지
 The map shows the recolor also when this window is closed	이 창을 닫아도 맵에 리컬러를 표시
 One stop, every value 1, time 0 (no change of the colors)	정지점 하나, 모든 값 1, 시간 0 (색 변화 없음)
+Order one unit to build	유닛 하나에 건설 명령
+order {unit} to build {building} at {where}	{unit}에게 {where}에 {building} 건설 명령
+morph {unit} into {type}	{unit}을(를) {type}(으)로 변이
+Make a unit train a unit type	유닛이 유닛 종류를 생산하게 하기
+make {unit} train {type}	{unit}이(가) {type}을(를) 생산하게 하기
+Put a unit in a control group	유닛을 부대 지정에 넣기
+put {unit} in {player}'s control group {group}, place {slot}	{unit}을(를) {player}의 부대 {group}, 자리 {slot}에 넣기
+Turn a location around another	위치를 다른 위치 주위로 회전
+turn {where} around {center} by {a}	{where}을(를) {center} 주위로 {a}만큼 회전
+Fire a weapon from a place to a place	한 곳에서 다른 곳으로 무기 발사
+fire a {attacker} of {player} from {src} at a {target} at {dst}	{player}의 {attacker}이(가) {src}에서 {dst}의 {target}에게 발사
+Units a player has at a location	플레이어가 위치에 가진 유닛
+how many {unit} {player} has at {where}	{player}이(가) {where}에 가진 {unit}의 수
+Distance between two locations	두 위치 사이의 거리
+the distance from {a} to {b}	{a}에서 {b}까지의 거리
+Distance between two points	두 점 사이의 거리
+the distance from x {x1}, y {y1} to x {x2}, y {y2}	x {x1}, y {y1}에서 x {x2}, y {y2}까지의 거리
+Direction between two locations	두 위치 사이의 방향
+the direction from {a} to {b}	{a}에서 {b}로의 방향
+A unit casts an order on a point	유닛이 지점에 명령을 사용
+{unit} casts {order} on a point less than {range} pixels away; put {unitloc} on it and {pointloc} on the point	{unit}이(가) {range}픽셀 미만 거리의 지점에 {order} 사용; {unitloc}을(를) 유닛에, {pointloc}을(를) 지점에 놓기
+A unit casts an order on a unit	유닛이 유닛에 명령을 사용
+{unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target	{unit}이(가) {range}픽셀 미만 거리의 유닛에 {order} 사용; {unitloc}을(를) 유닛에, {pointloc}을(를) 대상에 놓기
+Key:	단축키:

@@ -640,6 +640,14 @@ CASES += [
     ("map-terrain-select-diamond", ["--mode", "terrain", "--key", "V", "--wheel", "90,485,0,-1", "--drag", "520,600-700,720"], "map"),
     ("map-terrain-select-circle", ["--mode", "terrain", "--key", "V", "--wheel", "90,485,0,1", "--drag", "520,600-700,720"], "map"),
     ("map-tiles-select-circle", ["--rect", "--key", "V", "--wheel", "90,491,0,1", "--drag", "520,600-700,720"], "map"),  # (Select's own shape: Square, then Circle)
+    # Isometric: the outline of the diamonds that a copy takes, also while the Square is dragged (bright: the box as
+    # dragged), with Shift (the result and the added part), after Shift, and after the Lasso.
+    ("map-terrain-select-square-drag", ["--mode", "terrain", "--key", "V", "--drag", "520,600-700,720:Hold"], "map"),
+    ("map-terrain-select-add-drag", ["--mode", "terrain", "--key", "V", "--drag", "520,600-700,720", "--drag", "640,680-820,780:Shift+Hold"], "map"),
+    ("map-terrain-select-added", ["--mode", "terrain", "--key", "V", "--drag", "520,600-700,720", "--drag", "640,680-820,780:Shift"], "map"),
+    ("map-terrain-select-lasso", ["--mode", "terrain", "--key", "K", "--drag", "520,600-720,580-760,760-540,740-520,600"], "map"),
+    # Rectangle's Diamond: a diamond of whole tiles, its rows in steps of 2 tiles, as the map's diamonds.
+    ("map-tiles-select-diamond", ["--rect", "--key", "V", "--wheel", "90,491,0,-1", "--drag", "520,600-680,680"], "map"),
     # Rectangle: Ctrl+C of a box makes the copied tiles the Brush's stamp (Discord feedback #49): a click places them there.
     ("map-rect-copy-stamp", ["--mode", "terrain", "--click", "246,427", "--wait", "300", "--key", "V", "--drag", "520,640-600,700",
                              "--key", "Ctrl+C", "--click", "900,800", "--move", "1000,850", "--wait", "200"], "map"),
@@ -2284,6 +2292,19 @@ def check_select_shape(shape):
             return f"no {shape} selection: {s[-1].get('brushshape') if s else '-'} {s[-1].get('tsel') if s else '-'}"
         if int(s[-1].get("tsellines", "0")) < 8:
             return f"the {shape} selection's outline has {s[-1].get('tsellines')} lines, not 8 or more"
+        return None
+    return check
+
+
+def check_iso_select_outline(least):
+    """Isometric: the terrain selection (or the drag that makes it) has its outline on the diamonds' edges (`least`
+    lines or more: not a box of tiles)."""
+    def check(output):
+        s = state_lines(output)
+        if not s:
+            return "no state line"
+        if int(s[-1].get("tsellines", "0")) < least:
+            return f"the selection's outline has {s[-1].get('tsellines')} lines, not {least} or more (not its diamonds)"
         return None
     return check
 
@@ -4778,6 +4799,9 @@ CHECKS = {"map-terrain-fog": lambda o: None if "Fog of war: Player 3. Removed fo
           "map-tiles-brush-circle": check_tiles_brush("circle", True, "3,5,7,7,7,5,3"), "map-tiles-brush-square": check_tiles_brush("square", False, ",".join(["7"] * 7)),
           "map-terrain-select-square": check_select_square, "map-terrain-select-diamond": check_select_shape("diamond"), "map-terrain-select-circle": check_select_shape("circle"),
           "map-tiles-select-circle": check_select_shape("circle"),
+          "map-terrain-select-square-drag": check_iso_select_outline(8), "map-terrain-select-add-drag": check_iso_select_outline(16),
+          "map-terrain-select-added": check_iso_select_outline(16), "map-terrain-select-lasso": check_iso_select_outline(12),
+          "map-tiles-select-diamond": check_select_shape("diamond"),
           "map-terrain-rect-quick": check_rect_quick, "map-terrain-rect-quick-scroll": check_rect_quick_scroll,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
           "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed, "map-paste-owner": check_paste_owner,

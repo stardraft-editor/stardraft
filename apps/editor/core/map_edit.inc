@@ -279,7 +279,6 @@ int mapSpriteAt(Editor& ed, int x, int y) {
 // diamond and the circle: as dragged.
 Rect terrainSelectRect(float wx, float wy) {
     Rect r = Rect{int(appState().dragWX), int(appState().dragWY), int(wx), int(wy)}.normalized();
-    appState().terrainSelFlip = (wx - appState().dragWX) * (wy - appState().dragWY) < 0;  // (the drag's corners: IsoRectFlip)
     // (Rectangle, and the square in Isometric: whole tiles; the diamond and the circle: as dragged)
     if ((!appState().terrainRect && selectShape() != Editor::SelectShape::Rect) || !appState().ed) return r;
     const int w = appState().ed->width(), h = appState().ed->height();
@@ -346,16 +345,37 @@ void setTerrainSelTiles(const std::vector<std::pair<int, int>>& tiles) {
 }
 // Shift (add) or Ctrl (take out) with the Select tool in Rectangle and Stamps: the tiles of the drag's rectangle `r`
 // (in its shape) go into the selection or out of it.
-void terrainSelCombine(const Rect& r, bool add) {
-    std::vector<std::pair<int, int>> tiles = terrainSelTiles();
-    std::set<std::pair<int, int>> in(tiles.begin(), tiles.end());
+// The tiles of the drag's rectangle `r` in the Select tool's shape (their middle in it).
+std::vector<std::pair<int, int>> terrainShapeTiles(const Rect& r) {
+    std::vector<std::pair<int, int>> out;
     for (int y = r.top / 32; y * 32 < r.bottom; ++y)
         for (int x = r.left / 32; x * 32 < r.right; ++x)
-            if (Editor::inSelectShape(r, selectShape(), x * 32 + 16, y * 32 + 16)) {
-                if (add) in.insert({x, y});
-                else in.erase({x, y});
-            }
-    setTerrainSelTiles(std::vector<std::pair<int, int>>(in.begin(), in.end()));
+            if (Editor::inSelectShape(r, selectShape(), x * 32 + 16, y * 32 + 16)) out.push_back({x, y});
+    return out;
+}
+// The selection's tiles with those of `r` added (add) or taken out: what terrainSelCombine makes.
+std::vector<std::pair<int, int>> terrainSelCombined(const Rect& r, bool add) {
+    std::vector<std::pair<int, int>> tiles = terrainSelTiles();
+    std::set<std::pair<int, int>> in(tiles.begin(), tiles.end());
+    for (const auto& t : terrainShapeTiles(r)) {
+        if (add) in.insert(t);
+        else in.erase(t);
+    }
+    return std::vector<std::pair<int, int>>(in.begin(), in.end());
+}
+void terrainSelCombine(const Rect& r, bool add) { setTerrainSelTiles(terrainSelCombined(r, add)); }
+// Isometric: the ISOM corners that a copy of these tiles copies (Editor::copyCorners: those whose tiles round them are
+// all in them), for the selection's outline.
+std::set<std::pair<int, int>> isomTileCorners(const Editor& ed, const std::vector<std::pair<int, int>>& tiles) {
+    if (tiles.empty()) return {};
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (const auto& [x, y] : tiles) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
+    const int w = x1 - x0 + 1;
+    std::vector<uint8_t> in(size_t(w) * size_t(y1 - y0 + 1), 0);
+    for (const auto& [x, y] : tiles) in[size_t(y - y0) * size_t(w) + size_t(x - x0)] = 1;
+    const auto has = [&](int x, int y) { return x >= x0 && x <= x1 && y >= y0 && y <= y1 && in[size_t(y - y0) * size_t(w) + size_t(x - x0)]; };
+    const auto cs = ed.copyCorners({x0 * 32, y0 * 32, (x1 + 1) * 32, (y1 + 1) * 32}, Editor::SelectShape::Rect, has);
+    return std::set<std::pair<int, int>>(cs.begin(), cs.end());
 }
 
 // Several locations selected (Editor::selectedLocations): they move, copy and delete together, each one undo step.

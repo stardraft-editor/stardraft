@@ -1779,9 +1779,9 @@ The game calculates this value while it runs	Игра вычисляет это 
 0 means all that match the other values	0 означает все, которые совпадают с другими значениями
 Select the list first. Then the index can be 0 to the number of items minus 1.	Сначала выберите список. Затем индекс может быть от 0 до числа элементов минус 1.
 Each text variable reserves space in the map for this many letters. A longer text overwrites other data in the map.	Каждая текстовая переменная резервирует в карте место под столько символов. Более длинный текст перезаписывает другие данные карты.
-Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.	Выбор: перетащите прямоугольник тайлов, чтобы скопировать (Ctrl+C). Esc возвращает к инструменту «Выбор».
+Select: drag a shape of tiles to copy (Ctrl+C). Esc returns to the Select tool.	Выбор: перетащите фигуру из тайлов, чтобы скопировать (Ctrl+C). Esc возвращает к инструменту «Выбор».
 Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.	Распыление: ставит тайл в случайных местах в области кисти (Плотность). Удерживайте кнопку, чтобы распылить больше.
-Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.	Выбор: перетащите прямоугольник местности, чтобы скопировать (Ctrl+C) или переместить. Esc возвращает к инструменту «Выбор».
+Select: drag a shape of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.	Выбор: перетащите фигуру местности, чтобы скопировать (Ctrl+C) или переместить. Esc возвращает к инструменту «Выбор».
 Select units: click or drag a box; drag them to move. Esc returns to the Select tool.	Выбор юнитов: щёлкните или перетащите рамку; перетащите юниты, чтобы переместить их. Esc возвращает к инструменту «Выбор».
 Select a doodad: click it; drag it to move. Esc returns to the Select tool.	Выбор декорации: щёлкните её; перетащите, чтобы переместить. Esc возвращает к инструменту «Выбор».
 Select a sprite: click it; drag it to move. Esc returns to the Select tool.	Выбор спрайта: щёлкните его; перетащите, чтобы переместить. Esc возвращает к инструменту «Выбор».
@@ -3741,3 +3741,27 @@ brightest	самые светлые
 Keep recolor preview	Оставить предпросмотр перекраски
 The map shows the recolor also when this window is closed	Карта показывает перекраску и при закрытом окне
 One stop, every value 1, time 0 (no change of the colors)	Одна точка, все значения 1, время 0 (цвета без изменений)
+Order one unit to build	Приказать юниту построить
+order {unit} to build {building} at {where}	приказать {unit} построить {building} в {where}
+morph {unit} into {type}	трансформировать {unit} в {type}
+Make a unit train a unit type	Заставить юнит обучить тип юнита
+make {unit} train {type}	заставить {unit} обучить {type}
+Put a unit in a control group	Поместить юнит в группу
+put {unit} in {player}'s control group {group}, place {slot}	поместить {unit} в группу {group} игрока {player}, место {slot}
+Turn a location around another	Повернуть локацию вокруг другой
+turn {where} around {center} by {a}	повернуть {where} вокруг {center} на {a}
+Fire a weapon from a place to a place	Выстрелить оружием из места в место
+fire a {attacker} of {player} from {src} at a {target} at {dst}	выстрелить {attacker} игрока {player} из {src} по {target} в {dst}
+Units a player has at a location	Юниты игрока в локации
+how many {unit} {player} has at {where}	сколько {unit} у {player} в {where}
+Distance between two locations	Расстояние между двумя локациями
+the distance from {a} to {b}	расстояние от {a} до {b}
+Distance between two points	Расстояние между двумя точками
+the distance from x {x1}, y {y1} to x {x2}, y {y2}	расстояние от x {x1}, y {y1} до x {x2}, y {y2}
+Direction between two locations	Направление между двумя локациями
+the direction from {a} to {b}	направление от {a} к {b}
+A unit casts an order on a point	Юнит применяет приказ к точке
+{unit} casts {order} on a point less than {range} pixels away; put {unitloc} on it and {pointloc} on the point	{unit} применяет {order} к точке ближе {range} пикселей; поместить {unitloc} на юнит и {pointloc} на точку
+A unit casts an order on a unit	Юнит применяет приказ к юниту
+{unit} casts {order} on a unit less than {range} pixels away; put {unitloc} on it and {pointloc} on the target	{unit} применяет {order} к юниту ближе {range} пикселей; поместить {unitloc} на юнит и {pointloc} на цель
+Key:	Клавиша:

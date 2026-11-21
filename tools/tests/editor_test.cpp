@@ -2215,6 +2215,33 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Rectangle's diamond selection: rows in steps of 2 tiles on each side, as the map's diamonds, symmetric.
+    {
+        auto widths = [](int w, int h) {
+            std::vector<int> out;
+            for (int row = 0; row < h; ++row) {
+                int n = 0;
+                for (int col = 0; col < w; ++col) n += Editor::inSelectShape({0, 0, w * 32, h * 32}, Editor::SelectShape::TileDiamond, col * 32 + 16, row * 32 + 16);
+                out.push_back(n);
+            }
+            return out;
+        };
+        CHECK(widths(10, 5) == std::vector<int>({2, 6, 10, 6, 2}), "tile diamond 10 x 5: rows 2, 6, 10, 6, 2");
+        CHECK(widths(12, 5) == std::vector<int>({4, 8, 12, 8, 4}), "tile diamond 12 x 5: rows 4, 8, 12, 8, 4");
+        CHECK(widths(10, 6) == std::vector<int>({2, 6, 10, 10, 6, 2}), "tile diamond 10 x 6: two middle rows");
+        CHECK(widths(12, 6) == std::vector<int>({4, 8, 12, 12, 8, 4}), "tile diamond 12 x 6");
+        CHECK(widths(3, 1) == std::vector<int>({3}) && widths(1, 4) == std::vector<int>({1, 1, 1, 1}), "tile diamond: one row, one column");
+        CHECK(widths(6, 9) == std::vector<int>({2, 6, 6, 6, 6, 6, 6, 6, 2}) && widths(11, 9) == std::vector<int>({1, 5, 9, 11, 11, 11, 9, 5, 1}),
+              "tile diamond taller than its 2-tile steps fill: the top and bottom rows the narrowest, full middle rows");
+        // (each tile's columns: symmetric about the middle)
+        bool sym = true;
+        for (int row = 0; row < 7; ++row)
+            for (int col = 0; col < 11; ++col)
+                sym = sym && Editor::inSelectShape({64, 32, 64 + 11 * 32, 32 + 7 * 32}, Editor::SelectShape::TileDiamond, 64 + col * 32 + 5, 32 + row * 32 + 30) ==
+                                 Editor::inSelectShape({64, 32, 64 + 11 * 32, 32 + 7 * 32}, Editor::SelectShape::TileDiamond, 64 + (10 - col) * 32 + 5, 32 + (6 - row) * 32 + 30);
+        CHECK(sym, "tile diamond 11 x 7 in a box off the origin: symmetric left and right, top and bottom");
+    }
+
     // A new map with the terrain of another (feedback #48): its size, tileset, tiles and doodads; no units or locations.
     {
         Editor src(data), nt(data);
