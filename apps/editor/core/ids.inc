@@ -11,7 +11,7 @@ constexpr bool kRampBridgeTools = true;
 #endif
 
 // Immersive mode (Program options, core/fun_mode.inc): off in a build with -DSTARDRAFT_IMMERSIVE=OFF (a test build
-// without it): no option, About's logo does not unlock it, and its settings stay as they are in the settings file.
+// without it): no option, nothing unlocks it, and its settings stay as they are in the settings file.
 #if defined(STARDRAFT_IMMERSIVE) && !STARDRAFT_IMMERSIVE
 constexpr bool kImmersiveMode = false;
 #else
@@ -64,7 +64,7 @@ enum : int {
     ID_OPT_ASKSTARTLOC,   // Program options > Saving maps > Ask about missing start locations (a check box)
     ID_OPT_MANYSTARTS,    // Options > Units > Many start locations for each player (a check item)
     ID_OPT_DRAGOBJECTS,   // Options > Drag objects to move them (units, doodads, sprites, locations; GitHub #256)
-    ID_OPT_FUNMODE,       // Immersive mode on or off (Program options > Appearance, locked until 9 clicks on About's logo; core/fun_mode.inc)
+    ID_OPT_FUNMODE,       // Immersive mode on or off (Program options > Appearance, locked until a hidden extra unlocks it; core/fun_mode.inc)
     ID_OPT_LASTSESSION,   // Program options > Start > Open the last session's tabs on start (GitHub feedback #270)
     // The Options menu: Snap to the grid of units, sprites and locations, the place rule of doodads,
     // and the items that show a rule that does not change (always grayed).
@@ -82,7 +82,7 @@ enum : int {
     ID_OPT_DIAGNOSTICS = 637,  // Program options > Appearance > Graphics and diagnostics: Show system diagnostics (ShowDiagnostics)
     ID_GRID_SIZE = 1160,  // + the preset (kGridPresets); View > Grid (16 places)
     ID_GRID_CUSTOM = 958,
-    ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese, 6 French
+    ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese, 6 French, 7 Portuguese, 8 German
     ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
     ID_TERRAIN_KIND_NEXT = 977,  // Ctrl+Alt+T: Terrain mode's Isometric, Rectangle, Tile, Custom, each in turn
     ID_TERRAIN_KIND = 1130,  // + the place in the tool strip: Mode > Terrain tools > Isometric, Rectangle, Tile, Custom (Ctrl+Alt+1 to 4)
@@ -107,7 +107,10 @@ enum : int {
     ID_SIM_PLAY = 1082, ID_SIM_RESTART, ID_SIM_SKIP, ID_SIM_SLOWER, ID_SIM_FASTER, ID_SIM_SETTINGS, ID_SIM_OPTIONS, ID_SIM_CLOSE,
     ID_CMBW_REPAIRISOM = 1099,  // Tools > Cosmonarchy > Try to repair the ISOM (a Cosmonarchy map's tab only: core/cmbw.inc)
     ID_CMBW_PASSAGES = 1113, ID_OPT_PASSAGES, ID_OPT_PASSAGESFILE,  // Tools > Cosmonarchy > Ramp and bridge mapper (core/views_passages.inc); Program options > Plugins > Ramp and bridge mappings: on or off, Browse
-    ID_OPT_TERRAINOVERRIDE = 1110, ID_OPT_TERRAINOVERRIDEFILE, ID_CMBW_ISOMRULES,  // Program options > Plugins > ISOM terrain rules override: on or off, Browse; Tools > Cosmonarchy > Custom isom terrain editor
+    ID_CMBW_TERRAINMAPPER = 1128,  // Tools > Cosmonarchy > Mod terrain mapper (core/views_isom_rules.inc)
+    ID_OPT_BUILTINTERRAINS = 1129,  // Program options > Plugins > ISOM terrains > Built-in mod terrains (core/cmbw.inc)
+    ID_OPT_GAMETERRAINS = 1105,  // Program options > Plugins > ISOM terrains > Game terrains only (core/cmbw.inc)
+    ID_OPT_TERRAINOVERRIDE = 1110, ID_OPT_TERRAINOVERRIDEFILE, ID_CMBW_ISOMRULES,  // Program options > Plugins > ISOM terrains > Terrain rules file, and its Browse; Tools > Cosmonarchy > Custom isom terrain editor
     // Program options > Plugins > Hyperion folder's Browse; Tools > Hyperion > Check the map in Hyperion, Test in Hyperion
     // (melee), Test in Hyperion (Use Map Settings) (core/hyperion.inc)
     ID_OPT_HYPERIONFOLDER = 1116, ID_HYP_CHECK, ID_HYP_TEST, ID_HYP_TESTUMS,

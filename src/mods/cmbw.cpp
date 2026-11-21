@@ -8,6 +8,7 @@
 #include <cwctype>
 #include <fstream>
 #include <map>
+#include <atomic>
 #include <mutex>
 #include <set>
 #include <tuple>
@@ -1811,13 +1812,17 @@ std::filesystem::path gTerrainOverride;
 std::mutex gTerrainOverrideLock;  // (a tileset can load on a worker thread)
 thread_local bool tSkipOverride = false;  // (skipTerrainOverride)
 thread_local bool tSkipRepaired = false;  // (skipRepairedRules)
-void applyTerrainFiles(Tileset& t) {
+std::atomic<bool> gBuiltinTerrains{true};  // (useBuiltinTerrains)
+// `builtin` false (useBuiltinTerrains): the built-in terrains (the rows and the mod's own file, made first) are left
+// out (their ids are free for the override's terrains); only the override's terrains stay.
+void applyTerrainFiles(Tileset& t, bool builtin) {
     std::filesystem::path override;
     if (!tSkipOverride) {
         std::lock_guard<std::mutex> lock(gTerrainOverrideLock);
         override = gTerrainOverride;
     }
     for (const std::filesystem::path& f : {findInstall().empty() ? std::filesystem::path() : findInstall() / "mpq" / "terrains.isom", override}) {
+        if (!builtin && f == override) t.modTerrains.clear();
         std::error_code ec;
         if (f.empty() || !std::filesystem::exists(f, ec)) continue;
         terrainrules::Rules r;
@@ -1831,6 +1836,7 @@ void loadTileset(Tileset& t) {
         if (g.era == (t.era & 7)) t.groupTerrains.push_back({g.group, g.terrain, g.other});
     for (const GroupPiece& p : kGroupPieces)
         if (p.era == (t.era & 7) && t.megatileFor(p.left) >= 0 && t.megatileFor(p.right) >= 0) t.groupPieces.push_back({p.left, p.right, p.game});
+    const bool builtin = gBuiltinTerrains;  // (read once: off, the built-in terrains are made and then left out, applyTerrainFiles)
     addModTerrains(t);
     if (!tSkipRepaired) {  // The rows repaired (tools/plugins/cmbw/probes/cmbw_draft_fix.cpp, cmbw_repaired_rules_*.inc: one file per
         // channel of the mod, their tilesets differ): every template rect present (the ones a row had none for NULL: no
@@ -1864,7 +1870,7 @@ void loadTileset(Tileset& t) {
         if (!applyBytes(kRepairedPrerelease, sizeof kRepairedPrerelease)) applyBytes(kRepairedRelease, sizeof kRepairedRelease);
         applyBytes(kCreator, sizeof kCreator);
     }
-    applyTerrainFiles(t);
+    applyTerrainFiles(t, builtin);
     forEachPieceNeighbor(t.era & 7, [&t](uint16_t a, uint16_t b, int place) {
         t.pieceNeighbors.insert(Tileset::pieceNeighborKey(a, b, place));
         t.pieceNeighborTiles.insert(a), t.pieceNeighborTiles.insert(b);
@@ -1893,7 +1899,7 @@ const std::vector<std::string>& colorNames() {
     return names;
 }
 
-const UnitDataLoader kLoader{&loadTypes, &loadSprites, &loadSettings, &loadTileset, &colorNames, &crigRenameLocation};
+const UnitDataLoader kLoader{&loadTypes, &loadSprites, &loadSettings, &loadTileset, &colorNames, &crigRenameLocation, &gameTileGroups};
 
 }  // namespace
 
@@ -3022,6 +3028,18 @@ bool open(GameData& data, const fs::path& install, std::string& error) {
     return true;
 }
 
+bool openGame(GameData& data, const fs::path& install, std::string& error) {
+    std::error_code ec;
+    const fs::path sc = install.parent_path() / "Starcraft";
+    std::vector<fs::path> mpqs;
+    for (const char* m : {"patch_rt.mpq", "BrooDat.mpq", "StarDat.mpq", "BroodWar.mpq", "StarCraft.mpq"})
+        if (fs::is_regular_file(sc / m, ec)) mpqs.push_back(sc / m);
+    auto files = std::make_unique<LayeredFiles>(fs::path(), mpqs);
+    if (!files->archives()) return error = "no StarCraft 1.16.1 MPQs in " + sc.string(), false;
+    data.open(std::move(files));
+    return true;
+}
+
 size_t gameTileGroups(int era) {
     static std::mutex m;
     static std::map<int, size_t> known;
@@ -3075,6 +3093,7 @@ void useTerrainOverride(const std::filesystem::path& file) {
     std::lock_guard<std::mutex> lock(gTerrainOverrideLock);
     gTerrainOverride = file;
 }
+void useBuiltinTerrains(bool on) { gBuiltinTerrains = on; }
 void skipTerrainOverride(bool on) { tSkipOverride = on; }
 void skipRepairedRules(bool on) { tSkipRepaired = on; }
 

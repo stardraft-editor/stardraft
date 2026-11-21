@@ -33,6 +33,120 @@ uint16_t mapTileAt(const Editor& ed, int x, int y) {
     return ed.terrain().tiles[size_t(y) * size_t(ed.width()) + size_t(x)];
 }
 
+// A mod terrain's variations (a mod's tileset): its pieces are pairs of tiles of their own, not the subtiles of a group
+// (a group can have the halves of two rects), so the variations of the rect at tile (x, y) are its terrain's pieces for
+// that rect, and the rects that stack with it (a wall's rows: the game's stack links) take the piece of the same variant
+// (the rules file's variant; else one group down at the same subtiles, as the built-in sets have their rows).
+struct ModVariations {
+    std::vector<std::pair<int, int>> tiles;     // the block's tiles: its rows, two a row
+    std::vector<std::vector<uint16_t>> values;  // for each variation, each tile's value
+    int now = -1;                               // the variation the block has now
+    std::vector<int> keys;                      // for each variation: its variant (the rules file's; else its place in the list)
+};
+bool modVariations(const Editor& ed, int x, int y, ModVariations& out) {
+    out = {};
+    const stardraft::Tileset& ts = ed.tileset();
+    if (ts.modTerrains.empty() || y < 0 || x < 0) return false;
+    const stardraft::IsomTiles* stacks = stardraft::IsomTiles::forTileset(ts);
+    const int lx = x & ~1;
+    auto pairAt = [&](int ty) { return std::pair<uint16_t, uint16_t>{mapTileAt(ed, lx, ty), mapTileAt(ed, lx + 1, ty)}; };
+    auto groupsIn = [&](const stardraft::Tileset::ModTerrain& m, std::pair<uint16_t, uint16_t> p) {  // (a pair can be in more than one group)
+        std::vector<int> out;
+        for (const auto& q : m.pieces)
+            if (q[1] == p.first && q[2] == p.second && !stardraft::terrainrules::nullHalf(q[1]) && !stardraft::terrainrules::nullHalf(q[2]) &&
+                std::find(out.begin(), out.end(), int(q[0])) == out.end())
+                out.push_back(q[0]);
+        return out;
+    };
+    auto groupIn = [&](const stardraft::Tileset::ModTerrain& m, std::pair<uint16_t, uint16_t> p) -> int {
+        const auto gs = groupsIn(m, p);
+        return gs.empty() ? -1 : gs.front();
+    };
+    const auto here = pairAt(y);
+    if (here.first == 0xFFFF || here.second == 0xFFFF) return false;
+    const stardraft::Tileset::ModTerrain* mt = nullptr;
+    int g = -1;
+    for (const auto& m : ts.modTerrains)
+        if ((g = groupIn(m, here)) >= 0) {
+            mt = &m;
+            break;
+        }
+    if (!mt) return false;
+    const auto& m = *mt;
+    auto free = [&](int ty) { return ed.doodadAt(lx * 32 + 16, ty * 32 + 16) < 0 && ed.doodadAt(lx * 32 + 48, ty * 32 + 16) < 0; };
+    // (the block: the rows over and under that stack with it, a few at most)
+    // (the groups of the pair here that stack with a row above or under, first; a pair in more than one group: the one
+    // whose stack link meets)
+    auto linked = [&](int upper, int lower) { return stacks && stacks->stackBottom(uint16_t(upper)) && stacks->stackBottom(uint16_t(upper)) == stacks->stackTop(uint16_t(lower)); };
+    {
+        const auto mine = groupsIn(m, here), up = y > 0 ? groupsIn(m, pairAt(y - 1)) : std::vector<int>{}, down = groupsIn(m, pairAt(y + 1));
+        for (int c : mine)
+            if (std::any_of(up.begin(), up.end(), [&](int a) { return linked(a, c); }) || std::any_of(down.begin(), down.end(), [&](int b) { return linked(c, b); })) {
+                g = c;
+                break;
+            }
+    }
+    std::vector<std::pair<int, int>> rows{{y, g}};  // (row, game group)
+    for (int ty = y - 1; stacks && ty >= 0 && y - ty <= 3; --ty) {
+        int ga = -1;
+        for (int a : groupsIn(m, pairAt(ty)))
+            if (ga < 0 && linked(a, rows.front().second)) ga = a;
+        if (ga < 0 || !free(ty)) break;
+        rows.insert(rows.begin(), {ty, ga});
+    }
+    for (int ty = y + 1; stacks && ty < int(ed.height()) && ty - y <= 3; ++ty) {
+        int gb = -1;
+        for (int b : groupsIn(m, pairAt(ty)))
+            if (gb < 0 && linked(rows.back().second, b)) gb = b;
+        if (gb < 0 || !free(ty)) break;
+        rows.push_back({ty, gb});
+    }
+    // (a protected tile in the block: no variations, the block stays one piece)
+    for (const auto& [ty, gr] : rows)
+        if (ed.tileProtected(lx, ty) || ed.tileProtected(lx + 1, ty)) return false;
+    if (!free(y)) return false;
+    // (the choices: the top row's pieces, by variant)
+    const int gTop = rows.front().second;
+    auto variantOf = [&](int gr, std::pair<uint16_t, uint16_t> p) -> int {
+        const auto f = m.pieceVariant.find({uint16_t(gr), p.first, p.second});
+        return f == m.pieceVariant.end() ? -1 : f->second;
+    };
+    std::vector<std::pair<uint16_t, uint16_t>> choices;
+    for (const auto& q : m.pieces)
+        if (q[0] == gTop && !stardraft::terrainrules::nullHalf(q[1]) && !stardraft::terrainrules::nullHalf(q[2]) &&
+            std::find(choices.begin(), choices.end(), std::make_pair(q[1], q[2])) == choices.end())
+            choices.push_back({q[1], q[2]});
+    std::stable_sort(choices.begin(), choices.end(), [&](const auto& a, const auto& b) { return variantOf(gTop, a) < variantOf(gTop, b); });
+    if (choices.empty()) return false;
+    for (const auto& [ty, gr] : rows) out.tiles.push_back({lx, ty}), out.tiles.push_back({lx + 1, ty});
+    std::vector<uint16_t> cur;
+    for (const auto& [tx, ty] : out.tiles) cur.push_back(mapTileAt(ed, tx, ty));
+    for (const auto& c : choices) {
+        std::vector<uint16_t> v = cur;
+        const int k = variantOf(gTop, c);
+        for (size_t d = 0; d < rows.size(); ++d) {
+            const int gr = rows[d].second;
+            std::pair<uint16_t, uint16_t> pick{0xFFFF, 0xFFFF};
+            if (d == 0) pick = c;
+            else {
+                for (const auto& q : m.pieces)  // (the same variant)
+                    if (k >= 0 && q[0] == gr && variantOf(gr, {q[1], q[2]}) == k && !stardraft::terrainrules::nullHalf(q[1])) pick = {q[1], q[2]};
+                if (pick.first == 0xFFFF && groupIn(m, {uint16_t(c.first + 16 * d), uint16_t(c.second + 16 * d)}) == gr)  // (one group down a row)
+                    pick = {uint16_t(c.first + 16 * d), uint16_t(c.second + 16 * d)};
+            }
+            if (pick.first != 0xFFFF) v[2 * d] = pick.first, v[2 * d + 1] = pick.second;
+        }
+        if (std::find(out.values.begin(), out.values.end(), v) != out.values.end()) continue;
+        if (v == cur) out.now = int(out.values.size());
+        out.keys.push_back(k >= 0 ? k : int(out.values.size()));
+        out.values.push_back(std::move(v));
+    }
+    if (out.now < 0)  // (the rows under it are not this variant's: the variation of its top row's piece)
+        for (size_t i = 0; i < out.values.size() && out.now < 0; ++i)
+            if (out.values[i][0] == cur[0] && out.values[i][1] == cur[1]) out.now = int(i);
+    return true;
+}
+
 // The tiles that take variation `sub` with the tile at (x, y), and their new values: the tile; with `whole`, the other
 // half of its rect and the stacks above and under both (each while its group has that variation and no doodad is on it).
 std::vector<Editor::TileAt> tileVariationCells(const Editor& ed, int x, int y, int sub, bool whole) {
@@ -103,6 +217,23 @@ bool stepTileVariation(int x, int y, bool back) {
     if (!app.ed || !app.ed->isOpen()) return false;
     const uint16_t t = mapTileAt(*app.ed, x, y);
     if (t == 0xFFFF) return false;
+    if (ModVariations mv; modVariations(*app.ed, x, y, mv)) {  // (a mod terrain's rect: its pieces)
+        if (mv.values.size() < 2) return setMessage(app, tr(L"This tile has no other variations")), false;
+        if (simBarShown()) return false;
+        const int n = int(mv.values.size()), k = (std::max(0, mv.now) + (back ? n - 1 : 1)) % n;
+        std::vector<Editor::TileAt> cells;
+        for (size_t i = 0; i < mv.tiles.size(); ++i)
+            if (mv.values[size_t(k)][i] != mapTileAt(*app.ed, mv.tiles[i].first, mv.tiles[i].second))
+                cells.push_back({mv.tiles[i].first, mv.tiles[i].second, mv.values[size_t(k)][i]});
+        const int changed = cells.empty() ? 0 : app.ed->placeTileValues(cells);
+        app.ed->takeDoodadsRemovedByTerrain(), app.ed->takeUnitsRemovedByTerrain();
+        app.dirty = app.dirty || changed > 0;
+        if (!changed) return setMessage(app, tr(L"No tile changed: the selected tiles are protected")), false;
+        wchar_t m[160];
+        std::swprintf(m, 160, tr(L"Variation %d of %d on %d tiles (Ctrl+Z undoes it)"), k + 1, n, changed);
+        setMessage(app, m);
+        return changed > 0;
+    }
     const TileVariations v = tileVariations(*app.ed, t);
     if (v.subs.size() < 2) return setMessage(app, tr(L"This tile has no other variations")), false;
     const auto at = std::find(v.subs.begin(), v.subs.end(), uint8_t(t & 15));
@@ -145,11 +276,15 @@ struct SelectionPiece {
     std::vector<int> subs;                       // the variations
     std::vector<std::vector<uint16_t>> values;   // for each variation, each tile's value with it
     std::vector<uint8_t> now;                    // for each variation: the tiles have it now
+    std::vector<uint16_t> held;                  // (a mod terrain's block: its tiles' values when made; another: made again)
 };
 const SelectionPiece& selectionPiece() {
     static SelectionPiece p;
     const uint64_t key = appState().ed ? variationsKey() : 0;
-    if (key == p.key && key) return p;
+    bool same = key == p.key && key;
+    if (same && !p.held.empty() && appState().ed)  // (a mod terrain's block: also its tiles outside the selection)
+        for (size_t i = 0; i < p.tiles.size() && same; ++i) same = mapTileAt(*appState().ed, p.tiles[i].first, p.tiles[i].second) == p.held[i];
+    if (same) return p;
     p = SelectionPiece{};
     p.key = key;
     const AppState& app = appState();
@@ -162,6 +297,48 @@ const SelectionPiece& selectionPiece() {
     p.x0 = p.y0 = INT_MAX;
     for (const auto& [x, y] : tiles) p.x0 = std::min(p.x0, x), p.y0 = std::min(p.y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
     p.w = x1 - p.x0 + 1, p.h = y1 - p.y0 + 1;
+    // (mod terrains' rects: their pieces, for each block a selected tile is in (its rect and the rows that stack with
+    // it); variation k puts variant k on each block that has it, as a game terrain's puts a subtile on each tile that has
+    // it. Selected tiles of no mod terrain (the ground under a wall) stay as they are)
+    if (p.w <= kVariationW && p.h <= kVariationH) {
+        std::vector<ModVariations> blocks;
+        for (const auto& [x, y] : tiles) {
+            const bool known = std::any_of(blocks.begin(), blocks.end(), [&](const ModVariations& b) {
+                return std::find(b.tiles.begin(), b.tiles.end(), std::make_pair(x, y)) != b.tiles.end();
+            });
+            if (ModVariations mv; !known && modVariations(ed, x, y, mv)) blocks.push_back(std::move(mv));
+        }
+        if (!blocks.empty()) {
+            std::vector<std::pair<int, int>> all;  // (every block's tiles, once)
+            for (const auto& b : blocks)
+                for (const auto& t : b.tiles)
+                    if (std::find(all.begin(), all.end(), t) == all.end()) all.push_back(t);
+            std::vector<uint16_t> cur;
+            for (const auto& [x, y] : all) cur.push_back(mapTileAt(ed, x, y));
+            std::set<int> keys;
+            for (const auto& b : blocks) keys.insert(b.keys.begin(), b.keys.end());
+            for (int key : keys) {
+                std::vector<uint16_t> v = cur;
+                bool now = true;
+                for (const auto& b : blocks) {
+                    const auto at = std::find(b.keys.begin(), b.keys.end(), key);
+                    if (at == b.keys.end()) continue;
+                    const size_t i = size_t(at - b.keys.begin());
+                    now = now && int(i) == b.now;
+                    for (size_t t = 0; t < b.tiles.size(); ++t)
+                        v[size_t(std::find(all.begin(), all.end(), b.tiles[t]) - all.begin())] = b.values[i][t];
+                }
+                if (std::find(p.values.begin(), p.values.end(), v) != p.values.end()) continue;
+                p.subs.push_back(key), p.now.push_back(now), p.values.push_back(std::move(v));
+            }
+            p.tiles = std::move(all);
+            p.x0 = p.y0 = INT_MAX, x1 = y1 = INT_MIN;
+            for (const auto& [x, y] : p.tiles) p.x0 = std::min(p.x0, x), p.y0 = std::min(p.y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
+            p.w = x1 - p.x0 + 1, p.h = y1 - p.y0 + 1;
+            p.held = std::move(cur);
+            return p;
+        }
+    }
     if (p.w > kVariationW || p.h > kVariationH) return p.tooMany = true, p;
     std::vector<uint16_t> cur;
     std::vector<uint8_t> free;

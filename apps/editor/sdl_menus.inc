@@ -258,6 +258,8 @@ bool sdlRuns(int id) {
     case ID_OPT_HYPERIONFOLDER:
     case ID_OPT_TERRAINOVERRIDE:
     case ID_OPT_TERRAINOVERRIDEFILE:
+    case ID_OPT_BUILTINTERRAINS:
+    case ID_OPT_GAMETERRAINS:
     case ID_OPT_PASSAGES:
     case ID_OPT_PASSAGESFILE:
     case ID_SCEN_CHECK:
@@ -339,7 +341,7 @@ bool sdlEnabled(int id) {
     if (sdlCollabRuns(id)) return sdlCollabEnabled(id);
     if (sdlCollabLocks(id)) return false;
     if ((id == ID_CMBW_REPAIRISOM || id == ID_CMBW_CHECKCOMMENTS) && !modTab()) return false;  // (a Cosmonarchy map's tab only)
-    if ((id == ID_CMBW_ISOMRULES || id == ID_CMBW_PASSAGES) && !cmbwMode()) return false;  // (the mod loaded)
+    if ((id == ID_CMBW_ISOMRULES || id == ID_CMBW_TERRAINMAPPER || id == ID_CMBW_PASSAGES) && !cmbwMode()) return false;  // (the mod loaded)
     if (id >= ID_HYP_CHECK && id <= ID_HYP_TESTUMS && (!hyperionMode() || !docOpen())) return false;  // (the plugin loaded, a map open)
     if ((id == ID_VIEW_HD || id == ID_VIEW_HD2 || id == ID_VIEW_CARBOT) && cmbwMode()) return false;  // (SD art only: cmbwKeepSd)
     if (simBarShown() && simLocksCommand(id)) return false;
@@ -1275,7 +1277,7 @@ void sdlCommandShot(const std::string& name) {
     static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.animate", ID_OPT_ANIMATE}, {"options.dragobjects", ID_OPT_DRAGOBJECTS}, {"craftmode", ID_OPT_FUNMODE}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
                                                          {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO}, {"edit.history", ID_EDIT_HISTORY},
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT}, {"project.addmusic", ID_PROJ_ADDMUSIC}, {"project.adddots", ID_PROJ_ADDDOTS},
-                                                         {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART},
+                                                         {"file.exit", ID_FILE_EXIT}, {"file.save", ID_FILE_SAVE}, {"tab.next", ID_TAB_NEXT}, {"options.restart", ID_OPT_RESTART},
                                                          {"options.unitsnap", ID_SNAP_UNITS},  // (Options > Units > Snap to the grid)
                                                          {"options.stack", ID_OPT_STACK},  // (Options > Units > Can be on top of others)
                                                          {"options.tinticons", ID_OPT_TINTICONS},
@@ -1532,7 +1534,9 @@ void confirmQuit(std::function<void()> then) {
     const bool ok = !gRoot || (isomRulesConfirmQuit() && passagesConfirmQuit() && confirmAllDocs());
     gQuitRetry = {};
     gQuitPrompt = false;
-    if (ok) then();
+    if (ok) return then();
+    void isomRulesQuitStopped();  // (core/views_isom_rules.inc)
+    isomRulesQuitStopped();
 }
 
 // Quit (File > Exit, the window's close, the system's quit).
@@ -1640,7 +1644,9 @@ void commandSdl(int id) {
     case ID_OPT_INSTALL: shellChooseInstallFolder(); return;
     case ID_OPT_CMBWFOLDER: shellChooseCmbwFolder(); return;
     case ID_OPT_HYPERIONFOLDER: shellChooseHyperionFolder(); return;
-    case ID_OPT_TERRAINOVERRIDE: shellToggleTerrainOverride(); return;
+    case ID_OPT_TERRAINOVERRIDE: shellUseTerrainOverride(); return;
+    case ID_OPT_BUILTINTERRAINS: cmbwSetIsomTerrains(1); return;  // (core/cmbw.inc; the options view shows the new choice)
+    case ID_OPT_GAMETERRAINS: cmbwSetIsomTerrains(0); return;
     case ID_OPT_TERRAINOVERRIDEFILE: shellChooseTerrainOverride(); return;
     case ID_OPT_PASSAGES: passagesToggle(); return;  // (core/views_passages.inc)
     case ID_OPT_PASSAGESFILE: passagesChoose(); return;

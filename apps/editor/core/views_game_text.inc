@@ -387,6 +387,8 @@ public:
         return {};
     }
     bool hoverTip() const override { return true; }
+    // The view's height for a text box of boxH at width w: the box and the tool row(s) under it (a page's layout).
+    int heightFor(int w, int boxH) const { return boxH + toolsHeight(w) + scale(4); }
 
 private:
     bool hot(draw::Rect r) const { return host() && r.contains(host()->mouse(*this)); }
@@ -407,13 +409,14 @@ private:
         raw_.setFrame({in.left + scale(4), in.top, in.right - scale(4), in.bottom - 1});  // (inside the Raw box's own line)
     }
     // The tool row's height for the width (as gameTextToolLayout measures it, with the last measured text widths).
-    int toolsHeight() const {
+    int toolsHeight() const { return toolsHeight(width()); }
+    int toolsHeight(int w) const {
         const int rowH = scale(kGameTextRowH), s = scale(kGameTextSwatch), gap = scale(kGameTextGap);
-        int right = width() - (measured_[0] + scale(18)) - (measured_[1] + scale(18)) - scale(10);
+        int right = w - (measured_[0] + scale(18)) - (measured_[1] + scale(18)) - scale(10);
         if (spec_.align && spec_.multiline) right -= 3 * scale(22) + scale(10);
         int x = 0, rows = 1, rowRight = right;
         for (size_t k = 0; k < gameTextSwatches(spec_).size(); ++k) {
-            if (x > 0 && x + s > rowRight) x = 0, ++rows, rowRight = width();
+            if (x > 0 && x + s > rowRight) x = 0, ++rows, rowRight = w;
             x += s + gap;
         }
         return rows * rowH;

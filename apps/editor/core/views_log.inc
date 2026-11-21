@@ -135,12 +135,15 @@ public:
             if (s.expanded && e.pt.y < scale(5)) {  // the top edge: drag to change the height
                 s.sizing = true, s.grabY = y, s.grabH = height();
                 if (draw::Host* h = host()) h->capture(*this, true);
-            } else if (e.pt.y < scale(24))
+            } else if (e.pt.y < scale(24)) {
                 setExpanded(!s.expanded);
+                // (the mouse stays here until it goes up: the up must not click the view the panel uncovers)
+                if (draw::Host* h = host()) h->capture(*this, true), headerDown_ = true;
+            }
             return true;
         case draw::MouseKind::Up:
             if (e.button != 0) return false;
-            if (s.sizing)
+            if (s.sizing || std::exchange(headerDown_, false))
                 if (draw::Host* h = host()) h->capture(*this, false);
             return true;
         default: return false;
@@ -150,8 +153,10 @@ public:
         const LogState& s = logState();
         return s.sizing || (s.expanded && p.y < scale(5)) ? draw::Cursor::SizeNS : draw::Cursor::Hand;
     }
+    bool headerDown_ = false;  // (a click on the header: the mouse is held until it goes up)
     void captureLost() override {  // the drag ends (the mouse went up, or the system took the mouse)
         LogState& s = logState();
+        headerDown_ = false;
         if (s.sizing) s.sizing = false, gDock.logH = std::clamp(height() * 96 / int(std::max(1u, shellDpi())), 80, 1200), saveDock();
     }
 

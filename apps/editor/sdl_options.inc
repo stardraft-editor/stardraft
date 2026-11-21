@@ -43,13 +43,15 @@ UiLang sdlSystemLanguage() {
             else if (l == "ru") lang = UiLang::Russian;
             else if (l == "zh" && (c.empty() || c == "CN" || c == "SG")) lang = UiLang::Chinese;  // simplified; traditional: English
             else if (l == "fr") lang = UiLang::French;
+            else if (l == "pt") lang = UiLang::Portuguese;  // Brazilian (also for Portugal: closer than English)
+            else if (l == "de") lang = UiLang::German;
         }
         SDL_free(locales);
     }
     return lang;
 }
 
-// The language to use: STARDRAFT_LANG (en, ko, es, ru, zh or fr, for test runs) wins, then the setting, and automatic is the
+// The language to use: STARDRAFT_LANG (en, ko, es, ru, zh, fr, pt or de, for test runs) wins, then the setting, and automatic is the
 // language of the system.
 UiLang sdlLanguageChosen(const std::wstring& setting) {
     std::wstring code = setting;
@@ -344,7 +346,7 @@ public:
             v.cmbwFolder = mod.empty() ? std::wstring() : mod.wstring();
             v.cmbwOpen = !inUse.empty();
             v.cmbwNext = !gCmbwNext.empty() && gCmbwNext != mod ? gCmbwNext.wstring() : std::wstring();
-            v.overrideOn = gTerrainOverrideOn, v.overrideFile = gTerrainOverride.wstring();
+            v.isomTerrains = cmbwIsomTerrains(), v.overrideFile = gTerrainOverride.wstring();
             v.passagesOn = passagesOn(), v.passagesFile = passagesFile().wstring();
         }
         v.mapsWithSD2 = sdlMapsOpenWithUs();  // (Windows: .scm and .scx open with StarDraft 2; shell_sdl_win.inc)
@@ -616,6 +618,30 @@ void sdlPassagesFrame() {
 void shellSetIsomRulesTitle(const std::wstring& title) {
     if (SDL_Window* w = gHost ? gHost->sdlWindow(gIsomRulesView) : nullptr) SDL_SetWindowTitle(w, narrow(title).c_str());
 }
+// Tools > Cosmonarchy > Mod terrain mapper (the same view with rules of its own; one window, beside the map).
+bool gTerrainMapperOpen = false;
+void shellShowTerrainMapperWindow() {
+    if (!gRoot || !gHost) return;
+    if (gTerrainMapperOpen) {
+        if (SDL_Window* w = gHost->sdlWindow(gTerrainMapperView)) SDL_RaiseWindow(w);
+        return;
+    }
+    gTerrainMapperOpen = true;
+    const draw::Point sz = IsomRulesView::size();
+    draw::WindowSpec spec{draw::WindowKind::Dialog, draw::Rect(0, 0, std::min(sz.x, gRoot->width()), std::min(sz.y, gRoot->height())), L"Mod terrain mapper"};
+    spec.resizable = true;
+    gHost->openWindow(*gRoot, gTerrainMapperView, spec, [] { gTerrainMapperOpen = false; });
+    SDL_Window* win = gHost->sdlWindow(gTerrainMapperView);
+    if (win) sdlNoMinimizeButton(win);
+    restoreWindowPlace(win, L"Layout/TerrainMapperWindow");
+}
+void sdlTerrainMapperFrame() {
+    static WindowPlace place{L"Layout/TerrainMapperWindow"};
+    if (gTerrainMapperOpen && gHost) keepWindowPlace(gHost->sdlWindow(gTerrainMapperView), place);
+}
+void shellSetTerrainMapperTitle(const std::wstring& title) {
+    if (SDL_Window* w = gTerrainMapperOpen && gHost ? gHost->sdlWindow(gTerrainMapperView) : nullptr) SDL_SetWindowTitle(w, narrow(title).c_str());
+}
 
 void sdlCampaignFollow() {
     if (gCampaignWindowOpen) gCampaignView.enable();
@@ -677,13 +703,11 @@ public:
     void close() override {
         if (gFbView && gHost) gHost->closeWindow(*gFbView);
     }
-    int timer(int ms, std::function<void()> run) override {
-        draw::Host* h = gFbView ? gFbView->host() : nullptr;
-        return h ? h->timer(ms, std::move(run)) : -1;
-    }
+    // (the program's host, not the dialog's window's: Send closes the window before the dialog goes, and its timer must
+    // still be cancelled then, or it runs on the dialog after it is gone)
+    int timer(int ms, std::function<void()> run) override { return gHost && gFbView ? gHost->timer(ms, std::move(run)) : -1; }
     void cancelTimer(int id) override {
-        draw::Host* h = gFbView ? gFbView->host() : nullptr;
-        if (h && id >= 0) h->cancelTimer(id);
+        if (gHost && id >= 0) gHost->cancelTimer(id);
     }
 };
 FeedbackProgramSdl gFeedbackProgram;

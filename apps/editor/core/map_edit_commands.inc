@@ -133,6 +133,32 @@ bool takeTerrainCopy(Editor& ed) {
     ed.setTerrainCopies(gTerrainCopy.copies);
     return false;
 }
+// The units copied last, in any map (Copy, Cut, Duplicate, and a turn or owner of the copy): a paste in another map
+// pastes them too, as the terrain's copy. Doodads, sprites and locations: the app's (one for all maps already).
+struct SharedUnitCopy {
+    std::vector<Unit> units;
+    bool any = false;
+};
+SharedUnitCopy gUnitCopy;
+void shareUnitCopy(const Editor& ed) { gUnitCopy = {ed.clipboard(), true}; }
+// A turn or owner of the copy while it pastes in `ed`: the same to the copy of all maps (its units of unit types that
+// `ed` does not have too, which ed's copy leaves out).
+void turnUnitCopy(int turn, bool upDown) {
+    for (Unit& u : gUnitCopy.units) {
+        const int x = int16_t(u.x), y = int16_t(u.y);
+        const int nx = turn > 0 ? -y : turn < 0 ? y : upDown ? x : -x, ny = turn > 0 ? x : turn < 0 ? -x : upDown ? -y : y;
+        u.x = uint16_t(int16_t(nx)), u.y = uint16_t(int16_t(ny));
+    }
+}
+void ownerUnitCopy(const Editor& ed, uint8_t owner) {
+    for (Unit& u : gUnitCopy.units)
+        if (u.type < ed.unitTypes().size() && u.owner != owner && !ed.staysNeutral(u.type))
+            u.owner = owner, u.validProps = uint16_t(u.validProps | UnitProp::Owner);
+}
+// The units' copy of all maps into `ed` (a map that shows, or a paste); those of unit types it does not have stay out.
+void takeUnitCopy(Editor& ed) {
+    if (gUnitCopy.any) ed.setClipboard(gUnitCopy.units);
+}
 
 // A name for a pasted location: its name without a " copy<n>" ending, then " copy" and the lowest number that no
 // location has yet, so that each pasted location has its own name (Discord #dev feedback #152).
@@ -178,6 +204,9 @@ void pasteMapCopy(AppState& app) {
         const bool dd = app.mode == Mode::Doodads;
         if ((dd ? app.doodadClip : app.spriteClip).empty())
             return setMessage(dd ? L"Nothing copied: select doodads and press Ctrl+C" : L"Nothing copied: select sprites and press Ctrl+C");
+        if (dd && app.doodadClipEra != app.ed->era())  // (another map's: its tileset's doodads)
+            return setMessage(L"The copied doodads are " + std::wstring(kTilesetNames[app.doodadClipEra & 7]) +
+                              L" doodads. You can paste them only in a map of that tileset.");
         app.toolByMode[int(app.mode)] = 0;
         app.palette = -1, shellPaletteChosen().clear();
         app.pastingItems = true;
@@ -216,6 +245,7 @@ void pasteMapCopy(AppState& app) {
                                    : L"Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.");
         return;
     }
+    if (app.ed) takeUnitCopy(*app.ed);  // (the copy of another map)
     if (!app.ed || !app.ed->canPaste()) return;
     if (app.mode != Mode::Units) return;  // the units' copy pastes in Units
     app.ed->clearSelection();  // (the selection goes: the copy follows the mouse; 1 to 9 give it to a player)
@@ -294,6 +324,7 @@ void copyMapSelection(AppState& app) {
         cx /= int(items.size()), cy /= int(items.size());
         for (auto& it : items) it.x -= cx, it.y -= cy;
         (dd ? app.doodadClip : app.spriteClip) = items;
+        if (dd) app.doodadClipEra = app.ed->era();
         setMessage(L"Copied " + std::to_wstring(items.size()) + (dd ? L" doodads" : L" sprites"));
     } else if (app.mode == Mode::Locations) {
         const std::vector<int> locs = app.ed->selectedLocations();
@@ -302,14 +333,16 @@ void copyMapSelection(AppState& app) {
         for (int l : locs) app.locationClip.push_back(locationCopyOf(*app.ed, l));
         setMessage(L"Copied " + locationsText(*app.ed, locs));
     } else {
-        app.ed->copySelection(), setMessage(L"Copied " + std::to_wstring(app.ed->selection().size()) + L" units");
+        if (app.ed->selection().empty()) return setMessage(L"Select units first");  // (the copy of all maps stays)
+        app.ed->copySelection(), shareUnitCopy(*app.ed), setMessage(L"Copied " + std::to_wstring(app.ed->selection().size()) + L" units");
     }
 }
 
 // Edit > Cut in the active mode: its copy, then its delete (terrain: null tiles in its place).
 void cutMapSelection(AppState& app) {
     if (app.mode == Mode::Units) {
-        app.ed->copySelection(), app.ed->deleteSelection();
+        if (app.ed->selection().empty()) return setMessage(L"Select units first");  // (the copy of all maps stays)
+        app.ed->copySelection(), shareUnitCopy(*app.ed), app.ed->deleteSelection();
         return;
     }
     if (app.mode != Mode::Terrain) {
@@ -460,6 +493,7 @@ bool commandMapEdit(AppState& app, int id) {
         if (app.ed && app.mode == Mode::Units && app.pasting) {  // pasting units: the copy goes to that player
             const size_t copied = app.ed->clipboard().size();
             app.ed->setClipboardOwner(uint8_t(player));
+            ownerUnitCopy(*app.ed, uint8_t(player));
             size_t neutral = 0;  // (the copied units that stay neutral)
             for (const Unit& u : app.ed->clipboard()) neutral += app.ed->staysNeutral(u.type);
             setMessage(L"Paste " + std::to_wstring(copied) + L" units for Player " + std::to_wstring(player + 1) +
@@ -548,7 +582,7 @@ bool commandMapEdit(AppState& app, int id) {
             break;
         }
         setMode(Mode::Units);
-        app.ed->copySelection();
+        app.ed->copySelection(), shareUnitCopy(*app.ed);
         pasteMapCopy(app);
         break;
     case ID_EDIT_DELETE:

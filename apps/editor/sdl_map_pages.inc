@@ -227,7 +227,7 @@ std::vector<std::wstring> sdlPlayersProblems(const PlayersValues& d) {
 void sdlPlayersRefresh(PlayersValues& d) {
     const auto problems = sdlPlayersProblems(d);
     d.problemsText.clear();
-    if (problems.empty()) d.problemsText = hyperionMode() ? L"\x2713  Hyperion can start this map" : L"\x2713  StarCraft can start this map";
+    if (problems.empty()) d.problemsText = std::wstring(L"\x2713  ") + (hyperionMode() ? L"Hyperion can start this map" : L"StarCraft can start this map");
     else
         for (const auto& pr : problems) d.problemsText += L"\x2717  " + pr + L"\r\n";
 }
@@ -383,17 +383,18 @@ int sdlPickFromList(const std::vector<std::wstring>& rows, int checked, const st
 // --- The page's views -----------------------------------------------------------------------------------------------
 
 // The Map properties view with its title and description: kit text fields in the boxes the core's view gives them. The
-// title and the description are plain text on this system (the game text editor is the Windows program's).
+// title and the description are game text editors (core/views_game_text.inc): the text in its colors, the swatches
+// under it (#288: a title's colors stay).
 class SdlPropsView final : public MapPropsView {
 public:
     // The title or the description has the keyboard (the program's shortcuts wait for it).
-    bool typingField() const { return name_.hasFocus() || desc_.hasFocus() || notes_.hasFocus(); }
-    SdlPropsView(MapPropsHost& host, MapPropsValues& v) : MapPropsView(host, v), val_(v) {
-        name_.setText(widen(v.nameText));
-        name_.onChange = [this] { val_.nameText = narrow(name_.text()), sdlMapPageTyped(); };
-        desc_.setMultiline(true), desc_.setWrap(true);
-        desc_.setText(widen(v.descText));
-        desc_.onChange = [this] { val_.descText = narrow(desc_.text()), sdlMapPageTyped(); };
+    bool typingField() const { return name_.hasFocusInside() || desc_.hasFocusInside() || notes_.hasFocus(); }
+    SdlPropsView(MapPropsHost& host, MapPropsValues& v) : MapPropsView(host, v), val_(v), name_(nameSpec()), desc_(descSpec()) {
+        for (GameTextView* t : {&name_, &desc_}) t->setColors(draw::rgb(184, 184, 232), draw::rgb(0x11, 0x11, 0x11));  // (the game's colors on its dark ground)
+        name_.setBytes(v.nameText);
+        name_.onChange = [this] { val_.nameText = name_.bytes(), sdlMapPageTyped(); };
+        desc_.setBytes(v.descText);
+        desc_.onChange = [this] { val_.descText = desc_.bytes(), sdlMapPageTyped(); };
         notes_.setMultiline(true), notes_.setWrap(true);
         notes_.setText(widen(v.notesText));
         notes_.setReadOnly(!gState.ed || !gState.ed->filesRead());
@@ -413,9 +414,23 @@ public:
         notes_.setFrame(notesBox());
     }
 
+    // The title's or the description's height for a text box of boxH (the page's layout: the box, its swatches under it).
+    int textHeight(bool description, int boxW, int boxH) const { return (description ? desc_ : name_).heightFor(boxW, boxH); }
+
 private:
+    static GameTextSpec nameSpec() {
+        GameTextSpec s;
+        s.multiline = false, s.align = false;
+        return s;
+    }
+    static GameTextSpec descSpec() {
+        GameTextSpec s;
+        s.crlf = true;  // (map texts: lines end in CR LF)
+        return s;
+    }
     MapPropsValues& val_;
-    kit::TextField name_, desc_, notes_;
+    GameTextView name_, desc_;
+    kit::TextField notes_;
 };
 
 // The program's part of the Map properties view (core/views_map_props.inc: MapPropsHost).
@@ -425,7 +440,7 @@ public:
     void applyTerrain() override;
     void reset() override;
     void cropOrExtend() override;
-    int textHeight(bool, int, int boxH) override { return boxH; }
+    int textHeight(bool description, int boxW, int boxH) override;
     void fitHeight(int w, int h) override;
     int availableWidth() override;
 };
@@ -757,6 +772,9 @@ void SdlPropsHost::changed() {
     sdlMapPageChanged();
 }
 void SdlPropsHost::applyTerrain() { sdlMapPageApplyTerrain(); }
+int SdlPropsHost::textHeight(bool description, int boxW, int boxH) {
+    return gSdlPage.props ? gSdlPage.props->textHeight(description, boxW, boxH) : boxH + scale(kGameTextRowH) + scale(4);
+}
 void SdlPropsHost::reset() { sdlMapPageReload(); }
 void sdlMapPageResize();
 void SdlPropsHost::cropOrExtend() { shellPost([] { sdlMapPageResize(); }); }  // (after the click: the page's views can go)

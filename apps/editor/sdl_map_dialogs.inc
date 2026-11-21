@@ -86,7 +86,10 @@ void showUnitProperties(int index) {
     dlg.closing = [&] { unitWindowSaved(view.get()); };
     const int r = dlg.run(*gRoot, tr(L"Unit properties"), size);
     if (timer && host) host->cancelTimer(timer);
-    if (r == kUnitPropsOk || r == kUnitPropsEditType) unitPropsApply(*gState.ed, units, first, view->values(), modTab());
+    if (r == kUnitPropsOk || r == kUnitPropsEditType) {  // (the units selected now: Ctrl+clicks in the Units list too)
+        const std::vector<int> now = gState.ed->selection().empty() ? units : gState.ed->selection();
+        unitPropsApply(*gState.ed, now, first, view->values(), modTab(), now == units);
+    }
     if (r == kUnitPropsEditType) {  // Edit unit type: the type in Data (a project) or on the Map data page (a classic map)
         if (activeProject() != nullptr) setWorkspace(Workspace::Data), dataGoTo("units", first.type);
         else sdlMapDataShowUnit(first.type);

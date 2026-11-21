@@ -165,7 +165,7 @@ static Parts partsOfChk(const Chk& chk) {
 
 // A step whose files are only the layers'.
 static bool layerFilesOnly(const auto& files) {
-    return !files.empty() && std::all_of(files.begin(), files.end(), [](const auto& f) { return f.name == kLayersFile || f.name == kLayersBaseFile; });
+    return !files.empty() && std::all_of(files.begin(), files.end(), [](const auto& f) { return f.name == kLayersFile || f.name == kLayersBaseFile || f.name == kLayersCheckFile; });
 }
 
 Editor::StepName Editor::undoStepName(size_t k) const {

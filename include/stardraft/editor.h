@@ -479,6 +479,12 @@ public:
     // The units a paste at (x, y) puts down, before the placement checks: the copy, then its symmetric copies.
     std::vector<Unit> pasteUnits(int x, int y) const;
     const std::vector<Unit>& clipboard() const { return clipboard_; }  // positions relative to group center
+    // The copied units from another map (its clipboard()): those of a unit type this map has.
+    void setClipboard(const std::vector<Unit>& units) {
+        clipboard_.clear();
+        for (const Unit& u : units)
+            if (u.type < types_.size()) clipboard_.push_back(u);
+    }
     // The copied units' places round their middle: a quarter turn clockwise (turn 1) or back (-1), or (turn 0) mirrored
     // left and right, or top and bottom (upDown).
     void turnUnitClipboard(int turn, bool upDown);
@@ -666,6 +672,9 @@ public:
     Bytes editorSlots() const;  // the slots the Players page shows (OWNR; IOWN's when the map has none, and its Computer)
     bool slotsSaved() const;    // whether the map's OWNR is gameSlots already
     Bytes savedChk() const;  // the scenario.chk that a save writes (OWNR: gameSlots)
+    // Saves for a game on the 1.16.1 engine (a mod such as Cosmonarchy BW): a Remastered map (VER 206) is always written
+    // as a Brood War map (205), the version that game opens.
+    void setBroodWarSaves(bool on) { broodWarSaves_ = on; }
     // Players 1-8 (index 0-7): who controls the slot (IOWN, the editor's copy; OWNR when the map has no IOWN), the race (SIDE) and the
     // force (FORC). Players 9-12 (index 8-11): the slot and the race only (no force, no color). Forces 1-4: a name (a
     // map string) and their properties. A byte with no name here stays as it is (Controller(9), Race(69)).
@@ -769,6 +778,13 @@ public:
     TerrainLayer layerTileSection() const { return readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM"); }
     // The map's terrain without its doodads' tiles, for the Background file.
     Bytes layerBaseNow() const;
+    // An edit with no layer tools (stardraft-cli's ops) changed the map from `before` (the map as opened, with its
+    // archive files) to this one. With layers: the changes go into the Background, as the editor's edits do with the
+    // Background active, and the map is made again from the layers; `files` gets the layer files again. Stale layers
+    // (another program changed the map after this program's last save) or a new size or tileset: the layers are
+    // flattened (`files` loses them; the map stays as it is).
+    enum class LayerFold { None, Kept, Flattened };
+    LayerFold foldEditsIntoLayers(const Editor& before, std::vector<ArchiveFile>& files);
     // The map's sprites without its doodads' own sprites.
     std::vector<MapSprite> layerSprites() const;
     std::vector<Doodad> layerDoodads() const;  // (noOverlay set on those that have no overlay sprite on the map)
@@ -778,6 +794,9 @@ public:
     std::vector<std::pair<int, int>> takeAskedCorners() { return std::exchange(askedCorners_, {}); }
     // Changes when the map is read anew (open, new, undo, redo): what changed then is not an edit.
     uint64_t loadMark() const { return loadMark_; }
+    // A number for each open of a map (not changed by an undo or a redo), and terrainCheck as the map opened.
+    uint64_t openMark() const { return openMark_; }
+    const std::string& openCheck() const { return openCheck_; }
     // The map's other files have been read (archiveFile would not wait for them).
     bool filesRead() const { return !pendingFiles_.valid() || pendingFiles_.wait_for(std::chrono::seconds(0)) == std::future_status::ready; }
     // An undo step for an edit of the layers (a panel's button, a drag): `end` with the files as they are after it.
@@ -806,6 +825,8 @@ public:
     bool namedInMap(const std::string& name) const;
     // A file of the map that is no edit: no undo step, and the map does not count as changed (the map's own settings).
     void setQuietArchiveFile(const std::string& name, Bytes data);
+    // Files of the map go with no undo step (the layers that another editor's save made stale).
+    void removeQuietArchiveFiles(const std::vector<std::string>& names);
     // The files the archive has with no name to read them by, or that could not be read: a save leaves them out.
     const std::vector<std::string>& unreadableFiles() const { return finishFiles(), unreadable_; }
     // The map's notes (UTF-8; none: empty). Set: one undo step; empty notes remove the file.
@@ -961,6 +982,9 @@ private:
     // A mod's terrains (Tileset::modTerrains): the game's terrain table with them (IsomTerrainTable::withExtras), for
     // the old engine (the terrain core knows only the game's shapes); none: the game's table, and the core.
     std::unique_ptr<IsomTerrainTable> modTable_;
+    // The tilesets of the mod terrains whose template is another tileset's (IsomGrid::setTemplateTilesets): by era, the
+    // game's own tile groups only; loaded when a store first asks (null: it did not load).
+    std::map<uint8_t, std::unique_ptr<Tileset>> templateTilesets_;
     bool useCore() const { return terrainCoreOn() && !modTable_; }
     // The old engine's part of an edit (IsomGrid::apply, then store): the corners and their grid area; overPlaced as
     // applyTerrain's.
@@ -976,7 +1000,8 @@ private:
     int turns_ = 1;    // the turns (setTurns)
     int symmetryX_ = -1, symmetryY_ = -1;  // setSymmetryCenter (-1: the map's middle)
     std::vector<std::pair<int, int>> moreAnchors_;  // addSymmetryAnchor
-    uint64_t loadMark_ = 0;
+    uint64_t loadMark_ = 0, openMark_ = 0;
+    std::string openCheck_;
     std::pair<int, int> terrainCopyOrigin_{0, 0};
     bool noteAsked_ = false;
     std::vector<std::pair<int, int>> askedCorners_;
@@ -1051,6 +1076,9 @@ public:
     // Only the first n tile groups (a mod's tileset: the game's own groups, n of them; its own groups past them have the
     // same edge codes and the brush would pick them too). 0: every group. The tileset loads again at the next map.
     void limitGroups(size_t n) { groupLimit_ = n, loadedEra_ = 0xFFFF; }
+    // The game tile groups of another tileset (a mod terrain's template there: Tileset::ModTerrain::templateEra), loaded the
+    // first time; null: it did not load.
+    const Tileset* templateTileset(uint8_t era);
 private:
     uint32_t nextFreeSerial(const std::vector<Unit>& units) const;
     Unit correctedOrSame(Unit u, bool correct, const std::vector<Unit>& against) const;
@@ -1063,6 +1091,7 @@ private:
     int moveUnitsTo(const std::vector<int>& sel, std::vector<Unit> to);
 
     const GameData& data_;
+    bool broodWarSaves_ = false;  // (setBroodWarSaves)
     std::filesystem::path path_;
     mutable std::vector<ArchiveFile> files_;
     // The archive's files while they are read (after open); filesError_: why they could not be (save refuses then).

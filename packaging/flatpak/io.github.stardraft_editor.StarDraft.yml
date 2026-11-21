@@ -30,7 +30,9 @@ modules:
         -DFETCHCONTENT_SOURCE_DIR_SDL3=$PWD/deps/sdl3 -DFETCHCONTENT_SOURCE_DIR_STORMLIB=$PWD/deps/stormlib
         -DFETCHCONTENT_SOURCE_DIR_CASCLIB=$PWD/deps/casclib -DFETCHCONTENT_SOURCE_DIR_STB=$PWD/deps/stb
         -DFETCHCONTENT_SOURCE_DIR_LIBVPX=$PWD/deps/libvpx -DFETCHCONTENT_SOURCE_DIR_IMGUI=$PWD/deps/imgui
-        -DFETCHCONTENT_SOURCE_DIR_LITEHTML=$PWD/deps/litehtml
+        -DFETCHCONTENT_SOURCE_DIR_LITEHTML=$PWD/deps/litehtml -DFETCHCONTENT_SOURCE_DIR_LUA=$PWD/deps/lua
+        -DFETCHCONTENT_SOURCE_DIR_LIBOGG=$PWD/deps/libogg -DFETCHCONTENT_SOURCE_DIR_LIBVORBIS=$PWD/deps/libvorbis
+        -DFETCHCONTENT_SOURCE_DIR_DR_LIBS=$PWD/deps/dr_libs
       - cmake --build _flatpak_build --target stardraft_editor stardraft_thumbnailer
       - cmake --install _flatpak_build --component stardraft
     sources:
@@ -70,6 +72,22 @@ modules:
         url: https://github.com/litehtml/litehtml.git
         commit: 9bc84b8b8d15a4e50f18b327aa30955048b441c2
         dest: deps/litehtml
+      - type: archive
+        url: https://www.lua.org/ftp/lua-5.1.5.tar.gz
+        sha256: 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333
+        dest: deps/lua
+      - type: archive
+        url: https://github.com/xiph/ogg/archive/refs/tags/v1.3.5.tar.gz
+        sha256: f6f1b04cfa4e98b70ffe775d5e302d9c6b98541f05159af6de2d6617817ed7d6
+        dest: deps/libogg
+      - type: archive
+        url: https://github.com/xiph/vorbis/archive/refs/tags/v1.3.7.tar.gz
+        sha256: 270c76933d0934e42c5ee0a54a36280e2d87af1de3cc3e584806357e237afd13
+        dest: deps/libvorbis
+      - type: archive
+        url: https://github.com/mackron/dr_libs/archive/35b5c392cc15456736c440a68dbe073178bbffe0.tar.gz
+        sha256: d46fa0a831a65b16fcf2b169e6b739c66536437ee78049893788582eb93e39de
+        dest: deps/dr_libs
       # The fonts (CMakeLists.txt: STARDRAFT_FONTS), where the build looks for them first (a file with the right hash
       # is not downloaded).
       - type: file

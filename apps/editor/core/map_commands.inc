@@ -153,6 +153,8 @@ bool saveMapFile(const fs::path& path, std::string& err) {
     AppState& app = shellState();
     if (!app.ed) return err = "No map is open.", false;
     mapPrefsIntoMap(*app.ed, path);
+    bool cmbwMode();  // (core/cmbw.inc)
+    app.ed->setBroodWarSaves(cmbwMode());  // (the mod runs on the 1.16.1 engine: it does not open Remastered maps)
     if (!app.ed->save(path, err)) return false;
     protectedTerrainSync();  // (the protected terrain of the saved map: core/protected_layer.inc)
     updateTitle();
@@ -494,6 +496,7 @@ void registerMapCommands() {
     addCommand(ID_CMBW_REPAIRISOM, "edit.cmbw.repairIsom", L"Try to repair the &ISOM", "Cosmonarchy", L"", [] { cmbwRepairIsomCommand(); });
     addCommand(ID_CMBW_CHECKCOMMENTS, "scen.cmbw.checkComments", L"&Check the CRIG commands", "Cosmonarchy", L"", [] { cmbwCheckCommentsCommand(); });
     addCommand(ID_CMBW_ISOMRULES, "tools.cmbw.isomRules", L"Custom isom &terrain editor\x2026", "Cosmonarchy", L"", [] { isomRulesShow(); });
+    addCommand(ID_CMBW_TERRAINMAPPER, "tools.cmbw.terrainMapper", L"&Mod terrain mapper\x2026", "Cosmonarchy", L"", [] { terrainMapperShow(); });
     if (kRampBridgeTools) addCommand(ID_CMBW_PASSAGES, "tools.cmbw.passages", L"Ramp and &bridge mapper\x2026", "Cosmonarchy", L"", [] { passagesShow(); });
     addCommand(ID_HYP_CHECK, "tools.hyperion.check", L"&Check the map in Hyperion", "Hyperion", L"", [] { hyperionCheckCommand(); });
     addCommand(ID_HYP_TEST, "tools.hyperion.test", L"&Test in Hyperion (melee)", "Hyperion", L"", [] { hyperionTestCommand(false); });

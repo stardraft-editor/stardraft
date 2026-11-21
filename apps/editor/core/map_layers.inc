@@ -38,6 +38,7 @@ constexpr int kOutsideReach = 256;  // (tiles: how far outside of the map a laye
 struct MapLayersState {
     const Editor* ed = nullptr;
     uint64_t loadMark = 0;  // Editor::loadMark when the map was last taken as it is
+    uint64_t openMark = 0;  // Editor::openMark: a new open (not an undo) checks the layers' files again
     bool filesPending = false;  // the layers' files are still to be read
     bool liveDirty = false;     // a stroke's flattening changed the layers: its files go with the stroke's undo step at its end
     bool on = false;
@@ -45,6 +46,7 @@ struct MapLayersState {
     Bytes base;
     int active = -1;       // -1: the Background; else the index in stack.layers
     bool staleCheck = false;  // the map is new here: compare its terrain with the last save's
+    std::set<uint64_t> checkedOpens;  // (Editor::openMark of each open checked already: a tab switch does not check again)
     // A change of the map's size (mapLayersBeforeResize): the Background and the layers as they are after it.
     struct Resized {
         bool on = false;
@@ -105,10 +107,19 @@ static void layersRead(Editor& ed) {
     const ArchiveFile* file = ed.archiveFile(kLayersFile);
     const ArchiveFile* base = ed.archiveFile(kLayersBaseFile);
     s.on = file && base && LayerStack::parse(file->data, s.stack);
-    // (another editor saved the map after this program did: it keeps our files, not their meaning)
-    if (const ArchiveFile* check = s.on && s.staleCheck && !ed.modified() ? ed.archiveFile(kLayersCheckFile) : nullptr)
-        if (const std::string now = ed.terrainCheck(); std::string(check->data.begin(), check->data.end()) != now)
-            setMessage(L"Another program changed this map's terrain after its last save here. The layers do not have those changes: the next edit makes the terrain from the layers again.");
+    // (another editor saved the map after this program did: it keeps our files, not their meaning. The layers would
+    // make the map of that last save again at the next edit, so they flatten into the map as it is, as a resize does)
+    // (the map as it opened, also when it was edited while the files were read; no undo step: an undo would give back
+    // layers that make that old map again)
+    if (const ArchiveFile* check = s.on && s.staleCheck ? ed.archiveFile(kLayersCheckFile) : nullptr) {
+        const std::string was(check->data.begin(), check->data.end()), now = ed.openCheck();
+        if (was != now && !(was.size() == 8 && now.compare(0, 8, was) == 0)) {  // (8: an older save's, the terrain's only)
+            ed.removeQuietArchiveFiles({kLayersFile, kLayersBaseFile, kLayersCheckFile});
+            s.on = false;
+            setMessage(L"Another program changed this map after its last save here: the layers are flattened into the map as it is");
+        }
+    }
+    if (s.staleCheck) s.checkedOpens.insert(ed.openMark());
     s.staleCheck = false;
     ed.noteAskedCorners(s.on);
     if (!s.on) {
@@ -282,16 +293,16 @@ void mapLayersSync() {
     terrainMoveFollowsSelection(app);
     if (!app.ed || !app.ed->isOpen()) return;
     Editor& ed = *app.ed;
-    if (s.ed != &ed || ed.loadMark() != s.loadMark) {  // another map, or an undo or a redo: the map is as the step left it
-        if (s.ed != &ed) {
-            s.staleCheck = true;
+    if (s.ed != &ed || ed.loadMark() != s.loadMark || ed.openMark() != s.openMark) {  // another map, or an undo or a redo: the map is as the step left it
+        if (s.ed != &ed || ed.openMark() != s.openMark) {  // (by the open's number: a new Editor can have a closed one's address)
+            s.staleCheck = !s.checkedOpens.count(ed.openMark());  // (once for each open: not again at a tab switch)
             s.opacity.clear();  // (of the other map's layers: their ids start at 1 too)
             s.resized.on = false;
             s.active = -1, s.picked.clear();
             if (const auto it = s.activeOf.find(ed.path()); it != s.activeOf.end()) s.active = it->second, s.picked = {s.active};
         }
         if (s.ed == &ed && s.on) setTerrainSelTiles({});  // (an undo or a redo: the selection may be where nothing is now)
-        s.ed = &ed, s.loadMark = ed.loadMark(), s.liveDirty = false;
+        s.ed = &ed, s.loadMark = ed.loadMark(), s.openMark = ed.openMark(), s.liveDirty = false;
         const bool was = s.on;
         s.on = false, s.stack = {}, s.filesPending = true;
         ed.noteAskedCorners(false);

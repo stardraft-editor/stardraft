@@ -34,7 +34,7 @@ struct OptionsValues {
     bool tintIcons = false;   // Appearance: the units' icons in the accent color, not the game's yellow (TintIcons)
     bool diagnostics = false; // Graphics and diagnostics: the frames a second and the memory in use in the status bar (ShowDiagnostics)
     bool immersive = false;   // Appearance: Immersive mode (FunMode: core/fun_mode.inc)
-    bool immersiveUnlocked = false;  // ... its option is unlocked (About's logo); else it shows "Locked", disabled
+    bool immersiveUnlocked = false;  // ... its option is unlocked (a hidden extra); else it shows "Locked", disabled
     bool smoothZoom = true, smoothPan = true;  // Map > Map view: the zoom and the jumps glide (view.smoothZoom, view.smoothPan)
     bool keyHints = false;    // Appearance > Status bar: the tool's keys (view.keyHints)
     bool askStartLocations = true;  // Saving maps: a save asks when the map has no start locations (AskStartLocations)
@@ -56,7 +56,7 @@ struct OptionsValues {
     std::wstring cmbwFolder;      // Mods: the Cosmonarchy install in use, else the one it opens from
     std::wstring cmbwNext;        // ... the one used from the next start ("": the same)
     bool cmbwOpen = false;        // ... the mod's data is open (a new folder: from the next start; else at once)
-    bool overrideOn = false;      // ... ISOM terrain rules override: a terrain rules file over the built-in rules
+    int isomTerrains = 1;         // ... ISOM terrains: 0 the game's only, 1 the built-in mod terrains, 2 a terrain rules file's
     std::wstring overrideFile;    // ... its file ("": none chosen)
     bool passagesOn = false;      // ... Ramp and bridge mappings: a passages file (the Ramp and bridge mapper's) for the tools
     std::wstring passagesFile;    // ... its file ("": none chosen)
@@ -263,9 +263,13 @@ public:
         pluginGroup_.onChange = [this](stardraft::kit::RadioButton& b) {
             host_.command(ID_GAME_MODE + (&b == &cmbwPlugin_ ? 1 : &b == &hyperionPlugin_ ? 2 : 0));
         };
-        override_.setLabel(L"ISOM terrain rules override");
-        override_.setTip(L"Terrain rules from a file (Tools > Cosmonarchy > Custom isom terrain editor) in place of the built-in ones");
-        override_.onChange = [this](bool) { host_.command(ID_OPT_TERRAINOVERRIDE); };
+        // ISOM terrains: one at a time (cmbwSetIsomTerrains; the maps opened from then on)
+        gameTerrains_.setTip(L"Only the isometric terrains of StarCraft. The mod's tiles are in the Tile and Custom tools.");
+        builtinTerrains_.setTip(L"The isometric terrains that come with the program and the mod. A later version removes them: use a terrain rules file.");
+        fileTerrains_.setTip(L"Only the terrains of a terrain rules file (.isom, from the tools in Tools > Cosmonarchy)");
+        terrainGroup_.onChange = [this](stardraft::kit::RadioButton& b) {
+            host_.command(&b == &fileTerrains_ ? ID_OPT_TERRAINOVERRIDE : &b == &builtinTerrains_ ? ID_OPT_BUILTINTERRAINS : ID_OPT_GAMETERRAINS);
+        };
         passages_.setLabel(L"Ramp and bridge mappings");
         passages_.setTip(L"The mod's ramps and bridges from a file (Tools > Cosmonarchy > Ramp and bridge mapper) for the Ramp brush and the Bridge tool");
         passages_.onChange = [this](bool) { host_.command(ID_OPT_PASSAGES); };
@@ -275,7 +279,7 @@ public:
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&lastSession_), static_cast<draw::View*>(&tintIcons_), static_cast<draw::View*>(&diagnostics_), static_cast<draw::View*>(&immersive_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&noPlugin_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&hyperionPlugin_), static_cast<draw::View*>(&override_), static_cast<draw::View*>(&passages_),
+        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&lastSession_), static_cast<draw::View*>(&tintIcons_), static_cast<draw::View*>(&diagnostics_), static_cast<draw::View*>(&immersive_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&noPlugin_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&hyperionPlugin_), static_cast<draw::View*>(&gameTerrains_), static_cast<draw::View*>(&builtinTerrains_), static_cast<draw::View*>(&fileTerrains_), static_cast<draw::View*>(&passages_),
                         static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_), static_cast<draw::View*>(&smoothZoom_), static_cast<draw::View*>(&smoothPan_),
                         static_cast<draw::View*>(&keyHints_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
@@ -541,11 +545,15 @@ private:
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3], gpuSeg_[4];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, hyperionBrowse_, overrideBrowse_, passagesBrowse_, check_, restart_, reset_, maps_, close_;
     stardraft::kit::ScrollBar bar_;  // at the content's right when it is taller than its room
-    stardraft::kit::CheckBox lastProject_, lastSession_, tintIcons_, diagnostics_, immersive_, askStart_, manyStarts_, override_, passages_, updates_, previews_, smoothZoom_, smoothPan_, keyHints_;
+    stardraft::kit::CheckBox lastProject_, lastSession_, tintIcons_, diagnostics_, immersive_, askStart_, manyStarts_, passages_, updates_, previews_, smoothZoom_, smoothPan_, keyHints_;
     // Plugins: one at a time (made in this order: the arrow keys go through them so)
     stardraft::kit::RadioGroup pluginGroup_;
     stardraft::kit::RadioButton noPlugin_{L"No plugin", pluginGroup_, true}, cmbwPlugin_{L"Cosmonarchy BW (CMBW)", pluginGroup_},
         hyperionPlugin_{L"Hyperion", pluginGroup_};
+    // ISOM terrains (Cosmonarchy BW): one at a time
+    stardraft::kit::RadioGroup terrainGroup_;
+    stardraft::kit::RadioButton gameTerrains_{L"Game terrains only", terrainGroup_}, builtinTerrains_{L"Built-in mod terrains (deprecated)", terrainGroup_, true},
+        fileTerrains_{L"Terrain rules file", terrainGroup_};
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Slider slider_;
@@ -602,7 +610,8 @@ void OptionsView::sync(const OptionsValues& v) {
         for (int i = 0; i < 4; ++i) gpuSeg_[i].setTone(kGpuValue[i] == v.gpuDriver ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
     if (stardraft::kit::RadioButton& b = v.gameMode == 1 ? cmbwPlugin_ : v.gameMode == 2 ? hyperionPlugin_ : noPlugin_; !b.on()) pluginGroup_.select(b);
-    override_.setOn(v.overrideOn);
+    if (stardraft::kit::RadioButton& b = v.isomTerrains == 2 ? fileTerrains_ : v.isomTerrains == 1 ? builtinTerrains_ : gameTerrains_; !b.on())
+        terrainGroup_.select(b);
     if (const std::wstring f = v.overrideFile.empty() ? std::wstring(L"\x2014") : v.overrideFile; overrideFile_.text() != f) overrideFile_.setText(f);
     passages_.setOn(v.passagesOn);
     if (const std::wstring f = v.passagesFile.empty() ? std::wstring(L"\x2014") : v.passagesFile; passagesFile_.text() != f) passagesFile_.setText(f);
@@ -712,8 +721,8 @@ void OptionsView::paint(draw::Canvas& c) {
             x += w;
         }
     };
-    auto checkRow = [&](int rowY, stardraft::kit::ChoiceBox& cb, const std::string& part) {
-        const draw::Rect cr{x0, rowY, x0 + scale(24) + c.measure(cb.label()), rowY + rowH};  // as ui::check: the box and the label
+    auto checkRow = [&](int rowY, stardraft::kit::ChoiceBox& cb, const std::string& part, int indent = 0) {
+        const draw::Rect cr{x0 + indent, rowY, x0 + indent + scale(24) + c.measure(cb.label()), rowY + rowH};  // as ui::check: the box and the label
         place(cb, cr, true);
         parts_[part] = cr;
     };
@@ -985,6 +994,57 @@ void OptionsView::paint(draw::Canvas& c) {
         y += rowH;
         note(x0 + scale(24), y - scale(4), L"Maps open with the CMBW data, and new maps are CMBW maps");
         y += scale(20);
+        if (v.gameMode == 1) {  // (the mod's settings, under it: only while it is loaded)
+            c.text({x0 + scale(24), y, x0 + labelW, y + rowH}, L"Cosmonarchy folder", kDim, draw::kMiddle | draw::kEllipsis);
+            const int cw = cmbwBrowse_.preferredWidth(c);
+            const draw::Rect cf{fx, fieldTop(y), colRight - cw - gap, fieldTop(y) + fieldH};
+            place(cmbw_, cf, true);
+            const int cy = buttonTop(y);
+            place(cmbwBrowse_, {colRight - cw, cy, colRight, cy + btnH}, true);
+            parts_["cmbwfolder"] = {colRight - cw, cy, colRight, cy + btnH};
+            y += rowH;
+            note(fx, y - scale(4),
+                 !v.cmbwNext.empty() ? L"After a restart: " + v.cmbwNext
+                 : v.cmbwOpen        ? std::wstring(L"The Prerelease or Release folder. A new folder is used after a restart.")
+                                     : std::wstring(L"The Prerelease or Release folder"));
+            y += scale(20);
+            // ISOM terrains: the game's only, the built-in mod terrains (deprecated) or a terrain rules file's, with its
+            // file and Browse under it (the maps opened from then on).
+            c.text({x0 + scale(24), y, colRight, y + rowH}, L"ISOM terrains", kDim, draw::kMiddle | draw::kEllipsis);
+            y += rowH;
+            checkRow(y, gameTerrains_, "plugin.gameterrains", scale(24));
+            y += rowH;
+            checkRow(y, builtinTerrains_, "plugin.builtin", scale(24));
+            y += rowH;
+            checkRow(y, fileTerrains_, "plugin.override", scale(24));
+            y += rowH;
+            const int ow = overrideBrowse_.preferredWidth(c);
+            const draw::Rect of{x0 + scale(48), fieldTop(y), colRight - ow - gap, fieldTop(y) + fieldH};
+            place(overrideFile_, of, true);
+            const int oy = buttonTop(y);
+            place(overrideBrowse_, {colRight - ow, oy, colRight, oy + btnH}, true);
+            parts_["overridefile"] = {colRight - ow, oy, colRight, oy + btnH};
+            y += rowH;
+            note(x0 + scale(48), y - scale(4), L"Maps opened after a change use the selected terrains");
+            y += scale(20);
+            // Ramp and bridge mappings: a passages file for the Ramp brush and the Bridge tool (at once, in the open maps too;
+            // hidden with the tools: ids.inc).
+            if (kRampBridgeTools) {
+                checkRow(y, passages_, "plugin.passages", scale(24));
+                y += rowH;
+                const int pw = passagesBrowse_.preferredWidth(c);
+                place(passagesFile_, {x0 + scale(48), fieldTop(y), colRight - pw - gap, fieldTop(y) + fieldH}, true);
+                const int py = buttonTop(y);
+                place(passagesBrowse_, {colRight - pw, py, colRight, py + btnH}, true);
+                parts_["passagesfile"] = {colRight - pw, py, colRight, py + btnH};
+                y += rowH;
+                note(x0 + scale(48), y - scale(4), L"The Ramp brush and the Bridge tool use its ramps and bridges at once");
+                y += scale(20);
+            } else {
+                for (draw::View* v : {static_cast<draw::View*>(&passages_), static_cast<draw::View*>(&passagesFile_), static_cast<draw::View*>(&passagesBrowse_)})
+                    if (v->visible()) v->setVisible(false);
+            }
+        }
         checkRow(y, hyperionPlugin_, "plugin.hyperion");
         y += rowH;
         note(x0 + scale(24), y - scale(4), L"Maps open and save as .hxm too, up to 512 tiles a side, and test in Hyperion");
@@ -1000,51 +1060,6 @@ void OptionsView::paint(draw::Canvas& c) {
             note(fx, y - scale(4), v.hyperionFolder.empty() ? std::wstring(L"Not found: select the folder that has Hyperion.exe")
                                                             : std::wstring(L"The folder that has Hyperion.exe"));
             y += scale(20);
-        }
-        if (v.gameMode != 1) y += pad;  // (the section's end: no folder row below)
-    }
-    if ((shown & optionsview::kPlugins) && v.gameMode == 1) {  // (the Cosmonarchy folder: only while it is loaded)
-        c.text({x0 + scale(24), y, x0 + labelW, y + rowH}, L"Cosmonarchy folder", kDim, draw::kMiddle | draw::kEllipsis);
-        const int cw = cmbwBrowse_.preferredWidth(c);
-        const draw::Rect cf{fx, fieldTop(y), colRight - cw - gap, fieldTop(y) + fieldH};
-        place(cmbw_, cf, true);
-        const int cy = buttonTop(y);
-        place(cmbwBrowse_, {colRight - cw, cy, colRight, cy + btnH}, true);
-        parts_["cmbwfolder"] = {colRight - cw, cy, colRight, cy + btnH};
-        y += rowH;
-        note(fx, y - scale(4),
-             !v.cmbwNext.empty() ? L"After a restart: " + v.cmbwNext
-             : v.cmbwOpen        ? std::wstring(L"The Prerelease or Release folder. A new folder is used after a restart.")
-                                 : std::wstring(L"The Prerelease or Release folder"));
-        y += scale(20);
-        // ISOM terrain rules override: a terrain rules file over the built-in rules (the maps opened from then on).
-        checkRow(y, override_, "plugin.override");
-        y += rowH;
-        const int ow = overrideBrowse_.preferredWidth(c);
-        const draw::Rect of{x0 + scale(24), fieldTop(y), colRight - ow - gap, fieldTop(y) + fieldH};
-        place(overrideFile_, of, true);
-        const int oy = buttonTop(y);
-        place(overrideBrowse_, {colRight - ow, oy, colRight, oy + btnH}, true);
-        parts_["overridefile"] = {colRight - ow, oy, colRight, oy + btnH};
-        y += rowH;
-        note(x0 + scale(24), y - scale(4), L"Maps opened after a change use the file's terrain rules");
-        y += scale(20);
-        // Ramp and bridge mappings: a passages file for the Ramp brush and the Bridge tool (at once, in the open maps too;
-        // hidden with the tools: ids.inc).
-        if (kRampBridgeTools) {
-            checkRow(y, passages_, "plugin.passages");
-            y += rowH;
-            const int pw = passagesBrowse_.preferredWidth(c);
-            place(passagesFile_, {x0 + scale(24), fieldTop(y), colRight - pw - gap, fieldTop(y) + fieldH}, true);
-            const int py = buttonTop(y);
-            place(passagesBrowse_, {colRight - pw, py, colRight, py + btnH}, true);
-            parts_["passagesfile"] = {colRight - pw, py, colRight, py + btnH};
-            y += rowH;
-            note(x0 + scale(24), y - scale(4), L"The Ramp brush and the Bridge tool use its ramps and bridges at once");
-            y += scale(20);
-        } else {
-            for (draw::View* v : {static_cast<draw::View*>(&passages_), static_cast<draw::View*>(&passagesFile_), static_cast<draw::View*>(&passagesBrowse_)})
-                if (v->visible()) v->setVisible(false);
         }
         y += pad;
     }

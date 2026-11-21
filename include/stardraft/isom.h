@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
@@ -52,6 +53,7 @@ public:
     // The game's table with the terrains of a mod: each takes the shapes from `firstValue` on (past the game's), its solid
     // shape and then the 14 of its border with its ground. The terrain engine (IsomGrid) paints them as the game's.
     static constexpr int kExtraSlots = 80;  // (the mod terrains of a tileset that withExtras makes room for before twins)
+    static constexpr uint16_t kMoreIds = 64 + kExtraSlots, kMoreCount = 100;  // (Tileset::kMoreModTerrainIds: their shapes from the top down)
     static std::unique_ptr<IsomTerrainTable> withExtras(const IsomTerrainTable& game, const std::vector<Extra>& extras, uint16_t firstValue);
     bool hasExtras() const { return game_ != nullptr; }
     // A mod terrain a level higher in it (its border's ground is another game terrain in the template).
@@ -226,9 +228,22 @@ public:
     // The map's terrain table when it is not the game's (IsomTerrainTable::withExtras: a mod's terrains, whose tiles are
     // the pieces of the tileset's modTerrains, tag 1 the first); none: the game's. The next load() takes it.
     void setTable(const IsomTerrainTable* table) { ownTable_ = table; }
+    // The tilesets of the mod's terrains whose template is another tileset's (Tileset::ModTerrain::templateEra): that
+    // tileset's game tile groups (CV5) by its era; nullptr: not loaded (the terrain keeps its stand-in's tiles).
+    void setTemplateTilesets(std::function<const struct Tileset*(uint8_t era)> get) { templateTileset_ = std::move(get); }
     // tileFromIsom with the map's table: in the rect of a mod's terrain, the mod's pieces for the rect of its template
     // (and the template's tiles) are from the ISOM too.
     bool tileFromIsom(const Chk& chk, const struct TerrainLayer& tile, int tx, int ty) const;
+    // New variants for the mod's pieces in `rects` and the two rows above and below each (a wall's rows): their pieces
+    // placed again as a store places them, from another seed (`salt`), so the rows of a block keep one variant. The
+    // tiles changed.
+    int rerollPieces(Chk& chk, const std::vector<std::pair<int, int>>& rects, uint32_t salt) const;
+    // Is rect (rx, ry), with these tiles, one of a mod's terrains (both tiles are its pieces: rerollPieces)?
+    bool modRect(int rx, int ry, uint16_t left, uint16_t right) const {
+        uint16_t gl = 0, gr = 0, tag = 0;
+        return table_ && table_->hasExtras() && gameTile_.count(left) && gameTile_.count(right) && rectTemplate(rx, ry, gl, gr, tag) && tag &&
+               tag <= pieces_.size();
+    }
 
     int rectCols() const { return rectCols_; }
     int rectRows() const { return rectRows_; }
@@ -264,7 +279,18 @@ private:
     void writeIsom(Chk& chk, bool templates = false) const;
     // The tiles of `rects` from the copy of the map the terrain core made them on (`work`, the templates' tiles), with
     // the mod's pieces for them in the rects of a mod's terrain.
-    void putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& rects) const;
+    // `via` and `onlyTag`: a mod terrain whose template is another tileset's (putForeign): only that terrain's rects, `work`
+    // that tileset's tiles and `via` its tables; else (0) every other mod terrain, with the map's tables.
+    void putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& rects, const class IsomTiles* via = nullptr, uint16_t onlyTag = 0) const;
+    // The mod terrains whose template is another tileset's: in their rects of `rects`, the pieces for the tiles that the
+    // terrain core of that tileset makes for the template there (on a map of that tileset around them, the terrain as the
+    // template's terrain, all else as its ground). The map's own pass has put the stand-in's tiles there before.
+    void putForeign(Chk& chk, const std::vector<uint8_t>& rects) const;
+    bool foreignTag(uint16_t tag) const { return tag && tag <= foreign_.size() && foreign_[tag - 1u]; }
+    // The copy of the map the terrain core works on: the game's tiles in place of the mod's pieces in the rects of a mod's
+    // terrain (DIM, ERA, TILE, MTXM).
+    Chk gameCopy(const Chk& chk) const;
+    mutable uint32_t pieceSalt_ = 0;  // (putPieces' seed: 0, except in rerollPieces)
     // One of a rect's mod pieces (`h`: the place's hash): one that the mod's maps have beside the pieces already placed
     // around it in `tile` (above, a row up to the left and to the right: Tileset::pieceNeighbors); fewer of those
     // neighbors when none fits all, any piece when none fits one.
@@ -307,6 +333,9 @@ private:
     // game's tile for each tile of a piece (the terrain core reads the stack connections of the tiles above).
     std::vector<std::map<uint16_t, std::vector<std::pair<uint16_t, uint16_t>>>> pieces_;
     std::unordered_map<uint16_t, uint16_t> gameTile_;
+    std::vector<std::map<std::array<uint16_t, 3>, uint8_t>> pieceVariant_;  // (per tag: ModTerrain::pieceVariant)
+    std::vector<uint8_t> foreign_;  // (per tag: a template of another tileset (ModTerrain::foreign): its pieces are that tileset's groups)
+    std::function<const struct Tileset*(uint8_t era)> templateTileset_;  // (setTemplateTilesets)
     // A mod terrain a level higher: per rect, the border it is around (rectTemplate), made once for a pass over the map
     // (LevelMask: writeIsom, stackBreaks, putPieces; the shapes do not change during one) instead of a search per rect.
     struct LevelRect {

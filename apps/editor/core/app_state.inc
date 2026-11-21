@@ -49,6 +49,7 @@ struct AppState {
     // Each mode's own copy buffer (units and terrain are the Editor's): Ctrl+C, Ctrl+X and Ctrl+V act on the active mode's.
     // Doodads and sprites: the copied ones, each from the middle of the group; a paste follows the mouse.
     std::vector<Editor::ItemAt> doodadClip, spriteClip;
+    uint16_t doodadClipEra = 0;  // the tileset of the copied doodads (a doodad is its tileset's: other tilesets cannot paste them)
     bool pastingItems = false;                 // Doodads or Sprites: the copy follows the mouse; a click places it
     // The copied locations: each one's edges, inverted axes (1 left/right, 2 top/bottom), name and the elevations it
     // leaves out (MRGN flags).
@@ -66,7 +67,7 @@ struct AppState {
     bool dragSnapBack = true;        // Options: dragged units go back to the last position where they fit
     bool dragObjects = true;         // Options: a drag moves units, doodads, sprites and locations (off: a click only selects)
     bool funMode = false;            // Immersive mode (Program options): edits make sounds, particles and pops (core/fun_mode.inc)
-    bool funUnlocked = false;        // ... its option is unlocked (9 clicks on About's logo)
+    bool funUnlocked = false;        // ... its option is unlocked (a hidden extra: views_about.inc)
     bool immersiveUnlocked() const { return funUnlocked || funMode; }  // (a mode that is on from before the lock: unlocked)
     bool randomFacing = true;        // Options > Units: units with a random units.dat facing each face their own way
     float lastValidDX = 0, lastValidDY = 0;  // offset of that spot from where the drag started

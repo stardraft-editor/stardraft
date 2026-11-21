@@ -57,6 +57,7 @@ void setMessage(const std::wstring& m);
 // one list.
 void shellWarningBox(const std::wstring& text, const std::wstring& title);
 void isomRulesShow();  // (core/views_isom_rules.inc: Tools > Cosmonarchy > Custom isom terrain editor)
+void terrainMapperShow();  // (core/views_isom_rules.inc: Tools > Cosmonarchy > Mod terrain mapper)
 void passagesShow();   // (core/views_passages.inc: Tools > Cosmonarchy > Ramp and bridge mapper)
 
 void cmbwCheckCommentsCommand() {
@@ -112,6 +113,7 @@ void cmbwUseFolderSetting() {
 // the tilesets that load after it is set: maps opened from then on.
 fs::path gTerrainOverride;
 bool gTerrainOverrideOn = false;
+bool gBuiltinTerrains = true;  // (Program options > Plugins > ISOM terrains > Built-in mod terrains: cmbwSetIsomTerrains)
 void cmbwApplyTerrainOverride() { stardraft::cmbw::useTerrainOverride(gTerrainOverrideOn ? gTerrainOverride : fs::path()); }
 struct {
     fs::path f, override;
@@ -152,6 +154,22 @@ void cmbwUseTerrainOverrideSetting() {
     if (prefs::text(L"TerrainOverride", saved)) gTerrainOverride = fs::path(saved);
     prefs::number(L"TerrainOverrideOn", on), gTerrainOverrideOn = on != 0 && !gTerrainOverride.empty();
     cmbwApplyTerrainOverride();
+    int64_t builtin = 1;  // (not set yet: on; the terrain rules file in use: off, one choice at a time)
+    prefs::number(L"BuiltinTerrains", builtin), gBuiltinTerrains = builtin != 0 && !gTerrainOverrideOn;
+    stardraft::cmbw::useBuiltinTerrains(gBuiltinTerrains);
+}
+// Program options > Plugins > ISOM terrains, one of: 0 the game's terrains only, 1 the built-in mod terrains (the rows
+// and the mod's own file; deprecated), 2 the terrain rules file's (the Mod terrain mapper's; it must be chosen). The
+// maps opened from then on have them; the settings BuiltinTerrains and TerrainOverrideOn.
+int cmbwIsomTerrains() { return gTerrainOverrideOn ? 2 : gBuiltinTerrains ? 1 : 0; }
+void cmbwSetIsomTerrains(int choice) {
+    gBuiltinTerrains = choice == 1, gTerrainOverrideOn = choice == 2 && !gTerrainOverride.empty();
+    if (!gSettingsOff) prefs::setNumber(L"BuiltinTerrains", gBuiltinTerrains ? 1 : 0), prefs::setNumber(L"TerrainOverrideOn", gTerrainOverrideOn ? 1 : 0);
+    stardraft::cmbw::useBuiltinTerrains(gBuiltinTerrains);
+    cmbwApplyTerrainOverride();
+    setMessage(gTerrainOverrideOn ? L"ISOM terrains: maps opened from now on use the terrain rules file"
+               : gBuiltinTerrains ? L"ISOM terrains: maps opened from now on use the built-in mod terrains"
+                                  : L"ISOM terrains: maps opened from now on use only the game's terrains");
 }
 
 // The mod's files, opened at the first use (nullptr and `err`: no Cosmonarchy install).

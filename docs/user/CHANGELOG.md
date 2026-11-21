@@ -2,6 +2,70 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.9.1.1
+
+### Fixes
+
+- Cosmonarchy BW: maps save in the format the mod opens. Maps made with File > New could not be played in the mod.
+- Downloads for macOS and Linux are back (0.9.1 had only Windows).
+- Town areas: an area's town hall place can be over the mod's markers and over the map's own town halls.
+
+## 0.9.1
+
+[Video: the new features of 0.9.1](images/0.9.1/whats-new.mp4)
+
+### New
+
+- New language support: Portuguese (Brazil) and German.
+- Copy and paste units between maps. Doodads paste only in a map of the same tileset.
+- Tile variations: select up to 2 x 3 tiles, and the side bar shows their variations. Point to one to see it on the
+  map, click to use it. Alt + wheel steps a tile through its variations.
+- Pie palette for Units, Doodads and Sprites: hold Space and pick from rings at the mouse. Custom terrain has rings
+  too.
+- Edit > Arrange: align, spread, row, column, grid or circle for the selected units.
+- View > In-game view (experimental): the map at the game's screen size (Ctrl+Shift+G).
+- Plugins: Hyperion (experimental), with up to 64 players. Program options > Plugins is a choice of No plugin,
+  Cosmonarchy BW or Hyperion.
+- Mod terrain mapper (experimental): make a mod's isometric terrain tile by tile, with match suggestions.
+
+### Map
+
+- Terrain: Copy as text, and Ctrl+V of custom terrain text makes it the Brush.
+- Symmetry: one button for all mirrors; up to 32 anchors and 64 brushes.
+- Units: drag while pasting to paste copies along the way.
+- Locations: right-click lists the locations under the pointer, to select one under others.
+- Town areas use the game's resource area rule, each area in its own color.
+- Zoom in to 1600%.
+- Map title colors, an owner for many units at once, and a better Custom terrain list order.
+
+### Triggers
+
+- New action: Shift a location in a direction.
+- A player from a variable or a value in more places. New values: Game time in seconds, The number of players, and
+  more.
+- For each unit accepts Men, Buildings and Factories.
+- Sound files in epScript: a list of the files as you type a sound name.
+
+### CMBW mod
+
+- ISOM terrains is one choice of three: game terrains only, built-in mod terrains (deprecated), or a
+  terrain rules file.
+- The Units palette shows a mod's own unit icons.
+
+### The program
+
+- Open the last session's tabs on start (Program options).
+- Faster start: 257 ms (was 475 ms).
+- 50 recent maps and projects.
+- Report feedback sends in the background.
+
+### Fixes
+
+- Installation doors and traps show and place correctly.
+- The SD selection circle is as bright as HD's.
+- Map layers stay after a save, a tab switch or a CLI save.
+- Mining Lab: maps with no start location mine again.
+
 ## 0.9.0
 
 Video: https://www.youtube.com/watch?v=abPD14vdoU8

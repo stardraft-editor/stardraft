@@ -190,6 +190,7 @@ add_library(stardraft
     src/mods/cmbw.cpp
     src/mods/hyperion.cpp
     src/mods/terrain_rules.cpp
+    src/mods/tile_match.cpp
     src/tileset.cpp
     src/terrain.cpp
     src/isom.cpp
@@ -371,6 +372,20 @@ if(cmbw_probes)
     target_link_libraries(cmbw_neighbors PRIVATE stardraft)
     add_executable(cmbw_set_status tools/plugins/cmbw/probes/cmbw_set_status.cpp)  # which brush sets are terrains in the isometric list
     target_link_libraries(cmbw_set_status PRIVATE stardraft)
+    add_executable(cmbw_seam_measure tools/plugins/cmbw/probes/cmbw_seam_measure.cpp)  # the seam check and today's rules against the maps' tile pairs
+    target_link_libraries(cmbw_seam_measure PRIVATE stardraft)
+    add_executable(cmbw_reskin_check tools/plugins/cmbw/probes/cmbw_reskin_check.cpp)  # each mod tile's minitile flags against the game tile of its rect
+    target_link_libraries(cmbw_reskin_check PRIVATE stardraft)
+    add_executable(cmbw_reskin_show tools/plugins/cmbw/probes/cmbw_reskin_show.cpp)  # a mod terrain beside a game border that may be its source, piece by piece
+    target_link_libraries(cmbw_reskin_show PRIVATE stardraft)
+    add_executable(cmbw_neighbor_check tools/plugins/cmbw/probes/cmbw_neighbor_check.cpp)  # the maps' neighbouring mod tiles against the pairs their template makes
+    target_link_libraries(cmbw_neighbor_check PRIVATE stardraft)
+    add_executable(cmbw_neighbor_repair tools/plugins/cmbw/probes/cmbw_neighbor_repair.cpp)  # moves mod tiles to the rects their neighbours on the maps fit; a rules file to look at
+    target_link_libraries(cmbw_neighbor_repair PRIVATE stardraft)
+    add_executable(cmbw_isom_copies tools/plugins/cmbw/probes/cmbw_isom_copies.cpp)  # the mod tiles that copy a game border tile (most pixels the same): the base of copy-based rules
+    target_link_libraries(cmbw_isom_copies PRIVATE stardraft)
+    add_executable(cmbw_auto_match tools/plugins/cmbw/probes/cmbw_auto_match.cpp)  # Rectangle match by a program: template tiles to the mod tiles that look most like them
+    target_link_libraries(cmbw_auto_match PRIVATE stardraft)
     add_executable(cmbw_auto_rows tools/plugins/cmbw/probes/cmbw_auto_rows.cpp)  # which game rect each set's groups stand for on the maps
     target_link_libraries(cmbw_auto_rows PRIVATE stardraft)
 endif()
@@ -448,7 +463,9 @@ endif()
 # Direct3D 12 on Windows (Vulkan when asked: STARDRAFT_GPU_DRIVER=vulkan), Vulkan on Linux, Metal on macOS. Off: the
 # library and its tests build without SDL3.
 option(STARDRAFT_RENDERER "Build the GPU renderer (SDL3) and its tools" ON)
-option(STARDRAFT_IMMERSIVE "Immersive mode (Program options; off: no option, About's logo does not unlock it)" ON)
+# A label in the main window's title after the version (a local preview build: "CMBW-Preview"); empty: none.
+set(STARDRAFT_TITLE_TAG "" CACHE STRING "A label in the main window's title (a preview build's)")
+option(STARDRAFT_IMMERSIVE "Immersive mode (Program options; off: no option, and it cannot be unlocked)" ON)
 if(STARDRAFT_RENDERER)
     option(STARDRAFT_SDL_DEBUG_IME "SDL logs the input method's calls on macOS (cmake/patch_sdl.cmake)" OFF)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
@@ -578,7 +595,7 @@ target_include_directories(stardraft_kit PUBLIC apps/common apps/kit)
 # The editor's portable core (apps/editor/core/core.inc) compiled with no Win32 headers: the ratchet that keeps it
 # portable (research/ports/MAC-BUILD-PLAN.md). Nothing to run; building it is the check.
 add_library(editor_core_check OBJECT apps/editor/core/core_check.cpp)
-target_include_directories(editor_core_check PRIVATE apps/common apps/kit include src)
+target_include_directories(editor_core_check PRIVATE apps/common apps/kit apps/quicklook include src)
 if(NOT MSVC)  # (the core's files are included alone here: what only the full editor uses is unused)
     target_compile_options(editor_core_check PRIVATE -Wno-unused-function -Wno-unused-variable)
 else()
@@ -805,9 +822,10 @@ if(STARDRAFT_RENDERER)
     set(sdlEditor stardraft_editor)
     set(sdlEditorName "${STARDRAFT_EXE_NAME}")
     add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/core/html_view.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
-                   apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/res/lang/fr.cpp apps/common/build_stamp.cpp apps/editor/build_time.cpp ${STARDRAFT_BUILD_TIME})
+                   apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/res/lang/fr.cpp apps/editor/res/lang/pt.cpp apps/editor/res/lang/de.cpp apps/common/build_stamp.cpp apps/editor/build_time.cpp ${STARDRAFT_BUILD_TIME})
     target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}"
-                               STARDRAFT_PUBLIC_BUILD=${publicBuild} STARDRAFT_IMMERSIVE=$<BOOL:${STARDRAFT_IMMERSIVE}>)
+                               STARDRAFT_PUBLIC_BUILD=${publicBuild} STARDRAFT_IMMERSIVE=$<BOOL:${STARDRAFT_IMMERSIVE}>
+                               STARDRAFT_TITLE_TAG="${STARDRAFT_TITLE_TAG}")
     target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)
     # Edit > Tools > Simulate (experimental: apps/editor/sdl_simulation.inc)
@@ -862,12 +880,14 @@ if(STARDRAFT_RENDERER)
                               "-framework Security" "-framework ImageIO" "-framework CoreGraphics")
         # The map type's name in Finder ("StarCraft map", Info.plist) in each language of res/lang/*.tsv:
         # <language>.lproj/InfoPlist.strings in Resources.
-        foreach(lang ko es ru zh fr)
+        foreach(lang ko es ru zh fr pt de)
             file(STRINGS ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/${lang}.tsv typeLine ENCODING UTF-8 REGEX "^StarCraft map\t")
             string(REGEX REPLACE "^StarCraft map\t([^\r]*).*" "\\1" typeText "${typeLine}")
             set(lproj ${lang})
             if(lang STREQUAL "zh")
                 set(lproj zh-Hans)
+            elseif(lang STREQUAL "pt")
+                set(lproj pt-BR)
             endif()
             set(stringsFile ${CMAKE_BINARY_DIR}/generated/lproj/${lproj}.lproj/InfoPlist.strings)
             file(CONFIGURE OUTPUT ${stringsFile} CONTENT "\"StarCraft map\" = \"${typeText}\";\n")
@@ -876,7 +896,8 @@ if(STARDRAFT_RENDERER)
         endforeach()
         set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/ko.tsv
                      ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/es.tsv ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/ru.tsv
-                     ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/zh.tsv ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/fr.tsv)
+                     ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/zh.tsv ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/fr.tsv
+                     ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/pt.tsv ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/de.tsv)
         # The Quick Look extensions (apps/quicklook): Finder's icon of a map (thumbnail) and the space bar's preview,
         # each a .appex in the app's Contents/PlugIns. An extension must be in a sandbox (quicklook.entitlements): the
         # build signs it ad hoc with it; tools/ci/mac_dist.sh signs it again for a release (a Developer ID).
@@ -991,8 +1012,9 @@ if(UNIX AND NOT APPLE AND STARDRAFT_RENDERER)
 endif()
 
 # --- StarDraft-latest.exe (Windows): starts a copy of the newest build of the editor (stardraft-testing.exe, else
-# StarDraft 2.exe; pin it to Start), so builds can go on while it runs.
-if(WIN32 AND STARDRAFT_RENDERER)
+# StarDraft 2.exe; pin it to Start), so builds can go on while it runs. Only the checkout's own build folder (build/)
+# makes it: another build folder (a release candidate's) would point it at its own editor.
+if(WIN32 AND STARDRAFT_RENDERER AND CMAKE_BINARY_DIR STREQUAL "${CMAKE_SOURCE_DIR}/build")
     add_executable(stardraft_latest WIN32 apps/latest/main.cpp apps/latest/latest.rc)
     target_link_libraries(stardraft_latest PRIVATE shell32 ole32 advapi32)
     target_compile_definitions(stardraft_latest PRIVATE UNICODE _UNICODE)

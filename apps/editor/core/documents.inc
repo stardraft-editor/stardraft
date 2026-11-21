@@ -369,9 +369,12 @@ void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
     // A map in the place of the blank tab is a tab of its own: its own palette windows and palettes (none of the blank's).
     if (reuse) gDocs[size_t(gActive)].key = ++gDocKeys;
     app.ed = std::move(ed);
+    bool takeTerrainCopy(Editor& ed);  // (map_edit_commands.inc)
+    void takeUnitCopy(Editor& ed);
+    takeTerrainCopy(*app.ed), takeUnitCopy(*app.ed);  // the terrain and units copied last, in another map too
     gDocs[size_t(gActive)].page = std::exchange(gNewDocPage, 0);
     if (app.ed->path().empty() && (!reuse || page) && !gDocs[size_t(gActive)].page) gDocs[size_t(gActive)].untitled = ++gUntitledCount;
-    app.hasTerrainSel = app.pasting = app.terrainPasting = false;
+    app.hasTerrainSel = app.pasting = app.terrainPasting = app.pastingItems = false;
     app.terrainSelMask.clear();
     startMark("open: add the tab");
     shellRelayout();  // the minimap takes this map's shape

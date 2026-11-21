@@ -3430,3 +3430,293 @@ Frames a trip	Images par trajet
 %d workers on minerals at each base, %.1f game minutes measured at Fastest	%d ouvriers sur les minéraux à chaque base, %.1f minutes de jeu mesurées en vitesse maximale
 The map has no base to mine at	La carte n'a aucune base où récolter
 Select a base in the panel to play	Sélectionnez une base dans le panneau pour lire
+\tCtrl+Alt+D	\tCtrl+Alt+D
+\tCtrl+Alt+E	\tCtrl+Alt+E
+\tCtrl+Alt+H	\tCtrl+Alt+H
+\tCtrl+Alt+L	\tCtrl+Alt+L
+\tCtrl+Alt+N	\tCtrl+Alt+N
+\tCtrl+D	\tCtrl+D
+\tDel	\tDel
+\n\n---\nFile > Import a project, step 	\n\n---\nFichier > Importer un projet, étape 
+\nDraw	\nDessiner
+\nError: 	\nErreur : 
+\nFile: 	\nFichier : 
+\nMap: 	\nCarte : 
+\nPlayer 	\nJoueur 
+\r\n• Deleted: 	\r\n• Supprimé : 
+\r\n• Locations move with the map	\r\n• Les emplacements suivent la carte
+\r\n• Not possible: 	\r\n• Impossible : 
+  ·  Average 	  ·  Moyenne 
+  ·  HP 	  ·  PV 
+  ·  Highest 	  ·  Maximum 
+  ·  Lowest 	  ·  Minimum 
+  ·  game's 	  ·  du jeu 
+ (Use Map Settings)	 (Utiliser les paramètres de la carte)
+ (resource area 	 (zone de ressources 
+ cells  ·  	 cellules  ·  
+ columns (Columns… shows them again)	 colonnes (Colonnes… les affiche à nouveau)
+ doodads. You can paste them only in a map of that tileset.	 décors. Vous pouvez les coller seulement dans une carte de ce jeu de tuiles.
+ terrain. You can paste it only in a map of that tileset.	 terrain. Vous pouvez le coller seulement dans une carte de ce jeu de tuiles.
+ tiles, in Rectangle: the selection has no whole isometric diamond. Ctrl+V pastes them.	 tuiles, en Rectangle : la sélection ne contient aucun losange isométrique entier. Ctrl+V les colle.
+ units. To stop, right-click or press Esc.	 unités. Pour arrêter, faites un clic droit ou appuyez sur Esc.
+" --noactivate "	" --noactivate "
+%d minerals, %d gas, %d tiles	%d minéraux, %d gaz, %d tuiles
+%ls  ·  %d, %d	%ls  ·  %d, %d
+%ls  ·  %ls  ·  %d, %d	%ls  ·  %ls  ·  %d, %d
+%s: %d buildable tiles, %d mineral fields (%u minerals in total), %d geysers (%u gas in total)%s	%s : %d tuiles constructibles, %d champs de minéraux (%u minéraux au total), %d geysers (%u gaz au total)%s
+%zu more sound files. Type more of the name.	%zu fichiers son de plus. Tapez plus du nom.
+&Arrange	&Organiser
+&Check the map in Hyperion	&Vérifier la carte dans Hyperion
+&Export map image…	&Exporter l'image de la carte…
+&Hyperion	&Hyperion
+&Invert selection	&Inverser la sélection
+&Mod terrain mapper…	&Mappeur de terrains du mod…
+&New Hyperion map	&Nouvelle carte Hyperion
+&Open…	&Ouvrir…
+&Pie palette	&Palette circulaire
+&Program options…	&Options du programme…
+&Quick open…	Ouverture &rapide…
+&Quick picker…	Sélecteur &rapide…
+&Test in Hyperion (melee)	&Tester dans Hyperion (melee)
+(not necessary)	(non nécessaire)
+(older lines dropped)\n	(lignes plus anciennes supprimées)\n
+).\n\nThe release before the update is in its place again	).\n\nLa version précédant la mise à jour est de retour
+. Its window shows the samples and the lines that run; close it to write the report.	. Sa fenêtre montre les échantillons et les lignes exécutées ; fermez-la pour écrire le rapport.
+. The strings are more than 65535 bytes: the map keeps them in STRx (StarCraft: Remastered only).	. Les chaînes dépassent 65535 octets : la carte les garde dans STRx (StarCraft: Remastered seulement).
+: the file is not a map (.scm, .scx, .chk, .hxm) or a project	: le fichier n'est pas une carte (.scm, .scx, .chk, .hxm) ni un projet
+; no place for a town hall	; pas de place pour un centre de commandement
+A jump to a place on the map glides there	Un saut vers un endroit de la carte y glisse en douceur
+A map has at least 12 players (the 12th is the neutral player)	Une carte a au moins 12 joueurs (le 12e est le joueur neutre)
+Add a player	Ajouter un joueur
+Add or remove	Ajouter ou retirer
+Add to selection	Ajouter à la sélection
+Align &bottom	Aligner en &bas
+Align &center	Aligner au &centre
+Align &left	Aligner à &gauche
+Align &middle	Aligner au &milieu
+Align &right	Aligner à d&roite
+Align &top	Aligner en &haut
+All units of &Player 	Toutes les unités du &joueur 
+Amount   0–100	Quantité   0–100
+Another program changed this map after its last save here: the layers are flattened into the map as it is	Un autre programme a modifié cette carte après sa dernière sauvegarde ici : les calques sont aplatis dans la carte telle qu'elle est
+Arran&ge	Orga&niser
+Arrange in a &grid	Organiser en &grille
+Arrange in a c&ircle	Organiser en c&ercle
+Arrange in a colum&n	Organiser en colon&ne
+Arrange in a ro&w	Organiser en &ligne
+Badlands  ·  128 x 128 tiles	Badlands  ·  128 x 128 tuiles
+Built-in mod terrains (deprecated)	Terrains de mod intégrés (obsolète)
+C&olumns…	C&olonnes…
+Check the map in Hyperion	Vérifier la carte dans Hyperion
+Content-Type: application/json\r\n	Content-Type: application/json\r\n
+Could not delete the file 	Impossible de supprimer le fichier 
+Could not delete the folder 	Impossible de supprimer le dossier 
+Could not import the file. It has no "id" column. The first row must give the column names, with "id" for the entry numbers.	Impossible d'importer le fichier. Il n'a pas de colonne "id". La première ligne doit donner les noms des colonnes, avec "id" pour les numéros d'entrée.
+Could not make the folder 	Impossible de créer le dossier 
+Could not make the new project: 	Impossible de créer le nouveau projet : 
+Could not move the file 	Impossible de déplacer le fichier 
+Could not rename the folder 	Impossible de renommer le dossier 
+Could not write to the map's folder. Select another place for the map.	Impossible d'écrire dans le dossier de la carte. Choisissez un autre emplacement pour la carte.
+Crop or extend…	Recadrer ou étendre…
+Ctrl+Shift+G	Ctrl+Shift+G
+Custom isom &terrain editor…	Éditeur de &terrains isom personnalisés…
+Custom terrain with the name "	Le terrain personnalisé nommé "
+Delete the custom terrain "	Supprimer le terrain personnalisé "
+Delete the trigger "Spawn the waves"?	Supprimer le déclencheur "Spawn the waves" ?
+Each color is a resource area (the game's areas for the towns of computer players): its resources, with a line from the area's position, and the buildable tiles near its town hall.	Chaque couleur est une zone de ressources (les zones du jeu pour les bases des joueurs ordinateur) : ses ressources, avec une ligne depuis la position de la zone, et les tuiles constructibles près de son centre de commandement.
+Edit text…	Modifier le texte…
+Equal sides	Côtés égaux
+Equal spaces &across	Espaces égaux en &largeur
+Equal spaces &down	Espaces égaux en &hauteur
+Equal spaces: select 3 units or more	Espaces égaux : sélectionnez 3 unités ou plus
+Export CSV…	Exporter en CSV…
+Fill all of this terrain	Remplir tout ce terrain
+Game terrains only	Terrains du jeu seulement
+Give to p&layer	Donner au j&oueur
+Go to the place at the mouse	Aller à l'endroit sous la souris
+Hid 1 column (Columns… shows it again)	1 colonne masquée (Colonnes… l'affiche à nouveau)
+Hyperion can start this map	Hyperion peut lancer cette carte
+Hyperion check: 	Vérification Hyperion : 
+Hyperion could not read the map.	Hyperion n'a pas pu lire la carte.
+Hyperion folder	Dossier Hyperion
+Hyperion map	Carte Hyperion
+Hyperion plays this map.	Hyperion joue cette carte.
+Hyperion refuses this map:	Hyperion refuse cette carte :
+Hyperion was not found. Select its folder in Program options > Plugins > Hyperion folder.	Hyperion est introuvable. Choisissez son dossier dans Options du programme > Plugins > Dossier Hyperion.
+Hyperion's check did not run.	La vérification d'Hyperion ne s'est pas exécutée.
+ISOM terrains: maps opened from now on use only the game's terrains	Terrains ISOM : les cartes ouvertes à partir de maintenant utilisent seulement les terrains du jeu
+ISOM terrains: maps opened from now on use the built-in mod terrains	Terrains ISOM : les cartes ouvertes à partir de maintenant utilisent les terrains de mod intégrés
+ISOM terrains: maps opened from now on use the terrain rules file	Terrains ISOM : les cartes ouvertes à partir de maintenant utilisent le fichier de règles de terrain
+Import CSV…	Importer un CSV…
+Import the values of a CSV file into this .dat file. The "id" column gives the entries. The first row gives the columns.	Importer les valeurs d'un fichier CSV dans ce fichier .dat. La colonne "id" donne les entrées. La première ligne donne les colonnes.
+Invalid resource depot: the box of a town hall or a start location must not reach into the red areas	Dépôt de ressources invalide : la boîte d'un centre de commandement ou d'un emplacement de départ ne doit pas toucher les zones rouges
+Invalid resource node: the box of a resource must not reach into the orange areas	Nœud de ressources invalide : la boîte d'une ressource ne doit pas toucher les zones orange
+Inverted location	Emplacement inversé
+Loaded the Hyperion plugin: maps open and save as .hxm too, and Tools > Hyperion tests them	Plugin Hyperion chargé : les cartes s'ouvrent et s'enregistrent aussi en .hxm, et Outils > Hyperion les teste
+Lock angle	Verrouiller l'angle
+Make maps for Hyperion, up to 512 tiles a side, saved as .hxm.	Créez des cartes pour Hyperion, jusqu'à 512 tuiles de côté, enregistrées en .hxm.
+Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\nLayers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. All layers that show become one map, and the layer data stays out of it.	Les calques de carte sont expérimentaux. Gardez une copie de votre carte et signalez ce qui ne marche pas (Report feedback).\n\nLes calques restent dans ce fichier de carte pendant que vous travaillez dessus.\n\nPour créer la carte que vous jouez dans StarCraft, utilisez Fichier > Exporter la carte. Tous les calques visibles forment une seule carte, et les données de calques n'y figurent pas.
+Map view	Vue de la carte
+Maps open and save as .hxm too, up to 512 tiles a side, and test in Hyperion	Les cartes s'ouvrent et s'enregistrent aussi en .hxm, jusqu'à 512 tuiles de côté, et se testent dans Hyperion
+Maps open and save as Hyperion maps (.hxm) too, up to 512 tiles a side, and test in Hyperion	Les cartes s'ouvrent et s'enregistrent aussi comme cartes Hyperion (.hxm), jusqu'à 512 tuiles de côté, et se testent dans Hyperion
+Maps open with the CMBW data, and new maps are CMBW maps	Les cartes s'ouvrent avec les données CMBW, et les nouvelles cartes sont des cartes CMBW
+Maps open with the Cosmonarchy BW data, and new maps are CMBW maps	Les cartes s'ouvrent avec les données Cosmonarchy BW, et les nouvelles cartes sont des cartes CMBW
+Maps opened after a change use the selected terrains	Les cartes ouvertes après un changement utilisent les terrains choisis
+Mod terrain mapper	Mappeur de terrains du mod
+New Hyperion map	Nouvelle carte Hyperion
+Next doodad	Décor suivant
+Next variation	Variante suivante
+No folder	Aucun dossier
+No plugin	Aucun plugin
+No plugin loaded: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	Aucun plugin chargé : les cartes s'ouvrent et se créent comme cartes StarCraft: Brood War (les onglets ouverts restent tels quels)
+No program to start	Aucun programme à lancer
+No sound file has this name	Aucun fichier son n'a ce nom
+No tiles are selected. Select tiles in the Tiles list.	Aucune tuile n'est sélectionnée. Sélectionnez des tuiles dans la liste Tuiles.
+Not found: select the folder that has Hyperion.exe	Introuvable : choisissez le dossier qui contient Hyperion.exe
+Only the isometric terrains of StarCraft. The mod's tiles are in the Tile and Custom tools.	Seulement les terrains isométriques de StarCraft. Les tuiles du mod sont dans les outils Tuile et Personnalisé.
+Only the terrains of a terrain rules file (.isom, from the tools in Tools > Cosmonarchy)	Seulement les terrains d'un fichier de règles de terrain (.isom, issu des outils de Outils > Cosmonarchy)
+Open in a new &panel	Ouvrir dans un nouveau &panneau
+Overview	Aperçu
+Pages that Cosmonarchy shows before the map starts: each a 1920 x 1080 picture with text (rez\\est.txt in the map).	Pages que Cosmonarchy affiche avant le début de la carte : chacune est une image de 1920 x 1080 avec du texte (rez\\est.txt dans la carte).
+Pie palette	Palette circulaire
+Ramp and &bridge mapper…	Mappeur de rampes et de &ponts…
+Remove from selection	Retirer de la sélection
+Remove ramp	Retirer la rampe
+Remove the last player	Retirer le dernier joueur
+Rename a unit in its form (a double-click on its name opens it).	Renommez une unité dans son formulaire (un double-clic sur son nom l'ouvre).
+Resource area 	Zone de ressources 
+S&mooth zoom	Zoom &fluide
+Save &as…	Enregistrer &sous…
+Save as custom &terrain…	Enregistrer comme &terrain personnalisé…
+Save the map first (File > Save as), then test it in Hyperion.	Enregistrez d'abord la carte (Fichier > Enregistrer sous), puis testez-la dans Hyperion.
+Search sounds	Rechercher des sons
+Select &more	Sélectionner &plus
+Select a picture…	Choisir une image…
+Select in a box	Sélectionner dans une zone
+Select the columns that show. A right-click on a column's header can hide it.	Sélectionnez les colonnes à afficher. Un clic droit sur l'en-tête d'une colonne peut la masquer.
+Select the folder with the Hyperion program	Choisissez le dossier qui contient le programme Hyperion
+Select units first	Sélectionnez d'abord des unités
+Set the Hyperion folder	Définir le dossier Hyperion
+Show &key hints	Afficher les &indications de touches
+Show key hints	Afficher les indications de touches
+Smooth &pan	&Défilement fluide
+Smooth pan	Défilement fluide
+Smooth zoom	Zoom fluide
+Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\	Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\
+Sound files show here when you type the sound of PlayWAV or Transmission	Les fichiers son s'affichent ici quand vous tapez le son de PlayWAV ou de Transmission
+Sound files…	Fichiers son…
+StarDraft.Map\\DefaultIcon	StarDraft.Map\\DefaultIcon
+StarDraft.Map\\shell\\open\\command	StarDraft.Map\\shell\\open\\command
+StarDraft.Project\\DefaultIcon	StarDraft.Project\\DefaultIcon
+StarDraft.Project\\shell\\open\\command	StarDraft.Project\\shell\\open\\command
+Started Hyperion with 	Hyperion lancé avec 
+Terrain rules file	Fichier de règles de terrain
+Test in Hyperion	Tester dans Hyperion
+Test in Hyperion (&Use Map Settings)	Tester dans Hyperion (&Utiliser les paramètres de la carte)
+That folder has no Hyperion program (Hyperion.exe).	Ce dossier ne contient pas de programme Hyperion (Hyperion.exe).
+The copied doodads are 	Les décors copiés sont 
+The first build downloads euddraft from GitHub into its own folder. Other copies of euddraft on this computer do not change. A map that you open stays a regular map. Only a project can be built.	La première génération télécharge euddraft depuis GitHub dans son propre dossier. Les autres copies d'euddraft sur cet ordinateur ne changent pas. Une carte que vous ouvrez reste une carte ordinaire. Seul un projet peut être généré.
+The folder that has Hyperion.exe	Le dossier qui contient Hyperion.exe
+The isometric terrains that come with the program and the mod. A later version removes them: use a terrain rules file.	Les terrains isométriques fournis avec le programme et le mod. Une version future les retire : utilisez un fichier de règles de terrain.
+The keys of the tool that is on, in the middle of the status bar	Les touches de l'outil actif, au milieu de la barre d'état
+The last player owns units or sprites: give them to another player first	Le dernier joueur possède des unités ou des sprites : donnez-les d'abord à un autre joueur
+The map could not be saved:	La carte n'a pas pu être enregistrée :
+The map could not be written as .hxm:	La carte n'a pas pu être écrite en .hxm :
+The mouse wheel and the zoom commands glide to the new zoom	La molette de la souris et les commandes de zoom glissent vers le nouveau zoom
+The units are in their places, or do not fit there	Les unités sont à leur place, ou n'y tiennent pas
+Theme: Automatic	Thème : Automatique
+Theme: Dark	Thème : Sombre
+Theme: Light	Thème : Clair
+There are no sounds. Type the path of a sound.	Il n'y a pas de sons. Tapez le chemin d'un son.
+This tileset has no custom terrain	Ce jeu de tuiles n'a pas de terrain personnalisé
+Turned the tiles, experimental: each tile's picture stays as it is, so edges and cliffs possibly do not fit	Tuiles tournées, expérimental : l'image de chaque tuile reste telle quelle, donc les bords et les falaises peuvent ne pas s'ajuster
+Type a value…	Tapez une valeur…
+Undo &history…	&Historique des annulations…
+Units in the &view	Unités dans la &vue
+Untitled.hxm	Untitled.hxm
+Use a player number from 0 to 11 (Player 1 is 0)	Utilisez un numéro de joueur de 0 à 11 (le Joueur 1 est 0)
+Use this doodad	Utiliser ce décor
+Use this sprite	Utiliser ce sprite
+Use this terrain	Utiliser ce terrain
+Use this tile	Utiliser cette tuile
+Use this unit	Utiliser cette unité
+Zoom and pan	Zoom et défilement
+epTrace closed without a report. Start the map in StarCraft before you start epTrace, and close epTrace's window (not the game) to write the report.	epTrace s'est fermé sans rapport. Lancez la carte dans StarCraft avant de lancer epTrace, et fermez la fenêtre d'epTrace (pas le jeu) pour écrire le rapport.
+epTrace report: no samples. epTrace did not find a script line that runs. Code in onPluginStart and in triggers that run once at map start runs before epTrace can see it; code that runs each trigger cycle (beforeTriggerExec, afterTriggerExec, triggers that repeat) shows in the report.	Rapport epTrace : aucun échantillon. epTrace n'a trouvé aucune ligne de script qui s'exécute. Le code dans onPluginStart et dans les déclencheurs qui s'exécutent une fois au début de la carte s'exécute avant qu'epTrace puisse le voir ; le code qui s'exécute à chaque cycle de déclencheurs (beforeTriggerExec, afterTriggerExec, déclencheurs répétés) apparaît dans le rapport.
+euddraft's freeze: the built map's file is protected, so that map editors cannot open it and take its triggers. Your project's own files stay as they are.	Le freeze d'euddraft : le fichier de la carte générée est protégé, pour que les éditeurs de cartes ne puissent pas l'ouvrir et prendre ses déclencheurs. Les fichiers de votre projet restent tels quels.
+frame %d  ·  tick %d%ls	image %d  ·  tick %d%ls
+more in the Custom list	plus dans la liste Personnalisé
+more in the palette	plus dans la palette
+the Terrain choices	les choix de Terrain
+• At least one player must be human\r\n	• Au moins un joueur doit être humain\r\n
+• Drag an edge or corner: size\r\n• Drag inside: move\r\n• Arrow keys: move 2 tiles	• Glisser un bord ou un coin : taille\r\n• Glisser à l'intérieur : déplacer\r\n• Flèches : déplacer de 2 tuiles
+• No change	• Aucun changement
+A minus B with A smaller than B gives a number above 4 billion. This value does not.	A moins B, avec A plus petit que B, donne un nombre supérieur à 4 milliards. Cette valeur ne le fait pas.
+A number kept in a range	Un nombre maintenu dans une plage
+A remainder	Un reste
+Do not divide by 0.	Ne divisez pas par 0.
+Each computer has its own value. Use it only for what that player sees, for example in Run local block. For a value that is the same on each computer, use "{player}'s mouse x on the map".	Chaque ordinateur a sa propre valeur. Utilisez-la seulement pour ce que ce joueur voit, par exemple dans Run local block. Pour une valeur identique sur chaque ordinateur, utilisez "{player}'s mouse x on the map".
+Each computer has its own value. Use it only for what that player sees, for example in Run local block. For a value that is the same on each computer, use "{player}'s mouse y on the map".	Chaque ordinateur a sa propre valeur. Utilisez-la seulement pour ce que ce joueur voit, par exemple dans Run local block. Pour une valeur identique sur chaque ordinateur, utilisez "{player}'s mouse y on the map".
+Each computer has its own value. Use it only for what that player sees, for example in Run local block. To send it to every computer, use "Share a local value".	Chaque ordinateur a sa propre valeur. Utilisez-la seulement pour ce que ce joueur voit, par exemple dans Run local block. Pour l'envoyer à chaque ordinateur, utilisez "Share a local value".
+Game time in seconds	Temps de jeu en secondes
+Goes through the units of a unit group: "the unit" is each one. A unit that died runs "When it dies" one time and leaves the group.	Parcourt les unités d'un groupe d'unités : "the unit" est chacune d'elles. Une unité morte exécute "When it dies" une fois et quitte le groupe.
+How long the game has run, in game seconds: the time that the Elapsed time condition reads. At Fastest speed, a game second is shorter than a real second.	Depuis combien de temps le jeu tourne, en secondes de jeu : le temps que lit la condition Elapsed time. À la vitesse Fastest, une seconde de jeu est plus courte qu'une seconde réelle.
+How many of Player 1 to Player 8 are in the game: people and computers that have not left.	Combien de joueurs, du Joueur 1 au Joueur 8, sont dans la partie : humains et ordinateurs qui n'ont pas quitté.
+If the difference between score and target is at most 5: the score is near the target.	Si la différence entre le score et l'objectif est d'au plus 5 : le score est proche de l'objectif.
+If the number of players in the game is at most 1: the last player wins.	Si le nombre de joueurs dans la partie est d'au plus 1 : le dernier joueur gagne.
+If the remainder of wave divided by 5 is exactly 0: each fifth wave has a boss.	Si le reste de wave divisé par 5 est exactement 0 : chaque cinquième vague a un boss.
+In Run local block: if the screen x is less than 640, show "You are in the west" on this screen.	Dans Run local block : si le x de l'écran est inférieur à 640, afficher "You are in the west" sur cet écran.
+In Run local block: if the screen y is less than 480, show "You are in the north" on this screen.	Dans Run local block : si le y de l'écran est inférieur à 480, afficher "You are in the north" sur cet écran.
+It counts each time. Keep the number in a variable if you use it many times in one trigger.	Il compte à chaque fois. Gardez le nombre dans une variable si vous l'utilisez plusieurs fois dans un déclencheur.
+It is true only on that player's computer. Use it only for what that player sees or hears, for example in Run local block. To change the game with a key, use "presses" or "holds down" with a player.	Vrai seulement sur l'ordinateur de ce joueur. Utilisez-le seulement pour ce que ce joueur voit ou entend, par exemple dans Run local block. Pour changer le jeu avec une touche, utilisez "presses" ou "holds down" avec un joueur.
+It moves the location from where it is now. To put the location at a distance from a point, first move the location to the point. Small distances are not exact: 8 pixels in direction 10 can move 1 pixel less than you expect.	Il déplace l'emplacement depuis sa position actuelle. Pour placer l'emplacement à une distance d'un point, déplacez d'abord l'emplacement sur le point. Les petites distances ne sont pas exactes : 8 pixels dans la direction 10 peuvent déplacer 1 pixel de moins que prévu.
+Moves a location by a distance in a direction, in pixels. One tile is 32 pixels. The direction is 0 to 255, as the game counts directions: 0 is up, 64 is right, 128 is down and 192 is left. The location keeps its size.	Déplace un emplacement d'une distance dans une direction, en pixels. Une tuile fait 32 pixels. La direction va de 0 à 255, comme le jeu compte les directions : 0 est le haut, 64 la droite, 128 le bas et 192 la gauche. L'emplacement garde sa taille.
+Player 1's name is "Mapmaker": give the map maker access to test commands.	Le nom du Joueur 1 est "Mapmaker" : donner au créateur de la carte l'accès aux commandes de test.
+Runs its actions for each unit made since this loop last ran: trained, built, morphed, or made by a trigger. Inside the loop, the unit is "the unit".	Exécute ses actions pour chaque unité créée depuis la dernière exécution de cette boucle : entraînée, construite, transformée ou créée par un déclencheur. Dans la boucle, l'unité est "the unit".
+Runs its actions for each unit on the map that matches. Inside the loop, the unit is "the unit". For one player, it goes through only that player's units (faster).	Exécute ses actions pour chaque unité de la carte qui correspond. Dans la boucle, l'unité est "the unit". Pour un seul joueur, elle parcourt seulement les unités de ce joueur (plus rapide).
+Runs its blocks one time for each item of the list, or 8 times for a player array. The counter is the number of the item, for example 0, 1, 2 and so on. Use the counter as the index, for example "change item counter of the list".	Exécute ses blocs une fois pour chaque élément de la liste, ou 8 fois pour un tableau de joueurs. Le compteur est le numéro de l'élément, par exemple 0, 1, 2 et ainsi de suite. Utilisez le compteur comme index, par exemple "change item counter of the list".
+Set gold to the number in the chat line after "-give ": the value of a chat command.	Définir gold sur le nombre dans la ligne de chat après "-give " : la valeur d'une commande de chat.
+Set hp to hp + 20, but at least 0 and at most 100: heal the hero, but not above 100.	Définir hp à hp + 20, mais au moins 0 et au plus 100 : soigner le héros, sans dépasser 100.
+Set start to game seconds since the game started: keep the time when the wave starts. Subtract it later to get the wave's time.	Définir start aux secondes de jeu depuis le début de la partie : garder le temps du début de la vague. Soustrayez-le plus tard pour obtenir le temps de la vague.
+Shift a location in a direction	Décaler un emplacement dans une direction
+The difference of two	La différence de deux
+The game keeps hit points, shields and energy in 1/256ths. Thus "exactly 40" can miss a unit at 40.5. Use at least or at most.	Le jeu garde les points de vie, boucliers et énergie en 1/256e. Ainsi "exactly 40" peut manquer une unité à 40,5. Utilisez au moins ou au plus.
+The larger number minus the smaller number. It is never below 0.	Le plus grand nombre moins le plus petit. Jamais inférieur à 0.
+The number of players	Le nombre de joueurs
+The number, or the minimum when it is smaller, or the maximum when it is larger.	Le nombre, ou le minimum s'il est plus petit, ou le maximum s'il est plus grand.
+What is left when the first number is divided by the second: 7 divided by 3 gives the remainder 1.	Ce qui reste quand le premier nombre est divisé par le second : 7 divisé par 3 donne le reste 1.
+a player types "-help" in the chat: show the help text.	un joueur tape "-help" dans le chat : afficher le texte d'aide.
+a player types a chat line that starts with "-give ". With Add resources and The number in the chat line after "-give ", a chat command gives minerals.	un joueur tape une ligne de chat qui commence par "-give ". Avec Add resources et The number in the chat line after "-give ", une commande de chat donne des minéraux.
+a player types a chat line with "gg" in it: show "Good game!".	un joueur tape une ligne de chat contenant "gg" : afficher "Good game!".
+change game text 1 to "Rifleman" in every language: the marine has a different name in this map.	changer le texte de jeu 1 en "Rifleman" dans chaque langue : le marine a un autre nom dans cette carte.
+epScript: Deaths(P1, AtLeast, 1, "Terran Marine"): write a condition in epScript that no block has.	epScript: Deaths(P1, AtLeast, 1, "Terran Marine") : écrire en epScript une condition qu'aucun bloc n'a.
+game seconds since the game started	secondes de jeu depuis le début de la partie
+note: "This trigger starts wave 2": tell other map makers what the trigger does.	note : "This trigger starts wave 2" : dire aux autres créateurs de cartes ce que fait le déclencheur.
+play "music\\theme.ogg" as music, again every 95 seconds, for all players: the map's own music.	jouer "music\\theme.ogg" comme musique, de nouveau toutes les 95 secondes, pour tous les joueurs : la musique propre à la carte.
+send transmission from Jim Raynor (Marine) at Base: play hello.wav, show "Hold the line": a classic message with a portrait.	envoyer une transmission de Jim Raynor (Marine) à Base : jouer hello.wav, afficher "Hold the line" : un message classique avec un portrait.
+set Player 8's name to "The Swarm": the enemy has a name in the chat and on the leaderboard.	définir le nom du Joueur 8 à "The Swarm" : l'ennemi a un nom dans le chat et sur le classement.
+set the mission objectives to "Kill the boss" for all players: the players can read the goal in the Objectives menu.	définir les objectifs de mission à "Kill the boss" pour tous les joueurs : les joueurs peuvent lire le but dans le menu Objectives.
+set the next map to "Mission 2": the next mission of the campaign loads after this map.	définir la carte suivante à "Mission 2" : la mission suivante de la campagne se charge après cette carte.
+shift Missile by 16 pixels in direction dir: move the missile in the direction of the unit that shot it, in each trigger cycle.	décaler Missile de 16 pixels dans la direction dir : déplacer le missile dans la direction de l'unité qui l'a tiré, à chaque cycle de déclencheurs.
+shift {where} by {d} pixels in direction {a}	décaler {where} de {d} pixels dans la direction {a}
+show "Defend the base" to all players: tell the players the goal at the start of the game.	afficher "Defend the base" à tous les joueurs : dire aux joueurs le but au début de la partie.
+show "Gold: {} Score: {}" with gold and score to the current player: show the player the two values.	afficher "Gold: {} Score: {}" avec gold et score au joueur actuel : montrer au joueur les deux valeurs.
+show "Gold: {} Wave: {}" with gold and wave on line 0 to all players: show the two values on the top line.	afficher "Gold: {} Wave: {}" avec gold et wave sur la ligne 0 à tous les joueurs : montrer les deux valeurs sur la ligne du haut.
+show "Kills: {} Wave: {}" with kills and wave in the middle of the screen to all players: show the values in the center.	afficher "Kills: {} Wave: {}" avec kills et wave au milieu de l'écran à tous les joueurs : montrer les valeurs au centre.
+show "Not enough gold" in the middle of the screen to the current player: tell the player that the purchase did not go through.	afficher "Not enough gold" au milieu de l'écran au joueur actuel : dire au joueur que l'achat n'a pas abouti.
+show "Wave 2" on line 0 to all players: show the wave on the top line. A new text on the line replaces it.	afficher "Wave 2" sur la ligne 0 à tous les joueurs : montrer la vague sur la ligne du haut. Un nouveau texte sur la ligne la remplace.
+show a leaderboard "Hill" of who has the most Men at Hill, goal 10: show who is near to 10 units on the hill.	afficher un classement "Hill" de qui a le plus de Men à Hill, objectif 10 : montrer qui est proche de 10 unités sur la colline.
+show a leaderboard "Hill" of who has the most Men at Hill: show who holds the hill in a king of the hill map.	afficher un classement "Hill" de qui a le plus de Men à Hill : montrer qui tient la colline dans une carte de roi de la colline.
+show a leaderboard "Kills" of kills of Any unit, goal 50: show how many kills each player needs to win.	afficher un classement "Kills" des kills de Any unit, objectif 50 : montrer combien de kills chaque joueur doit faire pour gagner.
+show a leaderboard "Kills" of kills of Any unit: show which player killed the most units.	afficher un classement "Kills" des kills de Any unit : montrer quel joueur a tué le plus d'unités.
+show a leaderboard "Marines" of who owns the most Terran Marine, goal 20: the first player with 20 marines wins.	afficher un classement "Marines" de qui possède le plus de Terran Marine, objectif 20 : le premier joueur avec 20 marines gagne.
+show a leaderboard "Most units" of who owns the most Men: show which player has the largest army.	afficher un classement "Most units" de qui possède le plus de Men : montrer quel joueur a la plus grande armée.
+show a leaderboard "Richest" of minerals, goal 5000: show how near each player is to 5000 minerals.	afficher un classement "Richest" des minéraux, objectif 5000 : montrer à quel point chaque joueur est proche de 5000 minéraux.
+show a leaderboard "Richest" of minerals: show which player has the most minerals.	afficher un classement "Richest" des minéraux : montrer quel joueur a le plus de minéraux.
+show a leaderboard "Score" of custom score: show the rounds that each player won.	afficher un classement "Score" du score personnalisé : montrer les manches que chaque joueur a gagnées.
+show a leaderboard "Score" of total score, goal 1000: show how far each player is from the score goal.	afficher un classement "Score" du score total, objectif 1000 : montrer à quelle distance chaque joueur est de l'objectif de score.
+the current player has the most minerals: this player is the richest. Show the text "You are the richest player" to this player.	le joueur actuel a le plus de minéraux : ce joueur est le plus riche. Afficher le texte "You are the richest player" à ce joueur.
+the difference between {a} and {b}	la différence entre {a} et {b}
+the number of players in the game	le nombre de joueurs dans la partie
+the remainder of {a} divided by {b}	le reste de {a} divisé par {b}
+{a}, but at least {low} and at most {high}	{a}, mais au moins {low} et au plus {high}

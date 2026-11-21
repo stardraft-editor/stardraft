@@ -1,0 +1,33 @@
+{
+ "commit": "0e8128f0",
+ "date": "2026-11-20",
+ "quick": false,
+ "seconds": 180,
+ "values": {
+  "startup_ms": 289.3,
+  "gpu_nomap_mb": 32.0,
+  "first_frame_small_ms": 74.6,
+  "first_frame_large_ms": 78.3,
+  "paint_p95_ms": 4.5,
+  "paint_layers_p95_ms": 7.1,
+  "palette_scroll_p95_ms": 8.1,
+  "zoom_p95_ms": 4.3,
+  "working_set_large_mb": 185.6,
+  "cycles_heap_growth_mb_direct3d12": 0.2,
+  "cycles_gpu_growth_mb_direct3d12": 0.0,
+  "cycles_heap_growth_mb_vulkan": 0.2,
+  "cycles_gpu_growth_mb_vulkan": 6.0,
+  "snapshots_failed": 0,
+  "ui_text_violations": 0,
+  "strings_missing_max": 946,
+  "block_texts_missing_max": 1063,
+  "font_symbols": 30,
+  "bare_search_cues": 0,
+  "unused_static_functions": 0,
+  "files_over_3000_lines": 3,
+  "largest_file_lines": 7350,
+  "tests_failed": 0,
+  "help_check_failed": 0,
+  "docs_broken_links": 0
+ }
+}

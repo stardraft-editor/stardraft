@@ -149,6 +149,27 @@ void setTerrainKind(int kind) {
     shellToolsChanged();
     app.dirty = true;
 }
+// A Terrain choice's right click, Open in a new panel (#281): a palette panel that shows that choice (Custom: the custom
+// terrain list, Tile: the tiles), the side bar's panel as it was. The side bar's panel is the one the new panel copies.
+void terrainKindNewPanel(int kind) {
+    if (!gTiles) return;
+    const int was = terrainKind();
+    // (the side bar's state as it was: a change of choice and back clears the picks, the selection, a paste, Jumble)
+    const TilesView keep = *gTiles;
+    AppState& app = appState();
+    const bool hadSel = app.hasTerrainSel, pasting = app.terrainPasting;
+    const auto selMask = app.terrainSelMask;
+    const int tool = app.toolByMode[int(Mode::Terrain)];
+    setTerrainKind(kind);
+    shellNewPalettePanel(int(Mode::Terrain));
+    if (was == kind) return;
+    setTerrainKind(was);
+    *gTiles = keep, gTiles->layoutW = -1;
+    app.hasTerrainSel = hadSel, app.terrainSelMask = selMask, app.terrainPasting = pasting, app.toolByMode[int(Mode::Terrain)] = tool;
+    stampsPanelSync();
+    fillToolCombo(appState());
+    setMessage(shellTr(L"New palette panel: ") + shellTr(L"Terrain"));  // (not the side bar's choice, as it was)
+}
 // Isometric or Rectangle (from Custom, Rectangle's tools stay: Custom).
 void setTerrainRect(bool rect) { setTerrainKind(!rect ? 0 : appState().terrainRect ? terrainKind() : 1); }
 
@@ -613,6 +634,7 @@ public:
         hits_.clear();
         numbers_.clear();
         groups_.clear();
+        kinds_.clear();
         const int b = scale(30), gap = scale(4);
         int y = 0, x = 0;
         auto next = [&] {
@@ -658,6 +680,7 @@ public:
                     setTerrainKind(k);
                     shellFocusView();
                 }, segs[k].tip);
+                kinds_.push_back({r, k});
             }
             y += sh + gap;
         }
@@ -960,6 +983,18 @@ public:
             return true;
         }
         case draw::MouseKind::Up: {
+            if (e.button == 1)  // a right click on a Terrain choice: Open in a new panel (only the side bar's strip makes one)
+                for (const auto& [rect, kind] : kinds_)
+                    if (rect.contains(e.pt)) {
+                        const int k = kind;
+                        const bool side = !state || isDockedPanel(state);
+                        MenuModel m;
+                        m.push_back(menuItem(1, L"Open in a new &panel", {}, !side));
+                        shellMenuAt(*this, e.pt, m, L"the Terrain choices", [k](int id) {
+                            if (id == 1) shellPost([k] { terrainKindNewPanel(k); });
+                        });
+                        return true;
+                    }
             if (e.button == 1)  // a right click on a group's button: its tools
                 for (const auto& [rect, item] : groups_)
                     if (rect.contains(e.pt)) {
@@ -1065,6 +1100,7 @@ private:
     ItemFocus keys_;     // the part with the keyboard focus (an index into hits_)
     int editing_ = -1;   // the number box being typed into
     std::vector<std::pair<draw::Rect, StripItem>> groups_;  // the group buttons as painted (a right click lists their tools)
+    std::vector<std::pair<draw::Rect, int>> kinds_;  // the Terrain choices as painted (a right click: Open in a new panel)
     int pressed_ = -1;   // the hit the mouse is down on
     draw::Point hover_;  // the pointer, as last moved
     bool hovering_ = false;

@@ -174,6 +174,7 @@ const char* pathUnitSizeName(PathUnitSize size) {
 
 bool isStaticObstacle(const UnitType& type, uint16_t typeId) {
     if (typeId == kStartLocation) return false;
+    if (type.blocksNothing) return false;  // (a mod's marker, as its Town Center Marker: a town hall goes over it)
     if (type.is(UnitFlag::Flyer) && !type.is(UnitFlag::Building)) return false;
     return type.is(UnitFlag::Building) || type.is(UnitFlag::ResourceContainer);
 }
@@ -288,6 +289,12 @@ PathingAnalysis analyzePathing(const PathingInput& in, const PathingOptions& opt
     t = Clock::now();
     const std::vector<Obstacle> obs = obstacles(in);
     const std::vector<uint8_t> freeTiles = freeBuildableTiles(in, obs);
+    // A town hall's place for an area does not keep off the map's own town halls (Command Center, Nexus, Hatchery and
+    // the mod's): the place is where the area's town hall goes, also when one is there already.
+    std::vector<Obstacle> nonDepots;
+    for (const Obstacle& o : obs)
+        if (!types[o.type].is(UnitFlag::ResourceDepot)) nonDepots.push_back(o);
+    const std::vector<uint8_t> hallTiles = freeBuildableTiles(in, nonDepots);
     for (const Unit& u : units)
         if (u.type == kStartLocation && !(in.mapAreas && u.owner > 7)) {  // (a mod's map: the position of an area, below)
             Base b;
@@ -593,7 +600,7 @@ PathingAnalysis analyzePathing(const PathingInput& in, const PathingOptions& opt
                 for (int tx = std::max(0, ctx - 12); tx <= std::min(mapW - 4, ctx + 9); ++tx) {
                     bool fits = true;
                     for (int y = ty; y < ty + 3 && fits; ++y)
-                        for (int x = tx; x < tx + 4 && fits; ++x) fits = freeTiles[size_t(y) * mapW + x] != 0 && (pass || tileLevel(x, y) == level);
+                        for (int x = tx; x < tx + 4 && fits; ++x) fits = hallTiles[size_t(y) * mapW + x] != 0 && (pass || tileLevel(x, y) == level);
                     if (!fits) continue;
                     const Box hall{tx * 32, ty * 32, tx * 32 + 128, ty * 32 + 96};
                     for (const Box& k : keepOut)

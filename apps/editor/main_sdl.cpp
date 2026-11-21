@@ -137,6 +137,7 @@
 #include "stardraft/process.h"  // runProcess (core/hyperion.inc: Hyperion's map check)
 #include "stardraft/mods/hyperion.h"  // Hyperion's player colors (core/views_players.inc)
 #include "stardraft/mods/terrain_rules.h"
+#include "stardraft/mods/tile_match.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/msqc.h"  // the triggers' keys and buttons (core/project_build.inc)
 #include "stardraft/pathing.h"
@@ -735,7 +736,7 @@ int main(int argc, char** argv) {
             const std::string n = next();
             accentArg = n == "system" ? -2 : std::atoi(n.c_str());
         }
-        else if (a == "--lang") langArg = next();  // en, ko, es, ru, zh or fr: the language for this run (not saved), for a snapshot
+        else if (a == "--lang") langArg = next();  // en, ko, es, ru, zh, fr, pt or de: the language for this run (not saved), for a snapshot
         else if (a == "--drop") dropArg = next();  // a file dropped on the window (as from Finder on macOS), for a snapshot
         else if (a == "--silent") gSilent = true;
         else if (a == "--fail-device") gFailDeviceArg = true;  // the graphics device is not made, as on a computer without one (a test)
@@ -926,6 +927,7 @@ int main(int argc, char** argv) {
         host.setModifierHook([] {  // the modifier key's mark at the mouse (core/map_mod_mark.inc), with no move of the mouse
             if (gRoot && gState.mouseIn) ++gRoot->map.modRepaints, gRoot->map.invalidate();
             if (gRoot && gState.keyHints) gRoot->status.invalidate();  // (the held key's hint is bright: core/tool_hints.inc)
+            terrainMapperModifiers();  // (Rectangle match: the Ctrl+click block's shape in Mod tiles)
         });
         host.setRightClickHook(sdlWindowRightClick);  // Report feedback in the dialogs and pop-outs (sdl_menus.inc)
 #ifdef __APPLE__
@@ -1018,6 +1020,7 @@ int main(int argc, char** argv) {
             gpustart::shown(gHost ? gHost->presentedFrames() : 0);  // (the driver showed the window)
             sdlFloatPaletteFrame();  // (the floating palette's place as the user moves it: sdl_palette_float.inc)
             sdlIsomRulesFrame();  // (the Custom isom terrain editor's place and size: sdl_options.inc)
+            sdlTerrainMapperFrame();  // (the Mod terrain mapper's)
             sdlPassagesFrame();   // (the Ramp and bridge mapper's window place)
             sdlPalettePanelsFrame();  // (the palette panels of the active tab show, and their places: sdl_palette_panels.inc)
             mapLayersFrame();  // (the map's layers: core/map_layers.inc)
@@ -1192,6 +1195,68 @@ int main(int argc, char** argv) {
                 if (name == "*") std::printf("%s", gIsomRulesView.terrainNames().c_str());  // (<era>/*: the list)
                 if (removeTest) std::printf("%s\n", gIsomRulesView.removeStripTest().c_str());
                 std::printf("%s\n", gIsomRulesView.state().c_str());
+            } else if (dialogArg.rfind("terrainmapper", 0) == 0) {  // terrainmapper[:<era>[/<row>]]: the Mod terrain mapper on that tileset (--cmbw); its list printed
+                shown = &gTerrainMapperView;
+                gTerrainMapperView.setAsync(false);
+                std::string name = dialogArg.size() > 14 ? dialogArg.substr(14) : std::string();  // (after "terrainmapper:")
+                if (const size_t at = name.find('@'); at != std::string::npos) {  // (...@<file>: those rules)
+                    gTerrainMapperView.useFile(std::filesystem::u8path(name.substr(at + 1)));
+                    name.resize(at);
+                }
+                int era = -1;
+                if (!name.empty() && std::isdigit(static_cast<unsigned char>(name[0]))) era = name[0] - '0', name = name.size() > 2 ? name.substr(2) : std::string();
+                int newArch = 0;  // (<era>/+<archetype>: a new terrain of that archetype, as New terrain makes it)
+                if (name.size() > 1 && name[0] == '+') newArch = std::atoi(name.c_str() + 1), name.clear();
+                // (<era>/new[:<archetype>:<tileset>]: the New terrain page, that tileset's border of that archetype picked)
+                int pageArch = -1, pageEra = -1;
+                std::wstring matchName, matchLast;  // (<era>/match:<tileset>:<template terrain>:<tile>: a terrain of it, its first rect that tile pair, then Match by offset)
+                int matchEra = -1, matchTile = 0;
+                if (name.rfind("match:", 0) == 0) {
+                    const size_t a = name.find(':', 6), b = a != std::string::npos ? name.rfind(':') : a;
+                    if (a != std::string::npos && b > a)
+                        matchEra = std::atoi(name.c_str() + 6), matchName = widen(name.substr(a + 1, b - a - 1)), matchTile = std::atoi(name.c_str() + b + 1),
+                        matchLast = widen(name.substr(b + 1));
+                    name.clear();
+                }
+                if (name.rfind("new", 0) == 0) {
+                    pageArch = 0;
+                    if (const size_t c = name.find(':', 4); name.size() > 4) pageArch = std::atoi(name.c_str() + 4), pageEra = c != std::string::npos ? std::atoi(name.c_str() + c + 1) : -1;
+                    name.clear();
+                }
+                int dupStep = -1;  // (<name>!dup<step>: the Duplicate with offset wizard for it, at that step (0 to 2))
+                if (const size_t d = name.find("!dup"); d != std::string::npos) dupStep = std::atoi(name.c_str() + d + 4), name.resize(d);
+                gTerrainMapperView.showFirst(era, name);
+                gTerrainMapperView.open();
+                if (newArch && !gTerrainMapperView.newTerrainTest(newArch)) std::printf("no game border of archetype %d\n", newArch);
+                if (matchEra >= 0 && matchName.rfind(L"ref=", 0) == 0) {  // (match:<tileset>:ref=<template>:<border>... as refcheck)
+                    const std::wstring rest = matchName.substr(4);
+                    int gridFrom = -1, gridTo = -1;
+                    if (const size_t bar = matchLast.find(L'|'); bar != std::wstring::npos) {  // (...|rm: then Rectangle match; |grid:<from>:<to>: a grid match too)
+                        const std::wstring opt = matchLast.substr(bar + 1);
+                        matchLast.resize(bar);
+                        gTerrainMapperView.setMatchModeTest(true);
+                        if (opt.rfind(L"grid=", 0) == 0 && opt.find(L'-', 5) != std::wstring::npos)  // (|grid=<from>-<to>)
+                            gridFrom = std::stoi(opt.substr(5)), gridTo = std::stoi(opt.substr(opt.find(L'-', 5) + 1));
+                    }
+                    if (gridFrom >= 0) {
+                        std::printf("%s\n", gTerrainMapperView.refCheckOf(matchEra, rest, matchLast).c_str());
+                        std::printf("%s\n", gTerrainMapperView.matchGridTest(gridFrom, gridTo).c_str());
+                    } else
+                    std::printf("%s\n", gTerrainMapperView.refCheckOf(matchEra, rest, matchLast).c_str());
+                } else if (matchEra >= 0) std::printf("match: %s\n", narrow(gTerrainMapperView.matchTestOf(matchEra, matchName, uint16_t(matchTile))).c_str());
+                if (pageArch == 0) gTerrainMapperView.showNewPage();
+                else if (pageArch > 0 && !gTerrainMapperView.newPageTest(pageArch, pageEra, dialogArg.find('!') != std::string::npos)) std::printf("no border of archetype %d in tileset %d\n", pageArch, pageEra);
+                else if (pageArch > 0 && dialogArg.size() > 2 && dialogArg.compare(dialogArg.size() - 2, 2, "!m") == 0)  // (...!m: then Match by offset from the first rect)
+                    std::printf("match: %s\n", narrow(gTerrainMapperView.matchTest()).c_str());
+                gTerrainMapperView.useDefaultLayout();
+                std::printf("%s", gTerrainMapperView.sideText().c_str());
+                std::printf("%s\n", gTerrainMapperView.state().c_str());
+                static std::unique_ptr<isomrules::DuplicateDialog> dupShot;  // (now: the file's rules are in)
+                if (dupStep >= 0 && !name.empty()) {  // (its terrain: the name after the tileset's "<era>/")
+                    const std::string t = name.find('/') != std::string::npos ? name.substr(name.find('/') + 1) : name;
+                    if (!gTerrainMapperView.selectByName(t)) std::printf("no terrain named %s\n", t.c_str());
+                }
+                if (dupStep >= 0 && (dupShot = gTerrainMapperView.dupDialogShot(dupStep))) shown = dupShot.get();
             } else if (dialogArg.rfind("passages:", 0) == 0) {  // passages:<file>[|<row>]: the Ramp and bridge mapper with that file, on the tileset of its first mapping (--cmbw: the mod's)
                 std::string f = dialogArg.substr(9);
                 int row = 0;

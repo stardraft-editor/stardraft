@@ -8,7 +8,13 @@ void updateTitle() {
     // development build: "StarDraft 2 - dev".
     const std::wstring version = shellVersion();
     const bool release = !version.empty() && version.find_first_not_of(L"0123456789.") == std::wstring::npos;
-    const std::wstring app_ = L"StarDraft 2 - " + (release ? L"v" + version : std::wstring(L"dev")) + (cmbwMode() ? L" - Cosmonarchy BW" : L"");
+#ifdef STARDRAFT_TITLE_TAG
+    const std::wstring tag = widen(STARDRAFT_TITLE_TAG);  // (a preview build's label: -DSTARDRAFT_TITLE_TAG=CMBW-Preview)
+#else
+    const std::wstring tag;
+#endif
+    const std::wstring app_ = L"StarDraft 2 - " + (release ? L"v" + version : std::wstring(L"dev")) + (tag.empty() ? L"" : L" - " + tag) +
+                              (cmbwMode() ? L" - Cosmonarchy BW" : L"");
     std::wstring t = app_;
     if (app.ed && app.ed->isOpen())
         t = (gActive >= 0 ? docTitle(gActive) : std::wstring(L"Untitled")) + L" - " + app_;

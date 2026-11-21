@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -78,11 +79,33 @@ struct Tileset {
         uint16_t variantOf = 0;  // a variant: that terrain's set on another ground with its ground's tiles (the brush picks it)
         bool fromMaps = false;  // made from the maps (src/mods/cmbw_auto_terrains.inc), not a hand-made row
         bool draft = false;     // not checked by a person yet (the built-in rows: all of them; the terrain rules file keeps the flag)
+        // Each piece's variant of its rect (a terrain rules file's; empty: not known): the rows of a block are one
+        // variant, as the game's rows of a block are one subtile.
+        std::map<std::array<uint16_t, 3>, uint8_t> pieceVariant;
+        // A template from another tileset (this one has no border of its rects): that tileset (0xFF: none, the template
+        // is standIn's), its terrain and the terrain that terrain borders there. The pieces are that tileset's tile groups
+        // then. standIn and groundTemplate stay this tileset's: the terrain the map's own pass paints in its place.
+        uint8_t templateEra = 0xFF;
+        uint16_t templateTerrain = 0, templateGround = 0;
+        bool foreign() const { return templateEra != 0xFF; }
     };
     static constexpr uint16_t kModTerrainIds = 64;
     // A mod's variants (ModTerrain::variantOf) from here on: the rows before them may grow without moving them (saved maps
     // keep the ids and the ISOM values that come from them).
     static constexpr uint16_t kModVariantIds = kModTerrainIds + 48;
+    // More of a mod's own terrains, when the first 48 ids are taken: past the variants' ids (64 + 80, the ids whose ISOM
+    // shapes come first), 100 more. Their shapes are at the top of the ISOM values, from the top down
+    // (IsomTerrainTable::withExtras); the twins' shapes come from below, up to a fixed line under them, so no value
+    // that saved maps have moves (a map's ISOM value holds a shape in 12 bits: about 260 mod terrains in all).
+    static constexpr uint16_t kMoreModTerrainIds = kModTerrainIds + 80, kMoreModTerrainCount = 100;
+    // A free id for a new terrain of the mod's own, by `taken`: the first ones (also the built-in variants' ids, free
+    // while the built-in terrains are off), then the more ones; 0: none.
+    template <class Taken>
+    static uint16_t freeModTerrainId(const Taken& taken) {
+        for (uint16_t id = kModTerrainIds; id < kMoreModTerrainIds + kMoreModTerrainCount; ++id)
+            if (!taken.count(id)) return id;
+        return 0;
+    }
     std::vector<ModTerrain> modTerrains;
     const ModTerrain* modTerrain(uint16_t id) const {
         for (const ModTerrain& m : modTerrains)

@@ -81,7 +81,8 @@ struct J {
     std::vector<J> items;
     std::vector<JMember> members;
 
-    // The bodies that make or destroy a J are after JMember: libc++ needs JMember complete there.
+    // (the functions that make or destroy a J are defined after JMember: libc++ and libstdc++ with clang need
+    // JMember complete for std::vector<JMember>'s destructor)
     static const J& none();
     const J& operator[](std::string_view k) const;
     size_t size() const { return kind == ARRAY ? items.size() : 0; }

@@ -1,10 +1,8 @@
-# Immersive mode (a spike; "fun mode" in the code)
+# Edit feedback (a spike; "fun mode" in the code)
 
-Off by default, and locked: Program options > Appearance > Immersive mode shows a disabled check box, "Locked". A
-hidden extra unlocks it: 9 clicks on the logo in Help > About StarDraft 2 (at each click the logo squashes and springs
-back and green bits fly out of it with a thunk; at the 9th, "Immersive mode unlocked" shows under it for 2 seconds, and
-the mode is on). From then on the option is a usual check box ("Sounds and effects for edits on the map"), and a click
-on the logo does not change the mode (the logo still squashes and the bits fly). The settings are FunMode (the
+Off by default, and locked: its option shows a disabled check box, "Locked". How it unlocks is not written here; the
+code that does it is in `apps/editor/core/views_about.inc` (kCraftClicks). Once unlocked, the option is a usual check
+box ("Sounds and effects for edits on the map"). The settings are FunMode (the
 mode) and ImmersiveUnlocked (the option is unlocked; a FunMode that is on counts as unlocked). In Immersive mode,
 editing the map gives feedback:
 
@@ -14,7 +12,8 @@ editing the map gives feedback:
   plating, structure and the other built floors clank; space and pits whoosh. What was painted is the terrain of the
   tiles that became all of a terrain they did not have (the brush's rings of the terrains between it and the ground,
   Platform and High Platform round painted Space, do not count).
-- A placed unit thuds softly (a building lower), squashes and springs back about its feet, and the first one says its
+- A placed unit thuds softly (a building lower), squashes and springs back about its feet (a newly selected unit
+  wobbles the same way, at 35 % of the strength), and the first one says its
   ready sound (units.dat's Ready Sound: units 0 to 105; buildings have none). On a Cosmonarchy BW map it is the
   mod's only (cmbw::unitReadySound): one of the unit's range of sounds, as the mod's program picks them (71 units; 2
   have none, 1 has the adviser's sound), else units.datex's Ready Sound. A sound's file is its line of the mod's
@@ -53,7 +52,7 @@ its copy from the frame before.
 - A snapshot's `wait` moves the particles and the pops on by that time (`funAdvanceFor`), so the frames of a script
   are the same each run.
 
-The demo: `--script` with `command craftmode` (the command that the logo runs), the edits, and `wait 33` / `frame <png>` pairs after each.
+The demo: `--script` with `command craftmode` (the command that the unlock runs), the edits, and `wait 33` / `frame <png>` pairs after each.
 
 ## The sounds
 
@@ -65,10 +64,11 @@ step twice in a row (the whole sound faster or slower). Its level is louder for 
 
 All are CC0 1.0 recordings from Freesound (the first ones picked by the user; thunk, plop, poof and void found with
 the Freesound API, a CC0 filter, from their HQ previews). Each kind has 6 takes: the main moments of its recordings
-(from just before the rise to where the hit has died to 12 % of its peak, with no lead-in or long tail; a 2 ms
-fade-in, a 12 ms fade-out), and, to make 6, variations of them: 2 or 3 semitones up or down, a low-pass, or another
-moment under it at 35 %. Thunk is 2 semitones down and darker; void 5 semitones down and darker (hollow). Made tiny
-and bit-like: mono, 11,025 Hz, 64 levels, 8-bit WAV (0.06 to 0.45 s, 0.7 to 5 KB each, 93 KB for all 60). A play
+(from just before the rise to where the sound has died to 1.5 % of its peak on a 30 ms envelope, at least 0.25 s:
+the natural decay stays, with no lead-in; a 2 ms fade-in, a 60 ms fade-out), and, to make 6, variations of them: 2
+or 3 semitones up or down, or a low-pass. Thunk is 2 semitones down and darker; void 5 semitones down and darker
+(hollow). Made tiny and bit-like: mono, 11,025 Hz, 64 levels, 8-bit WAV (0.13 to 0.8 s, 229 KB for all 60). The
+first takes were cut at 12 % of the peak: they sounded cut off. A play
 takes one of the takes at random (not the last one again).
 
 The WAV files are in `apps/editor/res/fun/`; `tools/fun_sounds_gen.py` makes `fun_sounds.inc` from them (the

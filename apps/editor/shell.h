@@ -198,10 +198,10 @@ void shellChooseInstallFolder();
 void shellChooseCmbwFolder();
 // Program options > Plugins > Hyperion folder's Browse: the folder that has the Hyperion program (core/hyperion.inc).
 void shellChooseHyperionFolder();
-// Program options > Plugins > ISOM terrain rules override: on or off, and Browse (a terrain rules file).
-void shellToggleTerrainOverride();
+// Program options > Plugins > ISOM terrains > Terrain rules file, and its Browse (a terrain rules file).
+void shellUseTerrainOverride();
 void shellChooseTerrainOverride();
-// Program options > Plugins > ISOM terrain rules override: this file, on (the Custom isom terrain editor's first save).
+// Program options > Plugins > ISOM terrains: this terrain rules file (the Custom isom terrain editor's first save).
 void shellSetTerrainOverride(const std::filesystem::path& file);
 // A folder picker with the title (File > New EUD project's Browse): the folder, or empty when none is picked.
 std::wstring shellPickFolder(const std::wstring& title);

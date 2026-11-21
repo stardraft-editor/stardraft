@@ -59,8 +59,8 @@ Sprite terrainPicture(const Tileset& ts, uint16_t terrain, const HdTiles* hd, in
     if (const Tileset::ModTerrain* m = ts.modTerrain(terrain)) {
         const int fill = solidTileGroup(ts, m->standIn, 0);
         std::vector<std::array<uint16_t, 3>> use;
-        for (const auto& p : m->pieces)
-            if (int(p[0]) == fill) use.push_back(p);
+        for (size_t i = 0; i < m->pieces.size(); ++i)  // (another tileset's template: its fill pieces, by their place; its groups are not this tileset's)
+            if (m->foreign() ? i >= m->setPieces && i + m->gapPieces < m->pieces.size() : int(m->pieces[i][0]) == fill) use.push_back(m->pieces[i]);
         if (use.empty())
             for (size_t i = 0; i < m->pieces.size() && use.size() < 4; ++i) use.push_back(m->pieces[i]);
         if (use.empty()) return terrainPicture(ts, m->standIn, hd, w, h);
