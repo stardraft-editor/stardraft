@@ -197,6 +197,35 @@ bool crigFits(const ClassicTriggers& t, const StringTable& strings);
 // The actions a trigger has once its command rows are Comments again (its action count when it has none).
 int crigActionCount(const ClassicTrigger& t);
 
+// The recolor CRIGs (recolor, recolor_loop_add: "recolor (r g b gamma saturation) ... <time>"), as the mod's exe plugin
+// reads and applies them (color_palette.cpp, trigger_parser.cpp). The plugin recolors each color of the game's palette
+// by its brightness ((r + g + b) / 3): one stop recolors all colors; 2 to 16 stops are a gradient from dark to bright.
+struct Recolor {
+    float r = 1, g = 1, b = 1;  // each channel's factor
+    float gamma = 1;             // a factor on all three
+    float saturation = 1;        // 0: gray, 1: the color as it is (the plugin's curve: above 1 it goes down again)
+};
+constexpr size_t kRecolorStops = 16;  // (the plugin's RecolorCap: more stops are not read)
+struct RecolorValue {
+    std::string command = "recolor";      // or recolor_loop_add
+    std::vector<Recolor> stops{Recolor{}};  // 1 to kRecolorStops, dark to bright
+    double seconds = 0;                   // the time to change to it (0: at once)
+};
+// A recolor line ("recolor (1 0.8 0.8 1 0.5) 2s"; the command's name in any case). False when it is no recolor line
+// or a stop has not all 5 numbers.
+bool parseRecolorLine(const std::string& line, RecolorValue& out);
+// The line of a value, as parseRecolorLine reads it (numbers with up to 3 decimals; a whole number of seconds without
+// "s", others with it).
+std::string recolorLineText(const RecolorValue& v);
+// A color (0 to 255 each) after the recolor, as the plugin's set_palette_recolor gives it.
+void recolorRgb(const std::vector<Recolor>& stops, uint8_t& r, uint8_t& g, uint8_t& b);
+// The recolor lines of a map's turned-on Comments, each with its trigger (from 1).
+struct RecolorLineRef {
+    int trigger = 0;
+    std::string line;
+};
+std::vector<RecolorLineRef> recolorLines(const Chk& chk);
+
 // An 8-bit PCX picture (the game's pictures: its palette at the end) as RGBA. False when it is not one.
 bool decodePcxRgba(const std::vector<uint8_t>& file, int& width, int& height, std::vector<uint8_t>& rgba);
 // A picture (RGBA, rows from the top) as an 8-bit PCX file of `outW` x `outH` (scaled to it, smoothly), its 256 colors

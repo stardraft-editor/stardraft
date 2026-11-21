@@ -59,6 +59,7 @@ void shellWarningBox(const std::wstring& text, const std::wstring& title);
 void isomRulesShow();  // (core/views_isom_rules.inc: Tools > Cosmonarchy > Custom isom terrain editor)
 void terrainMapperShow();  // (core/views_isom_rules.inc: Tools > Cosmonarchy > Mod terrain mapper)
 void passagesShow();   // (core/views_passages.inc: Tools > Cosmonarchy > Ramp and bridge mapper)
+void recolorShow();    // (sdl_map_dialogs.inc: Tools > Cosmonarchy > Recolor preview, core/views_recolor.inc)
 
 void cmbwCheckCommentsCommand() {
     AppState& app = shellState();

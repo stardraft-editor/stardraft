@@ -3720,3 +3720,24 @@ the difference between {a} and {b}	разница между {a} и {b}
 the number of players in the game	число игроков в игре
 the remainder of {a} divided by {b}	остаток от деления {a} на {b}
 {a}, but at least {low} and at most {high}	{a}, но не меньше {low} и не больше {high}
+Recolor &preview…	&Предпросмотр перекраски…
+Recolor preview	Предпросмотр перекраски
+Load	Загрузить
+Time (s)	Время (с)
+Stops	Опорные точки
+Gamma	Гамма
+Saturation	Насыщенность
+Red factor	Множитель красного
+Green factor	Множитель зелёного
+Blue factor	Множитель синего
+Factor on R, G and B	Множитель для R, G и B
+0: gray. 1: as it is. Above 1 it goes down again (the plugin's curve).	0: серый. 1: без изменений. Выше 1 снова снижается (кривая плагина).
+0: at once	0: сразу
+No recolor CRIGs in the map	В карте нет CRIG перекраски
+Add stop	Добавить точку
+Remove stop	Удалить точку
+Original	Исходное
+Copied	Скопировано
+all colors	все цвета
+darkest	самые тёмные
+brightest	самые светлые

@@ -3720,3 +3720,24 @@ the difference between {a} and {b}	{a} 与 {b} 之差
 the number of players in the game	游戏中的玩家数
 the remainder of {a} divided by {b}	{a} 除以 {b} 的余数
 {a}, but at least {low} and at most {high}	{a}，但至少为 {low}，至多为 {high}
+Recolor &preview…	重新着色预览(&P)…
+Recolor preview	重新着色预览
+Load	载入
+Time (s)	时间(秒)
+Stops	色标
+Gamma	伽马
+Saturation	饱和度
+Red factor	红色系数
+Green factor	绿色系数
+Blue factor	蓝色系数
+Factor on R, G and B	R、G、B 共同系数
+0: gray. 1: as it is. Above 1 it goes down again (the plugin's curve).	0：灰色。1：不变。大于 1 时又会降低（插件的曲线）。
+0: at once	0：立即
+No recolor CRIGs in the map	地图中没有重新着色 CRIG
+Add stop	添加色标
+Remove stop	删除色标
+Original	原图
+Copied	已复制
+all colors	所有颜色
+darkest	最暗
+brightest	最亮

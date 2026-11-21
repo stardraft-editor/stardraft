@@ -180,6 +180,7 @@ add_library(stardraft
     src/game_data.cpp
     src/creep.cpp
     src/mods/cmbw.cpp
+    src/mods/cmbw_recolor.cpp
     src/mods/hyperion.cpp
     src/mods/terrain_rules.cpp
     src/mods/tile_match.cpp

@@ -497,6 +497,7 @@ void registerMapCommands() {
     addCommand(ID_CMBW_CHECKCOMMENTS, "scen.cmbw.checkComments", L"&Check the CRIG commands", "Cosmonarchy", L"", [] { cmbwCheckCommentsCommand(); });
     addCommand(ID_CMBW_ISOMRULES, "tools.cmbw.isomRules", L"Custom isom &terrain editor\x2026", "Cosmonarchy", L"", [] { isomRulesShow(); });
     addCommand(ID_CMBW_TERRAINMAPPER, "tools.cmbw.terrainMapper", L"&Mod terrain mapper\x2026", "Cosmonarchy", L"", [] { terrainMapperShow(); });
+    addCommand(ID_CMBW_RECOLOR, "tools.cmbw.recolor", L"Recolor &preview\x2026", "Cosmonarchy", L"", [] { recolorShow(); });
     if (kRampBridgeTools) addCommand(ID_CMBW_PASSAGES, "tools.cmbw.passages", L"Ramp and &bridge mapper\x2026", "Cosmonarchy", L"", [] { passagesShow(); });
     addCommand(ID_HYP_CHECK, "tools.hyperion.check", L"&Check the map in Hyperion", "Hyperion", L"", [] { hyperionCheckCommand(); });
     addCommand(ID_HYP_TEST, "tools.hyperion.test", L"&Test in Hyperion (melee)", "Hyperion", L"", [] { hyperionTestCommand(false); });

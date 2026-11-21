@@ -3748,3 +3748,24 @@ the difference between {a} and {b}	{a}와 {b}의 차이
 the number of players in the game	게임의 플레이어 수
 the remainder of {a} divided by {b}	{a}를 {b}로 나눈 나머지
 {a}, but at least {low} and at most {high}	{a}, 단 최소 {low}, 최대 {high}
+Recolor &preview…	리컬러 미리보기(&P)…
+Recolor preview	리컬러 미리보기
+Load	불러오기
+Time (s)	시간(초)
+Stops	정지점
+Gamma	감마
+Saturation	채도
+Red factor	빨강 배율
+Green factor	초록 배율
+Blue factor	파랑 배율
+Factor on R, G and B	R, G, B 공통 배율
+0: gray. 1: as it is. Above 1 it goes down again (the plugin's curve).	0: 회색. 1: 그대로. 1보다 크면 다시 낮아짐(플러그인의 곡선).
+0: at once	0: 즉시
+No recolor CRIGs in the map	맵에 리컬러 CRIG 없음
+Add stop	정지점 추가
+Remove stop	정지점 제거
+Original	원본
+Copied	복사됨
+all colors	모든 색
+darkest	가장 어두움
+brightest	가장 밝음

@@ -110,6 +110,7 @@ enum : int {
     ID_CMBW_TERRAINMAPPER = 1128,  // Tools > Cosmonarchy > Mod terrain mapper (core/views_isom_rules.inc)
     ID_OPT_BUILTINTERRAINS = 1129,  // Program options > Plugins > ISOM terrains > Built-in mod terrains (core/cmbw.inc)
     ID_OPT_GAMETERRAINS = 1105,  // Program options > Plugins > ISOM terrains > Game terrains only (core/cmbw.inc)
+    ID_CMBW_RECOLOR = 1106,  // Tools > Cosmonarchy > Recolor preview (core/views_recolor.inc)
     ID_OPT_TERRAINOVERRIDE = 1110, ID_OPT_TERRAINOVERRIDEFILE, ID_CMBW_ISOMRULES,  // Program options > Plugins > ISOM terrains > Terrain rules file, and its Browse; Tools > Cosmonarchy > Custom isom terrain editor
     // Program options > Plugins > Hyperion folder's Browse; Tools > Hyperion > Check the map in Hyperion, Test in Hyperion
     // (melee), Test in Hyperion (Use Map Settings) (core/hyperion.inc)

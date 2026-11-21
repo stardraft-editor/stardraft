@@ -40,6 +40,27 @@ int main(int argc, char** argv) {
     std::string err;
     GameData data;
     if (!cmbw::open(data, argv[1], err)) return std::fprintf(stderr, "cannot open the Cosmonarchy data: %s\n", err.c_str()), 1;
+    {  // The recolor CRIG (src/mods/cmbw_recolor.cpp): its line both ways and the plugin's math (no map needed).
+        cmbw::RecolorValue v;
+        CHECK(cmbw::parseRecolorLine("Recolor (0.6, 0.7, 1.2, 1, 0.4) (1.3 1 0.7 1.1 1) 1.5s", v) && v.command == "recolor" && v.stops.size() == 2 &&
+                  v.stops[0].b == 1.2f && v.stops[1].gamma == 1.1f && v.seconds == 1.5 &&
+                  cmbw::recolorLineText(v) == "recolor (0.6 0.7 1.2 1 0.4) (1.3 1 0.7 1.1 1) 1.5s",
+              "a recolor line: commas skipped, any case; written back with 1.5s");
+        CHECK(cmbw::parseRecolorLine("recolor_loop_add (1 1 1 1 1) 2", v) && v.command == "recolor_loop_add" && v.seconds == 2 &&
+                  cmbw::parseRecolorLine("recolor (1 1 1 1 1) 12t", v) && v.seconds == 0.5 && cmbw::parseRecolorLine("recolor (1 1 1 1 1) 1.2", v) && v.seconds == 2 &&
+                  !cmbw::parseRecolorLine("recolor (1 1 1 1)", v) && !cmbw::parseRecolorLine("recolor 2", v) && !cmbw::parseRecolorLine("kill Anywhere", v),
+              "recolor times: ticks, a plain number rounded up; a stop needs 5 numbers (as the plugin, the next word is one)");
+        auto rgb = [](std::vector<cmbw::Recolor> s, uint8_t r, uint8_t g, uint8_t b) {
+            cmbw::recolorRgb(s, r, g, b);
+            return std::array<int, 3>{r, g, b};
+        };
+        CHECK((rgb({{1, 1, 1, 1, 0}}, 200, 100, 50) == std::array<int, 3>{116, 116, 116}), "recolor: saturation 0 gives the color's brightness");
+        CHECK((rgb({{0.5f, 0.5f, 0.5f, 1, 1}}, 101, 101, 101) == std::array<int, 3>{50, 50, 50} &&
+                  rgb({{1, 1, 1, 0.5f, 1}}, 101, 101, 101) == std::array<int, 3>{50, 50, 50}),
+              "recolor: a factor and the gamma multiply, the fraction cut off");
+        const auto dark = rgb({{0, 0, 0, 1, 1}, {1, 1, 1, 1, 1}}, 10, 10, 10), bright = rgb({{0, 0, 0, 1, 1}, {1, 1, 1, 1, 1}}, 250, 250, 250);
+        CHECK(dark[0] <= 1 && bright[0] >= 248, "recolor: two stops are a gradient from the darkest colors to the brightest");
+    }
     // CMBW_NULLS=<era>:<terrain name> (CMBW_OVERRIDE=<a .isom file>): that terrain's pieces with no tiles (Null) or half
     // (Partial), with the override file and without it.
     if (const char* q = std::getenv("CMBW_NULLS")) {
@@ -1020,6 +1041,21 @@ int main(int argc, char** argv) {
             ed.renameLocation(loc, "North Gate");
             CHECK(comment() == "move_unit \"Old Zone\" * 13 men 10 true" && twin >= 0,
                   "Rename location leaves the CRIG lines when another location has the old name (either could be the one)");
+        }
+    }
+    {  // The recolor CRIG: the map's lines (a Comment's line with its trigger).
+        Editor ed(data);
+        std::string e;
+        if (ed.open(argv[2], e)) {
+            StringTable strings = ed.strings();
+            ClassicTrigger t;
+            ClassicAction c;
+            c.type = 47, c.text = uint32_t(strings.add("Night\nrecolor (0.5 0.5 1 1 1) 3"));
+            t.actions[0] = c;
+            ed.addClassicTrigger(t, -1, &strings);
+            const auto lines = cmbw::recolorLines(ed.chk());
+            CHECK(!lines.empty() && lines.back().line == "recolor (0.5 0.5 1 1 1) 3" && lines.back().trigger == int(ed.classicTriggers().triggers.size()),
+                  "the map's recolor lines: a Comment's line with its trigger");
         }
     }
     std::printf("%s\n", failures ? "FAILED" : "all passed");

@@ -417,6 +417,7 @@ MenuModel buildMenuModel() {
         menuCommand(cosmonarchy, "scen.cmbw.checkComments");
         menuCommand(cosmonarchy, "tools.cmbw.isomRules");
         menuCommand(cosmonarchy, "tools.cmbw.terrainMapper");
+        menuCommand(cosmonarchy, "tools.cmbw.recolor");
         if (kRampBridgeTools) menuCommand(cosmonarchy, "tools.cmbw.passages");
         tools.push_back(menuSeparator());
         tools.push_back(menuPopup(L"&Cosmonarchy", cosmonarchy));

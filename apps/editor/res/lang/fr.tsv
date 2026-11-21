@@ -3720,3 +3720,24 @@ the difference between {a} and {b}	la différence entre {a} et {b}
 the number of players in the game	le nombre de joueurs dans la partie
 the remainder of {a} divided by {b}	le reste de {a} divisé par {b}
 {a}, but at least {low} and at most {high}	{a}, mais au moins {low} et au plus {high}
+Recolor &preview…	&Aperçu de la recoloration…
+Recolor preview	Aperçu de la recoloration
+Load	Charger
+Time (s)	Durée (s)
+Stops	Arrêts
+Gamma	Gamma
+Saturation	Saturation
+Red factor	Facteur rouge
+Green factor	Facteur vert
+Blue factor	Facteur bleu
+Factor on R, G and B	Facteur sur R, V et B
+0: gray. 1: as it is. Above 1 it goes down again (the plugin's curve).	0 : gris. 1 : inchangé. Au-dessus de 1, elle baisse de nouveau (la courbe du plugin).
+0: at once	0 : immédiat
+No recolor CRIGs in the map	Aucun CRIG de recoloration dans la carte
+Add stop	Ajouter un arrêt
+Remove stop	Retirer l'arrêt
+Original	Original
+Copied	Copié
+all colors	toutes les couleurs
+darkest	le plus sombre
+brightest	le plus clair
