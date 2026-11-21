@@ -322,6 +322,7 @@ std::wstring itemLabel(const AppState& app, int v) {
     Editor& ed = *app.ed;
     switch (app.mode) {
     case Mode::Terrain: {
+        if (v == kFogPick) return tr(L"Fog of war");
         return widen(ed.terrainName(uint16_t(v)));
     }
     case Mode::Units:
@@ -356,8 +357,10 @@ void rebuildList(AppState& app) {
                 for (uint16_t i = 1; i <= t->terrainCount(); ++i)
                     if (t->isTerrain(i)) all.push_back(i);
                 for (const Tileset::ModTerrain& m : ed.tileset().modTerrains) all.push_back(m.id);  // (a mod's own: Cosmonarchy tabs)
+                all.push_back(kFogPick);  // (core/fog_layer.inc)
             }
             break;
+
         case Mode::Units: break;  // in the unit palette (side bar)
         case Mode::Sprites: break;
         case Mode::Doodads: {
@@ -482,6 +485,7 @@ void recentPickAdd(const AppState& app, int v);  // (core/palette_items.inc: the
 inline bool gRecentPickHold = false;  // (a step through the palette's list, shellPaletteStep: not a pick to keep)
 void pickUnit(AppState& app, int v, bool add) {
     if (!app.ed || v < 0) return;
+    if (app.mode == Mode::Terrain && (v == kFogPick || app.palette == kFogPick)) add = false;  // (the Fog of war is no terrain to mix)
     if (!add && !gRecentPickHold) recentPickAdd(app, v);
     if (app.mode == Mode::Terrain || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
         // Terrain: paint with it (leaving Select / copy); doodads and sprites: place it. Ctrl adds it to the picks (or
@@ -505,8 +509,11 @@ void pickUnit(AppState& app, int v, bool add) {
             setMessage(app, L"Selected " + std::to_wstring(shellPaletteChosen().size()) +
                                 (app.mode == Mode::Terrain ? L" terrains" : app.mode == Mode::Sprites ? L" sprites" : L" doodads") +
                                 L": Spray and Fill put them at random");
+        else if (app.mode == Mode::Terrain && app.palette == kFogPick)
+            setMessage(app, fogPickText());
         else if (app.palette >= 0)
             setMessage(app, (app.mode == Mode::Terrain ? L"Painting " : app.mode == Mode::Sprites ? L"Placing sprite " : L"Placing doodad ") + paletteItemName(app.palette) +
+
                        (app.mode == Mode::Doodads ? L": click to place it (green if it fits, red if it does not)" : L""));
         app.dirty = true;
         shellPaletteChanged();

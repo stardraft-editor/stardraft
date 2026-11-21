@@ -42,8 +42,10 @@ std::wstring paletteItemNameOf(Mode mode, int v) {
     AppState& app = shellState();
     if (!app.ed || v < 0) return L"";
     if (mode == Mode::Terrain) {
+        if (v == kFogPick) return tr(L"Fog of war");
         return widen(app.ed->terrainName(uint16_t(v)));
     }
+
     if (mode == Mode::Doodads) {
         const DoodadType* d = app.ed->doodadTypes().find(uint16_t(v));
         return d ? widen(app.ed->unitTypes().statText(d->groupString - 1u)) + L"  #" + std::to_wstring(v) : L"";

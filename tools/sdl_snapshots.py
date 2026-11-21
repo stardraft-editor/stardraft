@@ -126,6 +126,13 @@ CASES += [
     ("map-terrain-mask-own", ["--mode", "terrain", "--wheel", "145,491,0,6", "--click", "120,622", "--click", "120,668:Alt", "--click", "830,450", "--click", "900,470", "--wait", "300"], "map"),
     ("map-terrain-mirror", ["--mode", "terrain", "--click", "146,521", "--click", "118,459", "--click", "120,667",
                            "--click", "830,300", "--click", "1000,600", "--wait", "500"], "map"),
+    # The terrain list's Fog of war (the search finds it): Player 3 picked in the Units palette (its list: Down, Down,
+    # Enter), back to Terrain; Erase (size 10) takes the fog away along three sides (gray: explored at the start), the
+    # Brush puts it back on part of the top. The overlay shows while the entry is picked; the output counts the tiles.
+    ("map-terrain-fog", ["--mode", "terrain", "--click", "155,580", "--type", "fog", "--click", "200,647", "--click", "1460,220",
+                         "--key", "Down", "--key", "Down", "--key", "Enter", "--click", "470,78", "--click", "200,491", "--key", "Ctrl+A",
+                         "--type", "10", "--key", "Enter", "--key", "E", "--drag", "480,180-1180,180", "--drag", "1180,180-1180,860",
+                         "--drag", "480,860-1180,860", "--key", "B", "--drag", "600,180-1000,180", "--wait", "200"], "map"),
     ("map-classictrig", ["--workspace", "classictriggers", "--classictrig", "1:1:0"], "map"),
     ("map-dialog-unitprops", ["--dialog", "unitprops"], "map"),
     ("map-dialog-locprops", ["--dialog", "locprops"], "map"),
@@ -4738,7 +4745,9 @@ def check_terrain_off_map(output):
     return None
 
 
-CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place: ran (yes)" in o else "the place command did not run",
+CHECKS = {"map-terrain-fog": lambda o: None if "Fog of war: Player 3. Removed fog from" in o and "Fog of war: Player 3. Added fog to" in o
+          else "the Fog of war entry did not remove and add fog for Player 3",
+          "map-revealers-place": lambda o: None if "command edit.revealers.place: ran (yes)" in o else "the place command did not run",
           "map-creep": lambda o: ("no creep tiles under the Hatchery" if not re.search(r"creep: a Hatchery placed .*; (\d+) creep tiles.* \(yes\)", o)
                                   else None if re.search(r"creep: [1-9]\d* edge sprites in the scene, \d+ tiles with an edge.* \(yes\)", o)
                                   else "the creep edges are not one on each tile next to creep"),

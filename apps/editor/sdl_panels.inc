@@ -212,7 +212,8 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
     const int pin = palettePinState(mode, value);
     const std::vector<uint16_t> shown = paletteShownDoodads(pal.rows);  // (Move up and Move down: among the pins shown)
     int mask = -1;  // (a terrain: in the mask or not)
-    if (mode == Mode::Terrain && value >= 0 && gState.ed) {
+    if (mode == Mode::Terrain && value >= 0 && value != kFogPick && gState.ed) {
+
         const auto& tm = gState.ed->terrainMask();
         mask = std::find(tm.begin(), tm.end(), uint16_t(value)) != tm.end() ? 1 : 0;
     }

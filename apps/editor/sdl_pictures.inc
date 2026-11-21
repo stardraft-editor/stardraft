@@ -165,7 +165,26 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
             gPaletteArt.hdTiles = std::move(tiles);
         }
         const HdTiles* hd = mode && gPaletteArt.hdTiles && !gPaletteArt.hdTiles->tiles.empty() ? gPaletteArt.hdTiles.get() : nullptr;
-        if (what == Mode::Terrain) {
+        if (what == Mode::Terrain && value == kFogPick) {  // the Fog of war (core/fog_layer.inc): a light terrain, dark at the left, gray at the right
+            // (the lightest of the tileset's first 4 terrains: the first one can be black, as Space)
+            const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era());
+            double best = -1;
+            for (uint16_t i = 1, n = 0; t && i <= t->terrainCount() && n < 4; ++i)
+                if (t->isTerrain(i)) {
+                    ++n;
+                    Sprite p = terrainPicture(ed.tileset(), i, hd);
+                    if (!p.width || p.rgba.size() < 4) continue;
+                    double sum = 0;
+                    for (size_t k = 0; k + 3 < p.rgba.size(); k += 4) sum += p.rgba[k] + p.rgba[k + 1] + p.rgba[k + 2];
+                    if (sum / double(p.rgba.size() / 4) > best) best = sum / double(p.rgba.size() / 4), art = std::move(p);
+                }
+            for (int y = 0; y < art.height; ++y)
+                for (int x = 0; x < art.width; ++x) {
+                    uint8_t* px = &art.rgba[(size_t(y) * art.width + x) * 4];
+                    const bool dark = x < art.width / 2;
+                    for (int k = 0; k < 3; ++k) px[k] = uint8_t(dark ? px[k] / 2 : (px[k] * 5 + 0x30 * 3) / 8);
+                }
+        } else if (what == Mode::Terrain) {
             art = terrainPicture(ed.tileset(), uint16_t(value), hd);
             // The terrain it stands on ("X (Y)": Y) as a small square at the bottom right, half the picture's height.
             const uint16_t ground = terrainGround(ed, uint16_t(value));

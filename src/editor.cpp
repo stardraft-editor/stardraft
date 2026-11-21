@@ -643,6 +643,29 @@ int Editor::protectTiles(const std::vector<std::pair<int, int>>& cells, bool on)
     return changed;
 }
 
+std::vector<uint8_t> Editor::fogMask() const {
+    std::vector<uint8_t> mask(size_t(width_) * height_, 0xFF);
+    if (const Section* s = chk_.find("MASK")) std::copy_n(s->data.begin(), std::min(s->data.size(), mask.size()), mask.begin());
+    return mask;
+}
+
+int Editor::setFog(const std::vector<std::pair<int, int>>& cells, uint8_t players, bool on) {
+    if (!open_ || !players) return 0;
+    std::vector<uint8_t> mask = fogMask();
+    int changed = 0;
+    for (auto [x, y] : cells) {
+        if (x < 0 || y < 0 || x >= int(width_) || y >= int(height_)) continue;
+        uint8_t& v = mask[size_t(y) * width_ + size_t(x)];
+        const uint8_t to = on ? uint8_t(v | players) : uint8_t(v & ~players);
+        if (v != to) v = to, ++changed;
+    }
+    if (!changed) return 0;
+    beginEdit();
+    chk_.set("MASK", Bytes(mask.begin(), mask.end()));
+    commit(false);
+    return changed;
+}
+
 void Editor::shiftProtected(int oldWidth, int oldHeight, int dx, int dy) {
     const std::vector<uint8_t> old = std::move(protected_);
     protected_.clear();
@@ -2985,6 +3008,7 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
     const bool keepDoodads = era == era_;  // before reload() changes era_
     const int oldWidth = width_, oldHeight = height_;
     const std::optional<ProtectedBefore> kept = protectedBefore();
+    const std::vector<uint8_t> oldFog = fogMask();
     std::vector<MapSprite> sprites;  // the sprites that are not doodads' (the doodads bring theirs again)
     for (const MapSprite& s : sprites_) {
         bool overlay = false;
@@ -3017,7 +3041,15 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
         }
         return error = err, false;
     }
-    chk_.set("MASK", Bytes(size_t(width) * height, 0xFF));
+    {
+        // The fog of war moves with the terrain; the new tiles are unexplored for all players.
+        Bytes mask(size_t(width) * height, 0xFF);
+        for (int y = 0; y < oldHeight; ++y)
+            for (int x = 0; x < oldWidth; ++x)
+                if (const int nx = x + dx * 2, ny = y + dy; nx >= 0 && ny >= 0 && nx < int(width) && ny < int(height))
+                    mask[size_t(ny) * width + size_t(nx)] = oldFog[size_t(y) * size_t(oldWidth) + size_t(x)];
+        chk_.set("MASK", std::move(mask));
+    }
     std::vector<Unit> units;
     for (Unit u : units_)
         if (inside(u.x + px, u.y + py)) u.x = uint16_t(u.x + px), u.y = uint16_t(u.y + py), units.push_back(u);

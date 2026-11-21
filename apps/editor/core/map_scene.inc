@@ -418,6 +418,7 @@ std::vector<std::pair<int, uint16_t>> ghostTiles;  // doodad preview tiles, set 
 void syncMapUnitGraphics();
 void rangesScene(render::Scene& s, float dx = 0, float dy = 0);
 void addFogLayer(render::Scene& s);
+bool fogScene(render::Scene& s, float wx, float wy);  // (the list's Fog of war: its brush or box; core/fog_layer.inc)
 void addResourceZones(render::Scene& s);
 void tilesScene(render::Scene& s, float wx, float wy);
 
@@ -1095,6 +1096,7 @@ render::Scene buildScene() {
             }
         }
     } else if (terrainEditBlockedAt(app, wx, wy)) {  // (off the map: no brush; the cursor says No: map_input.inc)
+    } else if (fogPicked() && fogScene(s, wx, wy)) {  // (the list's Fog of war)
     } else if (app.mode == Mode::Terrain && app.drag == Drag::TerrainMove && app.hasTerrainSel) {
         terrainMoveScene(s);
     } else if (app.mode == Mode::Terrain && shapeOn()) {

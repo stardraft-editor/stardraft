@@ -1335,6 +1335,44 @@ static void mirrorTest(const GameData& data) {
 
 // Locations as a group (feedback #135, on main's selection): the selection holds several locations, a new location replaces
 // it, and a delete of all the selected ones is one undo step (the app's group move and paste are checked by the snapshots).
+// The fog of war at the game start (CHK MASK): Editor::fogMask and setFog, one undo step each, and MASK through a resize.
+static void fogMaskTest(const GameData& data) {
+    Editor ed(data);
+    std::string err;
+    if (!ed.newMap(64, 64, 0, 1, err)) {
+        CHECK(false, "fog: a new 64 x 64 map");
+        return;
+    }
+    std::vector<uint8_t> m = ed.fogMask();
+    CHECK(m.size() == 64u * 64u && std::all_of(m.begin(), m.end(), [](uint8_t v) { return v == 0xFF; }), "fog: a new map is unexplored for all players");
+    const size_t steps = ed.undoSteps();
+    CHECK(ed.setFog({{3, 4}, {5, 6}, {-1, 2}, {64, 0}}, 1u << 2, false) == 2, "fog: Erase clears Player 3's bit on two tiles (off-map tiles skipped)");
+    m = ed.fogMask();
+    CHECK(m[4 * 64 + 3] == uint8_t(~(1u << 2)) && m[6 * 64 + 5] == uint8_t(~(1u << 2)) && m[0] == 0xFF, "fog: only the bit of Player 3 changes");
+    CHECK(ed.chk().find("MASK") && ed.chk().find("MASK")->data.size() == 64u * 64u, "fog: MASK is width x height bytes");
+    CHECK(ed.undoSteps() == steps + 1 && ed.undoStepName(0).text == "Change the fog of war", "fog: one undo step, \"Change the fog of war\"");
+    CHECK(ed.setFog({{3, 4}}, 1u << 2, false) == 0 && ed.undoSteps() == steps + 1, "fog: no change, no undo step");
+    ed.undo();
+    m = ed.fogMask();
+    CHECK(m[4 * 64 + 3] == 0xFF && m[6 * 64 + 5] == 0xFF, "fog: undo gives the fog back");
+    ed.redo();
+    // A stroke of several edits: one step.
+    ed.beginStroke();
+    ed.setFog({{10, 10}}, 0xFF, false);
+    ed.setFog({{11, 10}}, 0xFF, false);
+    ed.endStroke();
+    CHECK(ed.undoSteps() == steps + 2 && ed.fogMask()[10 * 64 + 10] == 0 && ed.fogMask()[10 * 64 + 11] == 0, "fog: a stroke is one undo step");
+    CHECK(ed.setFog({{10, 10}}, 0x01, true) == 1 && ed.fogMask()[10 * 64 + 10] == 0x01, "fog: Brush sets Player 1's bit again");
+    // A resize moves the fog with the terrain; the new tiles are unexplored.
+    if (ed.resizeMap(96, 64, ed.era(), 4, 0, 1, err)) {
+        m = ed.fogMask();
+        CHECK(m.size() == 96u * 64u && ed.chk().find("MASK")->data.size() == 96u * 64u, "fog: MASK has the new size after a resize");
+        CHECK(m[4 * 96 + 3 + 4] == uint8_t(~(1u << 2)) && m[10 * 96 + 11 + 4] == 0 && m[0] == 0xFF, "fog: the fog moves with the terrain");
+    } else {
+        CHECK(false, ("fog: resize: " + err).c_str());
+    }
+}
+
 static void locationGroupTest(const GameData& data) {
     Editor ed(data);
     std::string err;
@@ -1480,6 +1518,11 @@ int main(int argc, char** argv) {
     if (argc > 4 && std::string(argv[4]) == "mirror") {  // only the terrain symmetry checks (feedback #134)
         mirrorTest(data);
         turnCountTest(data);
+        std::printf("\n%d failures\n", failures);
+        return failures ? 1 : 0;
+    }
+    if (argc > 4 && std::string(argv[4]) == "fog") {  // only the fog of war (MASK) checks
+        fogMaskTest(data);
         std::printf("\n%d failures\n", failures);
         return failures ? 1 : 0;
     }
@@ -2694,6 +2737,7 @@ int main(int argc, char** argv) {
     mirrorTest(data);
     turnCountTest(data);
     locationGroupTest(data);
+    fogMaskTest(data);
     startLocationTest(data);
     classicTriggersTest(data, argv[2], fs::path(argv[3]));
 

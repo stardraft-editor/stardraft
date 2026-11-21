@@ -156,7 +156,7 @@ std::vector<PaletteUnit> paletteItems(AppState& app) {
         // after High Dirt. (A mod's own terrains: Cosmonarchy tabs; a mod terrain whose ground is not in the list: at the end.)
         const auto& mods = ed.tileset().modTerrains;
         std::vector<bool> listed(mods.size(), false);
-        auto add = [&](uint16_t value, const std::wstring& label) {
+        auto add = [&](int value, const std::wstring& label) {
             PaletteUnit u;
             u.value = value, u.order = int(out.size()), u.label = label;
             u.section = std::wstring(kTilesetNames[ed.era() & 7]) + L" terrain";
@@ -176,7 +176,9 @@ std::vector<PaletteUnit> paletteItems(AppState& app) {
             if (t->isTerrain(i)) add(i, widen(ed.terrainName(i))), under(i, 0);
         for (size_t k = 0; k < mods.size(); ++k)
             if (!listed[k] && !mods[k].variantOf) listed[k] = true, add(mods[k].id, widen(mods[k].name)), under(mods[k].id, 0);
+        add(kFogPick, tr(L"Fog of war"));  // (not a terrain: Brush and Erase paint the MASK, core/fog_layer.inc)
         return out;
+
     }
     if (app.mode == Mode::Sprites) {  // sprites.dat: those with a picture
         UnitSprites& sp = ed.unitSprites();

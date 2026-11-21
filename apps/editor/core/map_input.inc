@@ -329,7 +329,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     if (modeLayerHidden()) return modeLayerHiddenClick();  // (core/map_edit.inc)
     if (terrainEditBlockedAt(app, wx, wy)) return terrainEditBlockedMessage();  // (Terrain: on the map only)
     if (trigUnitPickClick(wx, wy)) return;
-    if (mapLayersEraseOn(app) && !(mods & draw::kCtrl)) return mapLayersEraseDown(app, wx, wy);  // (Ctrl+click: picks the terrain, below)
+    if (mapLayersEraseOn(app) && !(mods & draw::kCtrl) && !fogPicked()) return mapLayersEraseDown(app, wx, wy);  // (Ctrl+click: picks the terrain, below)
     if (app.mode == Mode::Layers) return mapLayersMoveDown(app, wx, wy);
     if (app.pasting) {
         // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted
@@ -437,6 +437,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         break;
     }
     case Mode::Terrain: {
+        if (fogPicked() && fogMouseDown(wx, wy, mods)) break;  // the list's Fog of war (core/fog_layer.inc)
         if (currentTool(app) == TMoveSel) {  // Move: the selection follows the drag; it moves at the release
             if (!app.hasTerrainSel) {
                 setMessage(app, L"Select terrain first, with Select, the Lasso or the Magic wand");
@@ -788,6 +789,7 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         paintAt(wx, wy);
         gPaintX = wx, gPaintY = wy;
     }
+    if (app.drag == Drag::Fog && app.ed) fogMouseMove(wx, wy, mods);
     if (app.drag == Drag::Jumble && app.ed &&
         std::hypot(wx - gPaintX, wy - gPaintY) >= std::max(16.0f, std::min(app.brushSize, currentBrush(app).height()) * 32)) {
         jumbleAt(app, wx, wy);  // (each half brush along the drag)
@@ -1028,6 +1030,7 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     }
     case Drag::Paint:
     case Drag::Jumble: ed.endTerrainStroke(); break;
+    case Drag::Fog: fogMouseUp(wx, wy, mods); break;
     case Drag::Erase:
         ed.endStroke();
         if (app.mode == Mode::Locations) rebuildList(app);  // (the list shows the locations that are left)
@@ -1227,6 +1230,11 @@ bool mapCancelStep(AppState& app) {
         return true;
     }
     if (const bool pressed = app.drag == Drag::Shape; shapeCancel()) return pressed;  // (Line, Contour, Polygon: the shape only)
+    if (app.drag == Drag::Fog) {  // (the list's Fog of war: the brush's press so far is one undo step; a box: nothing)
+        if (app.ed) app.ed->endStroke();
+        app.drag = Drag::None, app.dirty = true;
+        return true;
+    }
     bool stroke = false;
     if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::PasteUnitsStroke || app.drag == Drag::Paint ||
                    app.drag == Drag::Jumble || app.drag == Drag::Erase || app.drag == Drag::Tiles)) {
@@ -1388,7 +1396,8 @@ void mapStrokeEnd(AppState& app) {
     if (!app.ed) return;
     if (app.mode == Mode::Terrain && (app.drag == Drag::Paint || app.drag == Drag::Spray || app.drag == Drag::Jumble)) app.ed->endTerrainStroke();
     else if (app.drag == Drag::PlaceStroke || app.drag == Drag::PasteStroke || app.drag == Drag::PasteUnitsStroke || app.drag == Drag::Spray ||
-             app.drag == Drag::Erase || app.drag == Drag::Paint || app.drag == Drag::Jumble)
+             app.drag == Drag::Erase || app.drag == Drag::Paint || app.drag == Drag::Jumble || app.drag == Drag::Fog)
+
         app.ed->endStroke();
 }
 

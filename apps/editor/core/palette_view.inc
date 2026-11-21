@@ -382,6 +382,7 @@ int paletteFooterHeight(const PaletteView& v) { return v.grid ? scale(26) : 0; }
 // order, is picked (for a spray or a fill, #79); Ctrl keeps the picks before. False: no last pick in the list (a plain pick then).
 bool paletteShiftPick(AppState& app, const std::vector<PaletteRow>& rows, int row, bool ctrl) {
     if (row < 0 || row >= int(rows.size()) || app.palette < 0) return false;
+    if (app.mode == Mode::Terrain && (app.palette == kFogPick || rows[size_t(row)].value == kFogPick)) return false;  // (the Fog of war is no terrain to mix)
     if (app.mode != Mode::Doodads && app.mode != Mode::Sprites && app.mode != Mode::Units && app.mode != Mode::Terrain) return false;
     int from = -1;
     for (size_t k = 0; k < rows.size(); ++k)
@@ -390,7 +391,7 @@ bool paletteShiftPick(AppState& app, const std::vector<PaletteRow>& rows, int ro
     std::vector<int>& chosen = shellPaletteChosen();
     if (!ctrl) chosen.clear();
     for (int k = std::min(from, row); k <= std::max(from, row); ++k)
-        if (const int v = rows[size_t(k)].value; v >= 0 && std::find(chosen.begin(), chosen.end(), v) == chosen.end()) chosen.push_back(v);
+        if (const int v = rows[size_t(k)].value; v >= 0 && !(app.mode == Mode::Terrain && v == kFogPick) && std::find(chosen.begin(), chosen.end(), v) == chosen.end()) chosen.push_back(v);
     const wchar_t* what = app.mode == Mode::Units ? L" units" : app.mode == Mode::Sprites ? L" sprites" : app.mode == Mode::Terrain ? L" terrains" : L" doodads";
     setMessage(L"Selected " + std::to_wstring(chosen.size()) + what +
                (app.mode == Mode::Terrain ? L": Spray and Fill put them at random" : L": each click or spray places one of them, at random"));
@@ -401,7 +402,8 @@ bool paletteShiftPick(AppState& app, const std::vector<PaletteRow>& rows, int ro
 
 // Alt+click in Terrain's list: the terrain goes into the mask (painting changes only the masked terrains) or out of it.
 void paletteMaskToggle(AppState& app, int value) {
-    if (!app.ed || value < 0) return;
+    if (!app.ed || value < 0 || (app.mode == Mode::Terrain && value == kFogPick)) return;  // (the Fog of war is no terrain)
+
     std::vector<uint16_t> mask = app.ed->terrainMask();
     if (const auto it = std::find(mask.begin(), mask.end(), uint16_t(value)); it != mask.end()) mask.erase(it);
     else mask.push_back(uint16_t(value));

@@ -262,6 +262,7 @@ struct PaletteGridView : draw::View {
     }
     std::wstring tip(draw::Point p) override {  // (Report feedback names the entry under the mouse)
         const int h = rowAt(p);
+        if (h >= 0 && mode == Mode::Terrain && rows[size_t(h)].value == kFogPick) return fogEntryTip();  // (core/fog_layer.inc)
         return h >= 0 ? rows[size_t(h)].label : std::wstring();
     }
 

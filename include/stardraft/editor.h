@@ -296,6 +296,15 @@ public:
     // Changes when the mask changes (also by undo and redo).
     uint64_t protectedRevision() const { return protectedRevision_; }
 
+    // --- Fog of war at the game start (CHK MASK) ---------------------------------------------------
+    // One byte per tile (width x height, row by row): bit p set (p 0 to 7: Player 1 to 8) = the tile is unexplored
+    // (black) for player p when the game starts; clear = explored (the game shows the terrain under fog). The tiles that
+    // the MASK section does not have (no section, or a short one) are 0xFF.
+    std::vector<uint8_t> fogMask() const;
+    // Sets (on: unexplored) or clears the bits `players` (bit p: player p) of the tiles (x, y in tiles) in MASK. One undo
+    // step ("Change the fog of war"); returns the tiles that changed (0: no step).
+    int setFog(const std::vector<std::pair<int, int>>& cells, uint8_t players, bool on);
+
     // --- Tiles (rectangular terrain, roadmap N.7) -----------------------------------------------
     // A tile group of the map's tileset (CV5) for the Tiles palette: the groups that have a megatile.
     struct TileGroupEntry {
