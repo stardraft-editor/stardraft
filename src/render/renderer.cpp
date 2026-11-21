@@ -669,7 +669,7 @@ bool Renderer::attach(SDL_Window* window, std::string& error) {
     SDL_SetGPUSwapchainParameters(r.device, window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
     const SDL_GPUTextureFormat format = SDL_GetGPUSwapchainTextureFormat(r.device, window);
     if (r.pipelinesReady && format == r.colorFormat) return true;
-    for (SDL_GPUGraphicsPipeline*& p : {std::ref(r.terrainPipe), std::ref(r.terrainBlendPipe), std::ref(r.spritePipe), std::ref(r.glowPipe), std::ref(r.solidPipe), std::ref(r.downPipe)})
+    for (SDL_GPUGraphicsPipeline*& p : {std::ref(r.terrainPipe), std::ref(r.terrainBlendPipe), std::ref(r.spritePipe), std::ref(r.glowPipe), std::ref(r.solidPipe), std::ref(r.downPipe), std::ref(r.gradePipe)})
         if (p) SDL_ReleaseGPUGraphicsPipeline(r.device, p), p = nullptr;
     r.colorFormat = format;
     return r.pipelinesReady = r.createPipelines(error);
@@ -784,7 +784,7 @@ void Renderer::Impl::sendPageUploads(SDL_GPUCommandBuffer* cmd) {
     ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     ti.size = uint32_t(total);
     SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(device, &ti);
-    if (!tb) return;
+    if (!tb) return pageUploads.clear(), void(pagesFull = true);  // (no room: the pages start again at the next frame)
     uint8_t* p = static_cast<uint8_t*>(SDL_MapGPUTransferBuffer(device, tb, false));
     size_t at = 0;
     for (const PageUpload& u : pageUploads) {
@@ -1064,8 +1064,9 @@ void Renderer::releaseMapData() {
     if (r.hdReading.valid()) r.hdReading.wait();
     r.hdReading = {};
     r.freeImages();
-    for (SDL_GPUTexture** t : {&r.sdAtlas, &r.hdAtlas, &r.hdDown, &r.tileIndex, &r.overlayIndex})
+    for (SDL_GPUTexture** t : {&r.sdAtlas, &r.hdAtlas, &r.hdDown, &r.tileIndex, &r.overlayIndex, &r.gradeSource})
         if (*t) SDL_ReleaseGPUTexture(r.device, *t), *t = nullptr;
+    r.gradeW = r.gradeH = 0, r.sdIds.clear(), r.sdIds.shrink_to_fit();
     r.tileIndexW = r.tileIndexH = 0, r.overlayIndexW = r.overlayIndexH = 0;
     r.data = nullptr, r.unitSprites = nullptr, r.tileset = nullptr, r.era = 0xFFFF;
     r.loadedTileset = nullptr, r.loadedEra = 0xFFFF, r.loadedTilesetSize = 0, r.tilesetDirty = true;
