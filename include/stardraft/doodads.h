@@ -1,6 +1,6 @@
 #pragma once
 
-// Doodads: tile groups in the tileset (CV5 index >= 1024) placed into MTXM, recorded in DD2,
+// Doodads: tile groups in the tileset (CV5 type 1: most at index 1024 and after, SC:R's newer ones before) placed into MTXM, recorded in DD2,
 // plus an overlay sprite in THG2 for doodads that have one.
 
 #include <cstdint>

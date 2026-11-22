@@ -45,11 +45,13 @@ bool DoodadTypes::load(const GameData& data, const Tileset& ts, uint16_t era, st
         for (int e = 0; e < 4; ++e) k ^= uint64_t(tg.edges[size_t(e)]) * (0x9E3779B97F4A7C15ull >> (e * 7)) + uint64_t(e);
         ground->piece.push_back(k);
     }
-    // Doodad CV5 groups: index >= 1024, type 1. edges[0] = overlay sprite (a unit when the flags have 0x2000 and not
-    // 0x1000; the flags' high byte is groundHeight), edges[2] = group string,
-    // extra[0] = doodad id, extra[1] = width, extra[2] = height. The first group of an id is row 0.
+    // Doodad CV5 groups: type 1. Most are at index 1024 and after; SC:R's newer doodads are in the free groups before
+    // 1024 (Space Platform 373-391 at 933-1023, Desert 351-403, Twilight 296-342), so all groups are read.
+    // edges[0] = overlay sprite (a unit when the flags have 0x2000 and not 0x1000; the flags' high byte is
+    // groundHeight), edges[2] = group string, extra[0] = doodad id, extra[1] = width, extra[2] = height. The first
+    // group of an id is row 0.
     std::map<uint16_t, size_t> index;
-    for (size_t g = 1024; g < ts.groups.size(); ++g) {
+    for (size_t g = 0; g < ts.groups.size(); ++g) {
         const TileGroup& tg = ts.groups[g];
         if (tg.type != 1) continue;
         uint16_t id = tg.extra[0];

@@ -2193,7 +2193,10 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
     // A terrain group: below 1024 in the game's tilesets (doodads after); a mod's terrains have groups after 1024 too
     // (Temple (Ruins)), so there the ISOM's own tile counts (tileFromIsom, below), not the group's number (GitHub #234).
     const bool mod = !tileset_.groupTerrains.empty();
-    auto terrainGroup = [&](uint16_t v) { return mod || (v >> 4) < 1024; };
+    auto terrainGroup = [&](uint16_t v) {  // (SC:R's newer doodads are before 1024: type 1)
+        const TileGroup* g = tileset_.groupFor(v);
+        return mod || ((v >> 4) < 1024 && !(g && g->type == 1));
+    };
     // CV5 field 8 (extra[1]) is a tile's top stack connection, field 10 (extra[3]) its bottom one.
     auto stacked = [&](int tx, int ty) {  // does (tx, ty) sit in a stack under (tx, ty - 1)?
         const TileGroup *up = group(tx, ty - 1), *me = group(tx, ty);
