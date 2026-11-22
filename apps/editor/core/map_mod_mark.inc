@@ -136,6 +136,8 @@ UiIcon altWheelMark(AppState& app, float wx, float wy, bool ctrl) {
 
 // The mark at the point (sx, sy) of the map view with the keys `mods` down (draw::Mods). kNoModMark: none.
 UiIcon mapModMark(AppState& app, int sx, int sy, unsigned mods) {
+    bool mapResizeOn();  // (Edit > Resize map: no mark of a mode's tool)
+    if (mapResizeOn()) return kNoModMark;
     if (!app.ed || !app.ed->isOpen()) return kNoModMark;
     Editor& ed = *app.ed;
     const bool shift = mods & draw::kShift, ctrl = mods & draw::kCtrl, alt = mods & draw::kAlt;

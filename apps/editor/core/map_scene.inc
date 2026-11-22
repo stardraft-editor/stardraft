@@ -947,7 +947,8 @@ render::Scene buildScene() {
         }
     }
 
-    if (!app.mouseIn) {  // (on a menu or a panel: the selected sprites and doodads keep their boxes, as the units do)
+    bool mapResizeOn();  // (Edit > Resize map: a mode of its own, no brush or ghost of a mode's tool)
+    if (!app.mouseIn || mapResizeOn()) {  // (on a menu or a panel: the selected sprites and doodads keep their boxes, as the units do)
         if (app.mode == Mode::Sprites) {
             for (int i : app.selSprites)
                 if (i >= 0 && i < int(ed.sprites().size())) outline(s, mapSpriteBox(ed, ed.sprites()[size_t(i)]), 0x40FF40FFu, 2);

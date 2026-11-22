@@ -43,6 +43,14 @@ void mapResizeStop(const std::wstring& message) {
     if (!message.empty()) setMessage(message);
 }
 
+// The terrain of the new ground: the terrain picked in the Terrain palette (its brush's), else the tileset's first.
+uint16_t mapResizeFill(const AppState& app) {
+    if (app.mode == Mode::Terrain && app.palette > 0 && app.ed) {
+        if (const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era()); t && t->isTerrain(uint16_t(app.palette))) return uint16_t(app.palette);
+    }
+    return gMapResize.v.fill;
+}
+
 void mapResizeStart() {
     AppState& app = appState();
     if (!app.ed || !app.ed->isOpen()) return;
@@ -51,6 +59,11 @@ void mapResizeStart() {
     gMapResize.on = true, gMapResize.ed = app.ed.get(), gMapResize.revision = app.ed->revision();
     gMapResize.v.w = app.ed->width(), gMapResize.v.h = app.ed->height();
     gMapResize.v.fill = mapPropsFirstTerrain(app.ed->era());
+    gMapResize.v.fill = mapResizeFill(app);  // (the terrain picked in the Terrain palette: the new ground)
+    // A mode of its own: no brush of a mode's palette (a terrain, a unit, a doodad...) or paste stays on the cursor.
+    app.palette = -1, app.pasting = false;
+    void shellPaletteChanged();
+    shellPaletteChanged();
     app.dirty = true;
     setMessage(L"Resize map: drag the edges or the corners; drag inside to move the map's content. Enter: change the size. Esc: cancel.");
 }
@@ -141,13 +154,28 @@ bool mapResizeMouse(AppState& app, int kind, int sx, int sy) {
     return true;
 }
 
+// The map's cursor in the mode: the handle's direction, a move in the rectangle, else the arrow.
+stardraft::draw::Cursor mapResizeCursor(AppState& app, int x, int y) {
+    using stardraft::draw::Cursor;
+    if (app.drag == Drag::Pan || app.drag == Drag::AutoPan) return Cursor::SizeAll;
+    switch (gMapResize.drag >= 0 ? gMapResize.drag : mapResizeHit(app, x, y)) {
+    case 0: case 4: return Cursor::SizeNWSE;
+    case 2: case 6: return Cursor::SizeNESW;
+    case 1: case 5: return Cursor::SizeNS;
+    case 3: case 7: return Cursor::SizeWE;
+    case 8: return Cursor::SizeAll;
+    default: return Cursor::Arrow;
+    }
+}
+
 // The mode's keys: Enter makes the change, Esc leaves. True: taken.
 bool mapResizeKey(bool enter, bool escape) {
     if (!mapResizeOn()) return false;
     if (escape) return mapResizeStop(L"Resize map: the map keeps its size"), true;
     if (!enter) return false;
-    const ResizeValues v = gMapResize.v;
     AppState& app = appState();
+    ResizeValues v = gMapResize.v;
+    v.fill = mapResizeFill(app);  // (the terrain picked now)
     if (v.w == app.ed->width() && v.h == app.ed->height() && v.shiftX == 0 && v.shiftY == 0) return mapResizeStop(L"Resize map: the map keeps its size"), true;
     if (collabMapShared()) return mapResizeStop(L"The map is shared: its size cannot change while the session is open"), true;
     gMapResize.on = false;  // (before the change: the camera's box is the map again)
@@ -203,13 +231,24 @@ void mapResizePaint(draw::Canvas& c, draw::Rect view) {
     float x0, y0, x1, y1;
     mapResizeRect(gMapResize.v, x0, y0, x1, y1);
     const std::wstring size = std::to_wstring(gMapResize.v.w) + L" x " + std::to_wstring(gMapResize.v.h) + tr(L" tiles");
-    const std::wstring keys = tr(L"Enter: change the size. Esc: cancel.");
-    const int pad = scale(8), lineH = c.metrics().height, w = std::max(c.measure(size), c.measure(keys)) + 2 * pad, h = 2 * lineH + pad + scale(4);
+    std::wstring keys = tr(L"Enter: change the size. Esc: cancel.");
+    if (const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era())) {  // (the terrain of the new ground: the one picked)
+        const uint16_t fill = mapResizeFill(app);
+        if (t->isTerrain(fill)) keys = tr(L"New ground: ") + widen(t->terrainName(fill)) + L"\n" + keys;
+    }
+    const size_t nl = keys.find(L'\n');
+    const std::wstring ground = nl == std::wstring::npos ? std::wstring() : keys.substr(0, nl);
+    if (nl != std::wstring::npos) keys = keys.substr(nl + 1);
+    const int rowsN = ground.empty() ? 2 : 3;
+    const int pad = scale(8), lineH = c.metrics().height, w = std::max({c.measure(size), c.measure(keys), c.measure(ground)}) + 2 * pad,
+              h = rowsN * lineH + pad + scale(2) * rowsN;
     int x = int((x0 - app.camX) * app.zoom) + scale(10), y = int((y0 - app.camY) * app.zoom) + scale(10);
     x = std::clamp(x, view.left + scale(8), std::max(view.left + scale(8), view.right - w - scale(8)));
     y = std::clamp(y, view.top + scale(8), std::max(view.top + scale(8), view.bottom - h - scale(8)));
     const draw::Rect box{x, y, x + w, y + h};
     c.roundBox(box, kPanel, kAccent, float(scale(4)));
     c.text({x + pad, y + pad / 2, x + w - pad, y + pad / 2 + lineH}, size, kText, draw::kMiddle);
-    c.text({x + pad, y + pad / 2 + lineH + scale(2), x + w - pad, y + pad / 2 + 2 * lineH + scale(2)}, keys, kDim, draw::kMiddle);
+    int ty = y + pad / 2 + lineH + scale(2);
+    if (!ground.empty()) c.text({x + pad, ty, x + w - pad, ty + lineH}, ground, kDim, draw::kMiddle), ty += lineH + scale(2);
+    c.text({x + pad, ty, x + w - pad, ty + lineH}, keys, kDim, draw::kMiddle);
 }

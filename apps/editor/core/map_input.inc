@@ -67,6 +67,10 @@ std::wstring unitShortName(const UnitType& t);
 bool mapLayersOutsideBox(const Editor& ed, int& x0, int& y0, int& x1, int& y1);  // (map_layers.inc)
 bool mapResizeMouse(AppState& app, int kind, int sx, int sy);  // (core/map_resize_mode.inc: Edit > Resize map)
 bool mapResizeCameraBox(float& x0, float& y0, float& x1, float& y1);
+inline bool mapResizeCameraBox_on() {
+    float a, b, c, d;
+    return mapResizeCameraBox(a, b, c, d);
+}
 void clampCamera() {
     AppState& app = appState();
     if (!app.ed || !app.ed->isOpen() || app.zoom <= 0) return;
@@ -1179,8 +1183,10 @@ void terrainEditBlockedMessage() {
     setMessage(L"Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer).");
 }
 
+stardraft::draw::Cursor mapResizeCursor(AppState& app, int x, int y);  // (core/map_resize_mode.inc)
 stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
     using stardraft::draw::Cursor;
+    if (mapResizeCameraBox_on()) return mapResizeCursor(app, x, y);  // (Edit > Resize map: its handles' cursors)
     if (float wx, wy; toWorld(app, x, y, wx, wy), terrainEditBlockedAt(app, wx, wy)) return Cursor::No;  // (off the map)
     // (a locked layer, or a linked duplicate, which is always locked: no terrain tool paints on it)
     if (app.mode == Mode::Terrain && app.drag == Drag::None && mapLayersActiveLocked() && terrainEditBlockedAt(app, -1, -1)) return Cursor::No;

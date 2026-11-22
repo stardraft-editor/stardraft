@@ -49,6 +49,7 @@ constexpr ProgramKey kProgramKeys[] = {
     {"Ctrl+M", ID_VIEW_LOG},
 #endif
     {"Ctrl+Alt+T", ID_TERRAIN_KIND_NEXT, true},  // (Terrain mode: Isometric, Rectangle, Tile, Custom in turn)
+    {"Ctrl+Shift+R", ID_EDIT_RESIZEMAP},  // (Edit > Resize map: core/map_resize_mode.inc)
     // The tool strip's symmetry: each mirror on or off (they combine), Alt+0 none
     {"Alt+0", ID_MIRROR_KEY, true}, {"Alt+1", ID_MIRROR_KEY + 1, true}, {"Alt+2", ID_MIRROR_KEY + 2, true}, {"Alt+3", ID_MIRROR_KEY + 3, true},
     {"Alt+4", ID_MIRROR_KEY + 4, true},
