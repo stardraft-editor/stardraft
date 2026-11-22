@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstring>
 #include <set>
+#include <unordered_map>
 
 #include "json.h"
 #include "monocypher.h"
@@ -1602,29 +1603,102 @@ bool Session::flushLocal(bool force) {
     return true;
 }
 
-uint32_t unitSerial(const Bytes& r) {  // (a UNIT record's first 4 bytes)
-    return r.size() < 4 ? 0 : uint32_t(r[0]) | uint32_t(r[1]) << 8 | uint32_t(r[2]) << 16 | uint32_t(r[3]) << 24;
+// The objects that an edit changed (a move, a property), as pairs of their old and new records (from, to). Units by
+// their serial. Doodads and sprites by their type: first at the offset that most of them share (the objects of one move
+// all go the same way; the editor may put a moved doodad last in its list), then the nearest one of that type. The
+// records with no pair were placed or deleted. Indexed: a move of thousands of objects is quick.
+std::vector<std::pair<Bytes, Bytes>> pairChanges(uint8_t section, const ObjEdit& e) {
+    std::vector<std::pair<Bytes, Bytes>> out;
+    if ((section != oUnits && section != oDoodads && section != oSprites) || e.removed.empty() || e.added.empty()) return out;
+    const size_t keyBytes = section == oUnits ? 4 : 2, xAt = section == oUnits ? 4 : 2;  // (unit: serial, then x, y; DD2, THG2: id, x, y)
+    auto key = [&](const Bytes& r) { return r.size() >= keyBytes ? std::string(r.begin(), r.begin() + long(keyBytes)) : std::string(); };
+    auto pos = [&](const Bytes& r, int& x, int& y) {
+        x = r.size() >= xAt + 4 ? int(r[xAt]) | int(r[xAt + 1]) << 8 : 0;
+        y = r.size() >= xAt + 4 ? int(r[xAt + 2]) | int(r[xAt + 3]) << 8 : 0;
+    };
+    std::unordered_map<std::string, std::vector<size_t>> byKey;  // the added records of each key
+    for (size_t k = 0; k < e.added.size(); ++k) byKey[key(e.added[k])].push_back(k);
+    std::vector<bool> used(e.added.size(), false), done(e.removed.size(), false);
+    auto take = [&](size_t i, size_t k) { used[k] = done[i] = true, out.push_back({e.removed[i], e.added[k]}); };
+    if (section != oUnits) {
+        std::map<std::pair<int, int>, int> votes;  // the offsets (of up to 16 candidates each)
+        for (const Bytes& r : e.removed)
+            if (auto it = byKey.find(key(r)); it != byKey.end()) {
+                int rx, ry;
+                pos(r, rx, ry);
+                for (size_t n = 0; n < it->second.size() && n < 16; ++n) {
+                    int tx, ty;
+                    pos(e.added[it->second[n]], tx, ty);
+                    ++votes[{tx - rx, ty - ry}];
+                }
+            }
+        std::pair<int, int> best{0, 0};
+        int most = 0;
+        for (const auto& [o, n] : votes)
+            if (n > most) most = n, best = o;
+        if (most > 1) {
+            std::unordered_map<std::string, std::vector<size_t>> at;  // the added records by key and place
+            auto place = [&](const std::string& k, int x, int y) { return k + std::to_string(x) + "," + std::to_string(y); };
+            for (size_t k = 0; k < e.added.size(); ++k) {
+                int x, y;
+                pos(e.added[k], x, y);
+                at[place(key(e.added[k]), x, y)].push_back(k);
+            }
+            for (size_t i = 0; i < e.removed.size(); ++i) {
+                int x, y;
+                pos(e.removed[i], x, y);
+                if (auto it = at.find(place(key(e.removed[i]), x + best.first, y + best.second)); it != at.end())
+                    for (size_t k : it->second)
+                        if (!used[k]) {
+                            take(i, k);
+                            break;
+                        }
+            }
+        }
+    }
+    for (size_t i = 0; i < e.removed.size(); ++i) {  // the rest: the nearest of its key (units: the one of its serial)
+        if (done[i]) continue;
+        auto it = byKey.find(key(e.removed[i]));
+        if (it == byKey.end()) continue;
+        int rx, ry;
+        pos(e.removed[i], rx, ry);
+        long bestD = -1;
+        size_t bestK = 0, seen = 0;
+        for (size_t k : it->second) {
+            if (used[k]) continue;
+            if (++seen > 64) break;
+            int tx, ty;
+            pos(e.added[k], tx, ty);
+            const long d = std::labs(long(tx - rx)) + std::labs(long(ty - ry));
+            if (bestD < 0 || d < bestD) bestD = d, bestK = k;
+        }
+        if (bestD >= 0) take(i, bestK);
+    }
+    return out;
 }
 
-// This user's records (the undo takes back only these): added ones, and removed ones (an undo may put them back).
-void Session::noteMine(uint8_t section, const ObjEdit& e) {
-    // (a record this user removed may come back with an undo or a redo; one this user added may go)
+// This user's records (the undo takes back only these): the ones this user made (added, or changed to), the record
+// each changed one came from (the last change), and the ones this user deleted (removed with nothing in their place).
+void Session::noteMine(uint8_t section, const ObjEdit& e, const std::vector<std::pair<Bytes, Bytes>>& pairs) {
+    auto& mine = mineAdded_[section];
+    auto& deleted = mineDeleted_[section];
+    auto& from = mineFrom_[section];
+    auto less = [](std::map<Bytes, int>& m, const Bytes& r) {  // (a count down; none left: out of the map)
+        auto it = m.find(r);
+        if (it == m.end()) return false;
+        if (--it->second <= 0) m.erase(it);
+        return true;
+    };
+    std::map<Bytes, int> pairedFrom, pairedTo;
+    for (const auto& [f, t] : pairs) ++pairedFrom[f], ++pairedTo[t], from[t] = f;
     for (const Bytes& r : e.removed) {
-        auto it = mineAdded_[section].find(r);
-        if (it != mineAdded_[section].end() && it->second > 0) --it->second;
-        ++mineRemoved_[section][r];
+        less(mine, r);
+        from.erase(r);
+        if (!less(pairedFrom, r)) ++deleted[r];
     }
     for (const Bytes& r : e.added) {
-        auto it = mineRemoved_[section].find(r);
-        if (it != mineRemoved_[section].end() && it->second > 0) --it->second;
-        ++mineAdded_[section][r];
-    }
-    if (section == oUnits) {  // a unit removed with no record of it added (not a move or another change): deleted
-        std::set<uint32_t> added;
-        for (const Bytes& r : e.added) added.insert(unitSerial(r));
-        for (const Bytes& r : e.removed)
-            if (!added.count(unitSerial(r))) mineDeleted_.insert(unitSerial(r));
-        for (uint32_t s : added) mineDeleted_.erase(s);
+        ++mine[r];
+        if (!less(pairedTo, r)) less(deleted, r);  // (a record this user deleted came back)
     }
     for (const auto& [i, rec] : e.slots) {
         if (slotWriter_[section].size() <= i) slotWriter_[section].resize(i + 1, 0);
@@ -1633,34 +1707,73 @@ void Session::noteMine(uint8_t section, const ObjEdit& e) {
     if (e.whole) objWriter_[section] = me();
 }
 
-// An undo's or a redo's edit of the objects: only what this user added, removed or wrote last.
-ObjEdit Session::filterUndo(uint8_t section, const ObjEdit& e, const Bytes& shown) {
+// An undo's or a redo's edit of the objects: only what this user may take back. For units, doodads and sprites, one rule:
+//   - a change taken back (a move or a property: the object's record goes, an earlier one comes) only while the object
+//     is as this user left it (the record that goes is this user's);
+//   - an object that comes back (nothing goes in its place) only when this user deleted it;
+//   - an object that goes (nothing comes in its place) only when this user placed it, as this user left it.
+// So an undo never takes back another user's later edit, and two users' undos never make an object two times. The undo's
+// records are paired by their own identity (pairChanges), the record a change came from first.
+// `pairs` gets the changes taken back (from, to), for the redo.
+ObjEdit Session::filterUndo(uint8_t section, const ObjEdit& e, std::vector<std::pair<Bytes, Bytes>>& pairs) {
     ObjEdit keep;
     keep.section = section;
-    std::map<Bytes, int> added = mineAdded_[section], removed = mineRemoved_[section];
-    for (const Bytes& r : e.removed)
-        if (auto it = added.find(r); it != added.end() && it->second > 0) --it->second, keep.removed.push_back(r);
-    for (const Bytes& r : e.added)
-        if (auto it = removed.find(r); it != removed.end() && it->second > 0) --it->second, keep.added.push_back(r);
     for (const auto& s : e.slots)
         if (s.first < slotWriter_[section].size() && slotWriter_[section][s.first] == me()) keep.slots.push_back(s);
     if (e.whole && objWriter_[section] == me()) keep.whole = true, keep.data = e.data;
-    if (section == oUnits) {
-        // A unit's change that the undo takes back (a move: its record goes, the old one comes): only while the unit is
-        // as this user left it (that record goes too). A unit that comes back (no record of it goes): only one that this
-        // user deleted, and only when no unit has its serial now. Else another user's later delete or change would be
-        // undone, or the unit would be there two times (both users' undo).
-        std::set<uint32_t> there, going, goingKept;
-        for (size_t at = 0; at + 36 <= shown.size(); at += 36) there.insert(unitSerial(Bytes(shown.begin() + long(at), shown.begin() + long(at) + 4)));
-        for (const Bytes& r : e.removed) going.insert(unitSerial(r));
-        for (const Bytes& r : keep.removed) goingKept.insert(unitSerial(r));
-        std::vector<Bytes> adds;
-        for (Bytes& r : keep.added) {
-            const uint32_t s = unitSerial(r);
-            if (going.count(s) ? goingKept.count(s) > 0 : !there.count(s) && mineDeleted_.count(s)) adds.push_back(std::move(r));
+    if (e.removed.empty() && e.added.empty()) return keep;
+    const auto& mine = mineAdded_[section];
+    const auto& deleted = mineDeleted_[section];
+    const auto& from = mineFrom_[section];
+    std::map<Bytes, int> mineLeft, deletedLeft;  // (the counts this undo uses)
+    auto use = [](const std::map<Bytes, int>& all, std::map<Bytes, int>& usedUp, const Bytes& r) {
+        auto it = all.find(r);
+        if (it == all.end() || usedUp[r] >= it->second) return false;
+        return ++usedUp[r], true;
+    };
+    // The pairs: the record a change came from first (this user's own last change), then by identity.
+    std::multimap<Bytes, size_t> addedAt;
+    for (size_t k = 0; k < e.added.size(); ++k) addedAt.insert({e.added[k], k});
+    std::vector<bool> addedPaired(e.added.size(), false), removedPaired(e.removed.size(), false);
+    std::vector<std::pair<size_t, size_t>> undoPairs;
+    for (size_t i = 0; i < e.removed.size(); ++i)
+        if (auto f = from.find(e.removed[i]); f != from.end())
+            for (auto [lo, hi] = addedAt.equal_range(f->second); lo != hi; ++lo)
+                if (!addedPaired[lo->second]) {
+                    addedPaired[lo->second] = removedPaired[i] = true, undoPairs.push_back({i, lo->second});
+                    break;
+                }
+    ObjEdit rest;
+    std::vector<size_t> restRemoved, restAdded;
+    for (size_t i = 0; i < e.removed.size(); ++i)
+        if (!removedPaired[i]) rest.removed.push_back(e.removed[i]), restRemoved.push_back(i);
+    for (size_t k = 0; k < e.added.size(); ++k)
+        if (!addedPaired[k]) rest.added.push_back(e.added[k]), restAdded.push_back(k);
+    {
+        std::multimap<Bytes, size_t> ra, rr;
+        for (size_t j = 0; j < rest.removed.size(); ++j) rr.insert({rest.removed[j], restRemoved[j]});
+        for (size_t j = 0; j < rest.added.size(); ++j) ra.insert({rest.added[j], restAdded[j]});
+        for (const auto& [g, a] : pairChanges(section, rest)) {
+            size_t gi = 0, ai = 0;
+            for (auto [lo, hi] = rr.equal_range(g); lo != hi; ++lo)
+                if (!removedPaired[lo->second]) {
+                    gi = lo->second;
+                    break;
+                }
+            for (auto [lo, hi] = ra.equal_range(a); lo != hi; ++lo)
+                if (!addedPaired[lo->second]) {
+                    ai = lo->second;
+                    break;
+                }
+            removedPaired[gi] = addedPaired[ai] = true, undoPairs.push_back({gi, ai});
         }
-        keep.added = std::move(adds);
     }
+    for (const auto& [i, k] : undoPairs)  // a change taken back: while the object is as this user left it
+        if (use(mine, mineLeft, e.removed[i])) keep.removed.push_back(e.removed[i]), keep.added.push_back(e.added[k]), pairs.push_back({e.removed[i], e.added[k]});
+    for (size_t i = 0; i < e.removed.size(); ++i)  // an object this user placed goes
+        if (!removedPaired[i] && use(mine, mineLeft, e.removed[i])) keep.removed.push_back(e.removed[i]);
+    for (size_t k = 0; k < e.added.size(); ++k)  // an object this user deleted comes back
+        if (!addedPaired[k] && use(deleted, deletedLeft, e.added[k])) keep.added.push_back(e.added[k]);
     return keep;
 }
 
@@ -1677,7 +1790,9 @@ void Session::flushObjects(bool undone) {
             if (ev_.status) ev_.status("View only: edits are not sent");
             continue;
         }
-        if (undone) e = filterUndo(s, e, shown);
+        std::vector<std::pair<Bytes, Bytes>> pairs;  // (the records changed in place: from, to)
+        if (undone) e = filterUndo(s, e, pairs);
+        else pairs = pairChanges(s, e);
         const Bytes next = applyObjects(s, shown, e);
         if (!validObjects(s, next, ed_->unitTypes().size()) || (s == oLocations && next.size() > slotLimit_)) {
             applyObjectsToEditor(s, shown);
@@ -1686,7 +1801,7 @@ void Session::flushObjects(bool undone) {
         }
         if (next != cur) applyObjectsToEditor(s, next);  // (an undo's part that is not this user's: back)
         if (e.empty()) continue;
-        noteMine(s, e);
+        noteMine(s, e, pairs);
         shown = next;
         if (host_) {
             objWriter_[s] = 0;
@@ -1762,7 +1877,8 @@ void Session::hostObjects(uint32_t from, uint32_t seq, ObjEdit e) {
         slotWriter_[s][i] = from;
     }
     for (const Bytes& r : e.removed)  // (the host's own records that a member removed are not the host's to undo)
-        if (auto it = mineAdded_[s].find(r); it != mineAdded_[s].end() && it->second > 0) --it->second;
+        if (auto it = mineAdded_[s].find(r); it != mineAdded_[s].end() && --it->second <= 0) mineAdded_[s].erase(it);
+    for (const Bytes& r : e.added) mineDeleted_[s].erase(r);  // (one the host deleted that a member made again: not the host's to bring back)
 }
 
 // Guest: the host's state of a section. This program's edits that the host did not take yet stay on top of it.
@@ -1772,12 +1888,18 @@ void Session::objectsFromHost(uint8_t section, uint32_t ack, uint32_t writer, By
     if (ended_) return;
     auto& pending = objPending_[section];
     std::map<uint32_t, Bytes> mineDone;  // (the slots of this user's edits that the host took now)
+    const bool records = kObj[section].record && !kObj[section].slots;
+    Bytes withMine = records ? objBase_[section] : Bytes{};  // (the old state with this user's edits that the host took now)
     for (const ObjPending& p : pending)
-        if (p.seq <= ack)
+        if (p.seq <= ack) {
             for (const auto& [i, rec] : p.edit.slots) mineDone[i] = rec;
+            if (records) withMine = applyObjects(section, withMine, p.edit);
+        }
     std::erase_if(pending, [&](const ObjPending& p) { return p.seq <= ack; });
     const Bytes old = objBase_[section];
     objBase_[section] = std::move(data);
+    if (records)  // (one this user deleted that another person made again: not this user's to bring back; this user's own edits do not count)
+        for (const Bytes& r : diffObjects(section, withMine, objBase_[section]).added) mineDeleted_[section].erase(r);
     if (kObj[section].slots) {  // (the slots that the host changed: their last writer)
         const size_t rec = kObj[section].record, n = objBase_[section].size() / rec;
         if (slotWriter_[section].size() < n) slotWriter_[section].resize(n, 0);
@@ -1808,6 +1930,11 @@ void Session::objectsFromHost(uint8_t section, uint32_t ack, uint32_t writer, By
                 continue;
             }
             const int n = it->second;
+            if (auto f = mineFrom_[section].find(it->first); f != mineFrom_[section].end()) {  // (what it came from: still)
+                Bytes source = std::move(f->second);
+                mineFrom_[section].erase(f);
+                mineFrom_[section][moved] = std::move(source);
+            }
             it = mineAdded_[section].erase(it);
             mineAdded_[section][moved] += n;
         }

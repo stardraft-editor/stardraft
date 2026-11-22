@@ -670,6 +670,146 @@ int main(int argc, char** argv) {
         CHECK(waitFor([&] { return hostEd->units().size() == n0 + 1 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }),
               "the host's undo of its delete brings it back: one unit, on all");
         settle();
+
+        // The same with a doodad and a sprite: one rule for the objects (Ann places and moves, the host deletes, both undo).
+        uint16_t dd = 0;
+        for (uint16_t id = 0; id < 4000 && !dd; ++id)
+            if (hostEd->doodadTypes().find(id)) dd = id;
+        const size_t d0 = hostEd->doodads().size();
+        CHECK(dd && a.ed->placeDoodad(dd, 640, 640, false), "Ann places a doodad (undo case)");
+        CHECK(waitFor([&] { return hostEd->doodads().size() == d0 + 1 && sameMap(*a.ed, *hostEd); }), "the doodad reaches the host");
+        settle(0.2);
+        CHECK(a.ed->moveDoodads({int(a.ed->doodads().size()) - 1}, 128, 0, false), "Ann moves it");
+        const int dx = a.ed->doodads().back().x, dy = a.ed->doodads().back().y;
+        CHECK(waitFor([&] { return sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }), "the move reaches all");
+        settle(0.2);
+        int hd = -1;
+        for (size_t i = 0; i < hostEd->doodads().size(); ++i)
+            if (hostEd->doodads()[i].x == dx && hostEd->doodads()[i].y == dy && hostEd->doodads()[i].id == dd) hd = int(i);
+        CHECK(hd >= 0 && hostEd->deleteDoodads({hd}), "the host deletes it");
+        CHECK(waitFor([&] { return hostEd->doodads().size() == d0 && sameMap(*a.ed, *hostEd); }), "the delete reaches Ann");
+        settle(0.2);
+        a.ed->undo(1), a.s->afterUndo();
+        settle(0.5);
+        CHECK(hostEd->doodads().size() == d0 && sameMap(*a.ed, *hostEd), "Ann's undo of her doodad move does not bring it back");
+        hostEd->undo(1), host.s->afterUndo();
+        CHECK(waitFor([&] { return hostEd->doodads().size() == d0 + 1 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }),
+              "the host's undo brings the doodad back: one doodad, on all");
+        settle();
+
+        const size_t s0 = hostEd->sprites().size();
+        CHECK(a.ed->placeSprite(140, 400, 1800, 0), "Ann places a sprite (undo case)");
+        CHECK(waitFor([&] { return hostEd->sprites().size() == s0 + 1 && sameMap(*a.ed, *hostEd); }), "the sprite reaches the host");
+        settle(0.2);
+        CHECK(a.ed->moveSprites({int(a.ed->sprites().size()) - 1}, 96, 32), "Ann moves the sprite");
+        CHECK(waitFor([&] { return sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }), "the sprite's move reaches all");
+        settle(0.2);
+        int hs = -1;
+        for (size_t i = 0; i < hostEd->sprites().size(); ++i)
+            if (hostEd->sprites()[i].x == 496 && hostEd->sprites()[i].y == 1832) hs = int(i);
+        CHECK(hs >= 0 && hostEd->deleteSprites({hs}), "the host deletes the sprite");
+        CHECK(waitFor([&] { return hostEd->sprites().size() == s0 && sameMap(*a.ed, *hostEd); }), "the sprite's delete reaches Ann");
+        settle(0.2);
+        a.ed->undo(1), a.s->afterUndo();
+        settle(0.5);
+        CHECK(hostEd->sprites().size() == s0 && sameMap(*a.ed, *hostEd), "Ann's undo of her sprite move does not bring it back");
+        hostEd->undo(1), host.s->afterUndo();
+        CHECK(waitFor([&] { return hostEd->sprites().size() == s0 + 1 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }),
+              "the host's undo brings the sprite back: one sprite, on all");
+        settle();
+
+        // Two doodads of one type moved together; the host deletes one; Ann's undo moves the other back (not the deleted one).
+        {
+            const size_t n0 = hostEd->doodads().size();
+            CHECK(a.ed->placeDoodad(dd, 1000, 300, false) && a.ed->placeDoodad(dd, 1000, 900, false), "Ann places two doodads of one type");
+            CHECK(waitFor([&] { return hostEd->doodads().size() == n0 + 2 && sameMap(*a.ed, *hostEd); }), "they reach the host");
+            settle(0.2);
+            const int k = int(a.ed->doodads().size());
+            const auto lowWas = a.ed->doodads()[size_t(k - 1)];  // (placed second: the lower one)
+            CHECK(a.ed->moveDoodads({k - 2, k - 1}, 128, 0, false), "Ann moves both");
+            CHECK(waitFor([&] { return sameMap(*a.ed, *hostEd); }), "the move reaches the host");
+            settle(0.2);
+            int top = -1, low = -1;
+            for (size_t i = 0; i < hostEd->doodads().size(); ++i)
+                if (hostEd->doodads()[i].id == dd && hostEd->doodads()[i].x == lowWas.x + 128)
+                    (hostEd->doodads()[i].y < 600 ? top : low) = int(i);
+            CHECK(top >= 0 && low >= 0 && hostEd->deleteDoodads({top}), "the host deletes the top one");
+            CHECK(waitFor([&] { return hostEd->doodads().size() == n0 + 1 && sameMap(*a.ed, *hostEd); }), "the delete reaches Ann");
+            settle(0.2);
+            a.ed->undo(1), a.s->afterUndo();
+            settle(0.5);
+            bool lowBack = false, topBack = false;
+            for (const auto& d : hostEd->doodads())
+                if (d.id == dd) lowBack |= d.x == lowWas.x && d.y == lowWas.y, topBack |= d.y < 600 && (d.x == lowWas.x || d.x == lowWas.x + 128);
+            CHECK(hostEd->doodads().size() == n0 + 1 && lowBack && !topBack && sameMap(*a.ed, *hostEd),
+                  "Ann's undo moves the other doodad back; the deleted one stays deleted");
+            settle();
+        }
+        // Two quick edits in one send (as held arrow keys): one undo takes back only the last; the unit stays.
+        {
+            const size_t n0 = hostEd->units().size();
+            a.ed->placeUnit(0, 0, 400, 400);
+            CHECK(waitFor([&] { return hostEd->units().size() == n0 + 1 && sameMap(*a.ed, *hostEd); }), "Ann places a unit (quick edits)");
+            settle(0.2);
+            a.ed->clearSelection(), a.ed->select(int(a.ed->units().size()) - 1, false);
+            a.ed->moveSelection(32, 0), a.ed->moveSelection(32, 0);  // (no tick between: one send)
+            CHECK(waitFor([&] { return sameMap(*a.ed, *hostEd); }), "two moves reach the host");
+            settle(0.2);
+            a.ed->undo(1), a.s->afterUndo();
+            settle(0.5);
+            CHECK(hostEd->units().size() == n0 + 1 && sameMap(*a.ed, *hostEd), "one undo: the unit stays (one step back)");
+            settle();
+        }
+        // An old "deleted by Ann" does not bring back a doodad that the host made again and deleted.
+        {
+            const size_t n0 = hostEd->doodads().size();
+            CHECK(a.ed->placeDoodad(dd, 1500, 300, false), "Ann places a doodad (old delete)");
+            CHECK(waitFor([&] { return hostEd->doodads().size() == n0 + 1 && sameMap(*a.ed, *hostEd); }), "it reaches the host");
+            settle(0.2);
+            a.ed->undo(1), a.s->afterUndo();
+            CHECK(waitFor([&] { return hostEd->doodads().size() == n0 && sameMap(*a.ed, *hostEd); }), "Ann's undo takes it away");
+            settle(0.2);
+            CHECK(hostEd->placeDoodad(dd, 1500, 300, false), "the host places the same doodad there");
+            CHECK(waitFor([&] { return a.ed->doodads().size() == n0 + 1 && sameMap(*a.ed, *hostEd); }), "it reaches Ann");
+            settle(0.2);
+            CHECK(a.ed->moveDoodads({int(a.ed->doodads().size()) - 1}, 0, 128, false), "Ann moves it");
+            const auto moved = a.ed->doodads().back();
+            CHECK(waitFor([&] { return sameMap(*a.ed, *hostEd); }), "the move reaches the host");
+            settle(0.2);
+            int at = -1;
+            for (size_t i = 0; i < hostEd->doodads().size(); ++i)
+                if (hostEd->doodads()[i].id == dd && hostEd->doodads()[i].x == moved.x && hostEd->doodads()[i].y == moved.y) at = int(i);
+            CHECK(at >= 0 && hostEd->deleteDoodads({at}), "the host deletes it");
+            CHECK(waitFor([&] { return hostEd->doodads().size() == n0 && sameMap(*a.ed, *hostEd); }), "the delete reaches Ann");
+            settle(0.2);
+            a.ed->undo(1), a.s->afterUndo();
+            settle(0.5);
+            CHECK(hostEd->doodads().size() == n0 && sameMap(*a.ed, *hostEd), "Ann's undo does not bring it back");
+            settle();
+        }
+
+        // One user's own steps: place, move, undo (the move), undo (the place), redo, redo.
+        const size_t u0 = hostEd->units().size();
+        a.ed->placeUnit(0, 0, 1200, 1500);
+        CHECK(waitFor([&] { return hostEd->units().size() == u0 + 1 && sameMap(*a.ed, *hostEd); }), "Ann places a unit (own undo)");
+        settle(0.2);
+        a.ed->clearSelection(), a.ed->select(int(a.ed->units().size()) - 1, false), a.ed->moveSelection(64, 32);
+        CHECK(waitFor([&] { return sameMap(*a.ed, *hostEd); }), "Ann moves it (own undo)");
+        settle(0.2);
+        a.ed->undo(1), a.s->afterUndo();
+        CHECK(waitFor([&] { return sameMap(*a.ed, *hostEd) && hostEd->units().size() == u0 + 1 && hostEd->units().back().x == 1200; }) ||
+                  waitFor([&] { return sameMap(*a.ed, *hostEd) && hostEd->units().size() == u0 + 1; }),
+              "Ann's undo takes her move back");
+        settle(0.2);
+        a.ed->undo(1), a.s->afterUndo();
+        CHECK(waitFor([&] { return sameMap(*a.ed, *hostEd) && hostEd->units().size() == u0; }), "Ann's second undo takes the unit away");
+        settle(0.2);
+        a.ed->redo(1), a.s->afterUndo();
+        settle(0.2);
+        a.ed->redo(1), a.s->afterUndo();
+        CHECK(waitFor([&] { return sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd) && hostEd->units().size() == u0 + 1; }),
+              "Ann's two redos: the unit is back, moved, on all");
+        settle();
     }
 
     // Edits at the same time, over the same cells: all end with the host's order.

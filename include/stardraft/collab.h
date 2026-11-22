@@ -21,7 +21,6 @@
 #include <functional>
 #include <map>
 #include <memory>
-#include <set>
 #include <string>
 #include <vector>
 
@@ -263,8 +262,8 @@ private:
     void objectsFromHost(uint8_t section, uint32_t ack, uint32_t writer, Bytes data);
     void applyObjectsToEditor(uint8_t section, const Bytes& data);
     void hostObjects(uint32_t from, uint32_t seq, ObjEdit e);
-    void noteMine(uint8_t section, const ObjEdit& e);
-    ObjEdit filterUndo(uint8_t section, const ObjEdit& e, const Bytes& shown);
+    void noteMine(uint8_t section, const ObjEdit& e, const std::vector<std::pair<Bytes, Bytes>>& pairs);
+    ObjEdit filterUndo(uint8_t section, const ObjEdit& e, std::vector<std::pair<Bytes, Bytes>>& pairs);
     void applyRemote(const Waiting& w, Terrain* editorNow);
     void sendCursors();
     uint32_t me() const { return host_ ? 0 : myId_; }
@@ -319,8 +318,9 @@ private:
     std::map<uint32_t, uint32_t> objAck_;  // host: each member's last edit that the host applied
     std::map<uint32_t, std::array<Bytes, kObjSections>> objSentTo_;  // host: each section as each member has it
     std::map<uint32_t, std::array<bool, kObjSections>> objKnown_;    // (false: the member gets the whole section next)
-    std::map<Bytes, int> mineAdded_[kObjSections], mineRemoved_[kObjSections];  // this user's records (the undo's filter)
-    std::set<uint32_t> mineDeleted_;  // the units (serials) that this user deleted last (an undo may put only these back)
+    std::map<Bytes, int> mineAdded_[kObjSections];    // this user's records, as this user left them (the undo's filter)
+    std::map<Bytes, Bytes> mineFrom_[kObjSections];     // a record of this user's change (a move, a property): the one it came from
+    std::map<Bytes, int> mineDeleted_[kObjSections];  // records this user deleted (an undo brings back only these)
     std::vector<uint32_t> slotWriter_[kObjSections];
     struct ObjWaiting {
         uint8_t section = 0;
