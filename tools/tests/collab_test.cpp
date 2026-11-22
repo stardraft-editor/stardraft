@@ -69,6 +69,7 @@ struct Program final : cb::Outbox {
     double retryAt = 0;
     std::vector<cb::Change> changes;
     std::vector<std::array<uint32_t, 3>> pings;
+    std::vector<std::pair<uint32_t, std::string>> said;
     void connect(const std::string& url) {
         platform::WebSocket::Handlers h;
         const int g = ++gen;
@@ -92,6 +93,7 @@ struct Program final : cb::Outbox {
         };
         ev.changed = [this](const cb::Change& c) { changes.push_back(c); };
         ev.ping = [this](uint32_t who, int x, int y) { pings.push_back({who, uint32_t(x), uint32_t(y)}); };
+        ev.said = [this](uint32_t who, const std::string& text) { said.push_back({who, text}); };
         ev.joinRequest = [this](const cb::Peer& p) { requests.push_back(p); };
         ev.status = [this](const std::string& t) { lastStatus = t; };
         ev.ended = [this](const std::string& why) { ended = why.empty() ? "(ended)" : why; };
@@ -776,6 +778,21 @@ int main(int argc, char** argv) {
         CHECK(!a.pings.empty() && a.pings[0][1] == 100 && a.pings[0][2] == 200 && a.pings[0][0] == host.pings[0][0], "at its place, from Bob");
         host.s->ping(300, 40);
         CHECK(waitFor([&] { return a.pings.size() == 2 && b.pings.size() == 1; }) && b.pings[0][0] == 0, "the host's ping reaches the members");
+    }
+    // Chat: all but the one who writes get the message, with who.
+    {
+        b.s->say("Hi all");
+        CHECK(waitFor([&] { return a.said.size() == 1 && host.said.size() == 1; }) && b.said.empty() && a.said[0].second == "Hi all" &&
+                  a.said[0].first == host.said[0].first,
+              "chat: Bob's message reaches the others, from Bob");
+        host.s->say("Welcome");
+        CHECK(waitFor([&] { return a.said.size() == 2 && b.said.size() == 1; }) && b.said[0] == std::make_pair(0u, std::string("Welcome")),
+              "chat: the host's message reaches the members");
+        std::string longText;  // 120 characters of 2 bytes (240 bytes): whole at the others
+        for (int i = 0; i < 120; ++i) longText += "\xC3\xA9";
+        b.s->say(longText);
+        CHECK(waitFor([&] { return a.said.size() == 3 && host.said.size() == 2; }) && a.said[2].second == longText && host.said[1].second == longText,
+              "chat: a long message of characters that are not ASCII arrives whole");
     }
     // Change reports: the others' edits, with their places.
     {

@@ -87,6 +87,7 @@ void closePopover();
 void joinProgressChanged();
 void showJoinProgress();
 void awarenessTick();
+void chatShownCheck();
 
 // Cursor chat (as Figma's): / on the map opens a bubble at the mouse, the text goes to the others as it is typed, Enter
 // keeps it for kChatKeep seconds, Esc removes it at once.
@@ -128,6 +129,7 @@ void finish() {
     gSharedKey = 0;
     awarenessReset();
     closePopover();
+    chatShownCheck();
     joinProgressChanged();
     invalidateMapView();
     shellMenusChanged();
@@ -170,6 +172,7 @@ void pump() {
 }
 
 void tickTimer() {
+    chatShownCheck();
     if (!gSession || gEnded) return chatClose(true);
     checkEditor();
     if (!gChatOpen && !gChatText.empty() && clockNow() > gChatUntil) chatClose(true);
@@ -248,6 +251,8 @@ void showWindow();
 void closePopover();
 void addChange(const cb::Change& c);
 void addPing(uint32_t who, int x, int y);
+void addChatLine(uint32_t who, const std::string& text);
+void chatShownCheck();
 bool gAutoAccept = false;  // host: people with a link come in without the question (the session window; this session only)
 
 cb::Session::Events events() {
@@ -268,6 +273,7 @@ cb::Session::Events events() {
     };
     ev.changed = [](const cb::Change& c) { addChange(c); };
     ev.ping = [](uint32_t who, int x, int y) { addPing(who, x, y); };
+    ev.said = [](uint32_t who, const std::string& text) { addChatLine(who, text); };
     ev.becameHost = [] {
         ++gConnGen;  // (the member's socket: its close is not the new host's)
         gAutoAccept = false;
@@ -1031,6 +1037,153 @@ struct SessionView final : draw::View {
 };
 SessionView gSessionView;
 
+// --- Chat: a column right of the Log while a session is open --------------------------------------------------------
+// The lines of the session (the newest last), the name and color as they were when the line came.
+struct ChatLine {
+    std::wstring name, text;
+    draw::Color color;
+    bool mine = false;
+};
+std::deque<ChatLine> gChatLines;
+constexpr size_t kChatLines = 200;
+
+class ChatPaneView final : public draw::View {
+public:
+    ChatPaneView() {
+        input_.setPlaceholder(shellTr(L"Message"));
+        input_.setMaxLength(stardraft::collab::kMaxSay);  // (Send cuts a longer UTF-8 text at kMaxSay bytes)
+        input_.onEnter = [this] { send(); };
+        input_.onEscape = [this] { input_.setText(L""); };
+        input_.onChange = [this] {  // the / that opened the box from the map: out of the text again (where it went)
+            if (!slashPending()) return;
+            const std::wstring now = input_.text();
+            for (size_t i = 0; i < now.size(); ++i)
+                if (now[i] == L'/' && now.size() == slashBefore_.size() + 1 && now.substr(0, i) + now.substr(i + 1) == slashBefore_) {
+                    slashUntil_ = 0;
+                    shellPost([this, before = slashBefore_] { input_.setText(before); });
+                    return;
+                }
+        };
+        add(input_, draw::Rect(0, 0, 0, 0));
+    }
+    ~ChatPaneView() override { remove(input_); }
+    void changed() { invalidate(); }
+    // The keyboard goes to the message box (the Log opens first: the box is in the open column). slash: the / key on
+    // the map opened it (its text, which comes after the key, does not go in the box).
+    void focusInput(bool slash = false) {
+        if (slash) slashBefore_ = input_.text(), slashUntil_ = clockNow() + 0.5;
+        if (!gLogPane.expanded()) gLogPane.setExpanded(true);
+        input_.setVisible(true);
+        input_.focus();
+    }
+    bool slashPending() const { return clockNow() < slashUntil_; }
+    void slashTaken() { slashUntil_ = 0; }
+    // A box that hides gives the keyboard back to the map (else keys would go to a box that cannot be seen).
+    void giveBackFocus() {
+        if (input_.hasFocus() && gRoot) gRoot->map.focus();
+    }
+    void resized() override {
+        const int bar = scale(24), pad = scale(6), ih = scale(26);
+        const bool open = height() > bar + ih + scale(8);
+        if (!open) giveBackFocus();
+        input_.setVisible(open);
+        input_.setFrame(draw::Rect(pad, std::max(bar, height() - ih - scale(4)), std::max(pad, width() - pad), std::max(bar, height() - scale(4))));
+    }
+    void paint(draw::Canvas& c) override {
+        const int w = width(), h = height(), bar = scale(24), pad = scale(8);
+        c.fill({0, 0, w, h}, kBg);
+        c.fill({0, 0, w, bar}, kPanel);
+        c.fill({0, 0, w, 1}, kBorder);
+        c.fill({0, 0, 1, h}, kBorder);  // (the line to the Log)
+        c.text({pad, 0, pad + scale(50), bar}, shellTr(L"Chat"), kDim, draw::kMiddle);
+        const bool open = input_.visible();
+        if (!open) {  // closed: the latest line in the bar
+            if (!gChatLines.empty()) {
+                const ChatLine& l = gChatLines.back();
+                const int nw = c.measure(l.name + L": ");
+                c.text({pad + scale(50), 0, pad + scale(50) + nw, bar}, l.name + L":", l.color, draw::kMiddle);
+                c.text({pad + scale(50) + nw, 0, w - pad, bar}, l.text, kText, draw::kMiddle | draw::kEllipsis);
+            }
+            return;
+        }
+        // Open: the lines from the newest (at the bottom, over the message box) up, as many as fit.
+        const int top = bar + scale(4), bottom = input_.frame().top - scale(4);
+        if (gChatLines.empty()) {
+            c.text({pad, top, w - pad, top + scale(20)}, shellTr(L"No messages yet. Write to the others in the session here."), kFaint, draw::kWrap);
+            return;
+        }
+        c.pushClip({0, top, w, bottom});
+        int y = bottom;
+        for (size_t i = gChatLines.size(); i-- > 0 && y > top;) {
+            const ChatLine& l = gChatLines[i];
+            const std::wstring who = l.name + L": ";
+            const int nw = c.measure(who);
+            const int tw = std::max(scale(40), w - 2 * pad - nw);
+            const int th = std::max(c.metrics().height, c.measureBox(l.text, tw, draw::kWrap).y);
+            y -= th + scale(3);
+            c.text({pad, y, pad + nw, y + c.metrics().height}, who, l.color, 0);
+            c.text({pad + nw, y, pad + nw + tw, y + th}, l.text, kText, draw::kWrap);
+        }
+        c.popClip();
+    }
+    bool mouse(const draw::MouseEvent& e) override {
+        if (e.kind == draw::MouseKind::Down && e.button == 0 && e.pt.y < scale(24)) {  // the bar: open or close (with the Log)
+            if (gLogPane.expanded()) giveBackFocus(), gLogPane.setExpanded(false);
+            else focusInput();
+            return true;
+        }
+        return e.kind == draw::MouseKind::Down;
+    }
+    draw::Cursor cursor(draw::Point p) override { return p.y < scale(24) ? draw::Cursor::Hand : draw::Cursor::Arrow; }
+
+private:
+    void send() {
+        std::wstring t = input_.text();
+        while (!t.empty() && iswspace(t.back())) t.pop_back();
+        while (!t.empty() && iswspace(t.front())) t.erase(t.begin());
+        if (t.empty() || !gSession || gEnded) return;
+        std::string said = narrow(t);  // (at most kMaxSay bytes, a whole character at the end: as the others get it)
+        if (said.size() > stardraft::collab::kMaxSay) {
+            size_t n = stardraft::collab::kMaxSay;
+            while (n > 0 && (uint8_t(said[n]) & 0xC0) == 0x80) --n;
+            said.resize(n);
+        }
+        if (said.empty()) return;
+        gSession->say(said);
+        gChatLines.push_back({shellTr(L"You"), widen(said), kText, true});
+        if (gChatLines.size() > kChatLines) gChatLines.pop_front();
+        input_.setText(L"");
+        invalidate();
+    }
+    stardraft::kit::TextField input_;
+    std::wstring slashBefore_;
+    double slashUntil_ = 0;
+};
+ChatPaneView& chatPane() {
+    static ChatPaneView v;
+    return v;
+}
+
+void addChatLine(uint32_t who, const std::string& text) {
+    const cb::Peer* p = findPeer(who);
+    gChatLines.push_back({p ? widen(p->name) : shellTr(L"Someone"), widen(text), p ? personColor(*p) : kDim, false});
+    if (gChatLines.size() > kChatLines) gChatLines.pop_front();
+    chatPane().changed();
+}
+
+// The column shows while a session is open (this program hosts, or it has the host's map): the window places it again
+// when that changes.
+bool gChatShown = false;
+bool chatShown() { return gSession && !gEnded && (gSession->isHost() || gSession->editor()); }
+void chatShownCheck() {
+    const bool on = chatShown();
+    if (on == gChatShown) return;
+    gChatShown = on;
+    if (on) gChatLines.clear();  // (a new session: its own lines)
+    else chatPane().giveBackFocus();
+    shellRelayout();
+}
+
 void closePopover() {
     if (!gPopOpen) return;
     gPopOpen = false;
@@ -1227,11 +1380,7 @@ bool collabChatKey(const draw::KeyEvent& e, bool typing) {
         if (gWorkspace != Workspace::Map || !gRoot->map.shown() || !gState.mouseIn) return false;
         const bool slash = (e.key == draw::Key::Slash && !e.mods) || (e.numberRow == 7 && e.mods == draw::kShift);
         if (!slash) return false;
-        gChatOpen = true, gChatText.clear(), chatSend();
-        gChatSkipSlash = true;  // (the / that opened it comes as text too: not in the message)
-        if (draw::Host* h = gRoot->map.host())
-            h->textInput(gRoot->map, true, {gState.mouseX + scale(14), gState.mouseY + scale(18), gState.mouseX + scale(200), gState.mouseY + scale(40)});
-        invalidateMapView();
+        chatPane().focusInput(true);
         return true;
     }
     if (e.mods & (draw::kCtrl | draw::kAlt | draw::kSuper)) return false;
@@ -1251,10 +1400,8 @@ bool collabChatKey(const draw::KeyEvent& e, bool typing) {
 }
 bool collabChatText(const std::string& utf8) {
     using namespace collabui;
+    if (utf8 == "/" && chatPane().slashPending()) return chatPane().slashTaken(), true;  // (the / that opened the chat box)
     if (!gChatOpen) return false;
-    const bool skip = gChatSkipSlash && utf8 == "/";
-    gChatSkipSlash = false;
-    if (skip) return true;
     if (gChatText.size() + utf8.size() <= kChatMax) gChatText += utf8, chatSend(), invalidateMapView();
     return true;
 }
@@ -1393,3 +1540,7 @@ void sdlCollabPopoverInputEnd(kit_sdl::SdlHost& host, draw::View& root, bool was
     collabui::openPopover();
     root.attach(nullptr);
 }
+
+// The chat column for the main window's layout (sdl_main_view.inc).
+draw::View& collabChatView() { return collabui::chatPane(); }
+bool collabChatShown() { return collabui::chatShown(); }

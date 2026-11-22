@@ -118,7 +118,8 @@ struct Outbox {
 // Where a person works (all see it): the part of the map in their view, their tool and brush, what they selected.
 enum class Tool : uint8_t { None = 0, Terrain, Units, Doodads, Sprites, Locations };
 constexpr size_t kMaxSelected = 64;  // selected units or locations that the others see (the first ones)
-constexpr uint32_t kNobody = 0xFFFFFFFF;  // (Presence::follows: nobody; 0 is the host)
+constexpr uint32_t kNobody = 0xFFFFFFFF;
+constexpr size_t kMaxSay = 255;  // a chat message: bytes of UTF-8 (a message's text has a length of one byte)  // (Presence::follows: nobody; 0 is the host)
 struct Presence {
     int viewX = 0, viewY = 0, viewW = 0, viewH = 0;  // map pixels (no size: no view)
     Tool tool = Tool::None;
@@ -168,6 +169,7 @@ public:
         std::function<void()> linksChanged;              // host: the room is ready, or new links
         std::function<void(const Change&)> changed;      // another person's edit was applied (the change flash, the activity)
         std::function<void(uint32_t who, int x, int y)> ping;  // someone points at a place (map pixels)
+        std::function<void(uint32_t who, const std::string& text)> said;  // someone's chat message (not this user's own)
         // The connection to the server was lost (true): make a new one to reconnectUrl() (and call opened() etc. as for
         // the first), or reconnectFailed() to give up. False: the session is live again.
         std::function<void(bool lost)> connection;
@@ -229,6 +231,8 @@ public:
     const Presence& myPresence() const { return presence_; }
     // Points at a place of the map for all (map pixels).
     void ping(int x, int y);
+    // A chat message to all in the session (at most kMaxSay bytes; the others get it as Events::said).
+    void say(const std::string& text);
 
     // Reconnecting: the connection was lost and a new one is on its way (the session waits up to kReconnectFor).
     bool reconnecting() const { return reconnecting_; }

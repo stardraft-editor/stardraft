@@ -39,7 +39,7 @@ const char kKdfLabel[] = "stardraft-collab-1";
 enum Frame : uint8_t { kHello = 1, kHelloBack = 2, kSealed = 3 };
 // Messages (the first byte of a sealed frame's text).
 enum Msg : uint8_t { mJoin = 1, mWelcome, mDeny, mPatch, mAck, mReject, mCursor, mPeers, mRole, mBye, mCursors, mObjEdit, mObjState, mObjResync, mRename,
-           mPresence, mPresences, mPing, mPinged, mHandover };
+           mPresence, mPresences, mPing, mPinged, mHandover, mSay, mSaid };
 constexpr double kPresenceEvery = 0.2;  // seconds: presence at most 5 times a second
 constexpr size_t kMaxTickets = 64;
 constexpr double kObjectsEvery = 0.1;  // seconds: the host sends a changed object section at most 10 times a second
@@ -1152,6 +1152,17 @@ void Session::hostMessage(uint32_t from, const Bytes& m) {
         if (ev_.ping) ev_.ping(from, x, y);
         return;
     }
+    if (type == mSay) {  // (a member's chat message: to the others, with who)
+        const std::string text = cleanText(r.str(), kMaxSay);
+        if (!r.done()) return drop("A message was not valid.");
+        if (text.empty()) return;
+        Writer w;
+        w.u8(mSaid), w.u32(from), w.str(text);
+        for (const Peer& o : peers_)
+            if (o.approved && o.id != from) sendTo(o.id, w.b);
+        if (ev_.said) ev_.said(from, text);
+        return;
+    }
     if (type == mRename) {  // (a member's new display name: everyone gets the list again)
         const std::string name = cleanName(r.str());
         if (!r.done()) return drop("A message was not valid.");
@@ -1346,6 +1357,13 @@ void Session::guestMessage(const Bytes& m) {
         }
         if (!r.done()) return bad();
         if (ev_.peersChanged) ev_.peersChanged();
+        return;
+    }
+    case mSaid: {
+        const uint32_t id = r.u32();
+        const std::string text = cleanText(r.str(), kMaxSay);
+        if (!r.done()) return bad();
+        if (id != myId_ && !text.empty() && ev_.said) ev_.said(id, text);
         return;
     }
     case mPinged: {
@@ -1927,6 +1945,21 @@ void Session::ping(int x, int y) {
             if (o.approved) sendTo(o.id, w.b);
     } else if (ed_) {
         w.u8(mPing), w.u16(clamp16(x)), w.u16(clamp16(y));
+        sendTo(0, w.b);
+    }
+}
+
+void Session::say(const std::string& text) {
+    if (ended_ || reconnecting_) return;
+    const std::string t = cleanText(text, kMaxSay);
+    if (t.empty()) return;
+    Writer w;
+    if (host_) {
+        w.u8(mSaid), w.u32(0), w.str(t);
+        for (const Peer& o : peers_)
+            if (o.approved) sendTo(o.id, w.b);
+    } else if (ed_) {
+        w.u8(mSay), w.str(t);
         sendTo(0, w.b);
     }
 }

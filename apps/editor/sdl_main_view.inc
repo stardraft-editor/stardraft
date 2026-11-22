@@ -556,6 +556,8 @@ void command(int id);
 
 // The Log at the bottom of the window (core/views_log.inc; shell_sdl.inc adds the lines).
 LogPaneView gLogPane;
+draw::View& collabChatView();  // (sdl_collab.inc: the chat column right of the Log, in a session)
+bool collabChatShown();
 
 // The floating palettes (sdl_palette_float.inc): the active mode's palette window opens or closes for the state, and
 // the palette's views move into it or back (true: they are in its window; `slot` is their place in the side bar, in
@@ -622,6 +624,7 @@ struct MainView final : draw::View {
         add(rail, draw::Rect(0, 0, 0, 0));
         add(status, draw::Rect(0, 0, 0, 0));
         add(gLogPane, draw::Rect(0, 0, 0, 0));
+        add(collabChatView(), draw::Rect(0, 0, 0, 0));
         add(map, draw::Rect(0, 0, 0, 0));
         add(minimap, draw::Rect(0, 0, 0, 0));
         add(gToolStripView, draw::Rect(0, 0, 0, 0));  // the tool strip (core/views_toolstrip.inc)
@@ -1170,7 +1173,16 @@ struct MainView final : draw::View {
         apply(topBar, barSlot, true);
         apply(rail, L.wsRail, shellHasRail());
         apply(status, L.status, true);
-        apply(gLogPane, L.log, true);
+        {  // the Log, and in a session the chat column right of it (its height)
+            PaneSlot logSlot = L.log, chatSlot = L.log;
+            const bool chat = collabChatShown();
+            if (chat) {
+                const int cw = std::min(int(scale(380)), int(L.log.rc.right - L.log.rc.left) / 2);
+                logSlot.rc.right -= cw, chatSlot.rc.left = logSlot.rc.right;
+            }
+            apply(gLogPane, logSlot, true);
+            apply(collabChatView(), chatSlot, chat);
+        }
         apply(map, L.view, mapWs);
         apply(minimap, L.minimap, L.minimap.visible && mapWs);
         apply(modes, L.modeBar, mapWs);
