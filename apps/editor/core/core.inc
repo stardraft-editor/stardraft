@@ -95,6 +95,7 @@
 #include "views_map_props.inc"
 #include "views_est.inc"  // a Cosmonarchy map's establishing shot (Map properties' last part)
 #include "views_resize.inc"  // Map properties > Crop or extend: the new size and offset on a picture of the map (its preview)
+#include "map_resize_mode.inc"  // Edit > Resize map: the map's edges dragged on the map (after views_resize.inc: its rules)
 #include "views_players.inc"
 #include "views_classic_settings.inc"
 #include "classic_table.inc"  // the Map data page's Table view: a classic map's settings as the Data workspace's table

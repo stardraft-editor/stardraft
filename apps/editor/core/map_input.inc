@@ -65,6 +65,8 @@ std::wstring unitShortName(const UnitType& t);
 // The view stays near the map: at most half a view past each edge; a map smaller than the view keeps its middle in
 // the view's middle on that axis. Every way the camera moves (drag, wheel, minimap, keys) passes here each frame.
 bool mapLayersOutsideBox(const Editor& ed, int& x0, int& y0, int& x1, int& y1);  // (map_layers.inc)
+bool mapResizeMouse(AppState& app, int kind, int sx, int sy);  // (core/map_resize_mode.inc: Edit > Resize map)
+bool mapResizeCameraBox(float& x0, float& y0, float& x1, float& y1);
 void clampCamera() {
     AppState& app = appState();
     if (!app.ed || !app.ed->isOpen() || app.zoom <= 0) return;
@@ -75,6 +77,8 @@ void clampCamera() {
     float lx = 0, ly = 0, hx = app.ed->width() * 32.0f, hy = app.ed->height() * 32.0f;
     if (int ox0, oy0, ox1, oy1; mapLayersOutsideBox(*app.ed, ox0, oy0, ox1, oy1))
         lx = std::min(lx, ox0 * 32.0f), ly = std::min(ly, oy0 * 32.0f), hx = std::max(hx, ox1 * 32.0f), hy = std::max(hy, oy1 * 32.0f);
+    if (float rx0, ry0, rx1, ry1; mapResizeCameraBox(rx0, ry0, rx1, ry1))  // (Edit > Resize map: the map's new size too)
+        lx = std::min(lx, rx0), ly = std::min(ly, ry0), hx = std::max(hx, rx1), hy = std::max(hy, ry1);
     auto clampAxis = [](float& cam, float view, float lo, float hi) {
         if (hi - lo < view) {  // all of it fits: its middle stays inside the view
             cam = std::clamp(cam, (lo + hi) / 2 - view, (lo + hi) / 2);
@@ -309,6 +313,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     LayersLiveAfter live{app};
     if (!app.ed || !app.ed->isOpen()) return;
     Editor& ed = *app.ed;
+    if (mapResizeMouse(app, 0, sx, sy)) return;  // (Edit > Resize map: the map's edges)
     mapLayersSync();  // (the last edit is in its layer before the next one)
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
@@ -730,6 +735,7 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         app.mouseIn = true;
         shellTrackMouseLeave();
     }
+    if (mapResizeMouse(app, 1, sx, sy)) return;
     if (std::abs(sx - app.dragSX) + std::abs(sy - app.dragSY) > 4) {
         // (Options > Drag objects to move them off: a press on an object selects it and a drag does not move it)
         const bool objectMove = app.drag == Drag::MoveUnits || app.drag == Drag::MoveDoodad || app.drag == Drag::MoveSprite || app.drag == Drag::LocMove;
@@ -886,6 +892,7 @@ std::vector<std::pair<int, int>> terrainReachable(const Editor& ed, float wx, fl
 }
 
 void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
+    if (mapResizeMouse(app, 2, sx, sy)) return;
     if (!app.ed || !app.ed->isOpen()) {
         app.drag = Drag::None;
         return;

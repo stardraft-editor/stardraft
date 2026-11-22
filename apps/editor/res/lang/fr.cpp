@@ -3775,6 +3775,8 @@ constexpr UiText kRows[] = {
     {L"Paint fog: add fog of war to the tiles that you paint, for the players that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.", L"Peindre le brouillard : ajoute du brouillard de guerre aux cases peintes, pour les joueurs que vous s\u00E9lectionnez sous les outils. Une case avec du brouillard est noire dans le jeu jusqu'\u00E0 ce qu'une unit\u00E9 de ce joueur la voie."},
     {L"Erase fog: remove the fog of war from the tiles that you paint, for the players that you select under the tools. These tiles are explored when the game starts: their terrain shows, gray.", L"Effacer le brouillard : retire le brouillard de guerre des cases peintes, pour les joueurs que vous s\u00E9lectionnez sous les outils. Ces cases sont explor\u00E9es au d\u00E9but de la partie : leur terrain se voit, en gris."},
     {L"Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.", L"Joueurs : les joueurs dont l'outil change le brouillard de guerre. Cliquez pour s\u00E9lectionner un ou plusieurs joueurs. Les touches 1 \u00E0 8 ajoutent ou retirent un joueur, et 9 s\u00E9lectionne les 8."},
+    {L"Resize on the map", L"Redimensionner sur la carte"},
+    {L"Enter: change the size. Esc: cancel.", L"Entr\u00E9e : changer la taille. \u00C9chap : annuler."},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

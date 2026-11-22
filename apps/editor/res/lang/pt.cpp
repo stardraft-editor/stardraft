@@ -3775,6 +3775,8 @@ constexpr UiText kRows[] = {
     {L"Paint fog: add fog of war to the tiles that you paint, for the players that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.", L"Pintar n\u00E9voa: adiciona n\u00E9voa de guerra aos ladrilhos que voc\u00EA pinta, para os jogadores que voc\u00EA seleciona abaixo das ferramentas. Um ladrilho com n\u00E9voa fica preto no jogo at\u00E9 que uma unidade desse jogador o veja."},
     {L"Erase fog: remove the fog of war from the tiles that you paint, for the players that you select under the tools. These tiles are explored when the game starts: their terrain shows, gray.", L"Apagar n\u00E9voa: remove a n\u00E9voa de guerra dos ladrilhos que voc\u00EA pinta, para os jogadores que voc\u00EA seleciona abaixo das ferramentas. Esses ladrilhos ficam explorados no in\u00EDcio do jogo: o terreno aparece, em cinza."},
     {L"Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.", L"Jogadores: os jogadores cuja n\u00E9voa de guerra a ferramenta muda. Clique para selecionar um ou mais jogadores. As teclas 1 a 8 adicionam ou removem um jogador, e 9 seleciona os 8."},
+    {L"Resize on the map", L"Redimensionar no mapa"},
+    {L"Enter: change the size. Esc: cancel.", L"Enter: alterar o tamanho. Esc: cancelar."},
 };
 }  // namespace
 std::span<const UiText> langTablePt() { return kRows; }

@@ -445,6 +445,12 @@ void registerMapCommands() {
     for (const auto& [native, id, label, key] : bar) addCommand(native, id, label, "Edit/Simulation", key, [n = native] { simCommand(n); });
     addCommand(ID_SIM_COMBAT, "edit.simulate.combat", L"Simulate com&bat of the selected units (experimental)", "Edit/Tools", L"Ctrl+Alt+C", [] { simulateCombatCommand(); });
 #endif
+    addCommand(ID_EDIT_RESIZEMAP, "edit.resizeMap", L"Resi&ze map", "Edit/Tools", L"", [] {
+        void mapResizeStart();  // (core/map_resize_mode.inc)
+        if (!shellState().ed || !shellState().ed->isOpen()) return;
+        if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map);
+        mapResizeStart();
+    });
     addCommand(ID_EDIT_SNAPGRID, "edit.snapToGrid", L"&Snap to the grid", "Edit/Tools", L"", [] {
         AppState& app = shellState();
         if (!canSnapToGrid(app)) return;

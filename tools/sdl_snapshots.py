@@ -827,9 +827,9 @@ CASES += [
     # Crop or extend from the page (its button beside the size), the same drags, Left, then Enter (Change the size):
     # the map is 192 x 128, the units that stay moved by the offset, and the preview at OK is the minimap of the map
     # after the change. Then Ctrl+Z takes the change back in one step.
-    ("map-resize-apply", ["--workspace", "props", "--click", "1082,286", "--drag", "499,498-700,480", "--drag", "300,300-200,200",
+    ("map-resize-apply", ["--workspace", "props", "--click", "945,286", "--drag", "499,498-700,480", "--drag", "300,300-200,200",
                           "--key", "Left", "--key", "Enter", "--check", "resize"], "map"),
-    ("map-resize-undo", ["--workspace", "props", "--click", "1082,286", "--drag", "499,498-700,480", "--key", "Enter", "--key", "Ctrl+Z"], "map"),
+    ("map-resize-undo", ["--workspace", "props", "--click", "945,286", "--drag", "499,498-700,480", "--key", "Enter", "--key", "Ctrl+Z"], "map"),
     ("data-text-caret", ["--check", "caret", "--newproject", "{newdir}", "--workspace", "data", "--data", "strings:5", "--click", "800,360",
                          "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox", "--click", "190,152", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox"], "data"),
     # The diagrams' handles (the small squares) are only on parts that the mouse drags: the flingy's turn path has none
@@ -4206,7 +4206,7 @@ def check_resize_apply(output):
 def check_resize_undo(output):
     """None when Enter made the map 192 x 128 and one Ctrl+Z made it 128 x 128 again."""
     sizes = {what: ui.get("size") for what, ui in ui_lines(output)}
-    if sizes.get("click 1082,286") != "192x128" and sizes.get("key Enter") != "192x128":
+    if sizes.get("click 945,286") != "192x128" and sizes.get("key Enter") != "192x128":
         return f"after Change the size: {sizes.get('key Enter')}"
     if sizes.get("key Ctrl+Z") != "128x128":
         return f"after Ctrl+Z: {sizes.get('key Ctrl+Z')}"

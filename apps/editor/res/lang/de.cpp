@@ -3775,6 +3775,8 @@ constexpr UiText kRows[] = {
     {L"Paint fog: add fog of war to the tiles that you paint, for the players that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.", L"Nebel malen: F\u00FCgt den gemalten Feldern Kriegsnebel hinzu, f\u00FCr die Spieler, die Sie unter den Werkzeugen ausw\u00E4hlen. Ein Feld mit Nebel ist im Spiel schwarz, bis eine Einheit dieses Spielers es sieht."},
     {L"Erase fog: remove the fog of war from the tiles that you paint, for the players that you select under the tools. These tiles are explored when the game starts: their terrain shows, gray.", L"Nebel radieren: Entfernt den Kriegsnebel von den gemalten Feldern, f\u00FCr die Spieler, die Sie unter den Werkzeugen ausw\u00E4hlen. Diese Felder sind beim Spielstart erkundet: Ihr Gel\u00E4nde ist grau sichtbar."},
     {L"Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.", L"Spieler: Die Spieler, deren Kriegsnebel das Werkzeug \u00E4ndert. Klicken, um einen oder mehrere Spieler auszuw\u00E4hlen. Die Tasten 1 bis 8 f\u00FCgen einen Spieler hinzu oder entfernen ihn, 9 w\u00E4hlt alle 8."},
+    {L"Resize on the map", L"Auf der Karte \u00E4ndern"},
+    {L"Enter: change the size. Esc: cancel.", L"Enter: Gr\u00F6\u00DFe \u00E4ndern. Esc: abbrechen."},
 };
 }  // namespace
 std::span<const UiText> langTableDe() { return kRows; }

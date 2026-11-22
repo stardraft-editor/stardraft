@@ -59,6 +59,7 @@ public:
     virtual void applyTerrain() = 0;  // "Change the size and tileset"
     virtual void reset() = 0;         // "Reset": the map's values again
     virtual void cropOrExtend() = 0;  // "Crop or extend": the size and the offset on a picture of the map (a dialog)
+    virtual void resizeOnMap() = 0;   // "Resize on the map": Edit > Resize map (the map's edges, dragged on the map)
     // The height of a game text editor (its box of boxH, and its tools under it) at boxW.
     virtual int textHeight(bool description, int boxW, int boxH) = 0;
     // The page's content is w x h (the program sizes the window it is in).
@@ -69,36 +70,29 @@ public:
 
 class MapPropsView : public draw::View {
 public:
+    // Terrain: the tileset (a change goes into the map at once: one undo step) and the size, which changes on the map
+    // (Edit > Resize map) or on a picture of it (Crop or extend).
     MapPropsView(MapPropsHost& host, MapPropsValues& v) : host_(host), v_(v) {
         tileset_.onChange = [this](int i) {
+            if (i == v_.era) return;
             v_.era = i;
+            v_.w = v_.wBase, v_.h = v_.hBase, v_.anchorIndex = 0;  // (the size stays)
             v_.fillTerrain = mapPropsFirstTerrain(i);  // the new tileset's first terrain
             edited();
+            host_.applyTerrain();
         };
-        wDrop_.onChange = [this](int i) { v_.w = wVals_[size_t(i)], edited(); };
-        hDrop_.onChange = [this](int i) { v_.h = hVals_[size_t(i)], edited(); };
-        mapSizeTyping(wDrop_, [this](int n) { v_.w = n, edited(); });  // (a size of its own: typed in the open list)
-        mapSizeTyping(hDrop_, [this](int n) { v_.h = n, edited(); });
-        anchor_.onChange = [this](int i) { v_.anchorIndex = i, edited(); };
-        fill_.onChange = [this](int i) { v_.fillTerrain = fillIds_[size_t(i)], edited(); };
         std::vector<stardraft::kit::DropdownItem> names;
         for (int e = 0; e < 8; ++e) names.push_back({kTilesetNames[e], -1, -1});
         tileset_.setItems(names);
-        std::vector<stardraft::kit::DropdownItem> anchors;
-        for (int k = 0; k < 9; ++k) anchors.push_back({kAnchorNames[k], -1, -1});
-        anchor_.setItems(anchors);
-        change_.setText(L"Change the size and tileset"), change_.setTone(stardraft::kit::Tone::Primary);
-        change_.setTip(L"Set the new size and tileset in the map (one undo step)");
-        change_.onClick = [this] { host_.applyTerrain(); };
-        reset_.setText(L"Revert"), reset_.setTip(L"Revert the changes that are not applied");
-        reset_.onClick = [this] { host_.reset(); };
+        tileset_.setTip(L"The map's tileset: a change goes into the map at once (one undo step)");
+        tileset_.wheelSteps = false;  // (each step would be a change of the map's tileset: the list or the keys only)
         crop_.setText(L"Crop or extend\x2026");
         crop_.setTip(L"Change the size on a picture of the map: drag the edges of a rectangle (one undo step)");
         crop_.onClick = [this] { host_.cropOrExtend(); };
-        for (stardraft::kit::Dropdown* d : {&tileset_, &wDrop_, &hDrop_}) add(*d, {0, 0, 0, 0});
-        add(crop_, {0, 0, 0, 0});  // (Tab: after the size)
-        for (stardraft::kit::Dropdown* d : {&anchor_, &fill_}) add(*d, {0, 0, 0, 0});
-        add(change_, {0, 0, 0, 0}), add(reset_, {0, 0, 0, 0});
+        onMap_.setText(L"Resize on the map");
+        onMap_.setTip(L"Edit > Resize map: drag the map's edges on the map itself (one undo step)");
+        onMap_.onClick = [this] { host_.resizeOnMap(); };
+        add(tileset_, {0, 0, 0, 0}), add(crop_, {0, 0, 0, 0}), add(onMap_, {0, 0, 0, 0});
         syncControls();
     }
 
@@ -106,26 +100,24 @@ public:
     int preferredWidth() const { return scale(stardraft::kit::kDialogPad) * 2 + scale(120) + scale(440); }
     // The two game text editors' boxes, in the page's coordinates (their tools are under the box: the host's height).
     draw::Rect nameBox() {
-        const PropsRows l = rows(0);
+        const PropsRows l = rows();
         return {l.x1, l.nameY, l.x1 + l.boxW, l.nameY + l.nameH};
     }
     draw::Rect descBox() {
-        const PropsRows l = rows(0);
+        const PropsRows l = rows();
         return {l.x1, l.descY, l.x1 + l.boxW, l.descY + l.descH};
     }
     draw::Rect notesBox() {
-        const PropsRows l = rows(0);
+        const PropsRows l = rows();
         return {l.x1, l.notesY, l.x1 + l.boxW, l.notesY + l.notesH};
     }
-    // The page's height with no text under the buttons (its first paint makes it as tall as the text needs).
-    int baseHeight() { return rows(0).height; }
+    int baseHeight() { return rows().height; }
 
     void paint(draw::Canvas& c) override {
         c.fill({0, 0, width(), height()}, kBg);
-        syncControls();  // the dropdowns show the copy's values
-        const int textH = v_.infoText.empty() ? 0 : c.measureBox(v_.infoText, scale(440), draw::kWrap).y + scale(4);
-        const PropsRows l = rows(textH);
-        if (height() != l.height || width() != l.width) host_.fitHeight(l.width, l.height);  // the text under the buttons is taller or shorter; the columns
+        syncControls();  // the tileset shows the copy's value
+        const PropsRows l = rows();
+        if (height() != l.height || width() != l.width) host_.fitHeight(l.width, l.height);
         const int right = l.x1 + l.boxW, tx = l.tx0, tRight = l.tx1 + l.boxW;
         auto heading = [&](const wchar_t* t, int y, int x0, int x1) {
             c.text({x0, y, x1, y + l.rowH}, t, kText, draw::kMiddle);
@@ -136,30 +128,22 @@ public:
         // (the editors are the program's windows, in their boxes)
         label(L"Title", l.nameY, l.pad, l.x1), label(L"Description", l.descY, l.pad, l.x1), label(L"Notes", l.notesY, l.pad, l.x1);
         heading(L"Terrain", l.terrainY, tx, tRight);
-        label(L"Tileset", l.tilesetY, tx, l.tx1), label(L"Size (tiles)", l.sizeY, tx, l.tx1), label(L"Map content at", l.anchorY, tx, l.tx1), label(L"New ground", l.fillY, tx, l.tx1);
-        const int sw = scale(96);
+        label(L"Tileset", l.tilesetY, tx, l.tx1), label(L"Size (tiles)", l.sizeY, tx, l.tx1);
         tileset_.setFrame({l.tx1, l.tilesetY, tRight, l.tilesetY + l.rowH});
-        wDrop_.setFrame({l.tx1, l.sizeY, l.tx1 + sw, l.sizeY + l.rowH});
-        c.text({l.tx1 + sw, l.sizeY, l.tx1 + sw + scale(24), l.sizeY + l.rowH}, L"x", kDim, draw::kMiddle | draw::kCenter);
-        hDrop_.setFrame({l.tx1 + sw + scale(24), l.sizeY, l.tx1 + sw + scale(24) + sw, l.sizeY + l.rowH});
-        const int cropX = l.tx1 + sw + scale(24) + sw + scale(16);
-        crop_.setFrame({cropX, l.sizeY, cropX + crop_.preferredWidth(c), l.sizeY + l.rowH});
-        anchor_.setFrame({l.tx1, l.anchorY, tRight, l.anchorY + l.rowH});
-        fill_.setFrame({l.tx1, l.fillY, tRight, l.fillY + l.rowH});
-        // The buttons, then what they do (only the size and the tileset wait for them).
-        c.text({l.tx1, l.infoY, tRight, l.infoY + l.infoH}, v_.infoText, kDim, draw::kWrap);
-        const int bh = scale(stardraft::kit::kButtonH);
-        const int cw = change_.preferredWidth(c), rw = reset_.preferredWidth(c);
-        change_.setFrame({l.tx1, l.buttonsY, l.tx1 + cw, l.buttonsY + bh});
-        reset_.setFrame({l.tx1 + cw + scale(stardraft::kit::kButtonGap), l.buttonsY, l.tx1 + cw + scale(stardraft::kit::kButtonGap) + rw, l.buttonsY + bh});
+        const std::wstring size = std::to_wstring(v_.wBase) + L" x " + std::to_wstring(v_.hBase);
+        const int sizeW = scale(96);
+        c.text({l.tx1, l.sizeY, l.tx1 + sizeW, l.sizeY + l.rowH}, size, kText, draw::kMiddle);
+        const int cropX = l.tx1 + sizeW, cw = crop_.preferredWidth(c);
+        crop_.setFrame({cropX, l.sizeY, cropX + cw, l.sizeY + l.rowH});
+        const int mapX = cropX + cw + scale(stardraft::kit::kButtonGap);
+        onMap_.setFrame({mapX, l.sizeY, mapX + onMap_.preferredWidth(c), l.sizeY + l.rowH});
     }
 
 private:
-    // The page's rows (the same at each paint); textH: the text under the buttons.
     struct PropsRows {
-        int pad, rowH, pitch, x1, boxW, right, tx0, tx1, width, nameY, nameH, descY, descH, notesY, notesH, terrainY, tilesetY, sizeY, anchorY, fillY, buttonsY, infoY, infoH, height;
+        int pad, rowH, pitch, x1, boxW, right, tx0, tx1, width, nameY, nameH, descY, descH, notesY, notesH, terrainY, tilesetY, sizeY, height;
     };
-    PropsRows rows(int textH) {
+    PropsRows rows() {
         PropsRows l{};
         l.pad = scale(stardraft::kit::kDialogPad), l.rowH = scale(stardraft::kit::kFieldH), l.pitch = l.rowH + scale(8);
         l.boxW = scale(440), l.x1 = l.pad + scale(120), l.right = l.x1 + l.boxW;
@@ -175,68 +159,20 @@ private:
         const int mapEnd = l.notesY + l.notesH;
         l.terrainY = beside ? l.pad : mapEnd + l.pad;
         l.tilesetY = l.terrainY + l.pitch;
-        l.sizeY = l.tilesetY + l.pitch, l.anchorY = l.sizeY + l.pitch, l.fillY = l.anchorY + l.pitch;
-        l.buttonsY = l.fillY + l.pitch + scale(4);
-        l.infoY = l.buttonsY + scale(stardraft::kit::kButtonH) + scale(8);
-        l.infoH = std::max(scale(20), textH);  // as tall as the text, at least one line
-        l.height = std::max(l.infoY + l.infoH, beside ? mapEnd : 0) + l.pad;
+        l.sizeY = l.tilesetY + l.pitch;
+        l.height = std::max(l.sizeY + l.rowH, beside ? mapEnd : 0) + l.pad;
         return l;
     }
-    // A child's frame, set only when it differs (a set repaints).
-    // A value changed by the page: the copy's change into the map (the program), then the page again.
+    // A value changed by the page: the program takes it (the copy), then the page again.
     void edited() {
         syncControls();
         host_.changed();
         invalidate();
     }
-    // The dropdowns show the copy's values (the program may have changed them too).
-    void syncControls() {
-        tileset_.setValue(v_.era & 7), tileset_.setChanged(v_.era != v_.eraBase);
-        syncSizes(wDrop_, wVals_, wOdd_, v_.w, v_.w != v_.wBase);
-        syncSizes(hDrop_, hVals_, hOdd_, v_.h, v_.h != v_.hBase);
-        anchor_.setValue(std::clamp(v_.anchorIndex, 0, 8));
-        if (fillEra_ != (v_.era & 7)) {  // the new tileset's terrains
-            fillEra_ = v_.era & 7, fillIds_.clear();
-            std::vector<stardraft::kit::DropdownItem> items;
-            if (const IsomTerrainTable* t = IsomTerrainTable::forEra(uint16_t(fillEra_)))
-                for (uint16_t i = 1; i <= t->terrainCount(); ++i)
-                    if (t->isTerrain(i)) items.push_back({widen(t->terrainName(i)), -1, -1}), fillIds_.push_back(i);
-            fill_.setItems(items);
-        }
-        int at = -1;
-        for (size_t i = 0; i < fillIds_.size(); ++i)
-            if (fillIds_[i] == v_.fillTerrain) at = int(i);
-        fill_.setValue(at);
-        const bool differs = !v_.infoText.empty();
-        if (change_.enabled() != differs) change_.setEnabled(differs);
-        if (reset_.enabled() != differs) reset_.setEnabled(differs);
-    }
-    // A size's dropdown: the standard sizes, and the map's own size when it is not one of them (kept as a choice).
-    void syncSizes(stardraft::kit::Dropdown& d, std::vector<int>& vals, int& odd, int value, bool changed) {
-        const std::span<const uint16_t> sizes = mapSizes();
-        const bool standard = std::find(sizes.begin(), sizes.end(), value) != sizes.end();
-        const int want = standard ? -1 : value;
-        if (want != odd || vals.empty()) {
-            odd = want, vals.clear();
-            std::vector<stardraft::kit::DropdownItem> items;
-            for (uint16_t s : sizes) items.push_back(mapSizeItem(s)), vals.push_back(s);
-            if (!standard) items.push_back(mapSizeItem(value)), vals.push_back(value);
-            d.numberMax = maxMapSide();
-            d.setItems(items);
-        }
-        for (size_t i = 0; i < vals.size(); ++i)
-            if (vals[i] == value) {
-                d.setValue(int(i));
-                break;
-            }
-        d.setChanged(changed);
-    }
+    void syncControls() { tileset_.setValue(v_.era & 7); }
 
     MapPropsHost& host_;
     MapPropsValues& v_;
-    stardraft::kit::Dropdown tileset_, wDrop_, hDrop_, anchor_, fill_;
-    stardraft::kit::Button change_, reset_, crop_;
-    std::vector<int> wVals_, hVals_;  // the value of each item of the size dropdowns
-    std::vector<uint16_t> fillIds_;   // the terrain of each item of New ground
-    int wOdd_ = -1, hOdd_ = -1, fillEra_ = -1;
+    stardraft::kit::Dropdown tileset_;
+    stardraft::kit::Button crop_, onMap_;
 };

@@ -250,6 +250,9 @@ kit::MenuItem sdlPaletteFloatItem(Mode m);
 // The map's dialogs and its menu (sdl_map_dialogs.inc): a double click, Enter and the right button.
 bool mapDoubleClickSdl(int x, int y);
 bool mapEnterSdl();
+bool mapResizeKey(bool enter, bool escape);  // (core/map_resize_mode.inc: Edit > Resize map)
+bool mapResizeOn();
+void mapResizePaint(draw::Canvas& c, draw::Rect view);
 void mapRightClickSdl(draw::View& map, draw::Point at);
 
 // A live game over the map (experimental: Tools > Simulate, sdl_simulation.inc): its bar at the top of the map
@@ -290,6 +293,7 @@ struct MapView final : draw::View {
         if (open() && gMapTex && gMapW == width() && gMapH == height()) {
             c.externalImage(gMapTex, all);
             mapTextPaint(c, all);      // (the locations' names: core/map_scene.inc)
+            mapResizePaint(c, all);    // (Edit > Resize map: the new size, core/map_resize_mode.inc)
             collabCursorsPaint(c, all);  // (a shared map: the others' cursors, sdl_collab.inc)
             pathOverlayPaint(c, all);  // (the pathing overlays' labels: core/path_overlay.inc)
             if (simBarShown()) simPaintBar(c, all);
@@ -410,7 +414,7 @@ struct MapView final : draw::View {
             // Another button while the middle button pans: nothing (its release is not sent on, so it must not start a drag)
             if (panning) return true;
             // A double click: a location's or a unit's properties (as the Windows map's).
-            if (e.kind == draw::MouseKind::DoubleClick && e.button == 0 && mapDoubleClickSdl(e.pt.x, e.pt.y)) return true;
+            if (e.kind == draw::MouseKind::DoubleClick && e.button == 0 && !mapResizeOn() && mapDoubleClickSdl(e.pt.x, e.pt.y)) return true;
             // The right button: its release opens the map's menu (or stops placing), as on Windows.
             if (e.button == 1 && open()) {
                 rightDown = gState.drag == Drag::None;
@@ -760,6 +764,11 @@ struct MainView final : draw::View {
         if ((typing || trigPaneFocused()) && typed && !(e.mods & (draw::kCtrl | draw::kAlt))) return false;
         // During the overview only Space counts: no key opens a window or goes to another tab while it is held.
         if (gMapPeek.on && e.key != draw::Key::Space) return true;
+        // Edit > Resize map: Enter makes the change, Esc leaves it (core/map_resize_mode.inc).
+        if (e.down && !e.repeat && !e.mods && !typing && (e.key == draw::Key::Enter || e.key == draw::Key::Escape) && map.shown() &&
+            gWorkspace == Workspace::Map && !pieShown() && !trigUnitPickActive() &&
+            mapResizeKey(e.key == draw::Key::Enter, e.key == draw::Key::Escape))
+            return true;
         // Enter on the map: the selected location's or unit's properties (the Windows map's key).
         if (e.down && !e.repeat && e.key == draw::Key::Enter && !e.mods && !typing && map.shown() && mapEnterSdl()) return true;
         // Esc with the pie palette open (from the menu): it closes with no change.

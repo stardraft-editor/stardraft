@@ -440,6 +440,7 @@ public:
     void applyTerrain() override;
     void reset() override;
     void cropOrExtend() override;
+    void resizeOnMap() override;
     int textHeight(bool description, int boxW, int boxH) override;
     void fitHeight(int w, int h) override;
     int availableWidth() override;
@@ -771,13 +772,24 @@ void SdlPropsHost::changed() {
     }
     sdlMapPageChanged();
 }
-void SdlPropsHost::applyTerrain() { sdlMapPageApplyTerrain(); }
+// (after the tileset's pick: the change makes the page's views again, the dropdown's among them)
+void SdlPropsHost::applyTerrain() { shellPost([] { sdlMapPageApplyTerrain(); }); }
 int SdlPropsHost::textHeight(bool description, int boxW, int boxH) {
     return gSdlPage.props ? gSdlPage.props->textHeight(description, boxW, boxH) : boxH + scale(kGameTextRowH) + scale(4);
 }
 void SdlPropsHost::reset() { sdlMapPageReload(); }
 void sdlMapPageResize();
 void SdlPropsHost::cropOrExtend() { shellPost([] { sdlMapPageResize(); }); }  // (after the click: the page's views can go)
+void sdlMapPageStopTyping();
+void sdlPropsAutoApply();
+void SdlPropsHost::resizeOnMap() {  // (Edit > Resize map: the page's changes go in first, then the map)
+    shellPost([] {
+        sdlMapPageStopTyping();
+        sdlPropsAutoApply();
+        if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map);
+        mapResizeStart();
+    });
+}
 void SdlPropsHost::fitHeight(int w, int h) {
     if (!gSdlPage.props) return;
     gSdlPage.props->setSize(w, h);
@@ -901,6 +913,7 @@ void sdlMapPageApplyTerrain() {
 // Crop or extend (core/views_resize.inc): the size and the offset on a picture of the map, from the page's size and
 // "Map content at"; OK changes the map's size (one undo step, the map's tileset) and the page shows the map again (a
 // tileset that is not applied stays).
+bool sdlApplyResize(const ResizeValues& v, bool fromDialog);
 void sdlMapPageResize() {
     if (!gSdlPage.ready || gSdlPage.kind != kSdlProps || !gRoot || !gState.ed || !gState.ed->isOpen()) return;
     sdlMapPageStopTyping();
@@ -914,6 +927,15 @@ void sdlMapPageResize() {
     v.shiftX = (d.w - ed.width()) * (d.anchorIndex % 3) / 2, v.shiftY = (d.h - ed.height()) * (d.anchorIndex / 3) / 2;
     v.fill = d.era == int(ed.era()) ? d.fillTerrain : mapPropsFirstTerrain(ed.era());
     if (!runResizeDialog(*gRoot, ed, v)) return;
+    sdlApplyResize(v, true);
+}
+
+// The map's new size (Crop or extend, Edit > Resize map): one undo step; the page shows the map again if it is open.
+// fromDialog: the dialog's preview (the copy of the map it made) is the map after the change. False: the map keeps its
+// size (a message box says why).
+bool sdlApplyResize(const ResizeValues& v, bool fromDialog) {
+    Editor& ed = *gState.ed;
+    if (!fromDialog) gResizeRecord = ResizeRecord{};  // (no dialog: no preview of one)
     gResizeRecord.unitsBefore = ed.units();
     gResizeRecord.oldW = ed.width(), gResizeRecord.oldH = ed.height();
     int sx = v.shiftX, sy = v.shiftY;
@@ -922,11 +944,11 @@ void sdlMapPageResize() {
     mapLayersBeforeResize(ed, v.w, v.h, ed.era(), v.shiftX, v.shiftY, v.fill);
     // The map that the preview showed (the copy's, tile for tile); else (the copy holds another map) the same change.
     std::string err;
-    const bool taken = resizeCopyHolds(gResizeRecord.preview, ed) && ed.takeScenario(resizeCopy(ed.gameData()), sx, sy);
+    const bool taken = fromDialog && resizeCopyHolds(gResizeRecord.preview, ed) && ed.takeScenario(resizeCopy(ed.gameData()), sx, sy);
     if (!taken && !ed.resizeMap(uint16_t(v.w), uint16_t(v.h), ed.era(), v.shiftX, v.shiftY, v.fill, err)) {
         mapLayersResizeFailed();
-        shellWarningBox(L"The map keeps its size: " + widen(err), L"Crop or extend the map");
-        return;
+        shellWarningBox(L"The map keeps its size: " + widen(err), fromDialog ? L"Crop or extend the map" : L"Resize map");
+        return false;
     }
     gResizeRecord.made = true, gResizeRecord.fromCopy = taken;
     shellRelayout();  // the minimap takes the new shape
@@ -935,7 +957,7 @@ void sdlMapPageResize() {
     setMessage(L"Changed the map size to " + std::to_wstring(v.w) + L" x " + std::to_wstring(v.h) + L" tiles");
     // The page again: its size is the map's; a title, a description or a tileset that is not applied stays.
     MapPageCopies* now = sdlOpenCopies();
-    if (!now || !sdlPropsCopy(*now).d) return;
+    if (!now || !sdlPropsCopy(*now).d) return true;
     MapPropsValues& p = *sdlPropsCopy(*now).d;
     p.w = p.wBase = ed.width(), p.h = p.hBase = ed.height(), p.anchorIndex = 0;
     sdlPropsInfo(p);
@@ -943,7 +965,9 @@ void sdlMapPageResize() {
     pc.revision = ed.revision(), pc.changed = pc.differs();
     sdlPlayersCopy(*now).revision = ed.revision();  // (the players did not change)
     gSdlMapPages.invalidate();
+    return true;
 }
+bool applyMapResize(const ResizeValues& v) { return gState.ed && gState.ed->isOpen() && sdlApplyResize(v, false); }
 
 // Apply (the frame's bar, which this system does not show): the copy's changes into the map.
 void sdlMapPageApply() {

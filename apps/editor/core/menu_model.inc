@@ -233,6 +233,7 @@ MenuModel buildMenuModel() {
                    menuItem(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A"),
                    menuItem(ID_EDIT_RENAME, L"Re&name location", L"F2")};
     menuCommand(edit, "edit.snapToGrid");
+    menuCommand(edit, "edit.resizeMap");
     edit.push_back(menuPopup(L"Arran&ge", arrangeMenuModel()));
     // The Tools menu: the checks of the map, doodads where they fit (roadmap R37), the map revealers and the simulation.
     MenuModel tools{menuItem(ID_SCEN_CHECK, L"&Check that StarCraft can start the map")};

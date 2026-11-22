@@ -3775,6 +3775,8 @@ constexpr UiText kRows[] = {
     {L"Paint fog: add fog of war to the tiles that you paint, for the players that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.", L"Pintar niebla: a\u00F1ade niebla de guerra a las casillas que pintas, para los jugadores que seleccionas bajo las herramientas. Una casilla con niebla es negra en el juego hasta que una unidad de ese jugador la ve."},
     {L"Erase fog: remove the fog of war from the tiles that you paint, for the players that you select under the tools. These tiles are explored when the game starts: their terrain shows, gray.", L"Borrar niebla: quita la niebla de guerra de las casillas que pintas, para los jugadores que seleccionas bajo las herramientas. Estas casillas est\u00E1n exploradas al empezar la partida: su terreno se ve, en gris."},
     {L"Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.", L"Jugadores: los jugadores cuya niebla de guerra cambia la herramienta. Haz clic para seleccionar uno o m\u00E1s jugadores. Las teclas 1 a 8 a\u00F1aden o quitan un jugador, y 9 selecciona los 8."},
+    {L"Resize on the map", L"Cambiar en el mapa"},
+    {L"Enter: change the size. Esc: cancel.", L"Intro: cambiar el tama\u00F1o. Esc: cancelar."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

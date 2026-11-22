@@ -715,6 +715,8 @@ render::Scene buildScene() {
     addCreepEdges(ed, s);  // (View > Modes > Creep: core/creep_layer.inc)
     addMapLayersOverlay(ed, s);  // (core/map_layers.inc)
     addProtectedLayer(ed, s);  // (View > Modes > Protected terrain: core/protected_layer.inc)
+    void addMapResizeOverlay(render::Scene & s);  // (Edit > Resize map: core/map_resize_mode.inc)
+    addMapResizeOverlay(s);
 
     // Only what can show in the view is drawn: the map's sprites and units whose point is in the view or less than
     // kSpriteReach map pixels out of it. (A picture reaches at most 256 pixels from its point: a GRP frame's place and

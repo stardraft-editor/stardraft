@@ -1251,6 +1251,8 @@ bool sdlCollabEnabled(int id) {
 
 // A participant's tab (the preview): Map layers is off (gray in the mode bar).
 bool collabModeLocked(int mode) { return mode == int(Mode::Layers) && collabui::guestHere(); }
+// The open map is in a session (hosted or joined): its size cannot change (Edit > Resize map).
+bool collabMapShared() { return collabui::gSession && !collabui::gEnded && collabui::gSession->editor() == gState.ed.get(); }
 
 // A participant's tab (the preview): Map layers, the other workspaces and the map pages are off.
 bool sdlCollabLocks(int id) {

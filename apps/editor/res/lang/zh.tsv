@@ -3776,3 +3776,5 @@ Erase fog	擦除迷雾
 Paint fog: add fog of war to the tiles that you paint, for the players that you select under the tools. A tile with fog is black in the game until a unit of that player sees it.	绘制迷雾：为在工具下方选择的玩家，在绘制的格子上添加战争迷雾。有迷雾的格子在游戏中是黑色的，直到该玩家的单位看到它。
 Erase fog: remove the fog of war from the tiles that you paint, for the players that you select under the tools. These tiles are explored when the game starts: their terrain shows, gray.	擦除迷雾：为在工具下方选择的玩家，从绘制的格子上移除战争迷雾。这些格子在游戏开始时已探索：其地形以灰色显示。
 Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.	玩家：工具更改其战争迷雾的玩家。单击以选择一个或多个玩家。按键 1 至 8 添加或移除一个玩家，9 选择全部 8 个。
+Resize on the map	在地图上调整大小
+Enter: change the size. Esc: cancel.	Enter：更改大小。Esc：取消。
