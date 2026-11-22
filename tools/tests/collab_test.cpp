@@ -749,14 +749,15 @@ int main(int argc, char** argv) {
     {
         cb::Presence pr;
         pr.viewX = 64, pr.viewY = 96, pr.viewW = 640, pr.viewH = 480, pr.tool = cb::Tool::Terrain, pr.brushW = 3, pr.brushH = 2;
-        pr.units = {7, 9}, pr.locations = {2};
+        pr.units = {7, 9}, pr.locations = {2}, pr.zoom = 384, pr.follows = 0;
+        pr.selLeft = 32, pr.selTop = 64, pr.selRight = 320, pr.selBottom = 256;
         a.s->presence(pr);
         auto sees = [&](Program& who) {
             for (const cb::Peer& p : who.s->peers())
                 if (p.name == "Ann" && p.presence == pr) return true;
             return false;
         };
-        CHECK(waitFor([&] { return sees(b) && sees(host); }), "Ann's view, tool and selection reach all");
+        CHECK(waitFor([&] { return sees(b) && sees(host); }), "Ann's view, zoom, tool, selection and whom she follows reach all");
         cb::Presence hp;
         hp.viewW = 100, hp.viewH = 100, hp.tool = cb::Tool::Units;
         host.s->presence(hp);

@@ -172,6 +172,8 @@ void writePresence(Writer& w, const Presence& p) {
     for (size_t i = 0; i < nu; ++i) w.u32(p.units[i]);
     w.u8(uint8_t(nl));
     for (size_t i = 0; i < nl; ++i) w.u16(p.locations[i]);
+    w.u16(p.zoom), w.u32(p.follows);
+    w.u16(clamp16(p.selLeft)), w.u16(clamp16(p.selTop)), w.u16(clamp16(p.selRight)), w.u16(clamp16(p.selBottom));
 }
 bool readPresence(Reader& r, Presence& p) {
     p = Presence{};
@@ -186,6 +188,8 @@ bool readPresence(Reader& r, Presence& p) {
     const uint8_t nl = r.u8();
     if (nl > kMaxSelected) return false;
     for (int i = 0; i < nl && r.ok; ++i) p.locations.push_back(r.u16());
+    p.zoom = r.u16(), p.follows = r.u32();
+    p.selLeft = r.u16(), p.selTop = r.u16(), p.selRight = r.u16(), p.selBottom = r.u16();
     return r.ok;
 }
 

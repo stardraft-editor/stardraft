@@ -118,12 +118,16 @@ struct Outbox {
 // Where a person works (all see it): the part of the map in their view, their tool and brush, what they selected.
 enum class Tool : uint8_t { None = 0, Terrain, Units, Doodads, Sprites, Locations };
 constexpr size_t kMaxSelected = 64;  // selected units or locations that the others see (the first ones)
+constexpr uint32_t kNobody = 0xFFFFFFFF;  // (Presence::follows: nobody; 0 is the host)
 struct Presence {
     int viewX = 0, viewY = 0, viewW = 0, viewH = 0;  // map pixels (no size: no view)
     Tool tool = Tool::None;
     uint8_t brushW = 0, brushH = 0;    // terrain brush: tiles (0: none)
     std::vector<uint32_t> units;       // the selected units (their serials)
     std::vector<uint16_t> locations;   // the selected locations (their indexes)
+    uint16_t zoom = 0;                 // the view's zoom x 256 (0: none)
+    int selLeft = 0, selTop = 0, selRight = 0, selBottom = 0;  // the terrain selection's box (map pixels; no size: none)
+    uint32_t follows = kNobody;        // the person whose view this one follows (kNobody: none)
     bool operator==(const Presence&) const = default;
 };
 
@@ -189,6 +193,7 @@ public:
     void setClock(Clock c) { clock_ = std::move(c); }
 
     bool isHost() const { return host_; }
+    uint32_t selfId() const { return me(); }  // this program's number in the session (0: the host)
     bool running() const { return !ended_; }
     Role role() const { return role_; }
     Editor* editor() const { return ed_; }

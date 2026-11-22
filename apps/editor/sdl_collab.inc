@@ -506,7 +506,7 @@ struct Activity {
 };
 std::deque<Activity> gActivity;  // the newest first
 int64_t gFollow = -1;            // the person whose view this user follows (-1: none)
-float gFollowCamX = -1e9f, gFollowCamY = -1e9f, gFollowCx = -1, gFollowCy = -1;
+float gFollowCamX = -1e9f, gFollowCamY = -1e9f, gFollowZoom = -1, gFollowCx = -1, gFollowCy = -1;
 struct Chip {  // an arrow at the map's edge to a person or a ping out of the view (a click goes there)
     draw::Rect r;
     int x = 0, y = 0;
@@ -577,7 +577,7 @@ void centerOn(float x, float y) {
 
 void follow(int64_t id) {
     gFollow = id;
-    gFollowCamX = gFollowCamY = -1e9f, gFollowCx = gFollowCy = -1;
+    gFollowCamX = gFollowCamY = -1e9f, gFollowZoom = -1, gFollowCx = gFollowCy = -1;
     const cb::Peer* p = id >= 0 ? findPeer(uint32_t(id)) : nullptr;
     setMessage(p ? shellTr(L"Following ") + widen(p->name) + shellTr(L". Move the map to stop.") : shellTr(L"Stopped following"));
     changed();
@@ -596,7 +596,11 @@ void awarenessTick() {
     shellViewSize(vw, vh);
     cb::Presence pr;
     if (gState.zoom > 0 && vw > 0 && vh > 0)
-        pr.viewX = int(gState.camX), pr.viewY = int(gState.camY), pr.viewW = int(float(vw) / gState.zoom), pr.viewH = int(float(vh) / gState.zoom);
+        pr.viewX = int(gState.camX), pr.viewY = int(gState.camY), pr.viewW = int(float(vw) / gState.zoom), pr.viewH = int(float(vh) / gState.zoom),
+        pr.zoom = uint16_t(std::clamp<long>(std::lround(gState.zoom * 256), 1, 65535));
+    pr.follows = gFollow >= 0 ? uint32_t(gFollow) : cb::kNobody;
+    if (gState.mode == Mode::Terrain && gState.hasTerrainSel && gState.terrainSel.right > gState.terrainSel.left && gState.terrainSel.bottom > gState.terrainSel.top)
+        pr.selLeft = gState.terrainSel.left, pr.selTop = gState.terrainSel.top, pr.selRight = gState.terrainSel.right, pr.selBottom = gState.terrainSel.bottom;
     switch (gState.mode) {
     case Mode::Terrain: pr.tool = cb::Tool::Terrain; break;
     case Mode::Units: pr.tool = cb::Tool::Units; break;
@@ -614,23 +618,31 @@ void awarenessTick() {
     for (int i : ed->selectedLocations())
         if (i >= 0 && pr.locations.size() < cb::kMaxSelected) pr.locations.push_back(uint16_t(i));
     gSession->presence(pr);
-    // Following: the camera goes with the other's view (its middle); a move of this user's own stops it.
+    // Following: the camera goes with the other's view (its middle) and zoom; a move or zoom of this user's own stops it.
+    // Two people who follow each other stay where they are (each would go after the other).
     if (gFollow >= 0) {
         const cb::Peer* p = findPeer(uint32_t(gFollow));
         if (!p) {
             follow(-1);
-        } else if (gFollowCamX > -1e8f && (std::abs(gState.camX - gFollowCamX) > 2 || std::abs(gState.camY - gFollowCamY) > 2)) {
+        } else if (gFollowCamX > -1e8f &&
+                   (std::abs(gState.camX - gFollowCamX) > 2 || std::abs(gState.camY - gFollowCamY) > 2 || gState.zoom != gFollowZoom)) {
             follow(-1);
+        } else if (p->presence.follows == gSession->selfId()) {
+            gFollowCamX = gState.camX, gFollowCamY = gState.camY, gFollowZoom = gState.zoom;
         } else if (p->presence.viewW > 0 && gState.zoom > 0) {
             const float cx = float(p->presence.viewX + p->presence.viewW / 2), cy = float(p->presence.viewY + p->presence.viewH / 2);
-            if (cx != gFollowCx || cy != gFollowCy) {
+            const float z = p->presence.zoom ? std::clamp(float(p->presence.zoom) / 256.0f, 1.0f / 16, 16.0f) : gState.zoom;
+            if (cx != gFollowCx || cy != gFollowCy || z != gState.zoom) {
                 gFollowCx = cx, gFollowCy = cy;
-                gState.camX = cx - float(vw) / 2.0f / gState.zoom, gState.camY = cy - float(vh) / 2.0f / gState.zoom;
+                mapZoomGlideStop();
+                gState.gameView = false;  // (as a zoom of this user's own)
+                gState.zoom = z;
+                gState.camX = cx - float(vw) / 2.0f / z, gState.camY = cy - float(vh) / 2.0f / z;
                 clampCamera();
                 gState.dirty = true;
                 invalidateMapView(), minimapChanged();
             }
-            gFollowCamX = gState.camX, gFollowCamY = gState.camY;
+            gFollowCamX = gState.camX, gFollowCamY = gState.camY, gFollowZoom = gState.zoom;
         }
     }
     // Soft locks: the same unit or location selected by another person: a note (once for each new overlap).
@@ -698,6 +710,12 @@ void awarenessPaint(draw::Canvas& c, draw::Rect view) {
                 c.frame(r, col, std::max(1, scale(2)), draw::LineStyle::Dash);
                 if (!named) tag(r.left, r.top - scale(1), widen(p.name), col), named = true;
             }
+        // Their terrain selection: its box, dashed in their color.
+        if (p.presence.selRight > p.presence.selLeft && p.presence.selBottom > p.presence.selTop) {
+            const draw::Rect r{sx(float(p.presence.selLeft)), sy(float(p.presence.selTop)), sx(float(p.presence.selRight)), sy(float(p.presence.selBottom))};
+            c.frame(r, col, std::max(1, scale(2)), draw::LineStyle::Dash);
+            if (!named) tag(r.left, r.top - scale(1), widen(p.name), col), named = true;
+        }
         // Their terrain brush at their cursor (a diamond is 64 x 32 map pixels).
         if (p.cursorOn && p.presence.tool == cb::Tool::Terrain && p.presence.brushW && now - p.cursorTime < 30) {
             const float w = float(p.presence.brushW) * 32, h = float(p.presence.brushH) * 16;
