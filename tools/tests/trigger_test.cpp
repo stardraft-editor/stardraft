@@ -909,7 +909,7 @@ int main(int argc, char** argv) {
                   code.find("sd_unitMorph(cu1, $U(\"Zerg Hydralisk\"));") != std::string::npos && code.find("sd_unitTrain(cu1, $U(\"Terran Marine\"));") != std::string::npos &&
                   code.find("sd_unitHotkey(cu1, 1, 3, 4);") != std::string::npos && code.find("import .sdlib.f_sd_unitBuild;") != std::string::npos &&
                   code.find("import .sdlib.f_sd_unitHotkey;") != std::string::npos && lib.find("function sd_unitBuild(u: CUnit, b, loc)") != std::string::npos &&
-                  lib.find("if (k == 41) o = 25;") != std::string::npos && lib.find("bwrite(u.ptr + 0xA6, 38);") != std::string::npos,
+                  lib.find("if (k == 41) o = 25;") != std::string::npos && lib.find("u.secondaryOrder = 38;") != std::string::npos,
               "TETools: a worker builds (its race's order), a larva morphs, a unit trains, a unit goes in a control group");
         check(code.find("sd_rotateLoc(1, 64, 8);") != std::string::npos && code.find("sd_attackFx($U(\"Terran Marine\"), 7, 1, $U(\"Terran Marine\"), 64);") != std::string::npos &&
                   code.find("v_gold = sd_countAt(P8, $U(\"Zerg Zergling\"), 64);") != std::string::npos && code.find("v_gold = sd_locDistance(1, 64);") != std::string::npos &&

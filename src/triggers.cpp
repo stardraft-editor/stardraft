@@ -2529,7 +2529,8 @@ struct Gen {
             if (!race.empty() && race != "any") test += " && bread(0x57EEE9 + 36 * " + pl + ") == " + race;
             if (!force.empty() && force != "any") test += " && bread(0x57EEEA + 36 * " + pl + ") == " + force;
             return "{" + tag + "\n    const cp" + n + " = getcurpl();\n    for (var " + pl + " = 0; " + pl + " < 8; " + pl + "++) {\n        if (" + test +
-                   ") {\n            setcurpl(" + pl + ");\n" + indentLines(b, "        ") + "        }\n    }\n    setcurpl(cp" + n + ");\n}\n";
+                   ") {" + (test.find("bread(") != std::string::npos ? "  // the player's type, race and force: bytes 8, 9 and 10 of its slot (0x57EEE0, 36 bytes each)" : "") +
+                   "\n            setcurpl(" + pl + ");\n" + indentLines(b, "        ") + "        }\n    }\n    setcurpl(cp" + n + ");\n}\n";
         }
         if (id == "act.share") {  // this computer's value, sent to every computer by MSQC: arrives a few frames later
             const int k = ++shares;
@@ -2675,8 +2676,8 @@ struct Gen {
         auto unitFilter = [&](const std::string& cu) -> std::string {
             const std::string unit = raw(c, *d, "unit");
             if (unit == "Any unit" || unit == "229") return {};
-            const char* bit = unit == "Men" || unit == "230" ? "0x08" : unit == "Buildings" || unit == "231" ? "0x10" : unit == "Factories" || unit == "232" ? "0x20" : nullptr;
-            if (bit) return "(bread(0x6637A0 + " + cu + ".unitType) & " + bit + ") != 0";
+            const char* flag = unit == "Men" || unit == "230" ? "Men" : unit == "Buildings" || unit == "231" ? "Building" : unit == "Factories" || unit == "232" ? "Factory" : nullptr;
+            if (flag) return cu + ".unitType.groupFlags." + flag;  // units.dat's group flags
             return cu + ".unitType == " + arg(c, *d, "unit");
         };
         if (id == "act.foreachunit") {
@@ -3055,7 +3056,7 @@ std::string TriggerSet::helperLibrary() {
                "    return 0x58F140 + pl * 20 + (t - 24);\n}\n";
     out += "function sd_order(u: CUnit, order, x, y, t) {  // the unit's order now, with its place and its target unit (0: none)\n"
                "    u.orderID = order;\n    u.orderState = 0;\n    u.orderTargetX = x;\n    u.orderTargetY = y;\n    u.orderTarget = t;\n}\n"
-               "function sd_orderAt(u: CUnit, order, a) {  // at the middle of a location (its address)\n"
+               "function sd_orderAt(u: CUnit, order, a) {  // at the middle of a location (its address: left, top, right, bottom)\n"
                "    sd_order(u, order, (dwread(a) + dwread(a + 8)) / 2, (dwread(a + 4) + dwread(a + 12)) / 2, 0);\n}\n";
     out += "function sd_maxEnergy(u: CUnit) {  // as StarCraft: 250 for a hero or with the unit's energy upgrade, else 200\n"
                "    const t = u.unitType;\n    if (t.baseProperty.Hero) return 250 * 256;\n    var g = -1;\n"
@@ -3104,7 +3105,7 @@ std::string TriggerSet::helperLibrary() {
                "    wwrite(b + 12, conditionValue);\n    wwrite(b + 14, actionValue);\n    wwrite(b + 16, tooltip);\n    wwrite(b + 18, tooltipNotUsable);\n"
                "}\n";
     out += "function sd_min(a, b) {\n    if (a < b) return a;\n    return b;\n}\n";
-    out += "function sd_locAddr(loc) {  // a location's left, top, right, bottom\n    return 0x58DC60 + 20 * (loc - 1);\n}\n";
+    out += "function sd_locAddr(loc) {  // a location's address: its left, top, right and bottom, 4 bytes each\n    return 0x58DC60 + 20 * (loc - 1);\n}\n";
     // The number after a word in the last chat line (roadmap R51): the line at `p` (`n` bytes, from chatEvent), the word at
     // `w` (`wl` bytes). The first place of the word, then the spaces, then the digits.
     out += "function sd_chatNumber(p, n, w, wl) {\n    if (p == 0 || n < wl) return 0;\n    for (var i = 0; i + wl <= n; i++) {\n        var k = 0;\n"
@@ -3120,23 +3121,23 @@ std::string TriggerSet::helperLibrary() {
            "    if (x >= 0x80000000) tx = 0;\n    if (y >= 0x80000000) ty = 0;\n"
            "    if (tx >= w) tx = w - 1;\n    if (ty >= h) ty = h - 1;\n    const v = wread(dwread(0x5993C4) + 2 * (ty * w + tx));\n"
            "    if (group) return v / 16;\n    return v;\n}\n"
-           "function sd_tileAtLoc(loc, group) {\n    const a = sd_locAddr(loc);\n"
+           "function sd_tileAtLoc(loc, group) {\n    const a = sd_locAddr(loc);  // the location: left (+0), top (+4), right (+8), bottom (+12)\n"
            "    return sd_tileAt((dwread(a) + dwread(a + 8)) / 2, (dwread(a + 4) + dwread(a + 12)) / 2, group);\n}\n";
     // The camera's pan and shake: they move the location `where` (its four sides to one point), then the block centers
     // the view on it. The pan: t / n of the way from the center of `src` to the center of `dst` (no negative numbers:
     // the two ways apart). The shake: the center of `center` and an offset of `px` that changes with the cycle k.
     // (One name in each declaration, and no Python keywords as names: epScript's rules.)
-    out += "function sd_locPoint(where, x, y) {\n    const w = sd_locAddr(where);\n    dwwrite(w, x);\n    dwwrite(w + 4, y);\n    dwwrite(w + 8, x);\n"
+    out += "function sd_locPoint(where, x, y) {\n    const w = sd_locAddr(where);  // the location: left (+0), top (+4), right (+8), bottom (+12)\n    dwwrite(w, x);\n    dwwrite(w + 4, y);\n    dwwrite(w + 8, x);\n"
            "    dwwrite(w + 12, y);\n}\n"
            "function sd_camPan(src, dst, where, t, n) {\n    if (n == 0) {\n        t = 1;\n        n = 1;\n    }\n"
-           "    const la = sd_locAddr(src);\n    const lb = sd_locAddr(dst);\n"
+           "    const la = sd_locAddr(src);\n    const lb = sd_locAddr(dst);  // the location: left (+0), top (+4), right (+8), bottom (+12)\n"
            "    const ax = (dwread(la) + dwread(la + 8)) / 2;\n    const ay = (dwread(la + 4) + dwread(la + 12)) / 2;\n"
            "    const bx = (dwread(lb) + dwread(lb + 8)) / 2;\n    const bz = (dwread(lb + 4) + dwread(lb + 12)) / 2;\n"
            "    var x = ax;\n    var y = ay;\n"
            "    if (bx >= ax) x = ax + (bx - ax) * t / n;\n    else x = ax - (ax - bx) * t / n;\n"
            "    if (bz >= ay) y = ay + (bz - ay) * t / n;\n    else y = ay - (ay - bz) * t / n;\n"
            "    sd_locPoint(where, x, y);\n}\n"
-           "function sd_camShake(center, where, px, k) {\n    const c = sd_locAddr(center);\n"
+           "function sd_camShake(center, where, px, k) {\n    const c = sd_locAddr(center);  // the location: left (+0), top (+4), right (+8), bottom (+12)\n"
            "    var x = (dwread(c) + dwread(c + 8)) / 2;\n    var y = (dwread(c + 4) + dwread(c + 12)) / 2;\n"
            "    const m = k % 4;\n    const half = px / 2;\n"
            "    if (m == 0 || m == 2) x += px;\n    else if (x >= px) x -= px;\n    else x = 0;\n"
@@ -3182,32 +3183,35 @@ std::string TriggerSet::helperLibrary() {
     out += "function sd_clearMessages() {  // an empty text on each of the 11 message lines (not the center line)\n"
            "    for (var line = 0; line < 11; line++) printAt(line, \"\");\n}\n"
            "function sd_clearMessagesAll() {\n    for (var line = 0; line < 11; line++) printAllAt(line, \"\");\n}\n";
-    out += "function sd_locX(loc) {  // the middle of a location\n    const a = sd_locAddr(loc);\n    return (dwread(a) + dwread(a + 8)) / 2;\n}\n"
-           "function sd_locY(loc) {\n    const a = sd_locAddr(loc);\n    return (dwread(a + 4) + dwread(a + 12)) / 2;\n}\n";
-    out += "function sd_unitIn(u: CUnit, loc) {  // 1: the unit's middle is in the location\n    const a = sd_locAddr(loc);\n    const x = u.posX;\n    const y = u.posY;\n"
+    out += "function sd_locX(loc) {  // the middle of a location\n    const a = sd_locAddr(loc);  // the location: left (+0), top (+4), right (+8), bottom (+12)\n    return (dwread(a) + dwread(a + 8)) / 2;\n}\n"
+           "function sd_locY(loc) {\n    const a = sd_locAddr(loc);  // the location: left (+0), top (+4), right (+8), bottom (+12)\n    return (dwread(a + 4) + dwread(a + 12)) / 2;\n}\n";
+    out += "function sd_unitIn(u: CUnit, loc) {  // 1: the unit's middle is in the location\n    const a = sd_locAddr(loc);  // the location: left (+0), top (+4), right (+8), bottom (+12)\n    const x = u.posX;\n    const y = u.posY;\n"
            "    if (x >= dwread(a) && x <= dwread(a + 8) && y >= dwread(a + 4) && y <= dwread(a + 12)) return 1;\n    return 0;\n}\n";
     out += "function sd_distance(a: CUnit, b: CUnit) {  // pixels between the middles of two units\n"
            "    var dx = a.posX - b.posX;\n    var dy = a.posY - b.posY;\n"
            "    if (a.posX < b.posX) dx = b.posX - a.posX;\n    if (a.posY < b.posY) dy = b.posY - a.posY;\n    return sqrt(dx * dx + dy * dy);\n}\n";
-    // From EUD Editor 3's TETools (third_party/eud-editor-3/TriggerEditor/TETools.eps): the CUnit offsets are its offsets.
-    // 0x4D order, 0x4E order state, 0x58 order target x and y, 0x5C order target unit, 0x64 unit type, 0x98 build queue
-    // (5 unit types), 0xA4 the queue's current place, 0xA5 uniqueness, 0xA6 secondary order, 0x110 remove timer.
-    // (A square of a negative difference is correct: the numbers wrap around at 2^32.)
+    // From EUD Editor 3's TETools (third_party/eud-editor-3/TriggerEditor/TETools.eps), with euddraft's CUnit names in place of
+    // its offsets. (A square of a negative difference is correct: the numbers wrap around at 2^32.)
     out += "function sd_unitBuild(u: CUnit, b, loc) {  // BuildSCV, BuildDrone, BuildProbe: the worker's race gives the order\n"
-           "    const k = wread(u.ptr + 0x64);\n    var o = 0;\n"
-           "    if (k == 7) o = 30;\n    else if (k == 41) o = 25;\n    else if (k == 64) o = 31;\n    else return;\n"
-           "    wwrite(u.ptr + 0x98, b);\n    sd_orderAt(u, o, sd_locAddr(loc));\n}\n"
+           "    const k = u.unitType;\n    var o = 0;\n"
+           "    if (k == 7) o = 30;  // Terran SCV: Build (Terran)\n    else if (k == 41) o = 25;  // Zerg Drone: Build (Zerg)\n"
+           "    else if (k == 64) o = 31;  // Protoss Probe: Build (Protoss)\n    else return;\n"
+           "    u.buildQueue1 = b;\n    sd_orderAt(u, o, sd_locAddr(loc));\n}\n"
            "function sd_unitMorph(u: CUnit, t) {  // MorphLarva, SpawnEgg, SpawnCocoon: the order Unit Morph (42)\n"
-           "    const k = wread(u.ptr + 0x64);\n"
-           "    if (k == 35) {\n        bwrite(u.ptr + 0x4D, 42);\n        bwrite(u.ptr + 0x4E, 0);\n"
-           "    } else if ((k == 36 || k == 59) && bread(u.ptr + 0x4E) == 0) {\n        bwrite(u.ptr + 0x4D, 42);\n        bwrite(u.ptr + 0x4E, 1);\n"
-           "    } else return;\n    wwrite(u.ptr + 0x98, t);\n}\n"
+           "    const k = u.unitType;\n"
+           "    if (k == 35) {  // Zerg Larva\n        u.orderID = 42;\n        u.orderState = 0;\n"
+           "    } else if ((k == 36 || k == 59) && u.orderState == 0) {  // a Zerg Egg or a Zerg Cocoon that does not morph yet\n"
+           "        u.orderID = 42;\n        u.orderState = 1;\n"
+           "    } else return;\n    u.buildQueue1 = t;\n}\n"
            "function sd_unitTrain(u: CUnit, t) {  // TrainUnit: the queue's current place, and the secondary order Train (38); no cost\n"
-           "    const s = bread(u.ptr + 0xA4);\n    if (s >= 5) return;\n    wwrite(u.ptr + 0x98 + 2 * s, t);\n    bwrite(u.ptr + 0xA6, 38);\n}\n"
-           "function sd_unitHotkey(u: CUnit, pl, group, place) {  // hotkeyUnit: 18 groups of 12 for each player (0x57FE60); uniqueness x 2048 + index + 1\n"
-           "    dwwrite(0x57FE60 + 864 * pl + 48 * group + 4 * place, bread(u.ptr + 0xA5) * 2048 + (u.ptr - 0x59CCA8) / 336 + 1);\n}\n"
+           "    const s = u.buildQueueSlot;\n    if (s >= 5) return;\n"
+           "    wwrite(u.ptr + 0x98 + 2 * s, t);  // buildQueue1 to buildQueue5 (2 bytes each): the place s\n"
+           "    u.secondaryOrder = 38;\n}\n"
+           "function sd_unitHotkey(u: CUnit, pl, group, place) {  // hotkeyUnit: 18 groups of 12 for each player (0x57FE60)\n"
+           "    const index = (u.ptr - 0x59CCA8) / 336;  // the unit's place in the unit table (0 to 1699)\n"
+           "    dwwrite(0x57FE60 + 864 * pl + 48 * group + 4 * place, u.uniquenessIdentifier * 2048 + index + 1);\n}\n"
            "function sd_rotateLoc(loc, center, a) {  // RotateLocation, in the game's directions (0 is up); two times the middles\n"
-           "    const t = sd_locAddr(loc);\n    const c = sd_locAddr(center);\n"
+           "    const t = sd_locAddr(loc);\n    const c = sd_locAddr(center);  // the location: left (+0), top (+4), right (+8), bottom (+12)\n"
            "    const tx = dwread(t) + dwread(t + 8);\n    const ty = dwread(t + 4) + dwread(t + 12);\n"
            "    const cx = dwread(c) + dwread(c + 8);\n    const cy = dwread(c + 4) + dwread(c + 12);\n"
            "    const dx = tx - cx;\n    const dy = ty - cy;\n"
@@ -3216,29 +3220,30 @@ std::string TriggerSet::helperLibrary() {
            "function sd_attackFx(au, pl, la, tu, lb) {  // AttackGround: a unit at la attacks a unit at lb; both go after 2 frames\n"
            "    const ap = dwread(0x628438);  // the slot of the next unit (0: no slot)\n    if (ap == 0) return;\n"
            "    CreateUnit(1, au, la, pl);\n    if (dwread(0x628438) == ap) return;  // not created\n"
-           "    dwwrite(ap + 0x110, dwread(ap + 0x110) + 2);\n"
+           "    const attacker = CUnit.from_ptr(ap);\n    attacker.removeTimer += 2;\n"
            "    const tp = dwread(0x628438);\n    if (tp == 0) return;\n"
            "    CreateUnit(1, tu, lb, pl);\n    if (dwread(0x628438) == tp) return;\n"
-           "    dwwrite(tp + 0x110, dwread(tp + 0x110) + 2);\n    dwwrite(ap + 0x5C, tp);\n    bwrite(ap + 0x4D, 10);  // Attack\n}\n"
+           "    const target = CUnit.from_ptr(tp);\n    target.removeTimer += 2;\n"
+           "    attacker.orderTarget = target;\n    attacker.orderID = 10;  // Attack\n}\n"
            "function sd_countAt(pl, u, loc) {  // CountAtLoc: the count from 11 checks of Bring at most (0 to 1700)\n"
            "    var x = 1700;\n    foreach(i : py_range(10, -1, -1)) {\n        if (x >= py_pow(2, i)) {\n            x -= py_pow(2, i);\n"
            "            if (!Bring(pl, AtMost, x, u, loc)) x += py_pow(2, i);\n        }\n    }\n    return x;\n}\n"
            "function sd_locDistance(a, b) {  // LocationDistance: pixels between the middles of two locations\n"
-           "    const la = sd_locAddr(a);\n    const lb = sd_locAddr(b);\n"
+           "    const la = sd_locAddr(a);\n    const lb = sd_locAddr(b);  // the location: left (+0), top (+4), right (+8), bottom (+12)\n"
            "    const dx = dwread(lb) + dwread(lb + 8) - dwread(la) - dwread(la + 8);\n"
            "    const dy = dwread(lb + 4) + dwread(lb + 12) - dwread(la + 4) - dwread(la + 12);\n    return sqrt(dx * dx + dy * dy) / 2;\n}\n"
            "function sd_pointDistance(x1, y1, x2, y2) {  // Distance\n    const dx = x2 - x1;\n    const dy = y2 - y1;\n    return sqrt(dx * dx + dy * dy);\n}\n"
            "function sd_locAngle(a, b) {  // LocationAngle, in the game's directions (0 to 255, 0 is up)\n"
-           "    const la = sd_locAddr(a);\n    const lb = sd_locAddr(b);\n"
+           "    const la = sd_locAddr(a);\n    const lb = sd_locAddr(b);  // the location: left (+0), top (+4), right (+8), bottom (+12)\n"
            "    const dx = dwread(lb) + dwread(lb + 8) - dwread(la) - dwread(la + 8);\n"
            "    const dy = dwread(lb + 4) + dwread(lb + 12) - dwread(la + 4) - dwread(la + 12);\n    return atan2_256(dx, dy);\n}\n"
            "// CheckNoneTargetSkill (unit 0) and CheckTargetSkill (unit 1): the order in range puts the two locations at the unit\n"
            "// and the order's place, and stops the unit (order 1, the move target where it is).\n"
            "function sd_castsOrder(u: CUnit, order, r, ul, pl, unit) {\n"
-           "    if (bread(u.ptr + 0x4D) != order) return 0;\n    if (unit && dwread(u.ptr + 0x5C) == 0) return 0;\n"
-           "    const x = u.posX;\n    const y = u.posY;\n    const tx = wread(u.ptr + 0x58);\n    const ty = wread(u.ptr + 0x5A);\n"
+           "    if (u.orderID != order) return 0;\n    if (unit && dwread(u.ptr + 0x5C) == 0) return 0;  // no orderTarget unit\n"
+           "    const x = u.posX;\n    const y = u.posY;\n    const tx = u.orderTargetX;\n    const ty = u.orderTargetY;\n"
            "    const dx = tx - x;\n    const dy = ty - y;\n    if (dx * dx + dy * dy >= r * r) return 0;\n"
-           "    setloc(ul, x, y);\n    setloc(pl, tx, ty);\n    dwwrite(u.ptr + 0x10, x + y * 65536);\n    bwrite(u.ptr + 0x4D, 1);\n    return 1;\n}\n";
+           "    setloc(ul, x, y);\n    setloc(pl, tx, ty);\n    u.moveTargetX = x;\n    u.moveTargetY = y;\n    u.orderID = 1;  // Stop\n    return 1;\n}\n";
     return out;
 }
 
