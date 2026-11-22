@@ -360,12 +360,29 @@ std::string makeInviteLink(const std::string& server, const std::string& room, R
 bool parseInviteLink(const std::string& text, InviteLink& out, std::string& error) {
     error = "This is not a StarDraft invite link. It looks like https://<server>/j/<room>#e<code>.";
     std::string s = trimmed(text);
-    static const char custom[] = "stardraft://join?link=";
-    if (s.rfind(custom, 0) == 0) {
+    // A link from a chat can have quotes or angle brackets around it.
+    while (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\'') || (s.front() == '<' && s.back() == '>')))
+        s = trimmed(s.substr(1, s.size() - 2));
+    auto custom = [](const std::string& t) {  // stardraft: (any case)
+        static const char scheme[] = "stardraft:";
+        if (t.size() < sizeof scheme - 1) return false;
+        for (size_t i = 0; i + 1 < sizeof scheme; ++i)
+            if (std::tolower(static_cast<unsigned char>(t[i])) != scheme[i]) return false;
+        return true;
+    };
+    // The stardraft:// form (the invite page gives stardraft://join?link=<the link, encoded>). The system or the browser
+    // can change it a little on the way: a / before the ? or at the end (stardraft://join/?link=...), or no //.
+    if (custom(s)) {
+        const size_t at = s.find("link=");
+        if (at == std::string::npos) return false;
+        std::string v = s.substr(at + 5);
+        if (const size_t amp = v.find('&'); amp != std::string::npos) v.resize(amp);
+        while (!v.empty() && v.back() == '/') v.pop_back();
         bool ok = false;
-        s = percentDecode(s.substr(sizeof custom - 1), ok);
-        if (!ok || s.rfind("stardraft:", 0) == 0) return false;  // (one level only)
+        s = trimmed(percentDecode(v, ok));
+        if (!ok || custom(s)) return false;  // (one level only)
     }
+    while (!s.empty() && s.back() == '/') s.pop_back();  // (the secret has no /)
     const size_t hash = s.find('#');
     if (hash == std::string::npos) return false;
     const std::string fragment = s.substr(hash + 1);

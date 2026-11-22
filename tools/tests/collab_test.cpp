@@ -418,6 +418,13 @@ int main(int argc, char** argv) {
         CHECK(cb::parseInviteLink("stardraft://join?link=https%3A%2F%2Fabc.trycloudflare.com%2Fj%2FAAAAAAAAAAAA%23v" + link.substr(link.size() - 22), l, err) &&
                   l.role == cb::Role::View,
               "links: the stardraft:// form reads");
+        const std::string enc = "https%3A%2F%2Fabc.trycloudflare.com%2Fj%2FAAAAAAAAAAAA%23e" + link.substr(link.size() - 22);
+        CHECK(cb::parseInviteLink("stardraft://join/?link=" + enc, l, err) && l.secret == k && cb::parseInviteLink("stardraft://join?link=" + enc + "/", l, err) &&
+                  cb::parseInviteLink("StarDraft:join?link=" + enc, l, err) && l.secret == k,
+              "links: the stardraft:// form as browsers give it (a / before the ? or at the end, no //, any case)");
+        CHECK(cb::parseInviteLink("\"" + link + "\"", l, err) && cb::parseInviteLink("<" + link + ">", l, err) && cb::parseInviteLink(link + "/", l, err) &&
+                  l.secret == k,
+              "links: a pasted link in quotes, in angle brackets or with a / at the end");
         CHECK(!cb::parseInviteLink("http://evil.example/j/AAAAAAAAAAAA#e" + link.substr(link.size() - 22), l, err), "links: http only for localhost");
         CHECK(!cb::parseInviteLink(link.substr(0, link.size() - 1), l, err), "links: a short secret is refused");
         CHECK(!cb::parseInviteLink("https://a.b/j/AAAAAAAAAAAA/../x#e" + link.substr(link.size() - 22), l, err), "links: a path is refused");
