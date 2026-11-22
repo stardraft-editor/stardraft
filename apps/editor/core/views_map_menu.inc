@@ -61,7 +61,9 @@ void locationMenuPick(int loc, int pick) {
 enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN,
        ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK, ID_MAPMENU_SAVESTAMP, ID_MAPMENU_COPYTILE, ID_MAPMENU_FEEDBACKSEL,
        ID_MAPMENU_PROTECT, ID_MAPMENU_UNPROTECT, ID_MAPMENU_ADDANCHOR, ID_MAPMENU_REMOVEANCHOR, ID_MAPMENU_CENTERANCHOR, ID_MAPMENU_CLEARMASK, ID_MAPMENU_COPYTEXT,
-       ID_MAPMENU_SELVIEW, ID_MAPMENU_SELPLAYER, ID_MAPMENU_SELINVERT };
+       ID_MAPMENU_SELVIEW, ID_MAPMENU_SELPLAYER, ID_MAPMENU_SELINVERT, ID_MAPMENU_PING };
+bool collabPing(int x, int y);  // (sdl_collab.inc: a ping at that map point; false: no session shows this map)
+bool collabPingable();
 constexpr int ID_MAPMENU_LOCROW = 9600;  // + a location: the locations under the click, to select one (GitHub feedback #265)
 constexpr int ID_MAPMENU_LAYERROW = 9300;  // + a layer's row + 1 (0: the Background), Map Layers' menu on the map
 
@@ -371,6 +373,10 @@ MenuModel mapMenuModel(float wx, float wy) {
     }
     // A terrain selection: the menu's Report feedback is on it, its tiles in the box (in the place of "on the map": the
     // shell adds that one only when this is not here, mapRightClickSdl).
+    if (collabPingable()) {  // (collaborative editing: points at this place for the others)
+        m.push_back(menuSeparator());
+        item(ID_MAPMENU_PING, L"&Ping here", L"", true);
+    }
     if (terrain && has) {
         m.push_back(menuSeparator());
         item(ID_MAPMENU_FEEDBACKSEL, L"Report feedback on the selected terrain\x2026", L"", true);
@@ -390,6 +396,7 @@ void mapMenuPick(int pick) {
         app.dirty = true;
         return;
     }
+    if (pick == ID_MAPMENU_PING) return void(collabPing(int(gMapMenuWX), int(gMapMenuWY)));
     if (pick == ID_MAPMENU_PROPS && gMapMenuUnit >= 0) showUnitProperties(gMapMenuUnit);
     else if (pick == ID_MAPMENU_STACK) showUnitStack(gMapMenuWX, gMapMenuWY, app.mouseX, app.mouseY, false);
     else if (pick == ID_MAPMENU_SELECT) enterSelection(), setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");

@@ -28,6 +28,19 @@
     <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
+    <!-- stardraft:// invite links (shared maps): the system gives the link to SDL's URL handler, an SDL_EVENT_DROP_FILE
+         with the link as its path; openAny's first step joins, after the question (sdl_collab.inc). -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>io.github.stardraft-editor.invite</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>stardraft</string>
+            </array>
+        </dict>
+    </array>
     <!-- Why StarDraft reads the folders that macOS guards (it asks the user once with this text; without a text the
          access is refused and a map there cannot be opened: "StormLib error 1"). -->
     <key>NSDocumentsFolderUsageDescription</key>

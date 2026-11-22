@@ -40,6 +40,8 @@ void sdlUndoSteps(bool redo, size_t steps) {
     const std::vector<MapSprite> sprites = ed.sprites();
     if (redo) ed.redo(steps);
     else ed.undo(steps);
+    void collabAfterUndo();  // (sdl_collab.inc: in a collaborative session, the others' terrain cells stay)
+    collabAfterUndo();
     mapLayersSync();  // (the layers as the step left them)
     keepItemSelection(gState, doodads, sprites);
     gState.terrainRev = 0;

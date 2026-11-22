@@ -136,7 +136,9 @@ void openProject(const std::filesystem::path& edsOrFolder) {
 
 // File > Open and the command line: a project (project.stardraft, a .eds, a folder), or a map. A project's map opens
 // as that project.
+bool collabOpenLink(const std::filesystem::path& path);  // (the program's: a stardraft:// invite link, sdl_collab.inc)
 void openAny(const std::filesystem::path& path) {
+    if (collabOpenLink(path)) return;
     AppState& app = shellState();
     startMark("open: start");
     std::error_code ec;

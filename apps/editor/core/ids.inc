@@ -139,6 +139,9 @@ enum : int {
     ID_FILE_EXPORTIMAGE = 230,  // File > Export map image (core/map_image.inc)
     ID_DATA_TABLE = 1080,  // View > Data > Table view (Ctrl+E: the table, or the entry's form again; core/views_data_table.inc)
     ID_DATA_ENTRY = 1081,  // View > Data > Entry view: the form of the open entry
+    // File > Collaborative editing (sdl_collab.inc): invite, the invite links, the session window, end, leave, join, the server
+    ID_COLLAB_SHARE = 1400, ID_COLLAB_COPYEDIT, ID_COLLAB_COPYVIEW, ID_COLLAB_PEOPLE, ID_COLLAB_NEWLINKS, ID_COLLAB_STOP, ID_COLLAB_LEAVE,
+    ID_COLLAB_JOIN, ID_COLLAB_SERVER, ID_COLLAB_MINIMAP,
 };
 // View > Grid: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {

@@ -603,6 +603,30 @@ int Editor::repairIsomFromTiles(std::string& error) {
     return changed;
 }
 
+bool Editor::editTerrainSections(const std::function<void(Chk&)>& edit) {
+    if (!open_ || inStroke_) return false;
+    edit(chk_);
+    reloadTerrain();
+    std::string err;
+    isomOk_ = isom_.load(chk_, err);
+    modified_ = true;
+    state_ = nextRevision();
+    revision_ = nextRevision();
+    return true;
+}
+
+bool Editor::editSections(const std::function<void(Chk&)>& edit) {
+    if (!open_ || inStroke_) return false;
+    const std::vector<Unit> before = units_;
+    edit(chk_);
+    reload();
+    selection_ = selectionAfterRestore(before);  // (the same units stay selected: by serial, not by their places in the list)
+    modified_ = true;
+    state_ = nextRevision();
+    revision_ = nextRevision();
+    return true;
+}
+
 void Editor::commit(bool terrain) {
     lastRedo_.clear();  // a change: the cleared redo steps are gone for good
     modified_ = true;

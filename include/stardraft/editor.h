@@ -947,6 +947,12 @@ public:
     StepName undoStepName(size_t k) const;
     StepName redoStepName(size_t k) const;
     bool inStroke() const { return inStroke_; }
+    // A change of the terrain from outside the editor (a shared map: another user's edit, include/stardraft/collab.h):
+    // `edit` changes the ISOM, MTXM and TILE sections in place, then the terrain is read again. No undo step. False: no
+    // map is open, or a stroke is (try again after it).
+    bool editTerrainSections(const std::function<void(Chk&)>& edit);
+    // The same for any sections (units, doodads, sprites, locations, strings): the whole map is read again after it.
+    bool editSections(const std::function<void(Chk&)>& edit);
     // The map's state: a number that changes with each change, undo and redo (an undo gives back the number the state
     // had). Another part of the program can tell with it whether the map's last step is still the one it made.
     uint64_t stateId() const { return state_; }

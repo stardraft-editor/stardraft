@@ -3540,8 +3540,8 @@ def check_dock(output):
              "applicationDockMenu: yes; 4 items: \"(2)Bottleneck.scm\" \"(4)Lost Temple.scx\" | "
              "\"AshenCrown\"", "dock: build running: tile shows the bar, timer on",
              "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
-             "settings: toolbar style preference; 7 items: \"General\" \"Appearance\" \"Mouse and keyboard\" \"Map\" "
-             "\"Plugins\" \"Folders\" \"Updates\"; selected"]
+             "settings: toolbar style preference; 8 items: \"General\" \"Appearance\" \"Mouse and keyboard\" \"Map\" "
+             "\"Plugins\" \"Collaboration\" \"Folders\" \"Updates\"; selected"]
     for w in wants:
         if w not in output:
             return f"no {w!r}"

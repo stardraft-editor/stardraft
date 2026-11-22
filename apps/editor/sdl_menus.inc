@@ -191,8 +191,12 @@ void sdlDataTableCommand(int view = -1);  // (sdl_data.inc: View > Data: 0 the e
 bool sdlDataTableTab(int tab);
 void sdlHelpQuick();  // (sdl_help.inc: Q in the Help workspace)
 void sdlClassicQuick();  // (sdl_map_pages.inc: Q on the Map data page)
+bool sdlCollabRuns(int id);  // (sdl_collab.inc: File > Collaborative editing)
+bool sdlCollabLocks(int id);  // (a participant's tab: terrain only)
+bool sdlCollabEnabled(int id);
+bool sdlCollabCommand(int id);
 bool sdlRuns(int id) {
-    if (sdlOptionsRuns(id) || sdlUpdatesRuns(id) || sdlHelpRuns(id)) return true;
+    if (sdlOptionsRuns(id) || sdlUpdatesRuns(id) || sdlHelpRuns(id) || sdlCollabRuns(id)) return true;
     switch (id) {
     case ID_FILE_OPEN:
     case ID_FILE_SAVE:
@@ -336,6 +340,8 @@ bool simLocksCommand(int id) {
 
 bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
+    if (sdlCollabRuns(id)) return sdlCollabEnabled(id);
+    if (sdlCollabLocks(id)) return false;
     if ((id == ID_CMBW_REPAIRISOM || id == ID_CMBW_CHECKCOMMENTS) && !modTab()) return false;  // (a Cosmonarchy map's tab only)
     if ((id == ID_CMBW_ISOMRULES || id == ID_CMBW_TERRAINMAPPER || id == ID_CMBW_PASSAGES || id == ID_CMBW_RECOLOR) && !cmbwMode()) return false;  // (the mod loaded)
     if (id >= ID_HYP_CHECK && id <= ID_HYP_TESTUMS && (!hyperionMode() || !docOpen())) return false;  // (the plugin loaded, a map open)
@@ -938,6 +944,8 @@ bool sdlShotInputNext() {
     else if (kind == 't') sdlTypeText(value);
     else if (kind == 'i') sdlImeText(value);
     else if (kind == 'w') {  // --wait ms: the program's timers that are due in that time run (a page that reads the map again)
+        bool sdlCollabWait(int ms);  // (sdl_collab.inc: a shared map's messages need the real time)
+        sdlCollabWait(std::atoi(value.c_str()));
         if (gHost) gHost->snapshotTimers(std::atoi(value.c_str()));
         advanceAnimsFor(std::atoi(value.c_str()));  // (Animate units: the units' ticks of that time)
         funAdvanceFor(std::atoi(value.c_str()));  // (Options > Fun mode: core/fun_mode.inc)
@@ -1560,6 +1568,8 @@ void commandSdl(int id) {
     if (sdlOptionsCommand(id)) return;  // (sdl_options.inc: the theme, the language, the program's options)
     if (sdlUpdatesCommand(id)) return;
     if (sdlHelpCommand(id)) return;
+    if (sdlCollabCommand(id)) return;
+    if (sdlCollabLocks(id)) return setMessage(L"Collaborative editing (experimental): invited users edit the map only");
     switch (id) {
     case ID_FILE_OPEN:  // (a map opens in a tab of its own: the open tabs keep their work, no save question)
         showFileDialog(false, [](const fs::path& p) {

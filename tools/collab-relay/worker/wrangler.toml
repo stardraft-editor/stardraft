@@ -1,0 +1,30 @@
+# StarDraft's collaboration relay on Cloudflare: collab.stardraft.app (stardraft.app stays for the program's site).
+#   npx wrangler dev       a local copy (http://localhost:8787)
+#   npx wrangler deploy    the public one
+name = "stardraft-collab"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+workers_dev = false
+routes = [{ pattern = "collab.stardraft.app", custom_domain = true }]
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "Room"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]
+
+# New rooms and joins by address (CF-Connecting-IP), each minute.
+[[ratelimits]]
+name = "CREATE_LIMIT"
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }
+
+[[ratelimits]]
+name = "JOIN_LIMIT"
+namespace_id = "1002"
+simple = { limit = 30, period = 60 }
+
+[observability]
+enabled = false  # (no request logs: no addresses or room ids are kept)

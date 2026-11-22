@@ -59,7 +59,7 @@ public:
 class StartView final : public draw::View {
 public:
     StartView()
-        : open_(L"Open\x2026", stardraft::kit::Tone::Normal, nullptr), browse_(L"Browse\x2026", stardraft::kit::Tone::Primary, nullptr),
+        : open_(L"Open\x2026", stardraft::kit::Tone::Normal, nullptr), join_(L"Join session\x2026", stardraft::kit::Tone::Normal, nullptr), browse_(L"Browse\x2026", stardraft::kit::Tone::Primary, nullptr),
           loadMod_(L"Load mod\x2026", stardraft::kit::Tone::Normal, nullptr) {
         loadMod_.onClick = [this] {
             if (onLoadMod) onLoadMod();
@@ -71,6 +71,11 @@ public:
         };
         open_.setTip(L"A project or a map (Ctrl+O)");
         add(open_, {0, 0, 0, 0});
+        join_.onClick = [this] {
+            if (onJoin) onJoin();
+        };
+        join_.setTip(L"Join a collaborative editing session with an invite link (experimental)");
+        add(join_, {0, 0, 0, 0});
         browse_.onClick = [this] {
             if (onBrowseInstall) onBrowseInstall();
         };
@@ -83,7 +88,7 @@ public:
     // map) and its index in the recent list. dateOf: the date a file was last saved ("" when it is not there).
     std::function<void(int)> onCard;
     std::function<void(bool, size_t)> onOpenRecent, onRemoveRecent;
-    std::function<void()> onOpen;
+    std::function<void()> onOpen, onJoin;
     // Program options > Plugins > Cosmonarchy BW loaded: the Cosmonarchy map card alone (no classic map or projects).
     bool cosmonarchyOnly = false;
     std::function<void()> onCosmonarchy;
@@ -300,6 +305,8 @@ public:
         y += scale(12);
         const int ow = std::max(scale(stardraft::kit::kButtonMinW), c.measure(L"Open\x2026") + scale(28));
         open_.setFrame({x1, y, x1 + ow, y + bh});
+        const int jw = std::max(scale(stardraft::kit::kButtonMinW), c.measure(L"Join session\x2026") + scale(28));
+        join_.setFrame({x1 + ow + scale(8), y, x1 + ow + scale(8) + jw, y + bh});
         y += bh;
 
         // The alpha notice: under the recent list and Open.
@@ -441,7 +448,7 @@ private:
     }
 
 
-    StartButton open_;              // (set up in the constructor; it never takes the keyboard)
+    StartButton open_, join_;              // (set up in the constructor; it never takes the keyboard)
     StartBrowse browse_;            // the banner's Browse (shown with the banner; a Tab stop)
     StartButton loadMod_;           // the banner's Load mod (shown with the banner, when the host gives onLoadMod)
     bool bannerShown_ = false;

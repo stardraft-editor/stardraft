@@ -65,6 +65,18 @@ void registerProjectFiles(const std::wstring& exe, bool keepOther) {
     if (changed) SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
 }
 
+void registerInviteLinks(const std::wstring& exe, bool keepOther) {
+    bool changed = putClassesValue(L"stardraft", L"URL:StarDraft 2 invite link");
+    changed |= putClassesValue(L"stardraft", L"", L"URL Protocol");
+    if (keepOther && keepRegisteredProgram(classesValue(L"stardraft\\shell\\open\\command"), exe)) {
+        if (changed) SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+        return;
+    }
+    changed |= putClassesValue(L"stardraft\\DefaultIcon", L"\"" + exe + L"\",0");
+    changed |= putClassesValue(L"stardraft\\shell\\open\\command", L"\"" + exe + L"\" \"%1\"");
+    if (changed) SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+}
+
 std::wstring associationExe() {
     wchar_t self[MAX_PATH];
     GetModuleFileNameW(nullptr, self, MAX_PATH);

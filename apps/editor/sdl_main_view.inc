@@ -265,6 +265,10 @@ bool simKey(const draw::KeyEvent& e);
 void simFrame();
 
 // The map view: the texture of the map (drawn by the frame hook) and the core's map input.
+void collabCursorsPaint(draw::Canvas& c, draw::Rect view);  // (sdl_collab.inc)
+bool collabMapClick(int x, int y);                          // (sdl_collab.inc)
+bool collabChatKey(const draw::KeyEvent& e, bool typing);    // (sdl_collab.inc: cursor chat)
+bool collabChatText(const std::string& utf8);
 struct MapView final : draw::View {
     bool rightDown = false;  // the right button went down on the map: its release opens the map's menu
     // The middle button held: Options > Middle mouse click and hold. Drag map: the map follows the mouse; Pan map (the
@@ -286,6 +290,7 @@ struct MapView final : draw::View {
         if (open() && gMapTex && gMapW == width() && gMapH == height()) {
             c.externalImage(gMapTex, all);
             mapTextPaint(c, all);      // (the locations' names: core/map_scene.inc)
+            collabCursorsPaint(c, all);  // (a shared map: the others' cursors, sdl_collab.inc)
             pathOverlayPaint(c, all);  // (the pathing overlays' labels: core/path_overlay.inc)
             if (simBarShown()) simPaintBar(c, all);
             return;
@@ -412,6 +417,7 @@ struct MapView final : draw::View {
                 return true;
             }
             if (e.button == 1 || !open()) return false;
+            if (collabMapClick(e.pt.x, e.pt.y)) return true;  // (an arrow at the edge to another person: the view goes there)
             if (draw::Host* h = host()) h->capture(*this, true);
             gState.mouseX = e.pt.x, gState.mouseY = e.pt.y, gState.mouseIn = true;
             mapMouseDown(gState, e.pt.x, e.pt.y, e.mods);
@@ -735,6 +741,8 @@ struct MainView final : draw::View {
 
     // The menus' keys run when no view takes the key (the focused view first, then up to here). A search box takes the
     // letters and digits it types: the map's one-letter shortcuts (T, U, G, Q...) wait while it has the keyboard.
+    // Cursor chat (sdl_collab.inc) takes the typed text while it is open.
+    bool text(const draw::TextEvent& e) override { return collabChatText(e.utf8); }
     bool key(const draw::KeyEvent& e) override {
         if (simKey(e)) return true;  // (Esc ends a live game)
         if (simBarShown()) return shortcutRun(e);  // (a live game: the menus' keys only, not the map's)
@@ -745,6 +753,7 @@ struct MainView final : draw::View {
                             palettePanelsTyping();   // (a palette window's search box, as the side bar's)
         // The focused Triggers pane types too: a letter or a digit opens its block picker (from the text event), so the
         // map's keys (the player 1 to 0, the tools V B A F, Q) do not run (Windows: editFocus for the pane).
+        if (collabChatKey(e, typing || trigPaneFocused())) return true;  // (cursor chat: / opens it; while open it takes the keys)
         if ((typing || trigPaneFocused()) && typed && !(e.mods & (draw::kCtrl | draw::kAlt))) return false;
         // During the overview only Space counts: no key opens a window or goes to another tab while it is held.
         if (gMapPeek.on && e.key != draw::Key::Space) return true;

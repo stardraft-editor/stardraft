@@ -51,6 +51,7 @@ void initStartPage() {
         gMenusDirty = true;
     };
     gStartView.onOpen = [] { command(ID_FILE_OPEN); };
+    gStartView.onJoin = [] { command(ID_COLLAB_JOIN); };  // (an invite link: sdl_collab.inc)
     gStartView.onCosmonarchy = [] { openNewPageSdl(hyperionMode() ? 0 : 2); };  // (the New page: the tileset, the size, the terrain)
     gStartView.cosmonarchyOnly = cmbwMode() || hyperionMode(), gStartView.hyperionOnly = hyperionMode();
     gStartView.modReady = cmbwMode() && !stardraft::cmbw::findInstall().empty();

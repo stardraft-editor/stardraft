@@ -5,6 +5,16 @@
 // topBarModesRect), the turn and mirror buttons while something is on the cursor to place, then Build and Debug mode (a
 // project), and Report feedback at the right end.
 
+// Collaborative editing (sdl_collab.inc): the others in the session, as the bar shows them; the Invite button's place in
+// the main window (the session's pop-out opens under it).
+struct CollabAvatar {
+    uint32_t id = 0;
+    std::wstring name, initial;
+    stardraft::draw::Color color = 0;
+    bool followed = false;
+};
+stardraft::draw::Rect gCollabAnchor{};
+
 // Defined by each program (main.cpp, sdl_menus.inc and sdl_main_view.inc).
 void command(int id);
 bool commandEnabled(int id);  // the command's menu item is enabled now (the icons are gray when it is not)
@@ -111,6 +121,7 @@ struct TopBarView final : stardraft::draw::View {
             afterModes = tx - scale(3);
         }
         // The right end: Build (a project; its icon and name), then Report feedback in the corner.
+        int usedRight = (topBarModesShown() ? afterModes : topBarIconsWidth()) + scale(8);  // (the session's circles stay right of it)
         if (activeProject()) {
             const std::wstring text = gBuilding ? L"Building" : L"Build";
             const Font of2 = c.setFont(ui);
@@ -134,6 +145,7 @@ struct TopBarView final : stardraft::draw::View {
             const bool on = pr->debugBuild() || pr->traceBuild();
             const int side = int(bb.bottom - bb.top);
             const RECT dr{bb.right + scale(6), bb.top, bb.right + scale(6) + side, bb.bottom};
+            usedRight = int(dr.right) + scale(8);
             // A toggle button: on, selected (the accent fill and line); off, a plain button.
             const bool dhot = surface.hot(dr);
             kitpaint::drawBox(c, dr, on ? kSel : dhot ? kCtlHot : kCtl, on ? kAccentLine : dhot ? kBorderHot : kBorder);
@@ -182,6 +194,61 @@ struct TopBarView final : stardraft::draw::View {
             surface.add({ub, nullptr, [] { command(ID_UPDATE_NOTES); }, topBarUpdateTip(*up), draw::Cursor::Hand});
             updateRc = ub;
             std::swap(surface.hits[surface.hits.size() - 2], surface.hits.back());  // (Tab: Update, then Report feedback)
+        }
+        // Invite (File > Collaborative editing): before Update and Report feedback. In a session: its state, green while
+        // others are in it; a click shows the session window.
+        {
+            std::wstring collabStatusText(bool& live);  // (sdl_collab.inc)
+            std::vector<CollabAvatar> collabAvatars();
+            void collabFollowToggle(uint32_t id);
+            bool live = false;
+            const std::wstring state = collabStatusText(live);
+            const std::wstring label = state.empty() ? std::wstring(tr(L"Invite")) : live ? state : std::wstring(tr(L"Session"));
+            const Font ofi = c.setFont(ui);
+            const int bh = scale(stardraft::kit::kButtonH), iy = (h - bh) / 2;
+            const int iw = scale(10) + scale(16) + scale(8) + c.measure(label) + scale(12);
+            const int ir = (updateRc.right > updateRc.left ? updateRc.left : fb.left) - scale(8);
+            const RECT ib{ir - iw, iy, ir, iy + bh};
+            const bool on = commandEnabled(ID_COLLAB_SHARE), ihot = on && surface.hot(ib);
+            kitpaint::drawBox(c, ib, live ? kGoodFill : ihot ? kCtlHot : kCtl, live ? kGoodLine : kBorder);
+            c.icon({ib.left + scale(10), ib.top, ib.left + scale(10) + scale(16), ib.bottom}, int(UiIcon::Units), live ? kGood : on ? kText : kFaint, scale(16));
+            c.text({ib.left + scale(10) + scale(16) + scale(8), ib.top, ib.right, ib.bottom}, label, live ? kGood : on ? kText : kFaint, kMiddle);
+            c.setFont(ofi);
+            if (on)
+                surface.add({ib, nullptr, [] { command(ID_COLLAB_SHARE); },
+                             state.empty() ? L"Invite people to edit this map with you (collaborative editing, experimental)" : L"Show the collaborative editing session",
+                             draw::Cursor::Hand});
+            gCollabAnchor = {ib.left + frame().left, ib.top + frame().top, ib.right + frame().left, ib.bottom + frame().top};
+            // The others in the session: a circle each in their color with their initial (at most 5, then +N); a click
+            // follows that person's view (again: stops).
+            const std::vector<CollabAvatar> avatars = collabAvatars();
+            const int d = scale(24), step = scale(19);
+            // (as many as there is room for between the bar's other parts and the button, at most 5; the rest: +N)
+            const int room = int(ib.left) - scale(10) - usedRight;
+            const int fit = room < d ? 0 : 1 + (room - d) / step;
+            int shown = int(std::min<size_t>(avatars.size(), 5));
+            bool more = avatars.size() > size_t(shown);
+            if (shown + (more ? 1 : 0) > fit) shown = std::max(0, fit - 1), more = fit > 0;
+            if (fit <= 0) shown = 0, more = false;
+            int ax = ib.left - scale(10) - d - (shown - 1 + (more ? 1 : 0)) * step;
+            const int ay = (h - d) / 2;
+            const Font ofa = c.setFont(c.font({draw::Face::Ui, scale(11), true}));
+            for (int i = 0; i < shown; ++i, ax += step) {
+                const CollabAvatar& a = avatars[size_t(i)];
+                const draw::Rect r{ax, ay, ax + d, ay + d};
+                if (a.followed) c.ellipse({r.left - scale(3), r.top - scale(3), r.right + scale(3), r.bottom + scale(3)}, kBg, a.color);
+                c.ellipse(r, a.color, kBg);
+                c.text(r, a.initial, draw::rgb(16, 16, 16), draw::kCenter | kMiddle);
+                const uint32_t id = a.id;
+                surface.add({r, nullptr, [id] { collabFollowToggle(id); },
+                             a.followed ? L"Stop following " + a.name : L"Follow " + a.name + L" (the map shows what they see)", draw::Cursor::Hand});
+            }
+            if (more) {
+                const draw::Rect r{ax, ay, ax + d, ay + d};
+                c.ellipse(r, kCtl, kBorder);
+                c.text(r, L"+" + std::to_wstring(avatars.size() - size_t(shown)), kText, draw::kCenter | kMiddle);
+            }
+            c.setFont(ofa);
         }
         c.fill({0, h - 1, w, h}, kBorder);  // the line under the bar
         surface.paintFocus(c, *this);

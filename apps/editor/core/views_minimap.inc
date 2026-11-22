@@ -168,6 +168,9 @@ struct MinimapView final : stardraft::draw::View {
             if (!ed.units().empty())
                 c.bitmap(dots, {0, 0, bw, bh}, {int(r.left) - kDotMargin, int(r.top) - kDotMargin, int(r.left) - kDotMargin + bw, int(r.top) - kDotMargin + bh});
         }
+        // Collaborative editing: the others' views and pings (sdl_collab.inc; View > Collaborators on the minimap).
+        void collabMinimapPaint(stardraft::draw::Canvas& c, RECT r, float sc);
+        collabMinimapPaint(c, r, sc);
         // The current view: a light tint, the line in the accent.
         const RECT v = minimapView(r, sc);
         c.fill(v, kAccent, 36);
@@ -202,6 +205,13 @@ struct MinimapView final : stardraft::draw::View {
         switch (e.kind) {
         case MouseKind::Down:
             keyFocus = false;
+            if (e.mods & stardraft::draw::kAlt) {  // (Alt+click: a ping there for the others in a session, sdl_collab.inc)
+                bool collabPing(int x, int y);
+                RECT r;
+                float sc;
+                minimapRect(r, sc);
+                if (sc > 0 && collabPing(int((e.pt.x - r.left) / sc), int((e.pt.y - r.top) / sc))) return true;
+            }
             dragging = true;
             if (auto* h = host()) h->capture(*this, true);
             pressX = e.pt.x, pressY = e.pt.y;
