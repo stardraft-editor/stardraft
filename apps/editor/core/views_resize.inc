@@ -187,11 +187,14 @@ public:
         add(picture_, {0, 0, 0, 0});
 
         std::vector<stardraft::kit::DropdownItem> ws, hs, anchors, fills;
-        for (int s : sizesW_) ws.push_back({std::to_wstring(s), -1, -1});
-        for (int s : sizesH_) hs.push_back({std::to_wstring(s), -1, -1});
+        for (int s : sizesW_) ws.push_back(mapSizeItem(s));
+        for (int s : sizesH_) hs.push_back(mapSizeItem(s));
         wDrop_.setItems(ws), hDrop_.setItems(hs);
         wDrop_.onChange = [this](int i) { sizeTo(sizesW_[size_t(i)], v_.h); };
         hDrop_.onChange = [this](int i) { sizeTo(v_.w, sizesH_[size_t(i)]); };
+        // (a size of its own, typed in the open list: it becomes an item of the list)
+        mapSizeTyping(wDrop_, [this](int n) { addSize(wDrop_, sizesW_, n), sizeTo(n, v_.h); });
+        mapSizeTyping(hDrop_, [this](int n) { addSize(hDrop_, sizesH_, n), sizeTo(v_.w, n); });
         for (int k = 0; k < 9; ++k) anchors.push_back({kAnchorNames[k], -1, -1});
         anchor_.setItems(anchors);
         anchor_.onChange = [this](int k) { set(anchorValues(k, v_.w, v_.h), true); };
@@ -426,6 +429,14 @@ private:
     std::vector<uint16_t> fillIds_;  // the terrain of each item of New ground
     ResizePicture picture_;
     stardraft::kit::Dropdown wDrop_, hDrop_, anchor_, fill_;
+    // A typed size into a size dropdown's items (in order), when it is not one of them.
+    static void addSize(stardraft::kit::Dropdown& d, std::vector<int>& sizes, int n) {
+        if (std::find(sizes.begin(), sizes.end(), n) != sizes.end()) return;
+        sizes.push_back(n), std::sort(sizes.begin(), sizes.end());
+        std::vector<stardraft::kit::DropdownItem> items;
+        for (int s : sizes) items.push_back(mapSizeItem(s));
+        d.setItems(items);
+    }
     stardraft::kit::TextField xField_, yField_;
     stardraft::kit::Dialog* dlg_ = nullptr;
     ResizePreview preview_;

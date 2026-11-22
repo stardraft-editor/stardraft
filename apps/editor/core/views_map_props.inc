@@ -14,6 +14,19 @@ std::span<const uint16_t> mapSizes() {
     return kMapSizes;
 }
 int maxMapSide() { return mapSizes().back(); }
+// A size dropdown's item (its number hidden: a typed size finds it) and the typing of a size: the open list's search
+// row takes a whole number, and one that is no item's gives a row of its own (16 to the largest side, as Crop or extend
+// and New map take). `pick` gets the typed size.
+stardraft::kit::DropdownItem mapSizeItem(int s) {
+    stardraft::kit::DropdownItem it{std::to_wstring(s), -1, s};
+    it.numberHidden = true;
+    return it;
+}
+void mapSizeTyping(stardraft::kit::Dropdown& d, std::function<void(int)> pick) {
+    d.searchable = true, d.numberMax = maxMapSide();
+    d.numberItem = [](int n) { return mapSizeItem(n); };
+    d.onNumber = [pick = std::move(pick)](int n) { pick(std::clamp(n, 16, maxMapSide())); };
+}
 const wchar_t* kAnchorNames[] = {L"Top left", L"Top", L"Top right", L"Left", L"Center", L"Right", L"Bottom left", L"Bottom", L"Bottom right"};
 
 // The first terrain of a tileset (the default terrain of new ground).
@@ -64,6 +77,8 @@ public:
         };
         wDrop_.onChange = [this](int i) { v_.w = wVals_[size_t(i)], edited(); };
         hDrop_.onChange = [this](int i) { v_.h = hVals_[size_t(i)], edited(); };
+        mapSizeTyping(wDrop_, [this](int n) { v_.w = n, edited(); });  // (a size of its own: typed in the open list)
+        mapSizeTyping(hDrop_, [this](int n) { v_.h = n, edited(); });
         anchor_.onChange = [this](int i) { v_.anchorIndex = i, edited(); };
         fill_.onChange = [this](int i) { v_.fillTerrain = fillIds_[size_t(i)], edited(); };
         std::vector<stardraft::kit::DropdownItem> names;
@@ -204,8 +219,9 @@ private:
         if (want != odd || vals.empty()) {
             odd = want, vals.clear();
             std::vector<stardraft::kit::DropdownItem> items;
-            for (uint16_t s : sizes) items.push_back({std::to_wstring(s), -1, -1}), vals.push_back(s);
-            if (!standard) items.push_back({std::to_wstring(value), -1, -1}), vals.push_back(value);
+            for (uint16_t s : sizes) items.push_back(mapSizeItem(s)), vals.push_back(s);
+            if (!standard) items.push_back(mapSizeItem(value)), vals.push_back(value);
+            d.numberMax = maxMapSide();
             d.setItems(items);
         }
         for (size_t i = 0; i < vals.size(); ++i)
