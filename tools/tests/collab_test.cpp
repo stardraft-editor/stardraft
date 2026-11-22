@@ -645,6 +645,31 @@ int main(int argc, char** argv) {
         CHECK(waitFor([&] { return hostEd->units().size() == before + 2 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }),
               "after the stroke the host has Ann's unit, and all are the same");
         settle();
+
+        // Ann places a unit and moves it, the host deletes it, then Ann undoes (her move) and the host undoes (its delete):
+        // one unit, where the host had it (Ann's undo does not bring back a unit that the host deleted; not two units).
+        const size_t n0 = hostEd->units().size();
+        a.ed->placeUnit(0, 0, 900, 1300);
+        CHECK(waitFor([&] { return hostEd->units().size() == n0 + 1 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }), "Ann places a unit");
+        settle(0.2);
+        a.ed->clearSelection(), a.ed->select(int(a.ed->units().size()) - 1, false), a.ed->moveSelection(96, 0);
+        const int mx = a.ed->units().back().x, my = a.ed->units().back().y;
+        CHECK(waitFor([&] { return sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }) && mx != 900, "Ann moves it");
+        settle(0.2);
+        int hi = -1;
+        for (size_t i = 0; i < hostEd->units().size(); ++i)
+            if (hostEd->units()[i].x == mx && hostEd->units()[i].y == my) hi = int(i);
+        CHECK(hi >= 0, "the host has the moved unit");
+        if (hi >= 0) hostEd->clearSelection(), hostEd->select(hi, false), hostEd->deleteSelection();
+        CHECK(waitFor([&] { return hostEd->units().size() == n0 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }), "the host deletes it");
+        settle(0.2);
+        a.ed->undo(1), a.s->afterUndo();
+        settle(0.5);
+        CHECK(hostEd->units().size() == n0 && sameMap(*a.ed, *hostEd), "Ann's undo of her move does not bring back the unit that the host deleted");
+        hostEd->undo(1), host.s->afterUndo();
+        CHECK(waitFor([&] { return hostEd->units().size() == n0 + 1 && sameMap(*a.ed, *hostEd) && sameMap(*b.ed, *hostEd); }),
+              "the host's undo of its delete brings it back: one unit, on all");
+        settle();
     }
 
     // Edits at the same time, over the same cells: all end with the host's order.

@@ -21,6 +21,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -319,6 +320,7 @@ private:
     std::map<uint32_t, std::array<Bytes, kObjSections>> objSentTo_;  // host: each section as each member has it
     std::map<uint32_t, std::array<bool, kObjSections>> objKnown_;    // (false: the member gets the whole section next)
     std::map<Bytes, int> mineAdded_[kObjSections], mineRemoved_[kObjSections];  // this user's records (the undo's filter)
+    std::set<uint32_t> mineDeleted_;  // the units (serials) that this user deleted last (an undo may put only these back)
     std::vector<uint32_t> slotWriter_[kObjSections];
     struct ObjWaiting {
         uint8_t section = 0;

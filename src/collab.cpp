@@ -1602,6 +1602,10 @@ bool Session::flushLocal(bool force) {
     return true;
 }
 
+uint32_t unitSerial(const Bytes& r) {  // (a UNIT record's first 4 bytes)
+    return r.size() < 4 ? 0 : uint32_t(r[0]) | uint32_t(r[1]) << 8 | uint32_t(r[2]) << 16 | uint32_t(r[3]) << 24;
+}
+
 // This user's records (the undo takes back only these): added ones, and removed ones (an undo may put them back).
 void Session::noteMine(uint8_t section, const ObjEdit& e) {
     // (a record this user removed may come back with an undo or a redo; one this user added may go)
@@ -1615,6 +1619,13 @@ void Session::noteMine(uint8_t section, const ObjEdit& e) {
         if (it != mineRemoved_[section].end() && it->second > 0) --it->second;
         ++mineAdded_[section][r];
     }
+    if (section == oUnits) {  // a unit removed with no record of it added (not a move or another change): deleted
+        std::set<uint32_t> added;
+        for (const Bytes& r : e.added) added.insert(unitSerial(r));
+        for (const Bytes& r : e.removed)
+            if (!added.count(unitSerial(r))) mineDeleted_.insert(unitSerial(r));
+        for (uint32_t s : added) mineDeleted_.erase(s);
+    }
     for (const auto& [i, rec] : e.slots) {
         if (slotWriter_[section].size() <= i) slotWriter_[section].resize(i + 1, 0);
         slotWriter_[section][i] = me();
@@ -1623,7 +1634,7 @@ void Session::noteMine(uint8_t section, const ObjEdit& e) {
 }
 
 // An undo's or a redo's edit of the objects: only what this user added, removed or wrote last.
-ObjEdit Session::filterUndo(uint8_t section, const ObjEdit& e, const Bytes&) {
+ObjEdit Session::filterUndo(uint8_t section, const ObjEdit& e, const Bytes& shown) {
     ObjEdit keep;
     keep.section = section;
     std::map<Bytes, int> added = mineAdded_[section], removed = mineRemoved_[section];
@@ -1634,6 +1645,22 @@ ObjEdit Session::filterUndo(uint8_t section, const ObjEdit& e, const Bytes&) {
     for (const auto& s : e.slots)
         if (s.first < slotWriter_[section].size() && slotWriter_[section][s.first] == me()) keep.slots.push_back(s);
     if (e.whole && objWriter_[section] == me()) keep.whole = true, keep.data = e.data;
+    if (section == oUnits) {
+        // A unit's change that the undo takes back (a move: its record goes, the old one comes): only while the unit is
+        // as this user left it (that record goes too). A unit that comes back (no record of it goes): only one that this
+        // user deleted, and only when no unit has its serial now. Else another user's later delete or change would be
+        // undone, or the unit would be there two times (both users' undo).
+        std::set<uint32_t> there, going, goingKept;
+        for (size_t at = 0; at + 36 <= shown.size(); at += 36) there.insert(unitSerial(Bytes(shown.begin() + long(at), shown.begin() + long(at) + 4)));
+        for (const Bytes& r : e.removed) going.insert(unitSerial(r));
+        for (const Bytes& r : keep.removed) goingKept.insert(unitSerial(r));
+        std::vector<Bytes> adds;
+        for (Bytes& r : keep.added) {
+            const uint32_t s = unitSerial(r);
+            if (going.count(s) ? goingKept.count(s) > 0 : !there.count(s) && mineDeleted_.count(s)) adds.push_back(std::move(r));
+        }
+        keep.added = std::move(adds);
+    }
     return keep;
 }
 
