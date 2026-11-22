@@ -691,13 +691,14 @@ void awarenessPaint(draw::Canvas& c, draw::Rect view) {
     };
     for (const cb::Peer& p : gSession->peers()) {
         const draw::Color col = personColor(p);
-        // Their selected units: a box in their color (the unit's place in the middle).
+        // Their selected units: the unit's outline (its box), dashed in their color.
         bool named = false;
         for (uint32_t s : p.presence.units)
             for (const Unit& u : ed.units())
                 if (u.serial == s) {
-                    const draw::Rect r{sx(float(u.x) - 20), sy(float(u.y) - 20), sx(float(u.x) + 20), sy(float(u.y) + 20)};
-                    c.frame(r, col, std::max(1, scale(2)));
+                    const Rect b = ed.unitBox(u);
+                    const draw::Rect r{sx(float(b.left)), sy(float(b.top)), sx(float(b.right)), sy(float(b.bottom))};
+                    c.frame(r, col, std::max(1, scale(2)), draw::LineStyle::Dash);
                     if (!named) tag(r.left, r.top - scale(1), widen(p.name), col), named = true;
                     break;
                 }
