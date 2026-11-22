@@ -809,6 +809,18 @@ void SdlHost::dismissPopupsExcept(SDL_WindowID keep) {
         if (w->popup() && std::find(chain.begin(), chain.end(), w->id) == chain.end()) ids.push_back(w->id);
     for (SDL_WindowID id : ids) dismiss(id);  // (a window already closed with its parent is skipped)
 }
+// A window's place on the screen (logical points). A popup's (a menu, a tooltip) SDL position is from its parent
+// window's: its parents' positions are added up to the first window that is not a popup.
+static void screenPosition(SDL_Window* w, int& x, int& y) {
+    x = y = 0;
+    while (w) {
+        int wx = 0, wy = 0;
+        SDL_GetWindowPosition(w, &wx, &wy);
+        x += wx, y += wy;
+        if (!(SDL_GetWindowFlags(w) & (SDL_WINDOW_POPUP_MENU | SDL_WINDOW_TOOLTIP))) break;
+        w = SDL_GetWindowParent(w);
+    }
+}
 
 void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::WindowSpec& spec, std::function<void()> closed) {
     Win* parent = rootWin(from);
@@ -901,7 +913,7 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
             // the bottom, as the system's tooltips do)
             SDL_Rect area{};
             int px = 0, py = 0;
-            SDL_GetWindowPosition(parent->sdl, &px, &py);
+            screenPosition(parent->sdl, px, py);
             if (SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(parent->sdl), &area)) {
                 const int lw = std::max(1, toLogical(width, parent->density)), lh = std::max(1, toLogical(height, parent->density));
                 const int kPointer = 24;  // (the pointer's height and a gap: the tip's top is that far below the hot spot)
@@ -915,7 +927,7 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
             // bottom above it; a submenu at the right edge opens on its parent menu's left side, at the bottom it moves up)
             SDL_Rect area{};
             int px = 0, py = 0;
-            SDL_GetWindowPosition(parent->sdl, &px, &py);
+            screenPosition(parent->sdl, px, py);  // (a submenu's parent is a menu: a popup, whose position is its parent's)
             if (SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(parent->sdl), &area)) {
                 const int lw = std::max(1, toLogical(width, parent->density)), lh = std::max(1, toLogical(height, parent->density));
                 const bool sub = parent->kind == WindowKind::Menu;
