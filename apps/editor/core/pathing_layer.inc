@@ -196,6 +196,27 @@ PathingShapes makePathingShapes(const PathingRegions& r, bool areas) {
         };
         for (int y = 0; y < h; ++y)
             for (int x = 0; x < w; ++x) pair(x, y, 1, 0), pair(x, y, 0, 1), pair(x, y, 1, 1), pair(x, y, -1, 1);
+        // Across a short gap of ground that units cannot walk on (a cliff's edge, a narrow wall: at most a tile, 4 minitiles):
+        // two walkable regions there that units cannot go between are a red line too (no path: a way round, or none).
+        constexpr int kGap = 4;
+        auto across = [&](int x, int y, int dx, int dy) {
+            const int a = kind[size_t(y) * w + x];
+            if (a < 0) return;
+            int nx = x + dx, ny = y + dy, n = 0;
+            while (nx >= 0 && ny >= 0 && nx < w && ny < h && kind[size_t(ny) * w + nx] < 0 && n < kGap) nx += dx, ny += dy, ++n;
+            if (n == 0 || n >= kGap || nx < 0 || ny < 0 || nx >= w || ny >= h) return;  // (no gap, too wide, or the map's edge)
+            const int b = kind[size_t(ny) * w + nx];
+            if (b < 0 || b == a || !r.regions[size_t(a)].walkable() || !r.regions[size_t(b)].walkable()) return;
+            const PathingRegion& ra = r.regions[size_t(a)];
+            if (std::find(ra.neighbors.begin(), ra.neighbors.end(), b) == ra.neighbors.end())
+                touch.insert(uint64_t(std::min(a, b)) << 32 | uint32_t(std::max(a, b)));
+        };
+        for (int y = 0; y < h; ++y)
+            for (int x = 0; x < w; ++x)
+                if (x + 1 < w && kind[size_t(y) * w + x + 1] < 0) across(x, y, 1, 0);
+        for (int y = 0; y + 1 < h; ++y)
+            for (int x = 0; x < w; ++x)
+                if (kind[size_t(y + 1) * w + x] < 0) across(x, y, 0, 1);
         auto middle = [&](const PathingRegion& g, float& mx, float& my) { mx = g.centerX * 32.0f + 16, my = g.centerY * 32.0f + 16; };
         for (uint64_t t : touch) {
             const PathingRegion &a = r.regions[size_t(t >> 32)], &b = r.regions[size_t(uint32_t(t))];
@@ -232,7 +253,7 @@ void colorPathingShapes(const PathingLayerResult& res) {
     for (const PathingShape& l : g.links) {  // green: units go across; red: the regions touch, but there is no way across
         render::RectDraw d;
         d.x0 = l.x0, d.y0 = l.y0, d.x1 = l.x1, d.y1 = l.y1, d.line = true, d.thickness = 2;
-        d.rgba = l.kind ? (gLightTheme ? 0x1E8C32E0u : 0x46D25AE0u) : (gLightTheme ? 0xC0282DE0u : 0xF0505AE0u);
+        d.rgba = l.kind ? (gLightTheme ? 0x1E8C3278u : 0x46D25A78u) : (gLightTheme ? 0xC0282D78u : 0xF0505A78u);  // (see-through: the map shows)
         gPathing.links.push_back(d);
     }
 }
@@ -367,7 +388,7 @@ void pathingLayerMouseMove(float wx, float wy) {
 
 std::wstring pathingLegendText() {
     return gPathing.areas ? tr(L"Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.")
-                          : tr(L"Pathing: the outlines of the game's pathing regions. Green line: ground units go between the two regions. Red line: the regions touch, but units cannot go across. Dark: units cannot walk here.");
+                          : tr(L"Pathing: the outlines of the game's pathing regions. Green line: ground units go between the two regions. Red line: the regions touch or a narrow gap is between them, but units cannot go across. Dark: units cannot walk here.");
 }
 
 void pathingLayerToggle() {
