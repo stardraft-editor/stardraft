@@ -2218,7 +2218,7 @@ constexpr UiText kRows[] = {
     {L"Pathing region %d: %d tiles, %ls; connected area %d (%d regions)", L"Regi\u00E3o de caminhos %d: %d blocos, %ls; \u00E1rea conectada %d (%d regi\u00F5es)"},
     {L"Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map.", L"Caminhos: %d problemas (%d regi\u00F5es, %d \u00E1reas conectadas). Selecione um para mostr\u00E1-lo no mapa."},
     {L"Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.", L"Caminhos: cada \u00E1rea conectada (o ch\u00E3o por onde as unidades podem andar) tem a sua pr\u00F3pria cor. Escuro: as unidades n\u00E3o podem andar aqui."},
-    {L"Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.", L"Caminhos: cada regi\u00E3o de caminhos do jogo tem a sua pr\u00F3pria cor. Escuro: as unidades n\u00E3o podem andar aqui."},
+    {L"Pathing: the outlines of the game's pathing regions. Green line: ground units go between the two regions. Red line: the regions touch, but units cannot go across. Dark: units cannot walk here.", L"Caminhos: os contornos das regi\u00F5es de caminhos do jogo. Linha verde: as unidades terrestres andam entre as duas regi\u00F5es. Linha vermelha: as regi\u00F5es tocam-se, mas as unidades n\u00E3o podem passar. Escuro: as unidades n\u00E3o podem andar aqui."},
     {L"Pathing: units cannot walk here", L"Caminhos: as unidades n\u00E3o podem andar aqui"},
     {L"Pockets", L"Bols\u00F5es"},
     {L"Small pathing region of %d minitiles, at tile %d, %d", L"Regi\u00E3o de caminhos pequena de %d miniblocos, no bloco %d, %d"},

@@ -2216,7 +2216,7 @@ Pathing is hidden (View > Overlays)	Os caminhos estão ocultos (Exibir > Sobrepo
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	Região de caminhos %d: %d blocos, %ls; área conectada %d (%d regiões)
 Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map.	Caminhos: %d problemas (%d regiões, %d áreas conectadas). Selecione um para mostrá-lo no mapa.
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.	Caminhos: cada área conectada (o chão por onde as unidades podem andar) tem a sua própria cor. Escuro: as unidades não podem andar aqui.
-Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.	Caminhos: cada região de caminhos do jogo tem a sua própria cor. Escuro: as unidades não podem andar aqui.
+Pathing: the outlines of the game's pathing regions. Green line: ground units go between the two regions. Red line: the regions touch, but units cannot go across. Dark: units cannot walk here.	Caminhos: os contornos das regiões de caminhos do jogo. Linha verde: as unidades terrestres andam entre as duas regiões. Linha vermelha: as regiões tocam-se, mas as unidades não podem passar. Escuro: as unidades não podem andar aqui.
 Pathing: units cannot walk here	Caminhos: as unidades não podem andar aqui
 Pockets	Bolsões
 Small pathing region of %d minitiles, at tile %d, %d	Região de caminhos pequena de %d miniblocos, no bloco %d, %d

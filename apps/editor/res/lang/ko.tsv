@@ -2216,7 +2216,7 @@ Pathing is hidden (View > Overlays)	경로가 숨겨졌습니다 (보기 > 오�
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	경로 지역 %d: 타일 %d개, %ls; 연결된 영역 %d (지역 %d개)
 Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map.	경로: 문제 %d개 (지역 %d개, 연결된 영역 %d개). 하나를 선택하면 맵에 표시합니다.
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.	경로: 연결된 영역(유닛이 걸어서 지나갈 수 있는 땅)마다 색이 다릅니다. 어두운 곳: 유닛이 걸을 수 없습니다.
-Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.	경로: 게임의 경로 지역마다 색이 다릅니다. 어두운 곳: 유닛이 걸을 수 없습니다.
+Pathing: the outlines of the game's pathing regions. Green line: ground units go between the two regions. Red line: the regions touch, but units cannot go across. Dark: units cannot walk here.	경로: 게임의 경로 지역 윤곽선. 초록 선: 지상 유닛이 두 지역 사이를 다닐 수 있습니다. 빨간 선: 지역이 닿아 있지만 유닛이 건너갈 수 없습니다. 어두운 곳: 유닛이 걸을 수 없습니다.
 Pathing: units cannot walk here	경로: 유닛이 이곳을 걸을 수 없습니다
 Pockets	고립된 땅
 Small pathing region of %d minitiles, at tile %d, %d	미니타일 %d개의 작은 경로 지역, 타일 %d, %d

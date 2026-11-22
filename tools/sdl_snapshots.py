@@ -1840,7 +1840,7 @@ def check_pathing_layer(output, areas):
     """None when View > Layers > Pathing (or its connected areas) ran and the regions are there."""
     if "command view.layer.pathing: ran (yes)" not in output and "command view.pathing.areas: ran (yes)" not in output:
         return "the command did not run"
-    if "Pathing: each " + ("connected area" if areas else "pathing region") not in output:
+    if ("Pathing: each connected area" if areas else "Pathing: the outlines of the game's pathing regions. Green line") not in output:
         return "the status bar does not tell what the colors are"
     return None
 
@@ -1861,7 +1861,7 @@ def check_pathing_check(output):
         return f"{len(lines)} pathing lines (2 expected)"
     if "layer off" not in lines[0] or "check:" in lines[0]:
         return "before the check: " + lines[0]
-    m = re.search(r"layer on, regions, (\d+) regions, (\d+) connected areas; shapes (\d+) fills, (\d+) borders; check: (\d+) problems", lines[1])
+    m = re.search(r"layer on, regions, (\d+) regions, (\d+) connected areas; shapes (\d+) fills, (\d+) borders(?:, \d+ green links, \d+ red links)?; check: (\d+) problems", lines[1])
     if not m or int(m.group(1)) < 50 or int(m.group(5)) < 1:
         return "after the check: " + lines[1]
     # The worker thread makes the layer's shapes with the regions: the fills and the borders are there.

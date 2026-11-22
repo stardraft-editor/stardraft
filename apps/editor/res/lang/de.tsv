@@ -2216,7 +2216,7 @@ Pathing is hidden (View > Overlays)	Die Wegfindung ist ausgeblendet (Ansicht > �
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	Wegfindungsregion %d: %d Felder, %ls; verbundener Bereich %d (%d Regionen)
 Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map.	Wegfindung: %d Probleme (%d Regionen, %d verbundene Bereiche). Wählen Sie eines aus, um es auf der Karte anzuzeigen.
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.	Wegfindung: Jeder verbundene Bereich (der Boden, über den Einheiten laufen können) hat seine eigene Farbe. Dunkel: Hier können Einheiten nicht laufen.
-Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.	Wegfindung: Jede Wegfindungsregion des Spiels hat ihre eigene Farbe. Dunkel: Hier können Einheiten nicht laufen.
+Pathing: the outlines of the game's pathing regions. Green line: ground units go between the two regions. Red line: the regions touch, but units cannot go across. Dark: units cannot walk here.	Wegfindung: die Umrisse der Wegfindungsregionen des Spiels. Grüne Linie: Bodeneinheiten gehen zwischen den zwei Regionen. Rote Linie: Die Regionen berühren sich, aber Einheiten kommen nicht hinüber. Dunkel: Hier können Einheiten nicht laufen.
 Pathing: units cannot walk here	Wegfindung: Hier können Einheiten nicht laufen
 Pockets	Taschen
 Small pathing region of %d minitiles, at tile %d, %d	Kleine Wegfindungsregion mit %d Minifeldern, bei Feld %d, %d

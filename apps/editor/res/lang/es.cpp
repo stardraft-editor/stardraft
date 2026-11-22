@@ -2218,7 +2218,7 @@ constexpr UiText kRows[] = {
     {L"Pathing region %d: %d tiles, %ls; connected area %d (%d regions)", L"Regi\u00F3n de rutas %d: %d tiles, %ls; zona conectada %d (%d regiones)"},
     {L"Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map.", L"Rutas: %d problemas (%d regiones, %d zonas conectadas). Seleccione uno para verlo en el mapa."},
     {L"Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.", L"Rutas: cada zona conectada (el suelo que las unidades pueden recorrer) tiene su color. Oscuro: las unidades no pueden caminar aqu\u00ED."},
-    {L"Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.", L"Rutas: cada regi\u00F3n de rutas del juego tiene su color. Oscuro: las unidades no pueden caminar aqu\u00ED."},
+    {L"Pathing: the outlines of the game's pathing regions. Green line: ground units go between the two regions. Red line: the regions touch, but units cannot go across. Dark: units cannot walk here.", L"Rutas: los contornos de las regiones de rutas del juego. L\u00EDnea verde: las unidades terrestres van entre las dos regiones. L\u00EDnea roja: las regiones se tocan, pero las unidades no pueden cruzar. Oscuro: las unidades no pueden caminar aqu\u00ED."},
     {L"Pathing: units cannot walk here", L"Rutas: las unidades no pueden caminar aqu\u00ED"},
     {L"Pockets", L"Bolsas"},
     {L"Small pathing region of %d minitiles, at tile %d, %d", L"Regi\u00F3n de rutas peque\u00F1a de %d minitiles, en el tile %d, %d"},

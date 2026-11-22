@@ -2216,7 +2216,7 @@ Pathing is hidden (View > Overlays)	Le cheminement est masqué (Affichage > Supe
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	Région de cheminement %d: %d tuiles, %ls; zone connectée %d (%d régions)
 Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map.	Cheminement: %d problèmes (%d régions, %d zones connectées). Sélectionnez-en un pour l'afficher sur la carte.
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.	Cheminement: chaque zone connectée (le sol que les unités peuvent parcourir) a sa propre couleur. Sombre: les unités ne peuvent pas marcher ici.
-Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.	Cheminement: chaque région de cheminement du jeu a sa propre couleur. Sombre: les unités ne peuvent pas marcher ici.
+Pathing: the outlines of the game's pathing regions. Green line: ground units go between the two regions. Red line: the regions touch, but units cannot go across. Dark: units cannot walk here.	Cheminement: les contours des régions de cheminement du jeu. Ligne verte: les unités terrestres vont d'une région à l'autre. Ligne rouge: les régions se touchent, mais les unités ne peuvent pas passer. Sombre: les unités ne peuvent pas marcher ici.
 Pathing: units cannot walk here	Cheminement: les unités ne peuvent pas marcher ici
 Pockets	Poches
 Small pathing region of %d minitiles, at tile %d, %d	Petite région de cheminement de %d mini-tuiles, à la tuile %d, %d

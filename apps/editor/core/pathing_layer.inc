@@ -18,6 +18,9 @@ struct PathingShape {
 };
 struct PathingShapes {
     std::vector<PathingShape> fills, borders;
+    // The regions (not the connected areas): a line between the game's middles of two walkable regions that touch. kind
+    // 1: ground units go from the one to the other (the game's neighbors), 0: they touch but units cannot go across.
+    std::vector<PathingShape> links;
 };
 
 struct PathingLayerResult {
@@ -42,6 +45,7 @@ struct PathingLayer {
     int tilesetEra = -1;
     // The shapes with their colors, made again (from the result's shapes) when the result, the mode or the theme changes.
     std::vector<render::RectDraw> fills, borders;
+    std::vector<render::RectDraw> links;  // (the regions: the lines between them, at every zoom)
     uint64_t shapesFor = 0;   // the result's serial
     uint64_t serial = 0;      // of the result: +1 for each new one
     int shapesKey = -1;
@@ -182,6 +186,25 @@ PathingShapes makePathingShapes(const PathingRegions& r, bool areas) {
             border(x * 8.0f, y * 8.0f, x * 8.0f, e * 8.0f);
             y = e;
         }
+    if (!areas) {  // the links: each pair of walkable regions with minitiles beside each other (also on a diagonal)
+        std::set<uint64_t> touch;
+        auto pair = [&](int x, int y, int dx, int dy) {
+            const int nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+            const int a = kind[size_t(y) * w + x], b = kind[size_t(ny) * w + nx];
+            if (a >= 0 && b >= 0 && a != b && r.regions[size_t(a)].walkable() && r.regions[size_t(b)].walkable()) touch.insert(uint64_t(std::min(a, b)) << 32 | uint32_t(std::max(a, b)));
+        };
+        for (int y = 0; y < h; ++y)
+            for (int x = 0; x < w; ++x) pair(x, y, 1, 0), pair(x, y, 0, 1), pair(x, y, 1, 1), pair(x, y, -1, 1);
+        auto middle = [&](const PathingRegion& g, float& mx, float& my) { mx = g.centerX * 32.0f + 16, my = g.centerY * 32.0f + 16; };
+        for (uint64_t t : touch) {
+            const PathingRegion &a = r.regions[size_t(t >> 32)], &b = r.regions[size_t(uint32_t(t))];
+            const bool walks = std::find(a.neighbors.begin(), a.neighbors.end(), int(uint32_t(t))) != a.neighbors.end();
+            float ax, ay, bx, by;
+            middle(a, ax, ay), middle(b, bx, by);
+            out.links.push_back({ax, ay, bx, by, walks ? 1 : 0});
+        }
+    }
     return out;
 }
 
@@ -191,11 +214,12 @@ void colorPathingShapes(const PathingLayerResult& res) {
     if (gPathing.shapesFor == gPathing.serial && gPathing.shapesKey == key) return;
     gPathing.shapesFor = gPathing.serial, gPathing.shapesKey = key;
     const PathingShapes& g = res.shapes[gPathing.areas ? 1 : 0];
-    gPathing.fills.clear(), gPathing.borders.clear();
+    gPathing.fills.clear(), gPathing.borders.clear(), gPathing.links.clear();
     gPathing.fills.reserve(g.fills.size()), gPathing.borders.reserve(g.borders.size());
     const uint32_t shade = rgbaOf(kBg, gLightTheme ? 0xA8 : 0xB8);
     const uint32_t line = gLightTheme ? 0x202020A0u : 0xFFFFFF90u;
     for (const PathingShape& f : g.fills) {
+        if (!gPathing.areas && f.kind >= 0) continue;  // (the regions: their outlines only, no tint)
         render::RectDraw d;
         d.x0 = f.x0, d.y0 = f.y0, d.x1 = f.x1, d.y1 = f.y1, d.rgba = f.kind < 0 ? shade : pathingTint(f.kind), d.fill = true;
         gPathing.fills.push_back(d);
@@ -204,6 +228,12 @@ void colorPathingShapes(const PathingLayerResult& res) {
         render::RectDraw d;
         d.x0 = b.x0, d.y0 = b.y0, d.x1 = b.x1, d.y1 = b.y1, d.rgba = line, d.line = true, d.thickness = 1;
         gPathing.borders.push_back(d);
+    }
+    for (const PathingShape& l : g.links) {  // green: units go across; red: the regions touch, but there is no way across
+        render::RectDraw d;
+        d.x0 = l.x0, d.y0 = l.y0, d.x1 = l.x1, d.y1 = l.y1, d.line = true, d.thickness = 2;
+        d.rgba = l.kind ? (gLightTheme ? 0x1E8C32E0u : 0x46D25AE0u) : (gLightTheme ? 0xC0282DE0u : 0xF0505AE0u);
+        gPathing.links.push_back(d);
     }
 }
 
@@ -271,12 +301,16 @@ void addPathingLayer(render::Scene& s) {
     int vw, vh;
     viewSize(vw, vh);
     const float vx0 = app.camX, vy0 = app.camY, vx1 = app.camX + vw / app.zoom, vy1 = app.camY + vh / app.zoom;
-    auto visible = [&](const render::RectDraw& d) { return d.x1 >= vx0 && d.x0 <= vx1 && d.y1 >= vy0 && d.y0 <= vy1; };
+    auto visible = [&](const render::RectDraw& d) {  // (a line's ends can be in any order)
+        return std::max(d.x0, d.x1) >= vx0 && std::min(d.x0, d.x1) <= vx1 && std::max(d.y0, d.y1) >= vy0 && std::min(d.y0, d.y1) <= vy1;
+    };
     for (const render::RectDraw& d : gPathing.fills)
         if (visible(d)) s.rects.push_back(d);
     if (app.zoom * 8 >= 3)  // (the borders while a minitile is 3 screen pixels or more)
         for (const render::RectDraw& d : gPathing.borders)
             if (visible(d)) s.rects.push_back(d);
+    for (const render::RectDraw& d : gPathing.links)
+        if (visible(d)) s.rects.push_back(d);
     // The problems of the check: a box around each, the one picked with its minitiles filled.
     const PathingCheck* c = pathingCheck();
     if (!c) return;
@@ -333,7 +367,7 @@ void pathingLayerMouseMove(float wx, float wy) {
 
 std::wstring pathingLegendText() {
     return gPathing.areas ? tr(L"Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.")
-                          : tr(L"Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.");
+                          : tr(L"Pathing: the outlines of the game's pathing regions. Green line: ground units go between the two regions. Red line: the regions touch, but units cannot go across. Dark: units cannot walk here.");
 }
 
 void pathingLayerToggle() {
@@ -433,6 +467,11 @@ std::string pathingStateLine() {
     if (const PathingLayerResult* res = pathingResult()) {  // (the shapes of the mode that shows, from the worker thread)
         const PathingShapes& g = res->shapes[gPathing.areas ? 1 : 0];
         s += "; shapes " + std::to_string(g.fills.size()) + " fills, " + std::to_string(g.borders.size()) + " borders";
+        if (!gPathing.areas) {
+            size_t walks = 0;
+            for (const PathingShape& l : g.links) walks += l.kind == 1;
+            s += ", " + std::to_string(walks) + " green links, " + std::to_string(g.links.size() - walks) + " red links";
+        }
     }
     if (const PathingCheck* c = pathingCheck()) {
         s += "; check: " + std::to_string(c->problems.size() + c->more) + " problems (pockets " + std::to_string(c->pockets) + ", gaps " +

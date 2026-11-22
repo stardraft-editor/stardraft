@@ -2216,7 +2216,7 @@ Pathing is hidden (View > Overlays)	Проходимость скрыта (Ви�
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	Регион проходимости %d: тайлов %d, %ls; связанная область %d (регионов %d)
 Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map.	Проходимость: проблем %d (регионов %d, связанных областей %d). Выберите одну, чтобы показать её на карте.
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.	Проходимость: у каждой связанной области (земли, по которой юниты могут пройти) свой цвет. Тёмное: здесь юниты не ходят.
-Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.	Проходимость: у каждого региона проходимости игры свой цвет. Тёмное: здесь юниты не ходят.
+Pathing: the outlines of the game's pathing regions. Green line: ground units go between the two regions. Red line: the regions touch, but units cannot go across. Dark: units cannot walk here.	Проходимость: контуры регионов проходимости игры. Зелёная линия: наземные юниты ходят между двумя регионами. Красная линия: регионы соприкасаются, но юниты не могут пройти. Тёмное: здесь юниты не ходят.
 Pathing: units cannot walk here	Проходимость: здесь юниты не ходят
 Pockets	Карманы
 Small pathing region of %d minitiles, at tile %d, %d	Малый регион проходимости из %d мини-тайлов, тайл %d, %d

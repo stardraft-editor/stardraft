@@ -2216,7 +2216,7 @@ Pathing is hidden (View > Overlays)	寻路已隐藏（视图 > 叠加层）
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	寻路区域 %d：%d 个图块，%ls；连通区域 %d（%d 个区域）
 Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map.	寻路：%d 个问题（%d 个区域，%d 个连通区域）。选择一个以在地图上显示。
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here.	寻路：每个连通区域（单位可以走遍的地面）各有其颜色。暗处：单位不能在此行走。
-Pathing: each pathing region of the game has its own color. Dark: units cannot walk here.	寻路：游戏的每个寻路区域各有其颜色。暗处：单位不能在此行走。
+Pathing: the outlines of the game's pathing regions. Green line: ground units go between the two regions. Red line: the regions touch, but units cannot go across. Dark: units cannot walk here.	寻路：游戏寻路区域的轮廓。绿线：地面单位可在两个区域之间通行。红线：两个区域相接，但单位无法通过。暗处：单位不能在此行走。
 Pathing: units cannot walk here	寻路：单位不能在此行走
 Pockets	孤立地块
 Small pathing region of %d minitiles, at tile %d, %d	%d 个小图块的小寻路区域，位于图块 %d, %d
