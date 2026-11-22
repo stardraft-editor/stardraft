@@ -200,6 +200,71 @@ bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, Hd
     return true;
 }
 
+bool readStarField(const GameData& data, GraphicsQuality quality, bool carbot, StarField& out, std::string& error, bool offThread) {
+    out = StarField{};
+    const std::string q = quality == GraphicsQuality::SD ? "SD\\" : quality == GraphicsQuality::HD2 ? "HD2\\" : "";
+    out.pxPerMap = quality == GraphicsQuality::SD ? 1 : quality == GraphicsQuality::HD2 ? 2 : 4;
+    Bytes d;
+    const auto read = [&](const std::string& n) { return offThread ? data.readFileOffThread(n, d, error) : data.readFile(n, d, error); };
+    out.base = q + "Carbot\\parallax\\star";
+    if (!carbot || quality == GraphicsQuality::SD || !read(out.base + ".spk")) {
+        out.base = q + "parallax\\star";
+        if (!read(out.base + ".spk")) return false;
+    }
+    if (d.size() < 8) return error = out.base + ".spk: too small", false;
+    const uint32_t n = readU32(d, 0), start = readU32(d, 4);
+    if (n == 0 || n > 16 || 8 + size_t(n) * 8 > d.size() || start < 8 + n * 8) return error = out.base + ".spk: not a star file", false;
+    size_t at = start;
+    for (uint32_t k = 0; k < n; ++k) {
+        StarField::Layer L;
+        const uint32_t count = readU32(d, 8 + k * 8);
+        L.tileW = readU16(d, 8 + k * 8 + 4), L.tileH = readU16(d, 8 + k * 8 + 6);
+        if (!L.tileW || !L.tileH || at + size_t(count) * 12 > d.size()) return error = out.base + ".spk: short", false;
+        std::map<std::array<uint16_t, 4>, uint16_t> index;
+        for (uint32_t i = 0; i < count; ++i, at += 12) {
+            const std::array<uint16_t, 4> r{readU16(d, at + 4), readU16(d, at + 6), readU16(d, at + 8), readU16(d, at + 10)};
+            if (!r[2] || !r[3]) continue;
+            auto it = index.find(r);
+            if (it == index.end()) it = index.emplace(r, uint16_t(L.rects.size())).first, L.rects.push_back(r);
+            L.stars.push_back({readU16(d, at), readU16(d, at + 2), it->second});
+        }
+        out.layers.push_back(std::move(L));
+    }
+    return true;
+}
+
+bool loadStarImage(const GameData& data, int layer, GraphicsQuality quality, bool carbot, AnimImage& out, std::string& error, bool offThread) {
+    StarField f;
+    if (!readStarField(data, quality, carbot, f, error, offThread)) return false;
+    if (layer < 0 || size_t(layer) >= f.layers.size()) return error = "no star layer " + std::to_string(layer), false;
+    Bytes d;
+    const std::string name = f.base + ".dds.grp";
+    if (!(offThread ? data.readFileOffThread(name, d, error) : data.readFile(name, d, error))) return false;
+    // u32 file size, u16 frame count, u16 version, then each frame: u32 0, u16 width, u16 height, u32 size, a DDS file.
+    if (d.size() < 8) return error = name + ": too small", false;
+    const uint16_t count = readU16(d, 4);
+    size_t p = 8;
+    for (int i = 0; i < layer && i < count; ++i) p += 12 + (p + 12 <= d.size() ? readU32(d, p + 8) : d.size());
+    const size_t size = layer < count && p + 12 <= d.size() ? readU32(d, p + 8) : 0;
+    if (!size || p + 12 + size > d.size() || !out.diffuse.parse(std::span(d).subspan(p + 12, size))) return error = name + ": no frame for the layer", false;
+    // Full-HD pixels (the image's unit): 4 a map pixel; the file's pixels: pxPerMap a map pixel.
+    const float full = 4.0f / float(f.pxPerMap);
+    out.texScale = float(f.pxPerMap) / 4.0f;
+    out.teamColor = {};
+    out.frames.clear();
+    int box = 1;
+    for (const auto& r : f.layers[size_t(layer)].rects) box = std::max({box, int(r[2] * full), int(r[3] * full)});
+    out.boxWidth = out.boxHeight = box, out.boxGuessed = false;
+    for (const auto& r : f.layers[size_t(layer)].rects) {
+        AnimImage::Frame fr;
+        fr.x = uint16_t(r[0] * full), fr.y = uint16_t(r[1] * full);
+        fr.width = uint16_t(r[2] * full), fr.height = uint16_t(r[3] * full);
+        fr.xOff = int16_t((box - fr.width) / 2), fr.yOff = int16_t((box - fr.height) / 2);  // (its middle: the star's place)
+        out.frames.push_back(fr);
+    }
+    return true;
+}
+
 bool loadHdGrp(const GameData& data, const std::string& sdPath, const Grp& sd, GraphicsQuality quality, AnimImage& out,
                std::string& error, bool carbot, bool offThread) {
     if (sdPath.size() < 4 || sd.frames.empty()) return error = sdPath + ": no SD frames", false;

@@ -1,3 +1,4 @@
+extern bool gShowStars;  // (core/stars_layer.inc: View > Graphics > Stars in space)
 // The Map workspace's command table and its camera and save (portable, core.inc): addCommand, zoomAt and fitMap, the
 // table's commands (registerMapCommands, the Mode menu and the View items' keys) and saveMapFile (File > Save). Each shell
 // calls registerMapCommands once at its start. The graphics quality (setGraphics) is here; the dock layout's save
@@ -342,6 +343,8 @@ void registerMapCommands() {
         if (shellState().showLocations) ++gLayerShows;
     },
                [] { return shellState().showLocations; });
+    addCommand(ID_VIEW_STARS, "view.stars", L"S&tars in space", "View", L"", [] { gShowStars = !gShowStars, shellState().dirty = true; },
+               [] { return gShowStars; });
     addCommand(ID_VIEW_GRID, "view.grid", L"Show &grid", "View", L"G", [] { shellState().showGrid = !shellState().showGrid, shellState().dirty = true; }, [] { return shellState().showGrid; });
     // View > Overlays > Unit vision and ranges: the ranges of the selected units in the Units mode, each kind on or off, or
     // all of them.

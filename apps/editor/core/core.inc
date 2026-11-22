@@ -68,6 +68,7 @@
 #include "creep_layer.inc"  // View > Modes > Creep: the start creep of the map's Zerg buildings
 #include "map_layers.inc"  // Map layers (a prototype): the active layer, flattening, the map's mouse
 #include "protected_layer.inc"  // Protected terrain: the menu, View > Modes > Protected terrain, kept in the project
+#include "stars_layer.inc"  // View > Graphics > Stars in space: the game's parallax stars behind space (Space Platform)
 #include "map_scene.inc"
 #include "fun_mode.inc"  // Immersive mode (a hidden extra): sounds, particles and pops when the map is edited
 #include "resource_zones.inc"  // View > Overlays > Invalid resource depot, Invalid resource node (GitHub feedback #181)

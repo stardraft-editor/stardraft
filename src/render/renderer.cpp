@@ -1180,12 +1180,21 @@ bool Renderer::Impl::ensureUpload(uint32_t bytes) {
 
 // --- Sprite images -----------------------------------------------------------------------------
 
+// The stars behind space: the extra image "parallax\star#<layer>" (core/stars_layer.inc).
+constexpr const char* kStarImage = "parallax\\star#";
+
 void Renderer::Impl::loadImage(int id, ImageTex& t, int row) {
     t.loaded = true;
     std::string err;
     AnimImage a;
     // An extra image (UnitSprites::extraImage: the creep edges): its HD art from its .dds.grp, or its GRP in SD.
     const std::string* extra = unitSprites ? unitSprites->extraPath(id) : nullptr;
+    if (extra && extra->rfind(kStarImage, 0) == 0) {  // a layer of the stars behind space (its DDS, also in SD)
+        const bool ok = data && loadStarImage(*data, std::atoi(extra->c_str() + std::strlen(kStarImage)), artQuality(), carbot, a, err);
+        if (!ok) t.loaded = true, t.failed = true;
+        else finishImage(t, true, a, id, row);
+        return;
+    }
     const Grp* extraSd = extra ? unitSprites->grp(id) : nullptr;
     const bool hd = artQuality() != GraphicsQuality::SD && data &&
                     (extra ? extraSd && loadHdGrp(*data, *extra, *extraSd, artQuality(), a, err, carbot)
@@ -1233,6 +1242,7 @@ void Renderer::Impl::queueImage(int id, ImageTex& t) {
     ImageJob job;
     job.id = id, job.data = data, job.quality = artQuality(), job.carbot = carbot;
     if (const std::string* extra = unitSprites ? unitSprites->extraPath(id) : nullptr) {
+        if (extra->rfind(kStarImage, 0) == 0) return loadImage(id, t);  // (small: read here)
         const Grp* sd = unitSprites->grp(id);
         if (!sd) return loadImage(id, t);  // (no SD frames: nothing to read)
         job.extraPath = *extra, job.extraSd = *sd;

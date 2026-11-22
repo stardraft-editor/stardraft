@@ -76,6 +76,30 @@ struct Grp;
 bool loadHdGrp(const GameData& data, const std::string& sdPath, const Grp& sd, GraphicsQuality quality, AnimImage& out,
                std::string& error, bool carbot = false, bool offThread = false);
 
+// The stars behind space (Space Platform), as the game has them: "parallax\star.spk" (SD\, HD2\, the HD's own, and
+// Carbot\) with its pictures in "star.dds.grp". The .spk: u32 layers, u32 the records' start, then each layer's u32
+// star count and u16 tile width and height (the layer repeats: 648 x 488 map pixels); then the stars, 12 bytes each:
+// u16 x, y in the tile, then the star's picture: x, y, width, height in that layer's frame of the .dds.grp. Pixels of
+// the files: pxPerMap a map pixel (SD 1, HD2 2, HD 4).
+struct StarField {
+    struct Star {
+        uint16_t x = 0, y = 0;  // in the tile (the file's pixels)
+        uint16_t frame = 0;     // the picture: an index into the layer's rects
+    };
+    struct Layer {
+        int tileW = 0, tileH = 0;  // the file's pixels
+        std::vector<Star> stars;
+        std::vector<std::array<uint16_t, 4>> rects;  // each picture's x, y, width, height in the layer's frame (once each)
+    };
+    std::vector<Layer> layers;  // as the file has them
+    int pxPerMap = 1;
+    std::string base;  // the files' path without ".spk" / ".dds.grp" (the art that was found)
+};
+bool readStarField(const GameData& data, GraphicsQuality quality, bool carbot, StarField& out, std::string& error, bool offThread = false);
+// Layer `layer`'s pictures as an image (each star picture a frame, its origin the frame's middle), for the renderer.
+bool loadStarImage(const GameData& data, int layer, GraphicsQuality quality, bool carbot, AnimImage& out, std::string& error,
+                   bool offThread = false);
+
 // Previews drawn without the GPU (src/hd_preview.cpp).
 // Decodes the region (x0, y0, w, h) of a block-compressed texture to RGBA (straight alpha).
 void decodeDds(const DdsTexture& tex, int x0, int y0, int w, int h, std::vector<uint8_t>& rgba);

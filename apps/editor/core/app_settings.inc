@@ -1,3 +1,4 @@
+extern bool gShowStars;  // (core/stars_layer.inc: View > Graphics > Stars in space)
 // The options of the menus (View, Options, Edit; portable, core.inc; moved from main.cpp): kept in the settings file
 // (Settings/<name>), so they stay after StarDraft starts again, also after an update (GitHub feedback #122). Saved after
 // each command (only what changed), read at the start; tests use the defaults and save nothing. The palette's views of
@@ -23,6 +24,7 @@ const std::vector<AppSetting>& appSettings() {
         SD_SETTING("Carbot", shellState().carbot, bool),
         SD_SETTING("ShowLocationsInAllModes", shellState().showLocations, bool),
         SD_SETTING("ShowGrid", shellState().showGrid, bool),
+        SD_SETTING("ShowStars", gShowStars, bool),
         SD_SETTING("ShowKeyHints", shellState().keyHints, bool),
         SD_SETTING("SmoothZoom", shellState().smoothZoom, bool),
         SD_SETTING("SmoothPan", shellState().smoothPan, bool),

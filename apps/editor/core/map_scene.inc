@@ -712,6 +712,7 @@ render::Scene buildScene() {
     addTerrainFlagsLayer(s);  // (View > Overlays > Terrain flags: core/terrain_flags_layer.inc)
     addPathingLayer(s);
     addPathOverlays(s);
+    addStarsLayer(ed, s);  // (the stars behind space: core/stars_layer.inc)
     addCreepEdges(ed, s);  // (View > Modes > Creep: core/creep_layer.inc)
     addMapLayersOverlay(ed, s);  // (core/map_layers.inc)
     addProtectedLayer(ed, s);  // (View > Modes > Protected terrain: core/protected_layer.inc)

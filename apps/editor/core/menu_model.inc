@@ -265,6 +265,8 @@ MenuModel buildMenuModel() {
     {
         MenuModel graphics;
         for (const char* id : {"view.hd2", "view.hd", "view.sd", "view.carbot"}) menuCommand(graphics, id);
+        graphics.push_back(menuSeparator());
+        menuCommand(graphics, "view.stars");
         view.push_back(menuPopup(L"G&raphics", graphics));
     }
     view.push_back(menuSeparator());
