@@ -628,6 +628,14 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
     case draw::MouseKind::Pinch: case draw::MouseKind::SmartZoom: case draw::MouseKind::Swipe: return false;
     case draw::MouseKind::Wheel:
         if (e.horizontal) return false;
+        if (e.mods & draw::kCtrl) {  // Ctrl+wheel: bigger or smaller tiles; a row keeps 16 tiles, so the side bar grows or shrinks
+            int& side = gDock.toolsRight[int(Mode::Terrain)] ? gDock.rightW : gDock.leftW;
+            const int was = side;
+            const int steps = ctrlWheelSteps(e.wheel);
+            side = std::clamp(side + 32 * steps, kMinSideW, kMaxSideW);  // (2 px more for each of the 16 tiles)
+            if (side != was) saveDock(), shellRelayout();
+            return true;
+        }
         tilesScrollTo(gTiles->scroll - int(draw::wheelDistance(e, float(scale(90)))));
         return true;
     case draw::MouseKind::Move: {

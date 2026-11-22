@@ -225,6 +225,18 @@ struct PaletteGridView : draw::View {
             return true;
         case draw::MouseKind::Wheel:
             if (e.horizontal) return false;
+            if (e.mods & draw::kCtrl) {  // Ctrl+wheel: the items' size, in steps of 10 % (the View menu's sizes are 100, 150 and 200 %)
+                PaletteView& v = ownView ? const_cast<PaletteView&>(*ownView) : gViewByMode[int(mode)];
+                const int top = rowAt({e.pt.x, 0});  // (the row at the top stays at the top)
+                const int steps = ctrlWheelSteps(e.wheel);
+                if (steps && paletteZoomStep(v, steps)) {
+                    layout();
+                    if (top >= 0) scrollTo(rowRect(top).top);
+                    invalidate();
+                    shellStatusChanged();
+                }
+                return true;
+            }
             scrollTo(scroll_ - int(std::lround(draw::wheelDistance(e, float(scale(90))))));
             return true;
         case draw::MouseKind::Down:

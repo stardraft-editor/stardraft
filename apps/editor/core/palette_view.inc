@@ -8,7 +8,26 @@
 struct PaletteView {
     bool grid = false, sprites = false, large = false;
     bool xl = false;  // Extra large (with large): twice the normal size, to tell pictures such as ramps apart
+    int pct = 0;      // a size of its own (Ctrl+wheel over the palette): percent of Normal, 50 to 400; 0: Normal, Large or Extra large
 };
+// The palette's size as a part of Normal (1: Normal, 1.5 Large, 2 Extra large, or the Ctrl+wheel size).
+float paletteScale(const PaletteView& v) { return v.pct ? float(v.pct) / 100.0f : v.xl ? 2.0f : v.large ? 1.5f : 1.0f; }
+// Ctrl+wheel: the steps of one wheel event (a mouse's notch is a step; a trackpad's fractions add up to one first).
+int ctrlWheelSteps(float notches) {
+    static float sum = 0;
+    sum += notches;
+    const int n = int(sum);
+    sum -= float(n);
+    return n;
+}
+// Ctrl+wheel over a palette: its size a step (10 % of Normal) bigger (dir > 0) or smaller. True: it changed.
+bool paletteZoomStep(PaletteView& v, int dir) {
+    const int now = int(std::lround(paletteScale(v) * 10.0f)) * 10;
+    const int next = std::clamp(now + (dir > 0 ? 10 : -10), 50, 400);
+    if (next == now && v.pct) return false;
+    v.pct = next;
+    return true;
+}
 // List or grid (units: icons or sprites) and size, per mode: terrain a large list (its swatches show more), doodads and
 // sprites a large grid (their pictures say more than their names).
 PaletteView gViewByMode[kModeCount] = {{false, false, true}, {}, {true, false, true}, {}, {true, false, true}};
@@ -43,7 +62,21 @@ int paletteViewBits() {
 void setPaletteViewBits(int v) {
     for (int m = 0; m < kModeCount; ++m) {
         const int b = v >> (m * 3);
-        gViewByMode[m] = {(b & 1) != 0, (b & 2) != 0, (b & 4) != 0, (b & 4) != 0 && (v >> (15 + m) & 1) != 0};
+        gViewByMode[m] = {(b & 1) != 0, (b & 2) != 0, (b & 4) != 0, (b & 4) != 0 && (v >> (15 + m) & 1) != 0, gViewByMode[m].pct};
+    }
+}
+// The Ctrl+wheel sizes, 3 modes in each number (6 bits a mode: 0 none, else 1 + (percent - 50) / 10), as the settings
+// file keeps them (PaletteSizes: modes 0-2, PaletteSizes2: 3-5).
+int paletteSizeBits(int first) {
+    int bits = 0;
+    for (int m = first; m < std::min(first + 3, kModeCount); ++m)
+        if (gViewByMode[m].pct) bits |= (1 + (std::clamp(gViewByMode[m].pct, 50, 400) - 50) / 10) << ((m - first) * 6);
+    return bits;
+}
+void setPaletteSizeBits(int first, int v) {
+    for (int m = first; m < std::min(first + 3, kModeCount); ++m) {
+        const int k = (v >> ((m - first) * 6)) & 63;
+        gViewByMode[m].pct = k ? std::clamp(50 + (k - 1) * 10, 50, 400) : 0;
     }
 }
 
@@ -54,7 +87,7 @@ bool applyPaletteViewCommand(Mode mode, int id, PaletteView& v, PaletteSort& sor
     else if (id == ID_PAL_LIST_SPRITES) v.grid = false, v.sprites = true;
     else if (id == ID_PAL_ICONS) v.grid = true, v.sprites = false;
     else if (id == ID_PAL_SPRITES) v.grid = v.sprites = true;
-    else if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) v.large = id != ID_PAL_NORMAL, v.xl = id == ID_PAL_XLARGE;
+    else if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) v.large = id != ID_PAL_NORMAL, v.xl = id == ID_PAL_XLARGE, v.pct = 0;
     else if (id >= ID_PAL_SORT_CATEGORY && id <= ID_PAL_SORT_NUMBER) sort = PaletteSort(id - ID_PAL_SORT_CATEGORY);
     else if (id == ID_PAL_SORT_TIER) sort = PaletteSort::Tier;
     else if (id == ID_PAL_SORT_NAME_DOWN) sort = PaletteSort::NameDown;
@@ -354,8 +387,11 @@ void doodadPinMove(int value, int dir, const std::vector<uint16_t>& shown) {
 // is a row in a list, or a cell in a grid (as many columns as fit; the cells share the width, so a resize moves them at
 // once, not a column at a time). Returns the content's height.
 int paletteLayout(const std::vector<PaletteRow>& rows, const PaletteView& v, int width, std::vector<stardraft::draw::Rect>& out) {
-    const int w = width, pad = scale(4), headerH = scale(26), rowH = v.xl ? scale(62) : v.large ? scale(46) : scale(30);
-    const int cell = scale((v.sprites ? 56 : 44) * (v.xl ? 4 : v.large ? 3 : 2) / 2), cols = std::max(1, (w - 2 * pad) / cell);
+    const float f = paletteScale(v);  // (Normal, Large, Extra large or the Ctrl+wheel size)
+    const int w = width, pad = scale(4), headerH = scale(26);
+    const int rowH = v.pct ? scale(int(std::lround(30 * f))) : v.xl ? scale(62) : v.large ? scale(46) : scale(30);
+    const int cell = std::max(1, v.pct ? scale(int(std::lround((v.sprites ? 56 : 44) * f))) : scale((v.sprites ? 56 : 44) * (v.xl ? 4 : v.large ? 3 : 2) / 2));
+    const int cols = std::max(1, (w - 2 * pad) / cell);
     const int cw = std::max(cell, (w - 2 * pad) / cols);
     out.assign(rows.size(), {});
     int y = 0, col = 0;

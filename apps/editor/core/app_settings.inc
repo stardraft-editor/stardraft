@@ -6,6 +6,8 @@
 
 int paletteViewBits();  // (core/palette_view.inc)
 void setPaletteViewBits(int v);
+int paletteSizeBits(int first);
+void setPaletteSizeBits(int first, int v);
 int paletteSortBits();
 void setPaletteSortBits(int v);
 
@@ -62,6 +64,8 @@ const std::vector<AppSetting>& appSettings() {
         SD_SETTING("LayerCreep", gLayers.creep, bool),
         SD_SETTING("LayerProtected", gLayers.protectedTerrain, bool),
         {L"PaletteViews", [] { return paletteViewBits(); }, [](int v) { setPaletteViewBits(v); }},
+        {L"PaletteSizes", [] { return paletteSizeBits(0); }, [](int v) { setPaletteSizeBits(0, v); }},  // (Ctrl+wheel: after PaletteViews)
+        {L"PaletteSizes2", [] { return paletteSizeBits(3); }, [](int v) { setPaletteSizeBits(3, v); }},
         {L"PaletteSorts", [] { return paletteSortBits(); }, [](int v) { setPaletteSortBits(v); }},
     };
 #undef SD_SETTING
