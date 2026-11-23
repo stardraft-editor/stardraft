@@ -185,8 +185,11 @@ bool classicEntryChanged(int tab, int e) {
         const auto &l = d.upgrades.levels[i], &dl = d.def->upgrades.levels[i];
         return !d.upgrades.upgrades[i].useDefault || l.defaultMax != dl.defaultMax || l.defaultStart != dl.defaultStart || anyOverride(l.usesDefault);
     }
-    // Techs: the defaults for all players have no game value to compare with (maps differ in what starts researched).
-    return !d.techs.techs[i].useDefault || anyOverride(d.techs.players[i].usesDefault);
+    // Techs: also the defaults for all players (available, researched) against the game's (Blizzard's maps: all
+    // available, none researched).
+    const auto &t = d.techs.players[i], &dt = d.def->techs.players[i];
+    return !d.techs.techs[i].useDefault || t.defaultAvailable != dt.defaultAvailable || t.defaultResearched != dt.defaultResearched ||
+           anyOverride(t.usesDefault);
 }
 
 // The number in a field's text (empty: 0; over 32 bits: the largest).
@@ -262,9 +265,10 @@ void classicResetEntry(int tab, int e) {
         const UpgradeSettings::Levels& g = d.def->upgrades.levels[i];
         l.defaultMax = g.defaultMax, l.defaultStart = g.defaultStart;
         for (size_t p = 0; p < size_t(kClassicPlayers); ++p) l.usesDefault[p] = g.usesDefault[p], l.max[p] = g.max[p], l.start[p] = g.start[p];
-    } else {  // (the defaults for all players stay: they have no game value, see classicEntryChanged)
+    } else {
         TechSettings::Players& t = d.techs.players[i];
         const TechSettings::Players& g = d.def->techs.players[i];
+        t.defaultAvailable = g.defaultAvailable, t.defaultResearched = g.defaultResearched;
         for (size_t p = 0; p < size_t(kClassicPlayers); ++p) t.usesDefault[p] = g.usesDefault[p], t.available[p] = g.available[p], t.researched[p] = g.researched[p];
     }
 }

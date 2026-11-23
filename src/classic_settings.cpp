@@ -125,7 +125,8 @@ bool SettingDefaults::load(const GameData& data, std::string& error) {
         const size_t o = 2 * size_t(i);
         t = {true, readU16(td, 0 + o), readU16(td, 88 + o), readU16(td, 176 + o), readU16(td, 264 + o)};
         TechSettings::Players& p = techs.players[size_t(i)];
-        p.defaultAvailable = true, p.defaultResearched = t.minerals == 0 && t.gas == 0;
+        // (Blizzard's maps: every tech available, none researched; Scanner Sweep costs nothing and is not researched either)
+        p.defaultAvailable = true, p.defaultResearched = false;
         p.available.fill(true), p.researched.fill(p.defaultResearched), p.usesDefault.fill(true);
         techIcon[size_t(i)] = readU16(td, 528 + o);
     }
