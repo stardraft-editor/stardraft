@@ -302,8 +302,10 @@ void addPathOverlays(render::Scene& s) {
             PathLabel& l = label(hot ? 0 : b.start ? 1 : 3, b.hall ? float(hall.left) : b.x, b.hall ? float(hall.bottom) : b.y, b.hall ? 0 : -scale(6),
                                  b.hall ? scale(6) : scale(12), name, white);
             if (gPath.towns) {
-                wchar_t buf[96];
-                std::swprintf(buf, 96, L"%d minerals, %d gas, %d tiles", b.minerals, b.geysers, int(b.buildable.size()));
+                // (the resource totals first: what a mapper compares between towns; the counts of fields and geysers after)
+                wchar_t buf[160];
+                std::swprintf(buf, 160, L"%u minerals (%d), %u gas (%d), %d tiles", b.mineralAmount, b.minerals, b.gasAmount, b.geysers,
+                              int(b.buildable.size()));
                 l.sub = buf, l.striped = true, l.stripe = canvasColor(color);
             }
         }
