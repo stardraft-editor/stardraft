@@ -1382,6 +1382,27 @@ bool mapArrowKey(AppState& app, int dx, int dy, bool big, bool ctrl) {
         setMessage(app, moved ? L"Moved " + std::to_wstring(moved) + L" units" : L"The units do not fit there. They stay where they were.");
         return true;
     }
+    // Sprites: an arrow moves the selected ones 1 pixel, Shift+arrow 8 (GitHub #274, iDoodler's spec).
+    if (app.mode == Mode::Sprites && app.ed && !app.selSprites.empty() && !app.pasting && !ctrl) {
+        const int px = big ? 8 : 1;
+        if (app.ed->moveSprites(app.selSprites, dx * px, dy * px))
+            setMessage(app, L"Moved " + std::to_wstring(app.selSprites.size()) + L" sprites");
+        else setMessage(app, L"Could not move the sprites: the new place is outside the map");
+        app.dirty = true;
+        return true;
+    }
+    // Doodads (on the tile grid): an arrow moves the selected ones 1 tile, Shift+arrow 4 tiles.
+    if (app.mode == Mode::Doodads && app.ed && !app.selDoodads.empty() && !app.pasting && !ctrl) {
+        const int px = (big ? 4 : 1) * 32, n = int(app.selDoodads.size());
+        std::string why;
+        if (moveSelectedDoodads(dx * px, dy * px, why)) {
+            app.selDoodads.clear();  // (the moved ones are the last ones now)
+            for (int i = int(app.ed->doodads().size()) - n; i < int(app.ed->doodads().size()); ++i) app.selDoodads.push_back(i);
+            setMessage(app, L"Moved " + std::to_wstring(n) + L" doodads");
+        } else setMessage(app, L"The doodads stay: " + widen(why));
+        app.dirty = true;
+        return true;
+    }
     if (ctrl) return false;
     const float step = 64 / app.zoom;
     app.camX += dx * step, app.camY += dy * step;
