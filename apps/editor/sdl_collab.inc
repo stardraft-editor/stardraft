@@ -1233,6 +1233,7 @@ bool collabMinimapShown() {
 
 bool sdlCollabEnabled(int id) {
     using namespace collabui;
+    if (!kCollab) return false;  // (a build without collaborative editing: ids.inc)
     const bool on = gSession && !gEnded, host = on && gSession->isHost();
     switch (id) {
     case ID_COLLAB_SHARE: return on || docOpen();
@@ -1304,6 +1305,10 @@ void collabHold(bool on) {
 bool collabOpenLink(const std::filesystem::path& path) {
     const std::string s = narrow(path.wstring());
     if (s.rfind("stardraft:", 0) != 0) return false;
+    if (!kCollab) {  // (a build without collaborative editing: the link opens nothing)
+        setMessage(L"This version of StarDraft cannot join collaborative editing sessions");
+        return true;
+    }
     shellPost([s] { collabui::join(s); });
     return true;
 }

@@ -76,6 +76,7 @@ public:
         };
         join_.setTip(L"Join a collaborative editing session with an invite link (experimental)");
         add(join_, {0, 0, 0, 0});
+        join_.setVisible(kCollab);  // (a build without collaborative editing: no Join session)
         browse_.onClick = [this] {
             if (onBrowseInstall) onBrowseInstall();
         };
@@ -306,7 +307,7 @@ public:
         const int ow = std::max(scale(stardraft::kit::kButtonMinW), c.measure(L"Open\x2026") + scale(28));
         open_.setFrame({x1, y, x1 + ow, y + bh});
         const int jw = std::max(scale(stardraft::kit::kButtonMinW), c.measure(L"Join session\x2026") + scale(28));
-        join_.setFrame({x1 + ow + scale(8), y, x1 + ow + scale(8) + jw, y + bh});
+        if (kCollab) join_.setFrame({x1 + ow + scale(8), y, x1 + ow + scale(8) + jw, y + bh});
         y += bh;
 
         // The alpha notice: under the recent list and Open.

@@ -114,7 +114,9 @@ inline const Tab kTabs[] = {
     {L"Mouse and keyboard", kMouse | kKeyboard},
     {L"Map", kMapView | kUnitNames | kUnitLimit},
     {L"Plugins", kPlugins},
+#if !defined(STARDRAFT_COLLAB) || STARDRAFT_COLLAB  // (a build without collaborative editing: no tab; ids.inc kCollab)
     {L"Collaboration", kCollab},
+#endif
     {L"Folders", kWorkingFolder | kStarCraftFolder},
     {L"Updates", kUpdates},
 };

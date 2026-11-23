@@ -178,7 +178,7 @@ void askMapsDefault() {
 void fileTypesAtStart() {
     if (stardraft::platform::programFile().filename().wstring().rfind(L"stardraft-latest-", 0) != 0)
         stardraft::platform::registerProjectFiles(stardraft::platform::programFile().wstring(), true);
-    stardraft::platform::registerInviteLinks(stardraft::platform::associationExe(), true);  // (stardraft:// invite links: shared maps)
+    if (kCollab) stardraft::platform::registerInviteLinks(stardraft::platform::associationExe(), true);  // (stardraft:// invite links: shared maps)
     stardraft::platform::registerMapFiles(stardraft::platform::associationExe(), false, true);  // in Explorer's Open with list for maps
 }
 

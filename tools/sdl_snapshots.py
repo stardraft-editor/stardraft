@@ -3539,12 +3539,17 @@ def check_dock(output):
              "dock: while a dialog waits: 0 of 3 items can be clicked", "application:openFile: yes",
              "applicationDockMenu: yes; 4 items: \"(2)Bottleneck.scm\" \"(4)Lost Temple.scx\" | "
              "\"AshenCrown\"", "dock: build running: tile shows the bar, timer on",
-             "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
-             "settings: toolbar style preference; 8 items: \"General\" \"Appearance\" \"Mouse and keyboard\" \"Map\" "
-             "\"Plugins\" \"Collaboration\" \"Folders\" \"Updates\"; selected"]
+             "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off"]
     for w in wants:
         if w not in output:
             return f"no {w!r}"
+    # (a build without collaborative editing, STARDRAFT_COLLAB off as in a release: no Collaboration tab)
+    tabs = ["settings: toolbar style preference; 8 items: \"General\" \"Appearance\" \"Mouse and keyboard\" \"Map\" "
+            "\"Plugins\" \"Collaboration\" \"Folders\" \"Updates\"; selected",
+            "settings: toolbar style preference; 7 items: \"General\" \"Appearance\" \"Mouse and keyboard\" \"Map\" "
+            "\"Plugins\" \"Folders\" \"Updates\"; selected"]
+    if not any(t in output for t in tabs):
+        return f"no {tabs[0]!r}"
     return None
 
 

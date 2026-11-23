@@ -710,6 +710,31 @@ if(STARDRAFT_VERSION_NAME)
 else()
     set(publicBuild 0)
 endif()
+# Collaborative editing (File > Collaborative editing, sdl_collab.inc): a feature flag, so a release can ship without it
+# while it is made right. The default value: off in a public build (a release), on in the others. Off: no menu items,
+# no Invite button, no Join session on the Start page, no Collaboration tab in Program options, and no stardraft://
+# invite links (Windows does not register them; macOS's Info.plist has no URL type).
+if(publicBuild)
+    set(collabDefault OFF)
+else()
+    set(collabDefault ON)
+endif()
+option(STARDRAFT_COLLAB "Collaborative editing (off: the feature is not in the program)" ${collabDefault})
+if(STARDRAFT_COLLAB)
+    set(STARDRAFT_PLIST_URL_TYPES "<key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>io.github.stardraft-editor.invite</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>stardraft</string>
+            </array>
+        </dict>
+    </array>")
+else()
+    set(STARDRAFT_PLIST_URL_TYPES "")
+endif()
 if(NOT STARDRAFT_VERSION_NAME)
     find_package(Git QUIET)
     if(GIT_FOUND)
@@ -825,7 +850,7 @@ if(STARDRAFT_RENDERER)
     add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/core/html_view.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
                    apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/res/lang/fr.cpp apps/editor/res/lang/pt.cpp apps/editor/res/lang/de.cpp apps/common/build_stamp.cpp apps/editor/build_time.cpp ${STARDRAFT_BUILD_TIME})
     target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}"
-                               STARDRAFT_PUBLIC_BUILD=${publicBuild} STARDRAFT_IMMERSIVE=$<BOOL:${STARDRAFT_IMMERSIVE}>
+                               STARDRAFT_PUBLIC_BUILD=${publicBuild} STARDRAFT_IMMERSIVE=$<BOOL:${STARDRAFT_IMMERSIVE}> STARDRAFT_COLLAB=$<BOOL:${STARDRAFT_COLLAB}>
                                STARDRAFT_TITLE_TAG="${STARDRAFT_TITLE_TAG}")
     target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)

@@ -196,8 +196,8 @@ struct TopBarView final : stardraft::draw::View {
             std::swap(surface.hits[surface.hits.size() - 2], surface.hits.back());  // (Tab: Update, then Report feedback)
         }
         // Invite (File > Collaborative editing): before Update and Report feedback. In a session: its state, green while
-        // others are in it; a click shows the session window.
-        {
+        // others are in it; a click shows the session window. (Not in a build without the feature: kCollab.)
+        if (kCollab) {
             std::wstring collabStatusText(bool& live);  // (sdl_collab.inc)
             std::vector<CollabAvatar> collabAvatars();
             void collabFollowToggle(uint32_t id);

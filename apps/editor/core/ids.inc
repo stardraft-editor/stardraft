@@ -18,6 +18,14 @@ constexpr bool kImmersiveMode = false;
 constexpr bool kImmersiveMode = true;
 #endif
 
+// Collaborative editing (sdl_collab.inc): off in a build with -DSTARDRAFT_COLLAB=OFF (a release's default value,
+// CMakeLists.txt): no menu items, no Invite button, no Join session, no Collaboration tab, no stardraft:// links.
+#if defined(STARDRAFT_COLLAB) && !STARDRAFT_COLLAB
+constexpr bool kCollab = false;
+#else
+constexpr bool kCollab = true;
+#endif
+
 // --- Ids -----------------------------------------------------------------------------------------
 
 enum : int {

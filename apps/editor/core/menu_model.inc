@@ -200,9 +200,11 @@ MenuModel buildMenuModel() {
                    menuItem(ID_FILE_SAVEAS, L"Save &as\x2026", L"Ctrl+Shift+S"),
                    menuItem(ID_FILE_EXPORTMAP, L"E&xport map\x2026"),
                    menuItem(ID_FILE_EXPORTIMAGE, L"&Export map image\x2026", L"Ctrl+Shift+E"),
+#if !defined(STARDRAFT_COLLAB) || STARDRAFT_COLLAB  // (kCollab: ids.inc)
                    menuSeparator(),
                    menuPopup(L"Co&llaborative editing (experimental)", {menuItem(ID_COLLAB_SHARE, L"&Invite\x2026"),
                                                          menuItem(ID_COLLAB_JOIN, L"&Join session\x2026")}),
+#endif
                    menuSeparator(),
                    menuItem(ID_FILE_CLOSE, L"&Close", L"Ctrl+W"),
                    menuItem(ID_FILE_CLOSEALL, L"Close a&ll", L"Ctrl+Shift+W"),
@@ -325,7 +327,7 @@ MenuModel buildMenuModel() {
     view.push_back(menuItem(ID_COMMANDS, L"Find a &command\x2026", L"Ctrl+P"));  // (each menu item, on or off: sdl_menus.inc)
     view.push_back(menuSeparator());
     menuCommand(view, "view.minimap");
-    view.push_back(menuItem(ID_COLLAB_MINIMAP, L"Colla&borators on the minimap"));  // (collaborative editing: their views)
+    if (kCollab) view.push_back(menuItem(ID_COLLAB_MINIMAP, L"Colla&borators on the minimap"));  // (collaborative editing: their views)
     {  // each mode's palette in a window of its own (Roadmap R40: core/dock_prefs.inc, kFloatPalNames)
         MenuModel floating;
         menuCommands(floating, "View/Floating palettes");
