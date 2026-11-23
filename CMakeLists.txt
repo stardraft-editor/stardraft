@@ -264,6 +264,9 @@ target_link_libraries(render_map PRIVATE stardraft)
 add_executable(terrain_check tools/probes/terrain_check.cpp)
 target_link_libraries(terrain_check PRIVATE stardraft)
 
+add_executable(doodad_needs tools/probes/doodad_needs.cpp)  # the doodads of a folder of maps that do not fit the ground under them (doodadFits)
+target_link_libraries(doodad_needs PRIVATE stardraft)
+
 add_executable(chk_sections tools/probes/chk_sections.cpp)  # the scenario.chk sections of a map, or the differences of two maps
 target_link_libraries(chk_sections PRIVATE stardraft)
 

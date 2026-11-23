@@ -71,6 +71,12 @@ bool DoodadTypes::load(const GameData& data, const Tileset& ts, uint16_t era, st
                 for (int c = 0; c < t.width; ++c) t.required[size_t(r) * t.width + c] = readU16(dd, id * 512 + (r * t.width + c) * 2);
         for (int r = 0; r < t.height && size_t(g) + r < ts.groups.size(); ++r)
             for (int c = 0; c < t.width; ++c) t.inPalette |= ts.groups[g + size_t(r)].megatiles[size_t(c)] != 0;
+        // A cell the doodad puts no tile on (a ramp end's empty corner) needs nothing: dddata.bin names a group there,
+        // but the map keeps its own tile, and Blizzard's maps have other terrain there (all the doodads of Blizzard's
+        // maps that did not fit failed on such cells only).
+        for (int r = 0; r < t.height; ++r)
+            for (int c = 0; c < t.width; ++c)
+                if (size_t(g) + r >= ts.groups.size() || !ts.groups[g + size_t(r)].megatiles[size_t(c)]) t.required[size_t(r) * t.width + c] = 0;
         t.inPalette = t.inPalette && t.groupString != 0;
         t.ground = ground;
         index[id] = types_.size();
@@ -148,7 +154,8 @@ bool doodadFits(const Chk& chk, const DoodadType& type, int tileX, int tileY, bo
     // The top row of a doodad taller than one row is not checked: it draws over the ground above the doodad (a cliff's
     // high ground), and the game's own maps put it over other tiles than dddata.bin names (an Ice cliff's top row on
     // plain high snow, where it names the cliff's edge: such cliffs fit nowhere else). With it, 95 % of the doodads on
-    // Blizzard's maps fit, against 73 % when it is checked.
+    // Blizzard's maps fit, against 73 % when it is checked. The cells a doodad puts no tile on need nothing (load):
+    // then 98 % of the taller doodads fit (tools/probes/doodad_needs).
     for (int r = type.height > 1 ? 1 : 0; r < type.height; ++r)
         for (int c = 0; c < type.width; ++c) {
             const size_t cell = size_t(r) * type.width + c;

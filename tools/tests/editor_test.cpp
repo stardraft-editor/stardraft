@@ -366,6 +366,13 @@ static void placementRules(const GameData& data, const char* map) {
             std::printf("      doodad %u (%ux%u): a second one at the offset %d,%d\n", holed->id, holed->width, holed->height, ox, oy);
             pe.undo(), pe.undo();
         } else std::printf("      no doodad with tiles and empty cells: the overlap check by cells is not tested\n");
+        // A cell the doodad puts no tile on needs no ground (a ramp end's empty corner next to the high ground's edge:
+        // Blizzard's maps have other terrain there than dddata.bin names).
+        bool emptyNeedsNone = true;
+        for (const auto& t : pe.doodadTypes().all())
+            for (int r = 0; r < t.height; ++r)
+                for (int c = 0; c < t.width; ++c) emptyNeedsNone &= tile(t, c, r) || !t.required[size_t(r) * t.width + c];
+        CHECK(emptyNeedsNone, "doodads: a cell with no tile of the doodad needs no tile group under it");
     }
     // dddata.bin rows are the doodad's width long (GitHub feedback #93, #100): the map's own doodads fit their terrain.
     {
