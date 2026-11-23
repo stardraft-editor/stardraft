@@ -9,7 +9,7 @@ None	없음
 Terrain	지형
 Units	유닛
 Doodads	장식물
-Locations	위치
+Locations	로케이션
 Sprites	스프라이트
 Brush	브러시
 Spray	스프레이
@@ -54,7 +54,7 @@ Twilight	Twilight
 OK	확인
 Cancel	취소
 Segoe UI	Segoe UI
-Rename location	위치 이름 변경
+Rename location	로케이션 이름 변경
 Low ground	낮은 지대
 Medium ground	중간 지대
 High ground	높은 지대
@@ -64,11 +64,11 @@ High air	높은 공중
 P&roperties…\tEnter	속성(&R)…\tEnter
 Re&name\tF2	이름 변경(&N)\tF2
 &Delete\tDel	삭제(&D)\tDel
-Elevations in the location	위치의 고도
+Elevations in the location	로케이션의 고도
 &All elevations	모든 고도(&A)
-: all elevations are in the location	: 모든 고도가 위치에 포함됩니다
- is in the location	 위치에 포함됩니다
- is not in the location	 위치에 포함되지 않습니다
+: all elevations are in the location	: 모든 고도가 로케이션에 포함됩니다
+ is in the location	 로케이션에 포함됩니다
+ is not in the location	 로케이션에 포함되지 않습니다
 StarCraft maps (*.scx;*.scm)*.scx;*.scmScenario data (*.chk)*.chkAll files*.*	StarCraft 맵 (*.scx;*.scm)*.scx;*.scm시나리오 데이터 (*.chk)*.chk모든 파일*.*
 Maps and projects (*.scx;*.scm;*.chk;*.stardraft;*.eds)*.scx;*.scm;*.chk;*.stardraft;*.edsStarCraft maps (*.scx;*.scm)*.scx;*.scmStarDraft projects (*.stardraft;*.eds)*.stardraft;*.edsScenario data (*.chk)*.chkAll files*.*	맵 및 프로젝트 (*.scx;*.scm;*.chk;*.stardraft;*.eds)*.scx;*.scm;*.chk;*.stardraft;*.edsStarCraft 맵 (*.scx;*.scm)*.scx;*.scmStarDraft 프로젝트 (*.stardraft;*.eds)*.stardraft;*.eds시나리오 데이터 (*.chk)*.chk모든 파일*.*
 Select the StarCraft: Remastered folder. It contains .build.info.	StarCraft: Remastered 폴더를 선택하세요. 이 폴더에는 .build.info가 있습니다.
@@ -108,10 +108,10 @@ the built map: Build (Ctrl+B) writes it to the Output file	빌드된 맵: 빌드
 the built map: Build (Ctrl+B) writes it	빌드된 맵: 빌드(Ctrl+B)가 이 파일을 씁니다
 your code (epScript). To add more, use File > Project > Add a script.	사용자 코드(epScript). 더 추가하려면 파일 > 프로젝트 > 스크립트 추가를 사용하세요.
 The project goes into the new folder 	프로젝트가 들어갈 새 폴더: 
-\\ in the location above:\r\n\r\n	\\ 위 위치에:\r\n\r\n
+\\ in the location above:\r\n\r\n	\\ 위 로케이션에:\r\n\r\n
 \r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n첫 빌드에서 StarDraft 2는 GitHub에서 euddraft를 자신의 폴더로 내려받습니다.\r\nStarDraft 2는 이 컴퓨터의 다른 사본을 변경하지 않습니다. 열어 둔 맵은\r\n일반 맵으로 유지됩니다. 프로젝트만 빌드할 수 있습니다.
 Name	이름
-Location	위치
+Location	로케이션
 Browse…	찾아보기…
 Output file	출력 파일
 <name>_EUD.scx in the project folder	프로젝트 폴더의 <name>_EUD.scx
@@ -187,8 +187,8 @@ Map &data (units, upgrades, technologies)	맵 데이터(&D) (유닛, 업그레�
 Nothing copied: select doodads and press Ctrl+C	복사된 항목이 없습니다. 장식물을 선택하고 Ctrl+C를 누르세요
 Nothing copied: select sprites and press Ctrl+C	복사된 항목이 없습니다. 스프라이트를 선택하고 Ctrl+C를 누르세요
 Paste: click to place the copy. Shift+click pastes again. Esc goes back to Select.	붙여넣기: 클릭하여 복사본을 배치합니다. Shift+클릭하면 다시 붙여넣습니다. Esc를 누르면 선택으로 돌아갑니다.
-Nothing copied: select a location and press Ctrl+C	복사된 항목이 없습니다. 위치를 선택하고 Ctrl+C를 누르세요
-Could not create the location: all location slots are in use	위치를 만들 수 없습니다: 모든 위치 슬롯이 사용 중입니다
+Nothing copied: select a location and press Ctrl+C	복사된 항목이 없습니다. 로케이션을 선택하고 Ctrl+C를 누르세요
+Could not create the location: all location slots are in use	로케이션을 만들 수 없습니다: 모든 로케이션 슬롯이 사용 중입니다
 Pasted 	붙여넣음: 
 Nothing copied: select terrain with the Select tool and press Ctrl+C	복사된 항목이 없습니다. 선택 도구로 지형을 선택하고 Ctrl+C를 누르세요
 Paste tiles: click to place them. Shift+click pastes again. Esc cancels.	타일 붙여넣기: 클릭하여 배치합니다. Shift+클릭하면 다시 붙여넣습니다. Esc를 누르면 취소됩니다.
@@ -217,8 +217,8 @@ Select an area with the Select tool first	먼저 선택 도구로 영역을 선�
 Copied the terrain selection	지형 선택을 복사했습니다
 Select doodads first	먼저 장식물을 선택하세요
 Select sprites first	먼저 스프라이트를 선택하세요
-Copied the location	위치를 복사했습니다
-Select a location first	먼저 위치를 선택하세요
+Copied the location	로케이션을 복사했습니다
+Select a location first	먼저 로케이션을 선택하세요
 Nothing to cut there: make the selection larger	잘라낼 내용이 없습니다. 선택 영역을 더 크게 하세요
 Cut the terrain: 	지형을 잘라냈습니다: 
  null tiles in its place (one undo step)	 개의 null 타일로 대체했습니다 (실행 취소 1단계)
@@ -305,14 +305,14 @@ Other 	기타
 Units and buildings	유닛과 건물
 Low ground and other	낮은 지대와 기타
 : each click or spray places one of them, at random	: 클릭하거나 스프레이할 때마다 무작위로 하나를 배치합니다
-Location 	위치 
+Location 	로케이션 
  units with 	 유닛, 대상: 
  doodads (the others: the new one does not fit there)	 장식물 (나머지: 새 장식물이 그곳에 맞지 않음)
  sprites with 	 스프라이트, 대상: 
 Paint a terrain	지형 칠하기
 Place a unit	유닛 배치
 Place a doodad	장식물 배치
-Go to a location	위치로 이동
+Go to a location	로케이션으로 이동
 Place a sprite	스프라이트 배치
 Place a tile	타일 배치
 Replace with a unit	유닛으로 대체
@@ -394,9 +394,9 @@ Left and right, top and bottom	왼쪽과 오른쪽, 위쪽과 아래쪽
 Inverted left and right	왼쪽과 오른쪽이 반전됨
 Inverted top and bottom	위쪽과 아래쪽이 반전됨
 Inverted on both	양쪽 모두 반전됨
-Changed the location "	위치를 변경했습니다: "
-Could not change the location: 	위치를 변경할 수 없습니다: 
-Location properties	위치 속성
+Changed the location "	로케이션을 변경했습니다: "
+Could not change the location: 	로케이션을 변경할 수 없습니다: 
+Location properties	로케이션 속성
 Read-only. A change to this value has no effect in StarCraft: Remastered.	읽기 전용입니다. 이 값을 바꿔도 StarCraft: Remastered에는 효과가 없습니다.
 Read-only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	이 사운드는 읽기 전용입니다. 게임은 맵의 코드가 실행되기 전에 Preload 플래그가 있는 사운드를 불러오므로, 파일을 변경해도 효과가 없습니다.
 Read-only. The address of this value in the game memory is not known.	읽기 전용입니다. 게임 메모리에서 이 값의 주소를 알 수 없습니다.
@@ -587,7 +587,7 @@ Buildings	건물
 Factories	생산 건물
 unit type #	유닛 종류 #
 (unit type)	(유닛 종류)
-(location)	(위치)
+(location)	(로케이션)
 (a property)	(속성)
 Switch 	스위치 
 (text)	(텍스트)
@@ -670,7 +670,7 @@ Type a number or an expression…	숫자 또는 식을 입력…
 A value from the game…	게임의 값…
 Groups	그룹
 Search unit types	유닛 종류 검색
-Search map locations	맵의 위치 검색
+Search map locations	맵의 로케이션 검색
 Switch number	스위치 번호
 Map sounds	맵의 사운드
 The map has no sounds. Type the path of a sound.	맵에 사운드가 없습니다. 사운드 경로를 입력합니다.
@@ -830,7 +830,7 @@ Spray: random doodads of the selected kinds (Density). Hold the button to spray 
 Select a sprite: click it; drag it to move. Esc returns to the Select tool.	스프라이트 선택: 클릭하면 선택되고 드래그하면 이동합니다. Esc를 누르면 선택 도구로 돌아갑니다.
 Place the sprites selected in the list (several: each one at random); drag to place more	목록에서 선택한 스프라이트를 배치합니다 (여러 개: 각각 무작위로). 드래그하면 더 배치합니다
 Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	스프레이: 선택한 종류의 스프라이트를 무작위로 놓습니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
-Select, move and resize locations; drag on empty ground to make one; Alt and a drag selects several	위치를 선택, 이동, 크기 조절합니다. 빈 땅에서 드래그하면 새 위치를 만듭니다. Alt+드래그로 여러 위치를 선택합니다
+Select, move and resize locations; drag on empty ground to make one; Alt and a drag selects several	로케이션을 선택, 이동, 크기 조절합니다. 빈 땅에서 드래그하면 새 로케이션을 만듭니다. Alt+드래그로 여러 로케이션을 선택합니다
 Tile: the tools place tiles as they are. Select a tile in the Tiles list.	타일: 도구가 타일을 그대로 배치합니다. 타일 목록에서 타일을 선택합니다.
 Isometric: the tools paint terrains and correct the edges between them	아이소메트릭: 도구가 지형을 칠하고 지형 사이의 가장자리를 보정합니다
 Isometric	아이소메트릭
@@ -865,7 +865,7 @@ Cut (Ctrl+X)	잘라내기 (Ctrl+X)
 Copy (Ctrl+C)	복사 (Ctrl+C)
 Paste (Ctrl+V)	붙여넣기 (Ctrl+V)
 Delete (Del)	삭제 (Del)
-Quick search: find the mode's units, terrains, doodads, sprites or locations (Q)	빠른 검색: 모드의 유닛, 지형, 장식물, 스프라이트 또는 위치를 찾습니다 (Q)
+Quick search: find the mode's units, terrains, doodads, sprites or locations (Q)	빠른 검색: 모드의 유닛, 지형, 장식물, 스프라이트 또는 로케이션을 찾습니다 (Q)
 Report feedback	피드백 보내기
 Report feedback: what works, what does not, ideas	피드백 보내기: 잘 되는 것, 안 되는 것, 아이디어
 Building	빌드 중
@@ -894,13 +894,13 @@ E&xit	종료(&X)
 &Undo\tCtrl+Z	실행 취소(&U)\tCtrl+Z
 &Redo\tCtrl+Y	다시 실행(&R)\tCtrl+Y
 &Duplicate\tCtrl+D	복제(&D)\tCtrl+D
-&Quick picker (the mode's units, terrains, doodads, sprites or locations; in Data, any entry)…\tQ	빠른 선택(&Q) (모드의 유닛, 지형, 장식물, 스프라이트 또는 위치; 데이터에서는 모든 항목)…\tQ
-Re&name location\tF2	위치 이름 변경(&N)\tF2
+&Quick picker (the mode's units, terrains, doodads, sprites or locations; in Data, any entry)…\tQ	빠른 선택(&Q) (모드의 유닛, 지형, 장식물, 스프라이트 또는 로케이션; 데이터에서는 모든 항목)…\tQ
+Re&name location\tF2	로케이션 이름 변경(&N)\tF2
 &High definition (2x, default)	고해상도(&H) (2x, 기본값)
 High definition (&4x)	고해상도 (4x)(&4)
 &Standard definition	표준 해상도(&S)
 &Carbot (cartooned)	카툰 (Carbot)(&C)
-Show &locations	위치 표시(&L)
+Show &locations	로케이션 표시(&L)
 Show &grid\tG	격자 표시(&G)\tG
  pixels)	 픽셀)
 &Custom…	사용자 지정(&C)…
@@ -923,7 +923,7 @@ Control &kit	컨트롤 키트(&K)
 &Units\tU	유닛(&U)\tU
 &Doodads\tD	장식물(&D)\tD
 &Sprites\tS	스프라이트(&S)\tS
-&Locations\tL	위치(&L)\tL
+&Locations\tL	로케이션(&L)\tL
 &File	파일(&F)
 &Edit	편집(&E)
 &View	보기(&V)
@@ -949,11 +949,11 @@ Snap to tiles (32 px): always, a doodad is made of tiles	타일에 맞춤 (32 px
 Can be on top of others: no, a doodad replaces the tiles under it	다른 것 위에 놓을 수 있음: 아니요, 장식물은 아래의 타일을 대체합니다
 Place anywhere: always	어디든 배치: 항상
 Can be on top of others: always	다른 것 위에 놓을 수 있음: 항상
-&Names in lines that fit in the location	위치에 들어가는 줄로 이름 표시(&N)
+&Names in lines that fit in the location	로케이션에 들어가는 줄로 이름 표시(&N)
 &Units	유닛(&U)
 &Doodads	장식물(&D)
 &Sprites	스프라이트(&S)
-&Locations	위치(&L)
+&Locations	로케이션(&L)
 Terrain copy includes u&nits	지형 복사에 유닛 포함(&N)
 Terrain copy includes d&oodads	지형 복사에 장식물 포함(&O)
 &Program options…\tCtrl+,	프로그램 옵션(&P)…\tCtrl+,
@@ -1380,7 +1380,7 @@ The terrain of a map	맵의 지형
 Import an existing map	기존 맵 가져오기
 Generate	생성
 Blank map filled with	빈 맵, 채움:
-The terrain, tiles and doodads of a map that you have (.scm or .scx); no units, locations or triggers	가지고 있는 맵(.scm 또는 .scx)의 지형, 타일, 장식물. 유닛, 위치, 트리거는 없습니다
+The terrain, tiles and doodads of a map that you have (.scm or .scx); no units, locations or triggers	가지고 있는 맵(.scm 또는 .scx)의 지형, 타일, 장식물. 유닛, 로케이션, 트리거는 없습니다
 A copy of a map that you have (.scm or .scx): its terrain, units, triggers and settings	가지고 있는 맵(.scm 또는 .scx)의 복사본: 지형, 유닛, 트리거, 설정
 Land, water and high ground from a seed and the settings next to the preview	시드와 미리보기 옆의 설정으로 만든 땅, 물, 높은 지대
 The terrain on the whole map	맵 전체의 지형
@@ -1659,9 +1659,9 @@ Set up the button	버튼 설정
 This is a group of units. Select one unit type	유닛 그룹입니다. 유닛 종류를 하나 선택하십시오
 There is no unit type 	유닛 종류가 없습니다: 
 There is no unit type with the name 	이름이 같은 유닛 종류가 없습니다: 
-Use a location from 1 to 255	1에서 255까지의 위치를 사용하십시오
-The map has no location 	맵에 위치가 없습니다: 
-Select a location	위치를 선택하십시오
+Use a location from 1 to 255	1에서 255까지의 로케이션을 사용하십시오
+The map has no location 	맵에 로케이션이 없습니다: 
+Select a location	로케이션을 선택하십시오
 Use a switch from 1 to 256	1에서 256까지의 스위치를 사용하십시오
 Use a value from 0 to 	0에서 다음까지의 값을 사용하십시오: 
  has no property 	 에 없는 속성: 
@@ -1884,7 +1884,7 @@ New graphics for preplaced units: 	새 그래픽(배치된 유닛):
  where the game cannot put a unit. The game puts it near its place, or does not make it.	 게임이 유닛을 놓을 수 없는 곳에 있습니다. 게임은 유닛을 그 근처에 놓거나, 만들지 않습니다.
 The project 	프로젝트 
  is open already	이(가) 이미 열려 있습니다
-All location slots are in use	모든 위치 슬롯을 사용 중입니다
+All location slots are in use	모든 로케이션 슬롯을 사용 중입니다
 Pinned	고정됨
 Right button paints 	오른쪽 버튼: 
 ; left button paints 	; 왼쪽 버튼: 
@@ -1916,7 +1916,7 @@ Align left	왼쪽 맞춤
 Center the line (code 13)	줄 가운데 맞춤 (코드 13)
 Align right (code 12)	오른쪽 맞춤 (코드 12)
 : search unit types	: 유닛 종류 검색
-: search the map's locations	: 맵의 위치 검색
+: search the map's locations	: 맵의 로케이션 검색
 : default value	: 기본값
 Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.	브러시 높이: 1~32. 클릭하여 높이를 입력합니다 (비우면 크기와 같음). 화살표와 마우스 휠로 바꿉니다.
 Diamond	마름모
@@ -2046,7 +2046,7 @@ Did not import 	다음 파일을 가져오지 않았습니다:
 StarCraft map	StarCraft 맵
 Map editor	맵 에디터
 Edit StarCraft maps and EUD projects	StarCraft 맵과 EUD 프로젝트를 편집합니다
-Edit the terrain, units, locations and triggers of StarCraft maps. Build EUD maps with euddraft.	StarCraft 맵의 지형, 유닛, 위치, 트리거를 편집합니다. euddraft로 EUD 맵을 빌드합니다.
+Edit the terrain, units, locations and triggers of StarCraft maps. Build EUD maps with euddraft.	StarCraft 맵의 지형, 유닛, 로케이션, 트리거를 편집합니다. euddraft로 EUD 맵을 빌드합니다.
 StarDraft project	StarDraft 프로젝트
 Download the new AppImage?	새 AppImage를 다운로드하시겠습니까?
 &Download	다운로드(&D)
@@ -2114,12 +2114,12 @@ Move 1 unit	유닛 1개 이동
 Move %d units	유닛 %d개 이동
 Change 1 unit	유닛 1개 변경
 Change %d units	유닛 %d개 변경
-Add 1 location	위치 1개 추가
-Add %d locations	위치 %d개 추가
-Delete 1 location	위치 1개 삭제
-Delete %d locations	위치 %d개 삭제
-Change 1 location	위치 1개 변경
-Change %d locations	위치 %d개 변경
+Add 1 location	로케이션 1개 추가
+Add %d locations	로케이션 %d개 추가
+Delete 1 location	로케이션 1개 삭제
+Delete %d locations	로케이션 %d개 삭제
+Change 1 location	로케이션 1개 변경
+Change %d locations	로케이션 %d개 변경
 &What is new	새로운 기능(&W)
 Update	업데이트
 Show the release notes of the newer release	새 릴리스의 릴리스 노트 보기
@@ -2159,8 +2159,8 @@ Show	표시
 Whole map	맵 전체
 Current view	현재 보기
 Selected area	선택한 영역
-The terrain selection (Terrain mode, Select), else the selected location	지형 선택 영역(지형 모드, 선택), 없으면 선택한 위치
-Locations and their names	위치와 이름
+The terrain selection (Terrain mode, Select), else the selected location	지형 선택 영역(지형 모드, 선택), 없으면 선택한 로케이션
+Locations and their names	로케이션과 이름
 Grid	격자
 pixels	픽셀
 Export…	내보내기…
@@ -2175,7 +2175,7 @@ Part %d of %d	%d/%d 부분
 Canceled the map image export	맵 이미지 내보내기를 취소함
 %d units here (Alt+click: list)	여기에 유닛 %d개 (Alt+클릭: 목록)
 Select a unit &here…	여기의 유닛 선택(&H)…
-Select a location &here	여기의 위치 선택(&H)
+Select a location &here	여기의 로케이션 선택(&H)
 Search the units here	여기의 유닛 검색
 Selected unit 	선택한 유닛 
 Added unit 	추가한 유닛 
@@ -2249,32 +2249,32 @@ Floating &palettes	떠 있는 팔레트(&P)
 &Unit palette	유닛 팔레트(&U)
 &Doodad palette	장식물 팔레트(&D)
 &Sprite palette	스프라이트 팔레트(&S)
-&Location list	위치 목록(&L)
+&Location list	로케이션 목록(&L)
 Unit palette	유닛 팔레트
 Doodad palette	장식물 팔레트
 Sprite palette	스프라이트 팔레트
-Location list	위치 목록
+Location list	로케이션 목록
 The unit palette is in its own window	유닛 팔레트가 별도 창에 있습니다
 The doodad palette is in its own window	장식물 팔레트가 별도 창에 있습니다
 The sprite palette is in its own window	스프라이트 팔레트가 별도 창에 있습니다
-The location list is in its own window	위치 목록이 별도 창에 있습니다
+The location list is in its own window	로케이션 목록이 별도 창에 있습니다
 Put the terrain palette back in the side bar	지형 팔레트를 사이드바로 되돌립니다
 Put the unit palette back in the side bar	유닛 팔레트를 사이드바로 되돌립니다
 Put the doodad palette back in the side bar	장식물 팔레트를 사이드바로 되돌립니다
 Put the sprite palette back in the side bar	스프라이트 팔레트를 사이드바로 되돌립니다
-Put the location list back in the side bar	위치 목록을 사이드바로 되돌립니다
+Put the location list back in the side bar	로케이션 목록을 사이드바로 되돌립니다
 Moved the unit palette to its own window	유닛 팔레트를 별도 창으로 옮겼습니다
 Moved the doodad palette to its own window	장식물 팔레트를 별도 창으로 옮겼습니다
 Moved the sprite palette to its own window	스프라이트 팔레트를 별도 창으로 옮겼습니다
-Moved the location list to its own window	위치 목록을 별도 창으로 옮겼습니다
+Moved the location list to its own window	로케이션 목록을 별도 창으로 옮겼습니다
 The unit palette shows in its own window in Units mode	유닛 모드에서 유닛 팔레트가 별도 창에 표시됩니다
 The doodad palette shows in its own window in Doodads mode	장식물 모드에서 장식물 팔레트가 별도 창에 표시됩니다
 The sprite palette shows in its own window in Sprites mode	스프라이트 모드에서 스프라이트 팔레트가 별도 창에 표시됩니다
-The location list shows in its own window in Locations mode	위치 모드에서 위치 목록이 별도 창에 표시됩니다
+The location list shows in its own window in Locations mode	로케이션 모드에서 로케이션 목록이 별도 창에 표시됩니다
 Docked the unit palette	유닛 팔레트를 도킹했습니다
 Docked the doodad palette	장식물 팔레트를 도킹했습니다
 Docked the sprite palette	스프라이트 팔레트를 도킹했습니다
-Docked the location list	위치 목록을 도킹했습니다
+Docked the location list	로케이션 목록을 도킹했습니다
 &Dock in the side bar	사이드바에 도킹(&D)
 Make &floating	떠 있게 하기(&F)
 Dock in the side bar	사이드바에 도킹
@@ -2309,9 +2309,9 @@ Moved Units back to the side bar	유닛을(를) 사이드바로 되돌렸습니�
 Put Doodads back in the side bar	장식물을(를) 사이드바로 되돌립니다
 Moved Doodads to its own window	장식물을(를) 별도 창으로 옮겼습니다
 Moved Doodads back to the side bar	장식물을(를) 사이드바로 되돌렸습니다
-Put Locations back in the side bar	위치을(를) 사이드바로 되돌립니다
-Moved Locations to its own window	위치을(를) 별도 창으로 옮겼습니다
-Moved Locations back to the side bar	위치을(를) 사이드바로 되돌렸습니다
+Put Locations back in the side bar	로케이션을(를) 사이드바로 되돌립니다
+Moved Locations to its own window	로케이션을(를) 별도 창으로 옮겼습니다
+Moved Locations back to the side bar	로케이션을(를) 사이드바로 되돌렸습니다
 Put Sprites back in the side bar	스프라이트을(를) 사이드바로 되돌립니다
 Moved Sprites to its own window	스프라이트을(를) 별도 창으로 옮겼습니다
 Moved Sprites back to the side bar	스프라이트을(를) 사이드바로 되돌렸습니다
@@ -2423,7 +2423,7 @@ Unit ID	유닛 ID
 Lifted	들어 올림
 Link selected units	선택한 유닛 연결
 Go to the linked unit	연결된 유닛으로 이동
- locations	 위치
+ locations	 로케이션
 Brushes	브러시 수
 Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 64. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	브러시 수: 브러시가 대칭 중심을 같은 간격으로 돕니다. 1: 브러시 하나, 2: 둘(반 바퀴), 4: 넷(1/4 바퀴), 1~64. 클릭하여 숫자를 입력합니다. 화살표와 마우스 휠로 바꿉니다. 등각 지형에서는 회전이 다이아몬드를 유지하지 않으면(2, 그리고 너비가 높이의 두 배인 맵의 4는 유지) 복사본이 가장 가까운 다이아몬드로 갑니다.
 Start locations	시작 위치
@@ -2795,7 +2795,7 @@ Units: %d	유닛: %d
 Start locations: %d	시작 위치: %d
 Doodads: %d	장식물: %d
 Sprites: %d	스프라이트: %d
-Locations: %d / %d	위치: %d / %d
+Locations: %d / %d	로케이션: %d / %d
 Map size: %d x %d	맵 크기: %d x %d
 No map sound has the search text	검색어가 있는 맵 사운드가 없습니다
 Cosmonarchy BW and game sounds	Cosmonarchy BW 및 게임 사운드
@@ -3474,7 +3474,7 @@ Select a base in the panel to play	재생하려면 패널에서 기지를 선택
 \nMap: 	\n맵: 
 \nPlayer 	\n플레이어 
 \r\n• Deleted: 	\r\n• 삭제됨: 
-\r\n• Locations move with the map	\r\n• 위치가 맵과 함께 이동합니다
+\r\n• Locations move with the map	\r\n• 로케이션이 맵과 함께 이동합니다
 \r\n• Not possible: 	\r\n• 불가능: 
   ·  Average 	  ·  평균 
   ·  HP 	  ·  체력 
@@ -3579,7 +3579,7 @@ ISOM terrains: maps opened from now on use the built-in mod terrains	ISOM 지형
 ISOM terrains: maps opened from now on use the terrain rules file	ISOM 지형: 이제부터 여는 맵은 지형 규칙 파일을 사용합니다
 Import CSV…	CSV 가져오기…
 Import the values of a CSV file into this .dat file. The "id" column gives the entries. The first row gives the columns.	CSV 파일의 값을 이 .dat 파일로 가져옵니다. "id" 열이 항목을 지정하고, 첫 번째 행이 열을 지정합니다.
-Inverted location	반전된 위치
+Inverted location	반전된 로케이션
 Loaded the Hyperion plugin: maps open and save as .hxm too, and Tools > Hyperion tests them	Hyperion 플러그인을 불러왔습니다: 맵을 .hxm으로도 열고 저장할 수 있으며, 도구 > Hyperion에서 테스트합니다
 Lock angle	각도 고정
 Make maps for Hyperion, up to 512 tiles a side, saved as .hxm.	Hyperion용 맵을 만듭니다. 한 변 최대 512타일, .hxm으로 저장됩니다.
@@ -3697,8 +3697,8 @@ In Run local block: if the screen x is less than 640, show "You are in the west"
 In Run local block: if the screen y is less than 480, show "You are in the north" on this screen.	Run local block에서: 화면 y가 480보다 작으면 이 화면에 "You are in the north"를 표시합니다.
 It counts each time. Keep the number in a variable if you use it many times in one trigger.	매번 셉니다. 한 트리거에서 여러 번 쓰려면 수를 변수에 저장하세요.
 It is true only on that player's computer. Use it only for what that player sees or hears, for example in Run local block. To change the game with a key, use "presses" or "holds down" with a player.	해당 플레이어의 컴퓨터에서만 참입니다. 그 플레이어에게 보이거나 들리는 것에만 사용하세요 (예: Run local block). 키로 게임을 바꾸려면 플레이어와 함께 "presses" 또는 "holds down"을 사용하세요.
-It moves the location from where it is now. To put the location at a distance from a point, first move the location to the point. Small distances are not exact: 8 pixels in direction 10 can move 1 pixel less than you expect.	위치를 현재 위치에서 이동합니다. 위치를 한 점에서 일정 거리에 두려면 먼저 위치를 그 점으로 이동하세요. 작은 거리는 정확하지 않습니다: 방향 10으로 8픽셀은 예상보다 1픽셀 덜 이동할 수 있습니다.
-Moves a location by a distance in a direction, in pixels. One tile is 32 pixels. The direction is 0 to 255, as the game counts directions: 0 is up, 64 is right, 128 is down and 192 is left. The location keeps its size.	위치를 방향과 거리(픽셀)만큼 이동합니다. 1타일은 32픽셀입니다. 방향은 게임의 방향 단위로 0~255입니다: 0은 위, 64는 오른쪽, 128은 아래, 192는 왼쪽입니다. 위치의 크기는 유지됩니다.
+It moves the location from where it is now. To put the location at a distance from a point, first move the location to the point. Small distances are not exact: 8 pixels in direction 10 can move 1 pixel less than you expect.	로케이션을 현재 로케이션에서 이동합니다. 로케이션을 한 점에서 일정 거리에 두려면 먼저 로케이션을 그 점으로 이동하세요. 작은 거리는 정확하지 않습니다: 방향 10으로 8픽셀은 예상보다 1픽셀 덜 이동할 수 있습니다.
+Moves a location by a distance in a direction, in pixels. One tile is 32 pixels. The direction is 0 to 255, as the game counts directions: 0 is up, 64 is right, 128 is down and 192 is left. The location keeps its size.	로케이션을 방향과 거리(픽셀)만큼 이동합니다. 1타일은 32픽셀입니다. 방향은 게임의 방향 단위로 0~255입니다: 0은 위, 64는 오른쪽, 128은 아래, 192는 왼쪽입니다. 로케이션의 크기는 유지됩니다.
 Player 1's name is "Mapmaker": give the map maker access to test commands.	플레이어 1의 이름이 "Mapmaker"이면: 맵 제작자가 테스트 명령을 사용할 수 있게 합니다.
 Runs its actions for each unit made since this loop last ran: trained, built, morphed, or made by a trigger. Inside the loop, the unit is "the unit".	이 루프가 마지막으로 실행된 이후 만들어진 각 유닛에 대해 액션을 실행합니다: 훈련, 건설, 변태 또는 트리거로 만들어진 유닛. 루프 안에서 유닛은 "the unit"입니다.
 Runs its actions for each unit on the map that matches. Inside the loop, the unit is "the unit". For one player, it goes through only that player's units (faster).	조건에 맞는 맵의 각 유닛에 대해 액션을 실행합니다. 루프 안에서 유닛은 "the unit"입니다. 한 플레이어를 지정하면 그 플레이어의 유닛만 처리합니다 (더 빠름).
@@ -3706,7 +3706,7 @@ Runs its blocks one time for each item of the list, or 8 times for a player arra
 Set gold to the number in the chat line after "-give ": the value of a chat command.	gold를 채팅 줄에서 "-give " 뒤의 수로 설정: 채팅 명령의 값.
 Set hp to hp + 20, but at least 0 and at most 100: heal the hero, but not above 100.	hp를 hp + 20으로 설정하되 최소 0, 최대 100: 영웅을 치료하되 100을 넘지 않게 합니다.
 Set start to game seconds since the game started: keep the time when the wave starts. Subtract it later to get the wave's time.	start를 게임 시작 후 게임 초로 설정: 웨이브가 시작되는 시간을 저장합니다. 나중에 빼면 웨이브의 시간을 얻습니다.
-Shift a location in a direction	위치를 한 방향으로 이동
+Shift a location in a direction	로케이션을 한 방향으로 이동
 The difference of two	두 수의 차이
 The game keeps hit points, shields and energy in 1/256ths. Thus "exactly 40" can miss a unit at 40.5. Use at least or at most.	게임은 체력, 실드, 에너지를 1/256 단위로 저장합니다. 따라서 "정확히 40"은 40.5인 유닛을 놓칠 수 있습니다. 이상 또는 이하를 사용하세요.
 The larger number minus the smaller number. It is never below 0.	큰 수에서 작은 수를 뺀 값. 0 미만이 되지 않습니다.
@@ -3776,17 +3776,17 @@ Make a unit train a unit type	유닛이 유닛 종류를 생산하게 하기
 make {unit} train {type}	{unit}이(가) {type}을(를) 생산하게 하기
 Put a unit in a control group	유닛을 부대 지정에 넣기
 put {unit} in {player}'s control group {group}, place {slot}	{unit}을(를) {player}의 부대 {group}, 자리 {slot}에 넣기
-Turn a location around another	위치를 다른 위치 주위로 회전
+Turn a location around another	로케이션을 다른 로케이션 주위로 회전
 turn {where} around {center} by {a}	{where}을(를) {center} 주위로 {a}만큼 회전
 Fire a weapon from a place to a place	한 곳에서 다른 곳으로 무기 발사
 fire a {attacker} of {player} from {src} at a {target} at {dst}	{player}의 {attacker}이(가) {src}에서 {dst}의 {target}에게 발사
-Units a player has at a location	플레이어가 위치에 가진 유닛
+Units a player has at a location	플레이어가 로케이션에 가진 유닛
 how many {unit} {player} has at {where}	{player}이(가) {where}에 가진 {unit}의 수
-Distance between two locations	두 위치 사이의 거리
+Distance between two locations	두 로케이션 사이의 거리
 the distance from {a} to {b}	{a}에서 {b}까지의 거리
 Distance between two points	두 점 사이의 거리
 the distance from x {x1}, y {y1} to x {x2}, y {y2}	x {x1}, y {y1}에서 x {x2}, y {y2}까지의 거리
-Direction between two locations	두 위치 사이의 방향
+Direction between two locations	두 로케이션 사이의 방향
 the direction from {a} to {b}	{a}에서 {b}로의 방향
 A unit casts an order on a point	유닛이 지점에 명령을 사용
 {unit} casts {order} on a point less than {range} pixels away; put {unitloc} on it and {pointloc} on the point	{unit}이(가) {range}픽셀 미만 거리의 지점에 {order} 사용; {unitloc}을(를) 유닛에, {pointloc}을(를) 지점에 놓기
