@@ -144,10 +144,11 @@ std::string sdlHelpContextTopic() {
     return "";
 }
 
-bool sdlHelpRuns(int id) { return id == ID_HELP_DOCS || id == ID_HELP_CONTEXT; }
+bool sdlHelpRuns(int id) { return id == ID_HELP_DOCS || id == ID_HELP_CONTEXT || id == ID_HELP_CREDITS; }
 bool sdlHelpCommand(int id) {
     if (id == ID_HELP_DOCS) return sdlShowHelp(""), true;
     if (id == ID_HELP_CONTEXT) return sdlShowHelp(sdlHelpContextTopic()), true;
+    if (id == ID_HELP_CREDITS) return sdlShowHelp("credits"), true;
     return false;
 }
 

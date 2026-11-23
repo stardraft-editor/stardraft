@@ -577,17 +577,23 @@ bool commandMapEdit(AppState& app, int id) {
         break;
     case ID_HELP_ISSUE: shellOpenUrl(issueNewUrl()); return true;
     case ID_EDIT_COPY:
-        if (open) copyMapSelection(app);
+        if (open && app.ed->isProtectedMap()) setMessage(tr(L"The map is protected: it cannot be copied from"));
+        else if (open) copyMapSelection(app);
         break;
     case ID_EDIT_TERRAINUNITS: app.copyUnitsWithTerrain = !app.copyUnitsWithTerrain; break;
     case ID_OPT_LOCWRAP: app.locationWrap = !app.locationWrap, app.dirty = true; break;
     case ID_EDIT_TERRAINDOODADS: app.copyDoodadsWithTerrain = !app.copyDoodadsWithTerrain; break;
     case ID_EDIT_CUT:  // the mode's copy, then its delete
-        if (open) cutMapSelection(app);
+        if (open && app.ed->isProtectedMap()) setMessage(tr(L"The map is protected: it cannot be copied from"));
+        else if (open) cutMapSelection(app);
         break;
     case ID_EDIT_PASTE: pasteMapCopy(app); break;
     case ID_EDIT_DUPLICATE:
         // The active mode's copy, then its paste (the copy follows the mouse; locations: at the mouse).
+        if (open && app.ed->isProtectedMap()) {  // (its copy would go to the clipboard)
+            setMessage(tr(L"The map is protected: it cannot be copied from"));
+            break;
+        }
         if (open && app.mode != Mode::Units && app.mode != Mode::Terrain) {
             command(ID_EDIT_COPY), pasteMapCopy(app);
             break;

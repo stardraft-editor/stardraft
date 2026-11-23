@@ -65,7 +65,8 @@ bool commandPortable(AppState& app, int id) {
         return true;
     }
     if (gWorkspace == Workspace::ClassicSettings && (id == ID_EDIT_COPY || id == ID_EDIT_PASTE)) {
-        if (id == ID_EDIT_COPY) classicCopySelected();
+        if (id == ID_EDIT_COPY && shellState().ed && shellState().ed->isProtectedMap()) setMessage(tr(L"The map is protected: it cannot be copied from"));
+        else if (id == ID_EDIT_COPY) classicCopySelected();
         else classicPasteSelected();
         return true;
     }

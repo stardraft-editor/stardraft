@@ -37,7 +37,10 @@ Chk Chk::parse(std::span<const uint8_t> bytes, ParseReport* report) {
             // StarCraft continues reading at start + size; the section itself is invalid.
             r.negativeSize = true;
             int64_t next = static_cast<int64_t>(start) + size;
-            if (next < 0) break;
+            if (next < 0) {
+                r.jumpBeforeStart = true;
+                break;
+            }
             pos = static_cast<size_t>(next);
             continue;
         }

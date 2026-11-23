@@ -67,7 +67,7 @@ std::wstring docTitle(int i, bool withMode) {
     // A project's map is shown by the project's name.
     const auto& pr = gDocs[size_t(i)].project;
     if (pr) name = widen(pr->name());
-    if (withMode) name += pr ? L" (project)" : L" (map)";
+    if (withMode) name += pr ? L" (project)" : ed->isProtectedMap() ? L" (protected map, view only)" : L" (map)";  // (map_protection.h)
     return (ed->modified() ? L"* " : L"") + name;
 }
 int tabStripHeight() { return scale(30); }

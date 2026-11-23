@@ -357,6 +357,7 @@ void endSession() {
 void invite() {
     if (gSession) return showWindow();
     if (!docOpen() || !gState.ed) return;
+    if (gState.ed->isProtectedMap()) return setMessage(L"The map is protected: it cannot be shared");  // (the guests would get its data)
     if (!stardraft::platform::webSocketsAvailable())
         return shellErrorBox(shellTr(L"Collaborative editing is not available on this system yet."), shellTr(L"Could not start the session"));
     if (!askName()) return;

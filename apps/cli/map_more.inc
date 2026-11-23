@@ -575,6 +575,7 @@ std::optional<Json> applyMoreOp(Editor& ed, const std::string& name, const Json&
         Editor other(ed.gameData());
         std::string err;
         if (!other.open(upath(from), err)) fail(err);
+        if (other.isProtectedMap()) fail("copy_players: " + from + " is protected: its players cannot be copied");
         std::vector<Editor::Player> players;
         std::vector<Editor::Force> forces;
         for (int p = 0; p < 8; ++p) players.push_back(other.player(p));

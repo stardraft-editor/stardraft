@@ -25,6 +25,7 @@
 #include <set>
 
 #include "stardraft/game_data.h"
+#include "stardraft/map_protection.h"
 #include "stardraft/mods/hyperion.h"
 #include "stardraft/new_map.h"
 #include "stardraft/ramps.h"  // (a terrain stroke's end fits the ramps again)
@@ -65,6 +66,7 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     };
     finishFiles();  // a map still being read: done with it first
     Bytes raw;
+    bool otherLocale = false;  // (the scenario of another locale: a protected map)
     const bool hxm = hyperion::isHxm(path);  // (a Hyperion map: compiled to its CHK, its files read with it)
     hyperion::HxmMap hx;
     bool archive = lower(path.extension().string()) != ".chk";
@@ -74,7 +76,7 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
         step("read the scenario");
     } else if (archive) {
         // The scenario now; the other files (sounds can be megabytes) on a thread, ready when something needs them.
-        if (!readMapFile(path, raw, error)) return false;
+        if (!readMapChk(path, raw, error, &otherLocale)) return false;
         step("read the scenario");
     } else {
         std::ifstream in(path, std::ios::binary);
@@ -84,7 +86,9 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
         }
         raw.assign(std::istreambuf_iterator<char>(in), {});
     }
-    Chk chk = Chk::parse(raw);
+    ParseReport report;
+    Chk chk = Chk::parse(raw, &report);
+    const std::string protection = hxm ? std::string() : stardraft::mapProtection(chk, report, otherLocale);
     step("parse the scenario");
     uint16_t w = 0, h = 0;
     if (!readDimensions(chk, w, h) || !w || !h) {
@@ -116,6 +120,7 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     undo_.clear();
     redo_.clear();
     protected_.clear();  // (the editor gives a map's protected tiles after the open: setProtectedTiles)
+    mapProtection_.clear();  // (open() sets it again)
     protectedChanged();
     selection_.clear();
     selectLocation(-1);
@@ -126,6 +131,7 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
         if (!tilesetError_.empty()) error += ": " + tilesetError_;
         return false;
     }
+    mapProtection_ = protection;
     open_ = true;
     modified_ = false;
     state_ = savedState_ = nextRevision();
@@ -151,6 +157,7 @@ bool Editor::openChk(const Chk& chk, std::string& error) {
     undo_.clear();
     redo_.clear();
     protected_.clear();  // (the editor gives a map's protected tiles after the open: setProtectedTiles)
+    mapProtection_.clear();  // (open() sets it again)
     protectedChanged();
     selection_.clear();
     selectLocation(-1);
@@ -211,6 +218,7 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
     undo_.clear();
     redo_.clear();
     protected_.clear();  // (the editor gives a map's protected tiles after the open: setProtectedTiles)
+    mapProtection_.clear();  // (open() sets it again)
     protectedChanged();
     selection_.clear();
     selectLocation(-1);
@@ -236,6 +244,7 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
 bool Editor::newMapFromTerrain(const std::filesystem::path& path, std::string& error) {
     Editor src(data_);
     if (!src.open(path, error)) return false;
+    if (src.isProtectedMap()) return error = "The map is protected: its terrain cannot be copied", false;
     if (!newMap(src.width(), src.height(), src.era(), 1, error)) return false;
     for (const SectionName name : {SectionName("ISOM"), SectionName("TILE"), SectionName("MTXM"), SectionName("DD2 ")})
         if (const Section* s = src.chk_.find(name)) chk_.set(name, s->data);
@@ -336,6 +345,7 @@ Bytes Editor::savedChk() const {
 }
 
 bool Editor::save(const std::filesystem::path& path, std::string& error) {
+    if (isProtectedMap()) return error = "The map is protected: StarDraft does not save it", false;
     const Bytes raw = savedChk();
     const Bytes slots = gameSlots();
     bool archive = lower(path.extension().string()) != ".chk";
@@ -364,6 +374,7 @@ bool Editor::save(const std::filesystem::path& path, std::string& error) {
 }
 
 bool Editor::writeHxmCopy(const std::filesystem::path& path, std::string& error) const {
+    if (isProtectedMap()) return error = "The map is protected: StarDraft does not export it", false;
     finishFiles();
     if (!filesError_.empty()) return error = filesError_, false;
     return hyperion::writeHxmFile(path, {savedChk(), files_, {}}, error);
@@ -5006,6 +5017,7 @@ void Editor::amendLastStep(std::vector<ArchiveFile> files, const std::vector<std
 }
 
 bool Editor::exportFlattened(const std::filesystem::path& path, std::string& error, std::vector<std::string>* leftOut, std::vector<std::string>* leftOutInUse) {
+    if (isProtectedMap()) return error = "The map is protected: StarDraft does not export it", false;
     finishFiles();
     if (!filesError_.empty()) {
         error = filesError_ + " (the export would lose them)";

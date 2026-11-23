@@ -130,6 +130,7 @@ private:
         Editor from(app.data);
         std::string err;
         if (!from.open(gCampaign.mapFile(size_t(i)), err)) return shellErrorBox(widen(err), L"Campaign");
+        if (from.isProtectedMap()) return shellErrorBox(L"The map is protected: its data and terrain cannot be copied", L"Campaign");
         const bool ok = terrain ? app.ed->copyTerrain(from.chk(), err) : app.ed->copyMapData(from.chk(), err);
         if (!ok) return shellErrorBox(widen(err), L"Campaign");
         app.dirty = true;

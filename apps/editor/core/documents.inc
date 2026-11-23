@@ -243,6 +243,11 @@ void openMap(const std::wstring& path, bool switchToOpen, bool project) {
     addRecent(gRecentMaps, path);
     shellMapOpened(path);
     setMessage(L"Opened " + fs::path(path).filename().wstring() + L" (" + widen(tilesetName(app.ed->era())) + L")");
+    if (app.ed->isProtectedMap()) {  // (map_protection.h: view only, as in Chkdraft)
+        setMessage(tr(L"The map is protected. It opens as view only: it cannot be saved, exported or copied from"));
+        shellLogLine(std::wstring(tr(L"The map is protected. It opens as view only: it cannot be saved, exported or copied from")) + L" (" +
+                     widen(app.ed->mapProtection()) + L")");
+    }
     if (app.ed->isomRebuilt())  // a map made by a tool that writes only the tiles (or protected)
         shellLogLine(L"The map had no isometric terrain data (ISOM). Made the ISOM data from the tiles, so the isometric tools work. Saving the map keeps it.");
 }

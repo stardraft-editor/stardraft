@@ -20,9 +20,10 @@ struct ArchiveFile {
 bool readMapFile(const std::filesystem::path& mapPath, Bytes& out, std::string& error,
                  const char* nameInArchive = kChkArchivePath);
 
-inline bool readMapChk(const std::filesystem::path& mapPath, Bytes& chkOut, std::string& error) {
-    return readMapFile(mapPath, chkOut, error);
-}
+// The scenario (staredit\scenario.chk) of a .scm/.scx. When the archive's default copy is missing, does not read or is
+// empty, the copy of another locale (language) in the archive, as Chkdraft reads it (a protection trick: the default
+// copy is a decoy). `otherLocale`: set when the scenario came from such a copy (map_protection.h).
+bool readMapChk(const std::filesystem::path& mapPath, Bytes& chkOut, std::string& error, bool* otherLocale = nullptr);
 
 // Can a file of this name go into a map and come back? Not the scenario, the archive's internal files, or a name that
 // looks like StormLib's name for a file with no name.

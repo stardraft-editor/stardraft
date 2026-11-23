@@ -304,6 +304,7 @@ std::vector<uint16_t> projectRemakeUnitTypes(const GameData& data, const BuildOp
 
 bool prepareBuild(EudProject& pr, Editor& ed, const GameData& data, const BuildOpen& open, BuildReport& report, std::string& error) {
     report = BuildReport{};
+    if (ed.isProtectedMap()) return error = "The project's map is protected: StarDraft does not build it", report.failedStep = "map", false;
     ProjectMedia media;
     if (!media.load(mediaFileOf(pr), error) || !writeMediaCode(pr, media, report.media, error)) return report.failedStep = "media", false;
     if (!writeTriggerCode(pr, ed, media, open.triggers, report, error)) return report.failedStep = "triggers", false;

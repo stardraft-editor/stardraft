@@ -149,6 +149,7 @@ static Json cmdProjectBuild(Session& s) {
     Editor ed(s.data);
     std::string err;
     if (!ed.open(pr.inputMap(), err)) fail(err);
+    if (ed.isProtectedMap()) fail("The project's map is protected: stardraft-cli does not build it (" + ed.mapProtection() + ")");
     checkStartLocations(s, ed);
     Json warnings = jarr();
     for (const std::string& p : ed.playabilityProblems(true)) warnings.items.push_back(jstr(p));
@@ -246,6 +247,7 @@ static Json cmdCheck(Session& s) {
     Editor ed(s.data);
     std::string err;
     if (!ed.open(pr.inputMap(), err)) fail(err);
+    if (ed.isProtectedMap()) fail("The project's map is protected: stardraft-cli does not read it (" + ed.mapProtection() + ")");
     mapProblems(ed, problems, warnings);
     TriggerSet set;
     if (fs::exists(stardraft::triggersFileOf(pr), ec) && !set.load(stardraft::triggersFileOf(pr), err)) {

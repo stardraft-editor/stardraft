@@ -19,7 +19,14 @@ sim::Simulator& simulatorOf(Session& s, const Target& t) {
     if (t.open) fail("simulate works on a map file (save the open map first)");
     Bytes chk;
     std::string err;
-    if (!readMapChk(t.map, chk, err)) fail(err);
+    bool otherLocale = false;
+    if (!readMapChk(t.map, chk, err, &otherLocale)) fail(err);
+    {
+        ParseReport report;
+        const Chk parsed = Chk::parse(chk, &report);
+        if (const std::string why = stardraft::mapProtection(parsed, report, otherLocale); !why.empty())
+            fail("The map is protected: stardraft-cli does not read or change it (" + why + ")");
+    }
     made = maplab::createBarSimulator();
     if (!made) fail("the simulation engine is not in this build yet");
     // (the simulation keeps the reader and reads more files later, a map's tileset: the reader owns the files)

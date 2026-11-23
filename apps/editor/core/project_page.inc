@@ -627,6 +627,7 @@ bool createProject(const fs::path& parent, const std::string& name, bool fromOpe
         err = "The open map is in original StarCraft format; euddraft needs a Brood War map. Start from a new blank map instead.";
         return false;
     }
+    if (fromOpenMap && app.ed && app.ed->isProtectedMap()) return err = "The map is protected: StarDraft does not save it", false;
     EudProject pr;
     std::error_code ec;
     fs::create_directories(parent, ec);

@@ -163,6 +163,7 @@ std::wstring gStampsLastName;  // the name typed last (the prompt starts with it
 bool stampOfSelection(TerrainStamp& s) {
     AppState& app = appState();
     if (!app.ed || !app.ed->isOpen()) return false;
+    if (app.ed->isProtectedMap()) return setMessage(L"The map is protected: it cannot be copied from"), false;
     const std::vector<std::pair<int, int>> tiles = terrainSelTiles();
     if (tiles.empty()) return setMessage(L"Select tiles with the Select tool first"), false;
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;

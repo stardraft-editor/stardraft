@@ -117,6 +117,37 @@ bool readMapFile(const std::filesystem::path& mapPath, Bytes& out, std::string& 
     return readFromArchive(mpq.get(), nameInArchive, out, error);
 }
 
+bool readMapChk(const std::filesystem::path& mapPath, Bytes& chkOut, std::string& error, bool* otherLocale) {
+    if (otherLocale) *otherLocale = false;
+    Archive mpq;
+    if (!mpq.openRead(mapPath)) {
+        error = stormError("SFileOpenArchive");
+        return false;
+    }
+    if (readFromArchive(mpq.get(), kChkArchivePath, chkOut, error) && !chkOut.empty()) return true;
+    // The copies of the other locales (Chkdraft's MapFile: the scenario of the first other locale that reads).
+    LCID locales[64];
+    DWORD count = 64;
+    if (SFileEnumLocales(mpq.get(), kChkArchivePath, locales, &count, 0) != ERROR_SUCCESS) count = 0;
+    const LCID before = SFileGetLocale();
+    bool found = false;
+    for (DWORD i = 0; i < count && i < 64 && !found; ++i) {
+        if (locales[i] == before) continue;
+        SFileSetLocale(locales[i]);
+        Bytes b;
+        std::string err;
+        if (readFromArchive(mpq.get(), kChkArchivePath, b, err) && !b.empty()) chkOut = std::move(b), found = true;
+    }
+    SFileSetLocale(before);
+    if (found) {
+        error.clear();
+        if (otherLocale) *otherLocale = true;
+        return true;
+    }
+    if (error.empty()) error = "the map's scenario (staredit\\scenario.chk) is empty";
+    return false;
+}
+
 bool archiveNameUsable(const std::string& name) {
     return !name.empty() && !isInternalName(name) && !isPseudoName(name) && lower(name) != lower(kChkArchivePath);
 }
@@ -151,7 +182,10 @@ bool readMapFiles(const std::filesystem::path& mapPath, std::vector<ArchiveFile>
         }
         ArchiveFile f{name, {}};
         if (!readFromArchive(mpq.get(), name.c_str(), f.data, error)) {
-            if (lower(name) == lower(kChkArchivePath)) return false;
+            if (lower(name) == lower(kChkArchivePath)) {  // (a decoy of a protected map: readMapChk reads the scenario)
+                error.clear();
+                continue;
+            }
             if (unreadable) unreadable->push_back(name);
             error.clear();
             continue;

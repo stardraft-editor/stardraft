@@ -10,6 +10,7 @@ game's data and memory do, and wrote it down for everyone. Thank you.
 - saintofidiocy (<https://github.com/saintofidiocy>).
 - Buizz (<https://github.com/Buizz>): EUD Editor 2 and EUD Editor 3.
 - DarkenedFantasies (<https://www.darkenedfantasies.com/>): the StarCraft DAT page.
+- TheNitesWhoSay (<https://github.com/TheNitesWhoSay>): Chkdraft.
 - The staredit.net community (<https://staredit.net/>): years of research, tools and answers about StarCraft maps.
 
 ## Sources and credits
@@ -24,5 +25,7 @@ The pages that the help pages take their facts from:
   field of the .dat files does in the game, its flags and its values.
 - EUD Editor 3 (<https://github.com/Buizz/EUD-Editor-3>): the EUD logic of its triggers.
 - staredit.net (<https://staredit.net/>): the community's forum and wiki.
+- Chkdraft (<https://github.com/TheNitesWhoSay/Chkdraft>, MIT license, TheNitesWhoSay): how StarDraft finds a protected
+  map (a map that opens as view only). StarDraft uses Chkdraft's rules with its author's permission.
 
 Each page names its own sources at its end.

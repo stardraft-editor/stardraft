@@ -184,6 +184,7 @@ add_library(stardraft
     src/briefing.cpp
     src/msqc.cpp
     src/map_file.cpp
+    src/map_protection.cpp
     src/layers.cpp
     src/game_data.cpp
     src/creep.cpp
@@ -269,6 +270,13 @@ target_link_libraries(doodad_needs PRIVATE stardraft)
 
 add_executable(chk_sections tools/probes/chk_sections.cpp)  # the scenario.chk sections of a map, or the differences of two maps
 target_link_libraries(chk_sections PRIVATE stardraft)
+add_executable(protection_scan tools/probes/protection_scan.cpp)  # the protected maps in folders and why (map_protection.h)
+target_link_libraries(protection_scan PRIVATE stardraft)
+add_executable(chk_raw tools/probes/chk_raw.cpp)  # the scenario.chk of each locale and its raw section headers (map protection checks)
+target_link_libraries(chk_raw PRIVATE stardraft storm)
+if(WIN32)
+    target_compile_definitions(chk_raw PRIVATE UNICODE _UNICODE)
+endif()
 
 add_executable(isom_test tools/tests/isom_test.cpp)
 target_link_libraries(isom_test PRIVATE stardraft)

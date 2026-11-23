@@ -121,6 +121,10 @@ public:
     bool isOpen() const { return open_; }
     bool modified() const { return modified_; }
     bool isomRebuilt() const { return isomRebuilt_; }  // the map had no ISOM section; it was made from the tiles on open
+    // A protected map (map_protection.h: Chkdraft's rules): why it is (English), empty when it is not. A protected map is
+    // view only: save, writeHxmCopy and exportFlattened refuse it, and the program does not copy from it.
+    const std::string& mapProtection() const { return mapProtection_; }
+    bool isProtectedMap() const { return !mapProtection_.empty(); }
     // Tools > Try to repair ISOM (a map whose ISOM is out of step with its tiles, as some of Cosmonarchy's are): the ISOM
     // made again from the tiles (IsomGrid::rebuildFromTiles: each corner takes the terrain that its tiles vote for), as
     // one undo step. The tiles stay as they are. The ISOM values that changed (0: none, no undo step); -1: it could not
@@ -1126,6 +1130,7 @@ private:
     IsomGrid isom_;
     bool isomOk_ = false;
     bool isomRebuilt_ = false;  // the map had no ISOM: reload() made it from the tiles
+    std::string mapProtection_;  // (mapProtection())
     std::vector<Unit> units_;
     std::vector<Location> locations_;
     std::vector<Doodad> doodads_;

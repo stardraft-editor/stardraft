@@ -34,6 +34,7 @@ struct ParseReport {
     bool trailingBytes = false;     // < 8 bytes left over after the last section
     bool negativeSize = false;      // a section used a negative size ("section stacking")
     bool loopDetected = false;      // a negative size jumped back to an already visited offset
+    bool jumpBeforeStart = false;   // a negative size jumped to before the start (reading stops there)
 };
 
 // A scenario.chk file: an ordered list of raw sections.

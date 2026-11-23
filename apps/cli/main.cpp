@@ -41,6 +41,7 @@
 #include "stardraft/game_data.h"
 #include "stardraft/isom.h"
 #include "stardraft/map_file.h"
+#include "stardraft/map_protection.h"
 #include "stardraft/project_import.h"
 #include "stardraft/terrain_gen.h"
 #include "stardraft/settings.h"
@@ -1260,6 +1261,9 @@ struct Session {
         const fs::path file = t.open ? loadWork(t).current() : t.map;
         std::string err;
         if (!ed->open(file, err)) fail(err);
+        // A protected map (map_protection.h): the program opens it as view only; the CLI's commands read it out or save
+        // it, so none of them takes it.
+        if (ed->isProtectedMap()) fail("The map is protected: stardraft-cli does not read or change it (" + ed->mapProtection() + ")");
         timer.step("open the map");
         return *ed;
     }
@@ -1630,6 +1634,7 @@ Json cmdSave(Session& s) {
             layers = fold == Editor::LayerFold::Kept ? "kept" : fold == Editor::LayerFold::Flattened ? "flattened" : nullptr;
         }
     }
+    if (ed.isProtectedMap()) fail("The map is protected: StarDraft does not save it (" + ed.mapProtection() + ")");
     const Bytes chk = ed.savedChk();  // (the working copy, with the slots the game reads: Editor::gameSlots)
     if (isChk(dst)) {
         writeBytes(dst, chk);

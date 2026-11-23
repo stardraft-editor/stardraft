@@ -421,6 +421,7 @@ MenuModel buildMenuModel() {
                    menuSeparator(),
                    menuItem(ID_HELP_WHATSNEW, L"&What is new"),
                    menuItem(ID_HELP_UPDATES, L"Check for &updates"),
+                   menuItem(ID_HELP_CREDITS, L"&Credits"),
                    menuItem(ID_HELP_ABOUT, L"&About StarDraft 2")};
     if (cmbwMode()) {  // (Cosmonarchy BW mode: its own tools, a submenu at the end of Tools)
         MenuModel cosmonarchy;
