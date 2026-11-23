@@ -1,5 +1,5 @@
 // View > Overlays > Psi power (SCMDraft shows it too): each building that needs power (units.dat: Requires Psi) gets a
-// dashed ellipse, green when a Pylon of the same player powers it, red when none does.
+// dashed ellipse, light blue (the color of a Pylon's energy) when a Pylon of the same player powers it, red when none does.
 // The game's rule: a building has power when its center is in the psi field of one of its owner's Pylons: 16 x 10
 // tiles round the Pylon's center, with the corners cut (the mask that the Psi field range also draws, map_scene.inc).
 
@@ -64,7 +64,7 @@ void addPsiPower(render::Scene& s) {
         const float cx = (m.x0 + m.x1) / 2, cy = (m.y0 + m.y1) / 2, rx = (m.x1 - m.x0) / 2, ry = (m.y1 - m.y0) / 2;
         // (dashes of about 6 screen pixels: a multiple of 2 segments round the ellipse)
         const int steps = std::clamp(int(6.2832f * std::max(rx, ry) * app.zoom / 6) / 2 * 2, 16, 160);
-        const uint32_t color = m.powered ? 0x40E050E0u : 0xF04040E0u;
+        const uint32_t color = m.powered ? 0x60D0FFF0u : 0xF04040E0u;
         for (int k = 0; k < steps; k += 2) {
             const float a0 = 6.2832f * k / steps, a1 = 6.2832f * (k + 1) / steps;
             render::RectDraw l;
@@ -81,5 +81,5 @@ void psiPowerToggle() {
     appState().dirty = true;
     setMessage(std::wstring(tr(!gPsiPower   ? L"Psi power is hidden"
                                : cmbwMode() ? L"Psi power shows the game's rule only: in Mod support mode other units give power too, so it shows nothing"
-                                            : L"Psi power: green buildings have power from a Pylon of their owner, red buildings have no power")));
+                                            : L"Psi power: light blue buildings have power from a Pylon of their owner, red buildings have no power")));
 }
