@@ -150,6 +150,15 @@ struct UnitRowsView final : stardraft::kit::ListView {
     }
 };
 
+// A pick in the Units list opens the window again on the picked unit: its search and its place in the list stay
+// (GitHub #261, #262).
+struct UnitPropsListKeep {
+    bool on = false;
+    std::wstring search;
+    int scrollTop = 0;
+};
+inline UnitPropsListKeep gUnitPropsListKeep;
+
 class UnitPropsView final : public draw::View {
 public:
     UnitPropsView(Editor& ed, const Unit& first, const std::vector<int>& units, draw::Image icon, bool project) : first_(first), count_(units.size()), icon_(icon) {
@@ -158,7 +167,15 @@ public:
         const Unit& u = first;
         // The Units list (the left column): the search box over the rows, a row for each unit of the map.
         search_.setPlaceholder(std::wstring(tr(L"Search units")));
-        search_.onChange = [this] { rebuild(); };
+        search_.onChange = [this] {
+            rebuild();
+            if (search_.text().empty())  // (the search gone: the list shows the selected unit where it is)
+                for (int r = 0; r < int(rows_.size()); ++r)
+                    if (list_.isSelected(r)) {
+                        list_.ensureVisible(r);
+                        break;
+                    }
+        };
         list_.setMode(stardraft::kit::SelectMode::Multiple);
         setHeaders();
         list_.cell = [this](int row, size_t k) {
@@ -175,6 +192,11 @@ public:
             pickAt(row);
         };
         list_.keyHook = [this](const draw::KeyEvent& e) { return listKey(e); };
+        if (gUnitPropsListKeep.on) {  // (opened again by a pick: the search and the list's place as they were)
+            gUnitPropsListKeep.on = false;
+            search_.setText(gUnitPropsListKeep.search);
+            restoreTop_ = gUnitPropsListKeep.scrollTop;
+        }
         add(search_, {0, 0, 0, 0});
         add(list_, {0, 0, 0, 0});
         auto label = [&](stardraft::kit::Label& l, const wchar_t* t) {
@@ -333,6 +355,7 @@ public:
         c.fill({0, 0, width(), height()}, kBg);
         // The unit's picture and name over the fields.
         sync();
+        if (restoreTop_ >= 0 && list_.height() > 0) list_.setScrollTop(std::exchange(restoreTop_, -1));
         refreshLinks();
         if (focusSearch_ && !focused_ && host()) focused_ = true, search_.field().focus();  // the search has the keyboard: type to find a unit
         const int rightPx = width() - scale(kContentW);  // (the fields' column: at the right edge, as resized lays it out)
@@ -497,6 +520,7 @@ private:
     // A pick: the window shows the picked unit (its edits are not kept).
     void pickAt(int row) {
         next_ = rows_[size_t(row)];
+        gUnitPropsListKeep = {true, search_.text(), list_.scrollTop()};
         closeWith(kUnitPropsPick);
     }
     // A selection change in the list: the map's selection follows (the view stays where it is: a double click goes to the
@@ -563,6 +587,7 @@ private:
     uint64_t rev_ = ~uint64_t(0);       // the map's revision and units' count the rows are of
     size_t seen_ = 0;
     bool focusSearch_ = true, focused_ = false;
+    int restoreTop_ = -1;  // (opened again by a pick: the list's place to scroll to once it is laid out)
     int next_ = -1;                     // the unit a pick shows next
     int sortCol_ = 4;                   // the rows' order: the column (4: the index, the map's order), and descending
     bool sortDesc_ = false;
