@@ -231,6 +231,7 @@ public:
 
     bool key(const draw::KeyEvent& e) override {
         if (!e.down) return false;
+        if (text_.hasFocusInside()) return false;  // (typing in the text box: Space is a space, Delete and the arrows edit the text)
         if ((e.mods & draw::kAlt) && (e.key == draw::Key::Up || e.key == draw::Key::Down)) return nudge(e.key == draw::Key::Up ? -1 : 1), true;
         if (e.mods & (draw::kCtrl | draw::kAlt | draw::kSuper)) return false;
         if (e.key == draw::Key::Space) return play(!playing), true;
