@@ -71,6 +71,7 @@
 #include "stars_layer.inc"  // View > Graphics > Stars in space: the game's parallax stars behind space (Space Platform)
 #include "map_scene.inc"
 #include "fun_mode.inc"  // Immersive mode (a hidden extra): sounds, particles and pops when the map is edited
+#include "psi_power.inc"  // View > Overlays > Psi power: the buildings with and without power from Pylons
 #include "resource_zones.inc"  // View > Overlays > Invalid resource depot, Invalid resource node (GitHub feedback #181)
 #include "fog_layer.inc"  // View > Overlays > Fog of war of the selected player (roadmap R32)  // the map's scene: the grid, the sprites, the units and their animations, the locations, the selection, the ghosts (buildScene)
 #include "map_image.inc"  // File > Export map image and the New page's larger preview: the options, the dialog, the terrain pictures

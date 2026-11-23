@@ -151,7 +151,8 @@ enum : int {
     ID_COLLAB_SHARE = 1400, ID_COLLAB_COPYEDIT, ID_COLLAB_COPYVIEW, ID_COLLAB_PEOPLE, ID_COLLAB_NEWLINKS, ID_COLLAB_STOP, ID_COLLAB_LEAVE,
     ID_COLLAB_JOIN, ID_COLLAB_SERVER, ID_COLLAB_MINIMAP,
     ID_EDIT_RESIZEMAP = 1420,
-    ID_VIEW_STARS = 1421,  // View > Graphics > Stars in space (core/stars_layer.inc)  // Edit > Resize map: the map's edges dragged on the map (core/map_resize_mode.inc)
+    ID_VIEW_STARS = 1421,
+    ID_VIEW_PSI_POWER = 1422,  // View > Overlays > Psi power (core/psi_power.inc)  // View > Graphics > Stars in space (core/stars_layer.inc)  // Edit > Resize map: the map's edges dragged on the map (core/map_resize_mode.inc)
 };
 // View > Grid: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {

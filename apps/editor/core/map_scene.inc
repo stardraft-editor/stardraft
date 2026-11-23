@@ -420,6 +420,7 @@ void rangesScene(render::Scene& s, float dx = 0, float dy = 0);
 void addFogLayer(render::Scene& s);
 void fogScene(render::Scene& s, float wx, float wy);  // (the Fog of war tool: its brush or box; core/fog_layer.inc)
 void addResourceZones(render::Scene& s);
+void addPsiPower(render::Scene& s);  // (core/psi_power.inc)
 void tilesScene(render::Scene& s, float wx, float wy);
 
 // The units' paste ghost with the mouse at (wx, wy) in the map: each copied unit (and its symmetric copies) where a click
@@ -878,6 +879,7 @@ render::Scene buildScene() {
 
     terrainSelScene(s, wx, wy);  // Terrain selection (copy area)
 
+    addPsiPower(s);  // View > Overlays > Psi power (core/psi_power.inc)
     addResourceZones(s);  // View > Overlays > Invalid resource depot, node (core/resource_zones.inc)
     addFogLayer(s);  // View > Overlays > Fog of war (core/fog_layer.inc)
     if (gRangeKinds && app.mode == Mode::Units) rangesScene(s, moveDX, moveDY);  // (they follow a unit being moved)
