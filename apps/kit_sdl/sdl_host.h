@@ -186,6 +186,8 @@ public:
     draw::Point mouse(const draw::View& v) const override;
     void setCursor(draw::Cursor c) override;
     std::string clipboardText() override;
+    // A clipboard of the program's own, in place of the system's (a test or a demo recording: --silent); null: the system's.
+    std::string* privateClipboard = nullptr;
     void setClipboardText(std::string_view utf8) override;
     int timer(int ms, std::function<void()> run) override;
     void cancelTimer(int id) override;

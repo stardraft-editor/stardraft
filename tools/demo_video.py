@@ -13,7 +13,7 @@ A demo is a JSON file. Places are in the window's client area:
         {"rclick": [700, 650]}, {"altclick": [120, 668]}, {"shiftclick": [700, 650]}, {"ctrlclick": [700, 650]}, {"move": [700, 650]},
         {"drag": [640, 560, 820, 700]}, {"wheel": [145, 491, 3]}, {"key": "^a"}, {"wait": 500}]}
 
-"altwheel": [x, y, n] turns the wheel n notches with Alt held. "caption_at": [x, top, width] places the caption
+"altwheel": [x, y, n] turns the wheel n notches with Alt held ("ctrlwheel": with Ctrl held). "caption_at": [x, top, width] places the caption
 box. A step's "text" is the caption from that step on; "hold" is how long the step stays, in ms (default 900).
 
     python -I tools/demo_video.py <exe> <demo.json> <out.mp4>
@@ -69,7 +69,9 @@ while !FileExist("{go}")
 MouseGetPos &homeX, &homeY
 caption := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20")
 caption.BackColor := "101010"
-caption.SetFont("s26 cWhite", "Segoe UI")
+if FileExist("{font}")  ; (the font the program ships: fonts/NotoSans-Regular.ttf, loaded for this script only)
+    DllCall("gdi32\AddFontResourceEx", "Str", "{font}", "UInt", 0x10, "Ptr", 0)
+caption.SetFont("s26 cWhite", FileExist("{font}") ? "Noto Sans" : "Segoe UI")
 caption.MarginX := 0, caption.MarginY := 0
 label := caption.AddText("Center x0 y12 w{capw} h48", "")
 Guard() {{
@@ -120,6 +122,11 @@ def step_code(step):
         lines += [f"MouseMove {x}, {y}", "Sleep 300", "Guard()", 'Send "{Alt down}"', "Sleep 200"]
         lines += [f'Click "{"WheelUp" if n > 0 else "WheelDown"}"', "Sleep 700"] * abs(n)
         lines += ["Sleep 100", 'Send "{Alt up}"']
+    if "ctrlwheel" in step:  # Ctrl held while the wheel turns (palettes: bigger or smaller items)
+        x, y, n = step["ctrlwheel"]
+        lines += [f"MouseMove {x}, {y}", "Sleep 300", "Guard()", 'Send "{Ctrl down}"', "Sleep 200"]
+        lines += [f'Click "{"WheelUp" if n > 0 else "WheelDown"}"', "Sleep 160"] * abs(n)
+        lines += ["Sleep 100", 'Send "{Ctrl up}"']
     if "key" in step:
         lines.append(f"Send {quoted(step['key'])}")
     lines.append(f"Sleep {step.get('hold', step.get('wait', 900))}")
@@ -143,7 +150,8 @@ def main():
         script = os.path.join(folder, "demo.ahk")
         with open(script, "w", encoding="utf-8") as f:
             capx, capy, capw = demo.get("caption_at", [w // 2, h - 120, 1200])  # the caption box's middle and top, in the client area
-            f.write(HEADER.format(pid=program.pid, w=w, h=h, rect=rect, go=go, capx=capx, capy=capy, capw=capw))
+            f.write(HEADER.format(pid=program.pid, w=w, h=h, rect=rect, go=go, capx=capx, capy=capy, capw=capw,
+                                  font=os.path.join(os.path.dirname(exe), "fonts", "NotoSans-Regular.ttf")))
             for step in demo["steps"]:
                 f.write(step_code(step))
             f.write('Say("")\nSleep 500\nMouseMove homeX, homeY, 0\nExitApp 0\n')

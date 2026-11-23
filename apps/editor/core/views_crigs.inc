@@ -176,7 +176,12 @@ inline void ctCrigArgClick(CtPageHost& h, int k, const draw::View& from, draw::R
         l.rest = v;
         return ctSetCrigLine(h, stardraft::cmbw::crigLineText(l));
     }
-    if (crigEditValue(h, from, {r.left, r.bottom + scale(2)}, l, k)) ctSetCrigLine(h, stardraft::cmbw::crigLineText(l));
+    if (!crigEditValue(h, from, {r.left, r.bottom + scale(2)}, l, k)) return;
+    // A whole recolor line pasted into a value (Tools > Cosmonarchy > Recolor preview's Copy: "recolor (1 0.8 0.8 1 1) 2"):
+    // the action is that line.
+    stardraft::cmbw::RecolorValue rv;
+    if (k < int(l.values.size()) && stardraft::cmbw::parseRecolorLine(l.values[size_t(k)], rv)) return ctSetCrigLine(h, l.values[size_t(k)]);
+    ctSetCrigLine(h, stardraft::cmbw::crigLineText(l));
 }
 
 class CrigView final : public draw::View {

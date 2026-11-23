@@ -907,6 +907,7 @@ int main(int argc, char** argv) {
         // Order matters: the host (which makes the ImGui context the fonts go into) outlives the root view.
         kit_sdl::SdlHost host(device);
         gHost = &host;
+        if (gSilent) host.privateClipboard = &gClipboardArg;  // (a test or a demo: text fields and Copy share the test's clipboard)
         host.setScale(scaleArg);  // (0: the display's scale; the views lay out at it)
         host.setNoActivate(gNoActivate);
         host.setSnapshotKeysFromOpener(gKeysFromOpener);

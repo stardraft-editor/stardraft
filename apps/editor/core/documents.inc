@@ -244,8 +244,8 @@ void openMap(const std::wstring& path, bool switchToOpen, bool project) {
     shellMapOpened(path);
     setMessage(L"Opened " + fs::path(path).filename().wstring() + L" (" + widen(tilesetName(app.ed->era())) + L")");
     if (app.ed->isProtectedMap()) {  // (map_protection.h: view only, as in Chkdraft)
-        setMessage(tr(L"The map is protected. It opens as view only: it cannot be saved, exported or copied from"));
-        shellLogLine(std::wstring(tr(L"The map is protected. It opens as view only: it cannot be saved, exported or copied from")) + L" (" +
+        setMessage(tr(L"The map is protected: it is view only, and it cannot be saved, exported or copied from"));
+        shellLogLine(std::wstring(tr(L"The map is protected: it is view only, and it cannot be saved, exported or copied from")) + L" (" +
                      widen(app.ed->mapProtection()) + L")");
     }
     if (app.ed->isomRebuilt())  // a map made by a tool that writes only the tiles (or protected)

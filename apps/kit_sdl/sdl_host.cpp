@@ -1495,13 +1495,17 @@ void SdlHost::setCursor(Cursor c) {
 }
 
 std::string SdlHost::clipboardText() {
+    if (privateClipboard) return *privateClipboard;
     char* t = SDL_GetClipboardText();
     std::string s = t ? t : "";
     SDL_free(t);
     return s;
 }
 
-void SdlHost::setClipboardText(std::string_view utf8) { SDL_SetClipboardText(std::string(utf8).c_str()); }
+void SdlHost::setClipboardText(std::string_view utf8) {
+    if (privateClipboard) return void(*privateClipboard = std::string(utf8));
+    SDL_SetClipboardText(std::string(utf8).c_str());
+}
 
 int SdlHost::timer(int ms, std::function<void()> run) {
     const int id = ++timerSeq_;
