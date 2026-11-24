@@ -1064,6 +1064,8 @@ std::pair<int, int> Editor::mirror(int px, int py, int which, std::pair<int, int
     case 1: return {px, 2 * cy - py};  // top/bottom
     case 3: return {int(std::lround(cx + v * W)), int(std::lround(cy + u * H))};  // diagonal
     case 4: return {int(std::lround(cx - v * W)), int(std::lround(cy - u * H))};  // other diagonal
+    case 5: return {int(std::lround(cx + 2.0 * (py - cy))), int(std::lround(cy + (px - cx) / 2.0))};  // 2:1, down to the right
+    case 6: return {int(std::lround(cx - 2.0 * (py - cy))), int(std::lround(cy - (px - cx) / 2.0))};  // 2:1, up to the right
     }
     return {px, py};
 }
@@ -1073,8 +1075,46 @@ std::pair<int, int> Editor::turnPoint(int px, int py, int k, std::pair<int, int>
     const double W = width_ * 32.0, H = height_ * 32.0;
     const double a = kTau * k / turns_, c = std::cos(a), s = std::sin(a);
     const auto [cx, cy] = center;
+    if (isoTurns_) {  // Isometric: the height counts twice (a diamond turns to a diamond)
+        const double u = px - cx, v = 2.0 * (py - cy);
+        return {int(std::lround(cx + u * c - v * s)), int(std::lround(cy + (u * s + v * c) / 2))};
+    }
     const double u = (px - cx) / W, v = (py - cy) / H;  // from the center, in the map's proportions
     return {int(std::lround(cx + (u * c - v * s) * W)), int(std::lround(cy + (u * s + v * c) * H))};
+}
+
+void Editor::turnMatrix(int k, double m[4]) const {
+    constexpr double kTau = 6.283185307179586;
+    const double a = kTau * k / turns_, c = std::cos(a), s = std::sin(a), r = double(width_) / height_;
+    if (isoTurns_) m[0] = c, m[1] = -2 * s, m[2] = s / 2, m[3] = c;
+    else m[0] = c, m[1] = -s * r, m[2] = s / r, m[3] = c;
+}
+
+void Editor::mirrorMatrix(int which, double m[4]) const {
+    const double r = double(width_) / height_;
+    m[0] = 1, m[1] = 0, m[2] = 0, m[3] = 1;
+    switch (which) {
+    case 0: m[0] = -1; break;
+    case 1: m[3] = -1; break;
+    case 3: m[0] = 0, m[1] = r, m[2] = 1 / r, m[3] = 0; break;
+    case 4: m[0] = 0, m[1] = -r, m[2] = -1 / r, m[3] = 0; break;
+    case 5: m[0] = 0, m[1] = 2, m[2] = 0.5, m[3] = 0; break;
+    case 6: m[0] = 0, m[1] = -2, m[2] = -0.5, m[3] = 0; break;
+    }
+}
+
+std::pair<int, int> Editor::cellMiddle(int px, int py, SymmetryCell cell) {
+    const auto fl = [](int v, int d) { return int(std::floor(double(v) / d)); };
+    switch (cell) {
+    case SymmetryCell::Tile: return {fl(px, 32) * 32 + 16, fl(py, 32) * 32 + 16};
+    case SymmetryCell::TilePair: return {fl(px, 64) * 64 + 32, fl(py, 32) * 32 + 16};
+    case SymmetryCell::Isom: {  // (the diamond round a corner: |x/64 - X| + |y/32 - Y| <= 1, so u and v round to odd numbers)
+        const double u = px / 64.0 + py / 32.0, v = px / 64.0 - py / 32.0;
+        const int U = 2 * int(std::floor(u / 2)) + 1, V = 2 * int(std::floor(v / 2)) + 1;
+        return {(U + V) / 2 * 64, (U - V) / 2 * 32};
+    }
+    default: return {px, py};
+    }
 }
 
 void Editor::setSymmetry(Symmetry s) {
@@ -1102,40 +1142,47 @@ Symmetry Editor::symmetry() const {
 // each other (their group) round the main anchor (the center), then that whole pattern again at each other anchor,
 // moved by the anchor's offset from the main one; at most kMaxSymmetricPlaces. A place outside the map is left out.
 // Each carries whether it is mirrored across a vertical or horizontal axis (a copy turned half way is turned both ways).
-std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py, int margin) const {
+std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py, int margin, SymmetryCell cell) const {
     std::vector<SymmetricPlace> out{{px, py, false, false}};
     if (!mirrors_ && turns_ <= 1) return out;  // (symmetry off: the point alone, also with more anchors)
+    if (stableTurns_ && turns_ > 1) std::tie(px, py) = cellMiddle(px, py, cell);  // (Stable: the cell's middle turns; the point stays first)
     const int W = width_ * 32, H = height_ * 32;
     // A place is added when it is inside the map and no place is there yet (1 px).
-    auto add = [&](int x, int y, bool fx, bool fy) {
-        if (x < -margin || y < -margin || x > W + margin || y > H + margin || out.size() >= kMaxSymmetricPlaces) return;
-        for (const SymmetricPlace& p : out)
-            if (std::abs(p.x - x) <= 1 && std::abs(p.y - y) <= 1) return;
-        out.push_back({x, y, fx, fy});
+    auto add = [&](const SymmetricPlace& p) {
+        if (p.x < -margin || p.y < -margin || p.x > W + margin || p.y > H + margin || out.size() >= kMaxSymmetricPlaces) return;
+        for (const SymmetricPlace& o : out)
+            if (std::abs(o.x - p.x) <= 1 && std::abs(o.y - p.y) <= 1) return;
+        out.push_back(p);
     };
     // How each mirror flips a pasted copy.
     static const struct {
         int flag, which;
         bool fx, fy;
-    } mirrorsOf[] = {{Mirror::LeftRight, 0, true, false}, {Mirror::TopBottom, 1, false, true}, {Mirror::Diagonal, 3, false, false},
-                     {Mirror::AntiDiagonal, 4, false, false}};
+    } mirrorsOf[] = {{Mirror::LeftRight, 0, true, false},    {Mirror::TopBottom, 1, false, true},
+                     {Mirror::Diagonal, 3, false, false},    {Mirror::AntiDiagonal, 4, false, false},
+                     {Mirror::IsoDiagonal, 5, false, false}, {Mirror::IsoAntiDiagonal, 6, false, false}};
+    const auto mul = [](const double a[4], const double b[4], double c[4]) {
+        c[0] = a[0] * b[0] + a[1] * b[2], c[1] = a[0] * b[1] + a[1] * b[3], c[2] = a[2] * b[0] + a[3] * b[2], c[3] = a[2] * b[1] + a[3] * b[3];
+    };
     // The pattern round the main anchor (the mouse is relative to it), then the same pattern at the other anchors.
     const std::vector<std::pair<int, int>> anchors = symmetryAnchors();
     const std::pair<int, int> center = anchors.front();
     std::vector<SymmetricPlace> own{{px, py, false, false}};
     {
-        auto addOwn = [&](int x, int y, bool fx, bool fy) {
+        auto addOwn = [&](const SymmetricPlace& p) {
             if (own.size() >= kMaxSymmetricPlaces) return;
-            for (const SymmetricPlace& p : own)
-                if (std::abs(p.x - x) <= 1 && std::abs(p.y - y) <= 1) return;
-            own.push_back({x, y, fx, fy});
-            add(x, y, fx, fy);
+            for (const SymmetricPlace& o : own)
+                if (std::abs(o.x - p.x) <= 1 && std::abs(o.y - p.y) <= 1) return;
+            own.push_back(p);
+            add(p);
         };
         // The turns: the point turned k steps, each from the point itself (so the copies do not drift apart). A half
         // turn flips a pasted copy both ways.
         for (int k = 1; k < turns_; ++k) {
             const auto [x, y] = turnPoint(px, py, k, center);
-            addOwn(x, y, 2 * k == turns_, 2 * k == turns_);
+            SymmetricPlace p{x, y, 2 * k == turns_, 2 * k == turns_};
+            turnMatrix(k, p.m);
+            addOwn(p);
         }
         // The mirrors: each place mirrored across the chosen axes, and the mirror images in turn, until no place is new.
         for (size_t k = 0; k < own.size(); ++k)
@@ -1143,33 +1190,91 @@ std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py, int 
                 if (!(mirrors_ & m.flag)) continue;
                 const SymmetricPlace from = own[k];
                 const auto [x, y] = mirror(from.x, from.y, m.which, center);
-                addOwn(x, y, from.flipX != m.fx, from.flipY != m.fy);
+                SymmetricPlace p{x, y, from.flipX != m.fx, from.flipY != m.fy};
+                double mm[4];
+                mirrorMatrix(m.which, mm);
+                mul(mm, from.m, p.m);
+                addOwn(p);
             }
     }
     // The other anchors: the pattern moved by each one's offset from the main anchor (as it is: not mirrored again).
     for (size_t a = 1; a < anchors.size(); ++a) {
         const int dx = anchors[a].first - center.first, dy = anchors[a].second - center.second;
-        for (const SymmetricPlace& p : own) add(p.x + dx, p.y + dy, p.flipX, p.flipY);
+        for (SymmetricPlace p : own) p.x += dx, p.y += dy, add(p);
     }
     return out;
 }
 
-std::vector<std::pair<int, int>> Editor::symmetricPoints(int px, int py) const {
+std::vector<std::pair<int, int>> Editor::symmetricPoints(int px, int py, SymmetryCell cell) const {
     std::vector<std::pair<int, int>> out;
-    for (const SymmetricPlace& p : symmetricPlaces(px, py)) out.push_back({p.x, p.y});
+    for (const SymmetricPlace& p : symmetricPlaces(px, py, 0, cell)) out.push_back({p.x, p.y});
     return out;
 }
 
 // The points a terrain brush paints at. StarEdit's brush is first centered on its lattice point (a diamond or a corner),
-// so the mirror images are lattice points too and copy the brush exactly; the other brushes mirror the pointer itself.
+// so the mirror images are lattice points too and copy the brush exactly; with turns, only with Stable rotation (Precise:
+// the pointer turns as it is). The other brushes give Stable the diamond under the pointer.
 std::vector<std::pair<int, int>> Editor::terrainSymmetricPoints(int px, int py, const Brush& brush) const {
-    if (brush.starEdit()) {
+    const bool snapped = brush.starEdit() && (stableTurns_ || turns_ <= 1);
+    if (snapped) {
         const auto [x, y] = starEditCenter(px, py, int(brush.size));
         px = x * 64, py = y * 32;
     }
     // (a place off the map still paints what reaches the map, with the center away from the middle)
     std::vector<std::pair<int, int>> out;
-    for (const SymmetricPlace& p : symmetricPlaces(px, py, int(std::max(brush.size, brush.height())) * 64)) out.push_back({p.x, p.y});
+    for (const SymmetricPlace& p : symmetricPlaces(px, py, int(std::max(brush.size, brush.height())) * 64, snapped ? SymmetryCell::None : SymmetryCell::Isom))
+        out.push_back({p.x, p.y});
+    return out;
+}
+
+// Rotate brush's reverse method (see editor.h): each copy's box is the cells' box turned; each cell in it reads the cell
+// that its middle comes from, so a turned copy has no holes.
+std::vector<Editor::TileAt> Editor::symmetryCells(const std::vector<TileAt>& cells, int cw, int ch, int cols, int rows, bool rotate, SymmetryCell cell) const {
+    std::vector<TileAt> out;
+    if (cells.empty() || (!mirrors_ && turns_ <= 1)) return out;
+    std::map<std::pair<int, int>, uint16_t> src;
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (const TileAt& c : cells) {
+        src.emplace(std::pair{c.x, c.y}, c.value);
+        x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
+    }
+    const int ax = (x0 + x1 + 1) * cw / 2, ay = (y0 + y1 + 1) * ch / 2;  // the middle of the box (pixels)
+    const bool stable = stableTurns_ && turns_ > 1;
+    const auto [sx, sy] = stable ? cellMiddle(ax, ay, cell) : std::pair{ax, ay};
+    const int margin = std::max((x1 - x0 + 1) * cw, (y1 - y0 + 1) * ch);
+    const auto places = symmetricPlaces(ax, ay, margin, cell);
+    std::set<std::pair<int, int>> taken;
+    for (const TileAt& c : cells) taken.insert({c.x, c.y});
+    auto put = [&](int x, int y, uint16_t v) {
+        if (x >= 0 && y >= 0 && x < cols && y < rows && taken.insert({x, y}).second) out.push_back({x, y, v});
+    };
+    for (size_t k = 1; k < places.size(); ++k) {  // (place 0: the cells themselves)
+        const SymmetricPlace& p = places[k];
+        const auto [qx, qy] = stable ? cellMiddle(p.x, p.y, cell) : std::pair{p.x, p.y};  // (Stable: the copy's middle on its cell too)
+        if (!rotate) {  // moved only: each cell's middle by the place's offset, to the cell under it
+            for (const TileAt& c : cells)
+                put(int(std::floor((c.x * cw + cw / 2.0 + qx - sx) / cw)), int(std::floor((c.y * ch + ch / 2.0 + qy - sy) / ch)), c.value);
+            continue;
+        }
+        const double* m = p.m;
+        const double det = m[0] * m[3] - m[1] * m[2];
+        if (std::abs(det) < 1e-9) continue;
+        const double i0 = m[3] / det, i1 = -m[1] / det, i2 = -m[2] / det, i3 = m[0] / det;
+        // The copy's box: the source box's corners turned.
+        double bx0 = 1e18, by0 = 1e18, bx1 = -1e18, by1 = -1e18;
+        for (const auto& [cxp, cyp] : {std::pair{x0 * cw, y0 * ch}, {(x1 + 1) * cw, y0 * ch}, {x0 * cw, (y1 + 1) * ch}, {(x1 + 1) * cw, (y1 + 1) * ch}}) {
+            const double dx = cxp - sx, dy = cyp - sy, tx = qx + m[0] * dx + m[1] * dy, ty = qy + m[2] * dx + m[3] * dy;
+            bx0 = std::min(bx0, tx), by0 = std::min(by0, ty), bx1 = std::max(bx1, tx), by1 = std::max(by1, ty);
+        }
+        // Each cell of that box reads the cell that its middle comes from.
+        for (int ty = int(std::floor(by0 / ch)); ty <= int(std::floor(by1 / ch)); ++ty)
+            for (int tx = int(std::floor(bx0 / cw)); tx <= int(std::floor(bx1 / cw)); ++tx) {
+                const double dx = tx * cw + cw / 2.0 - qx, dy = ty * ch + ch / 2.0 - qy;
+                const double bx = sx + i0 * dx + i1 * dy, by = sy + i2 * dx + i3 * dy;
+                const auto it = src.find({int(std::floor(bx / cw)), int(std::floor(by / ch))});
+                if (it != src.end()) put(tx, ty, it->second);
+            }
+    }
     return out;
 }
 
@@ -2476,7 +2581,7 @@ bool Editor::fillTerrain(int px, int py, uint16_t terrain) {
     }
     terrain = brushTerrain(px, py, terrain);
     std::vector<CornerValue> corners;
-    for (auto [x, y] : symmetricPoints(px, py))
+    for (auto [x, y] : symmetricPoints(px, py, SymmetryCell::Isom))
         for (auto [cx, cy] : isom_.floodCorners(x, y)) corners.push_back({cx, cy, terrain});
     if (corners.empty()) return false;
     beginEdit();
@@ -2579,7 +2684,7 @@ bool Editor::fillTerrainMix(int px, int py, const std::vector<uint16_t>& terrain
     // and all of it at every symmetric position (a patch stays in it).
     const std::vector<std::pair<int, int>> spots = isom_.floodCorners(px, py);
     std::set<std::pair<int, int>> area;
-    for (auto [x, y] : symmetricPoints(px, py))
+    for (auto [x, y] : symmetricPoints(px, py, SymmetryCell::Isom))
         for (const auto& c : isom_.floodCorners(x, y)) area.insert(c);
     if (spots.empty()) return false;
     std::vector<uint16_t> ts;
@@ -2868,7 +2973,7 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
     beginEdit();
     std::vector<std::pair<int, int>> origins;  // corner-lattice origin of each (mirrored) copy
     std::vector<std::pair<int, int>> flips;    // (flipX, flipY) per copy
-    const auto places = symmetricPlaces(px, py, std::max(terrainClip_.width, terrainClip_.height));  // (off the map: what reaches it)
+    const auto places = symmetricPlaces(px, py, std::max(terrainClip_.width, terrainClip_.height), SymmetryCell::Isom);  // (off the map: what reaches it)
     std::vector<std::pair<int, int>> pts;
     for (const auto& p : places) pts.push_back({p.x, p.y});
     for (size_t k = 0; k < pts.size(); ++k) {

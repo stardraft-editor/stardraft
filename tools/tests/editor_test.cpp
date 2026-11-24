@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <climits>
 #include <cmath>
 #include <bit>
 #include <cstdio>
@@ -1442,6 +1443,138 @@ static void turnCountTest(const GameData& data) {
     ed.setMirrors(0);
 }
 
+// Isometric / Tile rotation, Stable / Precise rotation and the 2:1 mirrors
+// (docs/superpowers/specs/2026-11-23-symmetry-rotation-design.md).
+static void symmetryRotationTest(const GameData& data) {
+    Editor ed(data);
+    std::string err;
+    if (!ed.newMap(64, 64, 0, 1, err)) {
+        CHECK(false, "rotation: a new 64 x 64 map");
+        return;
+    }
+    const int cx = 64 * 16, cy = 64 * 16;  // the middle: a point of the diamonds' grid
+    auto has = [](const std::vector<std::pair<int, int>>& v, int x, int y) { return std::find(v.begin(), v.end(), std::pair{x, y}) != v.end(); };
+    auto onLattice = [](int x, int y) { return x % 64 == 0 && y % 32 == 0 && ((x / 64 + y / 32) & 1) == 1; };
+    CHECK(!ed.isoTurns() && !ed.stableTurns(), "rotation: Tile rotation and Precise rotation at first");
+    // Isometric rotation: a quarter turn moves (64 i, 32 j) to (-64 j, 32 i); every copy of a corner is a corner.
+    ed.setTurns(4);
+    ed.setIsoTurns(true);
+    const int px = cx + 64 * 3, py = cy + 32 * 6;  // (i + j odd from the middle: a corner)
+    const auto iso = ed.symmetricPoints(px, py);
+    bool corners = iso.size() == 4;
+    for (auto [x, y] : iso) corners = corners && onLattice(x, y);
+    CHECK(corners && onLattice(px, py), "rotation: Isometric quarter turns keep a corner on the corners");
+    CHECK(has(iso, cx - 64 * 6, cy + 32 * 3) && has(iso, cx - 64 * 3, cy - 32 * 6) && has(iso, cx + 64 * 6, cy - 32 * 3),
+          "rotation: Isometric quarter turns give (-64 j, 32 i), (-64 i, -32 j) and (64 j, -32 i)");
+    ed.setIsoTurns(false);
+    CHECK(has(ed.symmetricPoints(px, py), cx - 32 * 6, cy + 64 * 3), "rotation: Tile rotation is the turn in pixels on a square map");
+    // Stable: two points in one tile (x 1312 to 1343, y 1024 to 1055) give the same copies; Precise: their copies differ.
+    ed.setTurns(3);
+    ed.setStableTurns(true);
+    auto a = ed.symmetricPoints(cx + 289, cy + 3, Editor::SymmetryCell::Tile), b = ed.symmetricPoints(cx + 318, cy + 28, Editor::SymmetryCell::Tile);
+    CHECK(a.size() == 3 && b.size() == 3 && std::equal(a.begin() + 1, a.end(), b.begin() + 1), "rotation: Stable turns the middle of the tile");
+    CHECK(!a.empty() && a[0] == std::pair(cx + 289, cy + 3), "rotation: Stable keeps the point itself first");
+    ed.setStableTurns(false);
+    a = ed.symmetricPoints(cx + 289, cy + 3, Editor::SymmetryCell::Tile), b = ed.symmetricPoints(cx + 318, cy + 28, Editor::SymmetryCell::Tile);
+    CHECK(a.size() == 3 && b.size() == 3 && a[1] != b[1], "rotation: Precise turns the point as it is");
+    CHECK(Editor::cellMiddle(cx + 10, cy + 40, Editor::SymmetryCell::Isom) == std::pair(cx, cy + 32) &&
+              Editor::cellMiddle(33, 70, Editor::SymmetryCell::Tile) == std::pair(48, 80) &&
+              Editor::cellMiddle(65, 70, Editor::SymmetryCell::TilePair) == std::pair(96, 80),
+          "rotation: the middles of a diamond, a tile and a pair of tiles");
+    // The 2:1 mirrors: (dx, dy) -> (2 dy, dx / 2) and (-2 dy, -dx / 2); a corner goes to a corner.
+    ed.setTurns(1);
+    ed.setMirrors(Mirror::IsoDiagonal);
+    const auto m1 = ed.symmetricPoints(cx + 64 * 3, cy + 32 * 2);
+    CHECK(m1.size() == 2 && has(m1, cx + 64 * 2, cy + 32 * 3), "rotation: the 2:1 mirror down to the right");
+    ed.setMirrors(Mirror::IsoAntiDiagonal);
+    const auto m2 = ed.symmetricPoints(cx + 64 * 3, cy + 32 * 2);
+    CHECK(m2.size() == 2 && has(m2, cx - 64 * 2, cy - 32 * 3), "rotation: the 2:1 mirror up to the right");
+    ed.setMirrors(Mirror::All);
+    CHECK(ed.mirrors() == 63, "rotation: Mirror::All has the six mirrors");
+    ed.setMirrors(0);
+    // A painted map: StarEdit's diamonds with the 2:1 mirror are symmetric where the image is on the map.
+    {
+        const IsomTerrainTable* table = IsomTerrainTable::forEra(0);
+        uint16_t water = 0;
+        for (uint16_t t = 1; t < 64 && !water; ++t)
+            if (table->isTerrain(t) && table->terrainName(t) == std::string("Water")) water = t;
+        Editor pe(data);
+        pe.newMap(128, 128, 0, 1, err);
+        pe.setMirrors(Mirror::IsoDiagonal);
+        pe.beginTerrainStroke();
+        for (auto [x, y] : {std::pair{1500, 1900}, {2600, 2200}, {1800, 2500}}) pe.paintBrush(x, y, water, Brush{Brush::Diamond, 3});
+        pe.endTerrainStroke();
+        const int U = 64, V = 128, ocx = 32, ocy = 64;  // the corner grid; the middle at (32, 64)
+        int diff = 0, painted = 0;
+        for (int y = 0; y <= V; ++y)
+            for (int x = 0; x <= U; ++x) {
+                if (!((x + y) & 1)) continue;
+                const int mx = ocx + (y - ocy), my = ocy + (x - ocx);  // (p, q) -> (q, p) from the middle
+                if (mx < 0 || mx > U || my < 0 || my > V) continue;
+                const uint16_t t = pe.terrainAt(x * 64, y * 32);
+                painted += t == water;
+                diff += t != pe.terrainAt(mx * 64, my * 32);
+            }
+        std::printf("      2:1 mirror: %d corners differ from their image (%d painted)\n", diff, painted);
+        CHECK(diff == 0 && painted > 0, "rotation: the 2:1 mirror paints symmetric corners");
+    }
+}
+
+// Rotate brush's reverse method (Editor::symmetryCells): 8 turns of a 12 x 12 block of tiles leave no holes, and a
+// quarter turn of a block of 2-tile pairs has no empty rows.
+static void symmetryCellsTest(const GameData& data) {
+    Editor ed(data);
+    std::string err;
+    if (!ed.newMap(128, 128, 0, 1, err)) {
+        CHECK(false, "rotate brush: a new 128 x 128 map");
+        return;
+    }
+    const double cx = 128 * 16, cy = 128 * 16;
+    // Every cell whose middle, turned back, is well inside the source block must be in the result or the block.
+    auto holes = [&](const std::vector<Editor::TileAt>& src, const std::vector<Editor::TileAt>& got, int cw, int ch, int cols, int rows, int n) {
+        std::set<std::pair<int, int>> in;
+        for (const auto& c : src) in.insert({c.x, c.y});
+        for (const auto& c : got) in.insert({c.x, c.y});
+        int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+        for (const auto& c : src) x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
+        const double l = x0 * cw + cw * 0.75, t = y0 * ch + ch * 0.75, r = (x1 + 1) * cw - cw * 0.75, b = (y1 + 1) * ch - ch * 0.75;
+        int miss = 0;
+        for (int k = 1; k < n; ++k) {
+            const double a = -6.283185307179586 * k / n, c = std::cos(a), s = std::sin(a);
+            for (int y = 0; y < rows; ++y)
+                for (int x = 0; x < cols; ++x) {
+                    const double dx = x * cw + cw / 2.0 - cx, dy = y * ch + ch / 2.0 - cy;
+                    const double bx = cx + dx * c - dy * s, by = cy + dx * s + dy * c;
+                    if (bx > l && bx < r && by > t && by < b && !in.count({x, y})) ++miss;
+                }
+        }
+        return miss;
+    };
+    ed.setTurns(8);
+    std::vector<Editor::TileAt> block;
+    for (int y = 70; y < 82; ++y)
+        for (int x = 40; x < 52; ++x) block.push_back({x, y, 7});
+    const auto turned = ed.symmetryCells(block, 32, 32, 128, 128, true, Editor::SymmetryCell::Tile);
+    const int m8 = holes(block, turned, 32, 32, 128, 128, 8);
+    std::printf("      8 turns of 12 x 12 tiles: %d holes, %zu cells\n", m8, turned.size());
+    CHECK(m8 == 0 && turned.size() >= 7 * 120, "rotate brush: 8 turns of a 12 x 12 block have no holes");
+    bool values = true;
+    for (const auto& c : turned) values = values && c.value == 7;
+    CHECK(values, "rotate brush: each copy cell has the value of its source cell");
+    const auto moved = ed.symmetryCells(block, 32, 32, 128, 128, false, Editor::SymmetryCell::Tile);
+    CHECK(moved.size() == 7 * 144, "rotate brush off: each copy is the 12 x 12 block moved");
+    // Pairs (Rectangle): 6 x 12 pairs, a quarter turn.
+    ed.setTurns(4);
+    std::vector<Editor::TileAt> pairs;
+    for (int y = 70; y < 82; ++y)
+        for (int x = 20; x < 26; ++x) pairs.push_back({x, y, 1});
+    const auto pq = ed.symmetryCells(pairs, 64, 32, 64, 128, true, Editor::SymmetryCell::TilePair);
+    const int m4 = holes(pairs, pq, 64, 32, 64, 128, 4);
+    std::printf("      quarter turns of 6 x 12 pairs: %d holes, %zu pairs\n", m4, pq.size());
+    CHECK(m4 == 0, "rotate brush: a quarter turn of pairs has no empty rows");
+    ed.setTurns(1);
+}
+
 // Start locations (the save question's Place them): a player that owns units and has no start location gets one near its
 // units; a map with one start location gets a second one far from it. Each placing is one undo step.
 static void startLocationTest(const GameData& data) {
@@ -1525,6 +1658,8 @@ int main(int argc, char** argv) {
     if (argc > 4 && std::string(argv[4]) == "mirror") {  // only the terrain symmetry checks (feedback #134)
         mirrorTest(data);
         turnCountTest(data);
+        symmetryRotationTest(data);
+        symmetryCellsTest(data);
         std::printf("\n%d failures\n", failures);
         return failures ? 1 : 0;
     }
@@ -2770,6 +2905,8 @@ int main(int argc, char** argv) {
     linkTest(data);
     mirrorTest(data);
     turnCountTest(data);
+    symmetryRotationTest(data);
+    symmetryCellsTest(data);
     locationGroupTest(data);
     fogMaskTest(data);
     startLocationTest(data);

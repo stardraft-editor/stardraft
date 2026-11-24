@@ -85,7 +85,9 @@ constexpr uint16_t kMapRevealerUnit = 101;
 // (the group they make; at most kMaxSymmetricPlaces places). Left/right and top/bottom together are "both" (and so 180
 // too). The turns (feedback #111) are a number: the copies go round the map's middle in equal steps, 1 for none.
 namespace Mirror {
-constexpr int LeftRight = 1, TopBottom = 2, Diagonal = 4, AntiDiagonal = 8, All = 15;
+// IsoDiagonal, IsoAntiDiagonal: across the 2:1 lines through the center (down to the right, up to the right), the
+// lines of the diamonds' edges: a diamond's image is a diamond.
+constexpr int LeftRight = 1, TopBottom = 2, Diagonal = 4, AntiDiagonal = 8, IsoDiagonal = 16, IsoAntiDiagonal = 32, All = 63;
 }
 constexpr int kMaxTurns = 64;
 constexpr size_t kMaxSymmetricPlaces = 1024;  // (64 brushes, each anchor: 8 brushes and 32 anchors paint 256 places)
@@ -367,6 +369,19 @@ public:
     // turns, 3: a third of a turn...), 1 to kMaxTurns. With the mirrors, each turned copy is mirrored too.
     void setTurns(int n) { turns_ = std::clamp(n, 1, kMaxTurns); }
     int turns() const { return turns_; }
+    // How the turns go (the tool strip's Isometric / Tile rotation and Stable / Precise rotation;
+    // docs/superpowers/specs/2026-11-23-symmetry-rotation-design.md). Isometric: the offset from the center turns with
+    // its height counted twice, so a diamond (64 x 32) goes to a diamond; Tile: in the map's proportions (as before).
+    void setIsoTurns(bool on) { isoTurns_ = on; }
+    bool isoTurns() const { return isoTurns_; }
+    // Stable: with turns, the point first goes to the middle of its cell (the caller's `cell`), then turns; Precise: the
+    // point turns as it is. Each copy then uses the cell under it. The point itself stays first, as it is.
+    void setStableTurns(bool on) { stableTurns_ = on; }
+    bool stableTurns() const { return stableTurns_; }
+    // The cell that Stable puts a point in the middle of: none, a diamond (the nearest corner: (64 x, 32 y), x + y odd), a
+    // tile (32 x 32), a pair of tiles (64 x 32, as Rectangle's).
+    enum class SymmetryCell { None, Isom, Tile, TilePair };
+    static std::pair<int, int> cellMiddle(int px, int py, SymmetryCell cell);
     // The point that the mirrors and the turns go round, in pixels: the map's middle at first. setSymmetryCenter puts it
     // on the nearest point of the diamonds' grid (x: 64 pixels, y: 32), so that the mirror images of the diamonds are
     // diamonds; inside the map. A value below 0: the map's middle again.
@@ -395,10 +410,15 @@ public:
     bool terrainMaskAllows(uint16_t terrain) const;  // (the mask lets this terrain change; a mod terrain's variants with it)
     const std::vector<uint16_t>& tileMask() const { return tileMask_; }
     void setTileMask(std::vector<uint16_t> tiles) { tileMask_ = std::move(tiles); }
-    // The point itself followed by its mirror images (duplicates removed).
-    std::vector<std::pair<int, int>> symmetricPoints(int px, int py) const;
+    // The point itself followed by its mirror images (duplicates removed); `cell`: Stable's cell (see setStableTurns).
+    std::vector<std::pair<int, int>> symmetricPoints(int px, int py, SymmetryCell cell = SymmetryCell::None) const;
     // The points a terrain brush paints at (a StarEdit brush is centered on its lattice point first; see editor.cpp).
     std::vector<std::pair<int, int>> terrainSymmetricPoints(int px, int py, const Brush& brush) const;
+    // Rotate brush (the Tile, Custom and Rectangle tools): the copies of `cells` (cells of cw x ch pixels, on a map of
+    // cols x rows of them) at each copy of the symmetry, round the middle of the cells' box (Stable: the middle of its
+    // cell). rotate: each copy turned and mirrored, each of its cells reading the cell it comes from (no holes); else
+    // moved only. The cells themselves are not in the result; each cell is in it once at most.
+    std::vector<TileAt> symmetryCells(const std::vector<TileAt>& cells, int cw, int ch, int cols, int rows, bool rotate, SymmetryCell cell) const;
 
     // --- Units ----------------------------------------------------------------------------------
     PlacementContext placementContext(const std::vector<Unit>* units = nullptr) const;
@@ -1019,6 +1039,7 @@ private:
     TileClip tileClip_;
     int mirrors_ = 0;  // Mirror:: flags
     int turns_ = 1;    // the turns (setTurns)
+    bool isoTurns_ = false, stableTurns_ = false;  // setIsoTurns, setStableTurns
     int symmetryX_ = -1, symmetryY_ = -1;  // setSymmetryCenter (-1: the map's middle)
     std::vector<std::pair<int, int>> moreAnchors_;  // addSymmetryAnchor
     uint64_t loadMark_ = 0, openMark_ = 0;
@@ -1044,9 +1065,13 @@ private:
     struct SymmetricPlace {
         int x, y;
         bool flipX, flipY;  // a mirror image across a vertical (horizontal) axis: a pasted copy flips that way
+        double m[4] = {1, 0, 0, 1};  // the copy's turns and mirrors, for offsets in pixels: (dx, dy) -> (m0 dx + m1 dy, m2 dx + m3 dy)
     };
     // margin: how far past the map's edges a place may be (terrain: a brush or a copy there still reaches the map).
-    std::vector<SymmetricPlace> symmetricPlaces(int px, int py, int margin = 0) const;
+    // cell: Stable's cell (setStableTurns).
+    std::vector<SymmetricPlace> symmetricPlaces(int px, int py, int margin = 0, SymmetryCell cell = SymmetryCell::None) const;
+    void turnMatrix(int k, double m[4]) const;
+    void mirrorMatrix(int which, double m[4]) const;
 
     // Protected terrain (protectTiles): the mask, its count of protected tiles and its revision.
     std::vector<uint8_t> protected_;
