@@ -2,6 +2,49 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.9.2
+
+[Video: the new features of 0.9.2](images/0.9.2/whats-new.mp4)
+
+### New
+
+- File > Import from SCMSCX: search scmscx.com, then download and open a map in one step.
+- Fog of war tool (Shift+F): paint and erase the fog of one or more players.
+- Edit > Resize map (Ctrl+Shift+R): drag the map's edges on the map. The new ground is the terrain picked in the
+  Terrain palette.
+- Map sizes of your own: type the width and the height.
+- Pathing overlay: each region has an outline, and lines show where ground units can go between regions.
+- Palettes: Ctrl+wheel makes the items bigger or smaller.
+- View > Overlays > Psi power: which Protoss buildings have power from a Pylon.
+- Stars in space: the game's moving stars over Space Platform maps.
+- Protected maps open as view only. StarDraft does not save, export or copy from them.
+
+### Map
+
+- The arrow keys move the selected sprites and doodads.
+- Town areas show the total minerals and gas of each town.
+- Terrain select: Isometric shows the diamonds that each shape copies.
+
+### Triggers
+
+- New blocks from EUD Editor 3's TETools: build, morph and train units, control groups, and more.
+- Easier to read helper code: unit fields have names, not memory offsets.
+
+### CMBW mod
+
+- Recolor preview: see the mod's recolors on the map.
+- Recolor action: paste the line that Recolor preview copies.
+
+### Fixes
+
+- SC:R's newer doodads (Space Platform, Desert, Twilight) show and can be placed.
+- The end piece of a ramp is no longer marked invalid.
+- Submenus stay on the screen.
+- Briefing: Space in the text box no longer plays or pauses the preview.
+- Map data > Technologies: the Changed filter shows techs that are set for all players.
+- Unit properties: a click in the list keeps the search.
+- Korean: locations are 로케이션.
+
 ## 0.9.1.1
 
 ### Fixes
