@@ -3806,3 +3806,157 @@ Erase fog: remove the fog of war from the tiles that you paint, for the players 
 Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.	플레이어: 도구가 전장의 안개를 바꾸는 플레이어입니다. 클릭하여 하나 이상의 플레이어를 선택합니다. 1 ~ 8 키는 플레이어를 추가하거나 제거하고, 9는 8명 모두를 선택합니다.
 Resize on the map	지도에서 크기 변경
 Enter: change the size. Esc: cancel.	Enter: 크기 변경. Esc: 취소.
+ (protected map, view only)	 (보호된 맵, 보기 전용)
+ (the map shows what they see)	 (그 사람이 보는 곳을 맵에 표시)
+ (you)	 (나)
+ You keep your copy of the map. Save it to keep the changes.	 맵 사본은 그대로 남습니다. 변경 내용을 유지하려면 저장하십시오.
+ has this location selected too	 님도 이 로케이션을 선택했습니다
+ has this unit selected too	 님도 이 유닛을 선택했습니다
+ min ago	 분 전
+ s ago	 초 전
+ requests edit access.	 님이 편집 권한을 요청합니다.
+ requests view access.	 님이 보기 권한을 요청합니다.
+Make 	호스트 변경: 
+ the host of the session? You leave the session. You keep your map, and the others stay in the session.	 님을 세션의 호스트로 지정하시겠습니까? 세션에서 나가게 됩니다. 맵은 그대로 남고, 다른 사람들은 세션에 남습니다.
+%u minerals (%d), %u gas (%d), %d tiles	미네랄 %u (%d), 가스 %u (%d), %d개 타일
+&Credits	크레딧(&C)
+&Invite…	초대(&I)…
+&Join session…	세션 참가(&J)…
+&Ping here	여기에 핑(&P)
+(no file name)	(파일 이름 없음)
+. Move the map to stop.	. 맵을 움직이면 멈춥니다.
+1 result	결과 1개
+ results	개 결과
+A session is open. Leave it first.	세션이 열려 있습니다. 먼저 세션에서 나가십시오.
+Canceling…	취소하는 중…
+Cannot connect to scmscx.com. Check the internet connection.	scmscx.com에 연결할 수 없습니다. 인터넷 연결을 확인하십시오.
+Cannot write the map into 	다음 위치에 맵을 쓸 수 없습니다: 
+Co&llaborative editing (experimental)	공동 편집 (실험적)(&L)
+Colla&borators on the minimap	미니맵의 공동 작업자(&B)
+Collaboration	공동 작업
+Collaborative editing	공동 편집
+Collaborative editing (experimental)	공동 편집 (실험적)
+Collaborative editing (experimental): Map layers are not shared	공동 편집 (실험적): 맵 레이어는 공유되지 않습니다
+Collaborative editing (experimental): invited users edit the map only	공동 편집 (실험적): 초대된 사용자는 맵만 편집합니다
+Collaborative editing is not available on this system yet.	이 시스템에서는 아직 공동 편집을 사용할 수 없습니다.
+Connect to the server	서버에 연결
+Connecting to 	연결하는 중: 
+Connecting…	연결하는 중…
+Copied the edit invite link	편집 초대 링크를 복사했습니다
+Copied the view invite link	보기 초대 링크를 복사했습니다
+Copy edit link	편집 링크 복사
+Copy view link	보기 링크 복사
+Could not change the server	서버를 변경할 수 없습니다
+Could not join the session	세션에 참가할 수 없습니다
+Could not start the session	세션을 시작할 수 없습니다
+Decline	거절
+Display name	표시 이름
+Display name in the session	세션에서 표시할 이름
+Download and open	다운로드하고 열기
+Download canceled.	다운로드를 취소했습니다.
+Downloaded to 	다운로드 위치: 
+Downloading…	다운로드하는 중…
+Downloading… 	다운로드하는 중… 
+Drag: move the map's content	드래그: 맵 내용 이동
+Drag: the bottom edge	드래그: 아래쪽 가장자리
+Drag: the bottom left corner	드래그: 왼쪽 아래 모서리
+Drag: the bottom right corner	드래그: 오른쪽 아래 모서리
+Drag: the left edge	드래그: 왼쪽 가장자리
+Drag: the right edge	드래그: 오른쪽 가장자리
+Drag: the top edge	드래그: 위쪽 가장자리
+Drag: the top left corner	드래그: 왼쪽 위 모서리
+Drag: the top right corner	드래그: 오른쪽 위 모서리
+Edit > Resize map: drag the map's edges on the map itself (one undo step)	편집 > 맵 크기 변경: 맵 위에서 맵의 가장자리를 드래그합니다 (실행 취소 1단계)
+Editors can change terrain, units, doodads, sprites and locations. Each person keeps a local copy of the map, also after you remove them.	편집자는 지형, 유닛, 장식물, 스프라이트, 로케이션을 변경할 수 있습니다. 각 사람은 맵의 로컬 사본을 가지며, 목록에서 제거한 후에도 사본은 남습니다.
+End session	세션 종료
+End the session for all participants?	모든 참가자의 세션을 종료하시겠습니까?
+Fog of war: %ls	전장의 안개: %ls
+Fog of war: %ls. Added fog to %d tiles.	전장의 안개: %ls. %d개 타일에 안개를 추가했습니다.
+Fog of war: %ls. Added fog to 1 tile.	전장의 안개: %ls. 타일 1개에 안개를 추가했습니다.
+Fog of war: %ls. Removed fog from %d tiles.	전장의 안개: %ls. %d개 타일에서 안개를 제거했습니다.
+Fog of war: %ls. Removed fog from 1 tile.	전장의 안개: %ls. 타일 1개에서 안개를 제거했습니다.
+Fog of war: %ls. These tiles have fog already.	전장의 안개: %ls. 이 타일에는 이미 안개가 있습니다.
+Fog of war: %ls. These tiles have no fog.	전장의 안개: %ls. 이 타일에는 안개가 없습니다.
+Following 	따라가는 중: 
+For new sessions. The default value is collab.stardraft.app.	새 세션에 사용합니다. 기본값은 collab.stardraft.app입니다.
+Get the map	맵 받기
+Import &from SCMSCX…	SCMSCX에서 가져오기(&F)…
+Import from SCMSCX	SCMSCX에서 가져오기
+Invite link	초대 링크
+Invite people to edit this map with you (collaborative editing, experimental)	다른 사람을 초대하여 이 맵을 함께 편집합니다 (공동 편집, 실험적)
+Join a collaborative editing session with an invite link (experimental)	초대 링크로 공동 편집 세션에 참가합니다 (실험적)
+Join request	참가 요청
+Join session…	세션 참가…
+Joined the session of 	세션에 참가했습니다: 
+Joining the session	세션에 참가하는 중
+Leave session	세션 나가기
+Let people in without asking	묻지 않고 참가 허용
+Live · 	라이브 · 
+ people	명
+Editing 	편집 중: 
+Viewing 	보는 중: 
+'s map	의 맵
+Make host	호스트로 지정
+Make host…	호스트로 지정…
+Make new links	새 링크 만들기
+New ground: 	새 바닥: 
+No maps match the search.	검색과 일치하는 맵이 없습니다.
+No messages yet. Write to the others in the session here.	아직 메시지가 없습니다. 여기에서 세션의 다른 사람들에게 메시지를 보내십시오.
+No session	세션 없음
+Only a Terran SCV, a Zerg Drone or a Protoss Probe builds with this block. For other units, it does nothing	이 블록으로는 테란 SCV, 저그 드론, 프로토스 프로브만 건설합니다. 다른 유닛에는 아무 효과가 없습니다
+Only a Zerg Larva, a Zerg Egg or a Zerg Cocoon morphs with this block. For other units, it does nothing	이 블록으로는 저그 라바, 저그 알, 저그 고치만 변이합니다. 다른 유닛에는 아무 효과가 없습니다
+Options…	옵션…
+P&si power	사이오닉 에너지(&S)
+People	사람
+Psi power is hidden	사이오닉 에너지 숨김
+Psi power shows the game's rule only: in Mod support mode other units give power too, so it shows nothing	사이오닉 에너지는 게임의 규칙만 보여 줍니다. 모드 지원 모드에서는 다른 유닛도 에너지를 공급하므로 아무것도 표시하지 않습니다
+Psi power: light blue buildings have power from a Pylon of their owner, red buildings have no power	사이오닉 에너지: 하늘색 건물은 소유자의 파일런에서 에너지를 받고, 빨간색 건물은 에너지가 없습니다
+Recent changes	최근 변경 내용
+Reconnecting…	다시 연결하는 중…
+Reset invite links	초대 링크 초기화
+Reset links…	링크 초기화…
+Reset the invite links	초대 링크 초기화
+Reset the invite links? The old links stop working. The people in the session stay.	초대 링크를 초기화하시겠습니까? 이전 링크는 더 이상 작동하지 않습니다. 세션에 있는 사람들은 그대로 남습니다.
+Resi&ze map	맵 크기 변경(&Z)
+Resize map	맵 크기 변경
+Resize map: drag the edges or the corners; drag inside to move the map's content. Enter: change the size. Esc: cancel.	맵 크기 변경: 가장자리나 모서리를 드래그하고, 안쪽을 드래그하면 맵 내용을 이동합니다. Enter: 크기 변경. Esc: 취소.
+Resize map: the map keeps its size	맵 크기 변경: 맵 크기가 그대로입니다
+S&tars in space	우주의 별(&T)
+Safety code: 	보안 코드: 
+Say something	메시지 입력
+Search maps on scmscx.com	scmscx.com에서 맵 검색
+Session: connecting…	세션: 연결하는 중…
+Session: waiting for participants	세션: 참가자 기다리는 중
+Set edit	편집 권한으로
+Set view	보기 권한으로
+Show the collaborative editing session	공동 편집 세션 표시
+Show the place on the map	맵에서 위치 표시
+Someone	누군가
+Space platform	Space Platform
+Stop following	따라가기 중지
+Stop following 	따라가기 중지: 
+Stopped following	따라가기를 멈췄습니다
+The download stopped before the end. Try again.	다운로드가 끝나기 전에 중단되었습니다. 다시 시도하십시오.
+The file from scmscx.com is not a StarCraft map.	scmscx.com의 파일은 StarCraft 맵이 아닙니다.
+The host sees the same code. If the codes are not the same, cancel.	호스트에게도 같은 코드가 보입니다. 코드가 다르면 취소하십시오.
+The invite links are not ready yet	초대 링크가 아직 준비되지 않았습니다
+The map is protected: it cannot be copied from	보호된 맵입니다: 이 맵에서 복사할 수 없습니다
+The map is protected: it cannot be shared	보호된 맵입니다: 공유할 수 없습니다
+The map is protected: it is view only, and it cannot be saved, exported or copied from	보호된 맵입니다: 보기 전용이며 저장, 내보내기, 복사를 할 수 없습니다
+The map is protected: its data and terrain cannot be copied	보호된 맵입니다: 데이터와 지형을 복사할 수 없습니다
+The map is shared: its size cannot change while the session is open	공유 중인 맵입니다: 세션이 열려 있는 동안에는 크기를 변경할 수 없습니다
+The map's tileset: a change goes into the map at once (one undo step)	맵의 타일셋: 변경하면 맵에 바로 적용됩니다 (실행 취소 1단계)
+The name that the other people in a session see	세션의 다른 사람들에게 보이는 이름
+The newest maps on scmscx.com	scmscx.com의 최신 맵
+The same code shows on their computer. Compare the codes if you do not know who sent the request.	상대방의 컴퓨터에도 같은 코드가 표시됩니다. 누가 요청을 보냈는지 모르면 코드를 비교하십시오.
+This program hosts a session, so it cannot join one. An invite link opens the StarDraft that runs first. To try a session on one computer, paste the link in the other program: File > Collaborative editing > Join session.	이 프로그램은 세션을 호스트하고 있으므로 다른 세션에 참가할 수 없습니다. 초대 링크는 먼저 실행된 StarDraft를 엽니다. 한 컴퓨터에서 세션을 시험하려면 다른 프로그램에 링크를 붙여 넣으십시오: 파일 > 공동 편집 > 세션 참가.
+This version of StarDraft cannot join collaborative editing sessions	이 버전의 StarDraft는 공동 편집 세션에 참가할 수 없습니다
+Uploaded 	업로드: 
+Changed 	변경: 
+Verification code: 	확인 코드: 
+Wait for the host to let you in	호스트가 들여보내 줄 때까지 기다리기
+Waiting for people	사람을 기다리는 중
+Waiting for the host…	호스트를 기다리는 중…
+scmscx.com does not have this map file ready. Try again later.	scmscx.com에 이 맵 파일이 아직 준비되지 않았습니다. 나중에 다시 시도하십시오.
+scmscx.com sent an answer that StarDraft cannot read.	scmscx.com이 StarDraft가 읽을 수 없는 응답을 보냈습니다.
+scmscx.com sent an error (HTTP 	scmscx.com이 오류를 보냈습니다 (HTTP 

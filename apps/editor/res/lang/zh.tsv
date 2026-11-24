@@ -3778,3 +3778,157 @@ Erase fog: remove the fog of war from the tiles that you paint, for the players 
 Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.	玩家：工具更改其战争迷雾的玩家。单击以选择一个或多个玩家。按键 1 至 8 添加或移除一个玩家，9 选择全部 8 个。
 Resize on the map	在地图上调整大小
 Enter: change the size. Esc: cancel.	Enter：更改大小。Esc：取消。
+ (protected map, view only)	 （受保护的地图，仅可查看）
+ (the map shows what they see)	 （地图显示其所见）
+ (you)	 （您）
+ You keep your copy of the map. Save it to keep the changes.	 您保留地图的副本。请保存以保留更改。
+ has this location selected too	 也选中了此位置
+ has this unit selected too	 也选中了此单位
+ min ago	 分钟前
+ s ago	 秒前
+ requests edit access.	 请求编辑权限。
+ requests view access.	 请求查看权限。
+Make 	将 
+ the host of the session? You leave the session. You keep your map, and the others stay in the session.	 设为会话的房主吗？您将离开会话。您保留自己的地图，其他人留在会话中。
+%u minerals (%d), %u gas (%d), %d tiles	%u 矿物 (%d)，%u 瓦斯 (%d)，%d 个图块
+&Credits	鸣谢(&C)
+&Invite…	邀请(&I)…
+&Join session…	加入会话(&J)…
+&Ping here	在此处标记(&P)
+(no file name)	（无文件名）
+. Move the map to stop.	。移动地图即可停止。
+1 result	1 个结果
+ results	 个结果
+A session is open. Leave it first.	已有会话打开。请先离开该会话。
+Canceling…	正在取消…
+Cannot connect to scmscx.com. Check the internet connection.	无法连接到 scmscx.com。请检查网络连接。
+Cannot write the map into 	无法将地图写入 
+Co&llaborative editing (experimental)	协作编辑（实验性）(&L)
+Colla&borators on the minimap	小地图上的协作者(&B)
+Collaboration	协作
+Collaborative editing	协作编辑
+Collaborative editing (experimental)	协作编辑（实验性）
+Collaborative editing (experimental): Map layers are not shared	协作编辑（实验性）：地图图层不共享
+Collaborative editing (experimental): invited users edit the map only	协作编辑（实验性）：受邀用户只能编辑地图
+Collaborative editing is not available on this system yet.	此系统上暂不支持协作编辑。
+Connect to the server	连接到服务器
+Connecting to 	正在连接到 
+Connecting…	正在连接…
+Copied the edit invite link	已复制编辑邀请链接
+Copied the view invite link	已复制查看邀请链接
+Copy edit link	复制编辑链接
+Copy view link	复制查看链接
+Could not change the server	无法更改服务器
+Could not join the session	无法加入会话
+Could not start the session	无法启动会话
+Decline	拒绝
+Display name	显示名称
+Display name in the session	会话中的显示名称
+Download and open	下载并打开
+Download canceled.	已取消下载。
+Downloaded to 	已下载到 
+Downloading…	正在下载…
+Downloading… 	正在下载… 
+Drag: move the map's content	拖动：移动地图内容
+Drag: the bottom edge	拖动：下边缘
+Drag: the bottom left corner	拖动：左下角
+Drag: the bottom right corner	拖动：右下角
+Drag: the left edge	拖动：左边缘
+Drag: the right edge	拖动：右边缘
+Drag: the top edge	拖动：上边缘
+Drag: the top left corner	拖动：左上角
+Drag: the top right corner	拖动：右上角
+Edit > Resize map: drag the map's edges on the map itself (one undo step)	编辑 > 调整地图大小：在地图上直接拖动地图的边缘 (一步撤销)
+Editors can change terrain, units, doodads, sprites and locations. Each person keeps a local copy of the map, also after you remove them.	编辑者可以更改地形、单位、装饰物、精灵和位置。每个人都保留地图的本地副本，即使在您将其移除之后也是如此。
+End session	结束会话
+End the session for all participants?	为所有参与者结束会话？
+Fog of war: %ls	战争迷雾：%ls
+Fog of war: %ls. Added fog to %d tiles.	战争迷雾：%ls。已为 %d 个图块添加迷雾。
+Fog of war: %ls. Added fog to 1 tile.	战争迷雾：%ls。已为 1 个图块添加迷雾。
+Fog of war: %ls. Removed fog from %d tiles.	战争迷雾：%ls。已从 %d 个图块移除迷雾。
+Fog of war: %ls. Removed fog from 1 tile.	战争迷雾：%ls。已从 1 个图块移除迷雾。
+Fog of war: %ls. These tiles have fog already.	战争迷雾：%ls。这些图块已有迷雾。
+Fog of war: %ls. These tiles have no fog.	战争迷雾：%ls。这些图块没有迷雾。
+Following 	正在跟随 
+For new sessions. The default value is collab.stardraft.app.	用于新会话。默认值为 collab.stardraft.app。
+Get the map	获取地图
+Import &from SCMSCX…	从 SCMSCX 导入(&F)…
+Import from SCMSCX	从 SCMSCX 导入
+Invite link	邀请链接
+Invite people to edit this map with you (collaborative editing, experimental)	邀请他人与您一起编辑此地图（协作编辑，实验性）
+Join a collaborative editing session with an invite link (experimental)	通过邀请链接加入协作编辑会话（实验性）
+Join request	加入请求
+Join session…	加入会话…
+Joined the session of 	已加入会话：
+Joining the session	正在加入会话
+Leave session	离开会话
+Let people in without asking	无需询问即允许加入
+Live · 	在线 · 
+ people	 人
+Editing 	正在编辑 
+Viewing 	正在查看 
+'s map	 的地图
+Make host	设为房主
+Make host…	设为房主…
+Make new links	生成新链接
+New ground: 	新地面：
+No maps match the search.	没有与搜索匹配的地图。
+No messages yet. Write to the others in the session here.	还没有消息。在这里给会话中的其他人发消息。
+No session	无会话
+Only a Terran SCV, a Zerg Drone or a Protoss Probe builds with this block. For other units, it does nothing	只有人类 SCV、虫族工蜂或神族探机能用此块建造。对其他单位无效
+Only a Zerg Larva, a Zerg Egg or a Zerg Cocoon morphs with this block. For other units, it does nothing	只有虫族幼虫、虫卵或虫茧能用此块变形。对其他单位无效
+Options…	选项…
+P&si power	灵能供能(&S)
+People	成员
+Psi power is hidden	灵能供能已隐藏
+Psi power shows the game's rule only: in Mod support mode other units give power too, so it shows nothing	灵能供能只显示游戏的规则：在模组支持模式下其他单位也会供能，因此不显示任何内容
+Psi power: light blue buildings have power from a Pylon of their owner, red buildings have no power	灵能供能：浅蓝色建筑由其所有者的水晶塔供能，红色建筑没有供能
+Recent changes	最近的更改
+Reconnecting…	正在重新连接…
+Reset invite links	重置邀请链接
+Reset links…	重置链接…
+Reset the invite links	重置邀请链接
+Reset the invite links? The old links stop working. The people in the session stay.	重置邀请链接？旧链接将失效。会话中的人会留下。
+Resi&ze map	调整地图大小(&Z)
+Resize map	调整地图大小
+Resize map: drag the edges or the corners; drag inside to move the map's content. Enter: change the size. Esc: cancel.	调整地图大小：拖动边缘或角；在内部拖动可移动地图内容。Enter：更改大小。Esc：取消。
+Resize map: the map keeps its size	调整地图大小：地图保持原大小
+S&tars in space	太空中的星星(&T)
+Safety code: 	安全码：
+Say something	说点什么
+Search maps on scmscx.com	在 scmscx.com 上搜索地图
+Session: connecting…	会话：正在连接…
+Session: waiting for participants	会话：正在等待参与者
+Set edit	设为编辑
+Set view	设为查看
+Show the collaborative editing session	显示协作编辑会话
+Show the place on the map	在地图上显示该处
+Someone	某人
+Space platform	太空平台
+Stop following	停止跟随
+Stop following 	停止跟随 
+Stopped following	已停止跟随
+The download stopped before the end. Try again.	下载在完成前中断。请重试。
+The file from scmscx.com is not a StarCraft map.	来自 scmscx.com 的文件不是 StarCraft 地图。
+The host sees the same code. If the codes are not the same, cancel.	房主看到的是同一个代码。如果代码不同，请取消。
+The invite links are not ready yet	邀请链接尚未就绪
+The map is protected: it cannot be copied from	地图受保护：无法从中复制
+The map is protected: it cannot be shared	地图受保护：无法共享
+The map is protected: it is view only, and it cannot be saved, exported or copied from	地图受保护：仅可查看，无法保存、导出或从中复制
+The map is protected: its data and terrain cannot be copied	地图受保护：无法复制其数据和地形
+The map is shared: its size cannot change while the session is open	地图正在共享：会话打开期间无法更改其大小
+The map's tileset: a change goes into the map at once (one undo step)	地图的图块集：更改会立即应用到地图 (一步撤销)
+The name that the other people in a session see	会话中其他人看到的名称
+The newest maps on scmscx.com	scmscx.com 上的最新地图
+The same code shows on their computer. Compare the codes if you do not know who sent the request.	对方的电脑上会显示相同的代码。如果不知道是谁发送的请求，请比较代码。
+This program hosts a session, so it cannot join one. An invite link opens the StarDraft that runs first. To try a session on one computer, paste the link in the other program: File > Collaborative editing > Join session.	此程序正在主持会话，因此无法加入会话。邀请链接会打开最先运行的 StarDraft。若要在一台电脑上试用会话，请将链接粘贴到另一个程序中：文件 > 协作编辑 > 加入会话。
+This version of StarDraft cannot join collaborative editing sessions	此版本的 StarDraft 无法加入协作编辑会话
+Uploaded 	上传于 
+Changed 	更改于 
+Verification code: 	验证码：
+Wait for the host to let you in	等待房主允许您加入
+Waiting for people	正在等待其他人
+Waiting for the host…	正在等待房主…
+scmscx.com does not have this map file ready. Try again later.	scmscx.com 尚未准备好此地图文件。请稍后重试。
+scmscx.com sent an answer that StarDraft cannot read.	scmscx.com 发送了 StarDraft 无法读取的响应。
+scmscx.com sent an error (HTTP 	scmscx.com 返回了错误 (HTTP 

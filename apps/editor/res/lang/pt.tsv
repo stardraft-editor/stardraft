@@ -3778,3 +3778,157 @@ Erase fog: remove the fog of war from the tiles that you paint, for the players 
 Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.	Jogadores: os jogadores cuja névoa de guerra a ferramenta muda. Clique para selecionar um ou mais jogadores. As teclas 1 a 8 adicionam ou removem um jogador, e 9 seleciona os 8.
 Resize on the map	Redimensionar no mapa
 Enter: change the size. Esc: cancel.	Enter: alterar o tamanho. Esc: cancelar.
+ (protected map, view only)	 (mapa protegido, somente visualização)
+ (the map shows what they see)	 (o mapa mostra o que a pessoa vê)
+ (you)	 (você)
+ You keep your copy of the map. Save it to keep the changes.	 Você mantém sua cópia do mapa. Salve-a para manter as alterações.
+ has this location selected too	 também selecionou este local
+ has this unit selected too	 também selecionou esta unidade
+ min ago	 min atrás
+ s ago	 s atrás
+ requests edit access.	 solicita acesso de edição.
+ requests view access.	 solicita acesso de visualização.
+Make 	Tornar 
+ the host of the session? You leave the session. You keep your map, and the others stay in the session.	 o anfitrião da sessão? Você sai da sessão. Você mantém seu mapa, e os outros continuam na sessão.
+%u minerals (%d), %u gas (%d), %d tiles	%u minerais (%d), %u gás (%d), %d blocos
+&Credits	&Créditos
+&Invite…	&Convidar…
+&Join session…	&Entrar em uma sessão…
+&Ping here	&Sinalizar aqui
+(no file name)	(sem nome de arquivo)
+. Move the map to stop.	. Mova o mapa para parar.
+1 result	1 resultado
+ results	 resultados
+A session is open. Leave it first.	Há uma sessão aberta. Saia dela primeiro.
+Canceling…	Cancelando…
+Cannot connect to scmscx.com. Check the internet connection.	Não é possível conectar ao scmscx.com. Verifique a conexão com a internet.
+Cannot write the map into 	Não é possível gravar o mapa em 
+Co&llaborative editing (experimental)	Edição co&laborativa (experimental)
+Colla&borators on the minimap	Cola&boradores no minimapa
+Collaboration	Colaboração
+Collaborative editing	Edição colaborativa
+Collaborative editing (experimental)	Edição colaborativa (experimental)
+Collaborative editing (experimental): Map layers are not shared	Edição colaborativa (experimental): as camadas do mapa não são compartilhadas
+Collaborative editing (experimental): invited users edit the map only	Edição colaborativa (experimental): os usuários convidados editam somente o mapa
+Collaborative editing is not available on this system yet.	A edição colaborativa ainda não está disponível neste sistema.
+Connect to the server	Conectar ao servidor
+Connecting to 	Conectando a 
+Connecting…	Conectando…
+Copied the edit invite link	Link de convite para edição copiado
+Copied the view invite link	Link de convite para visualização copiado
+Copy edit link	Copiar link de edição
+Copy view link	Copiar link de visualização
+Could not change the server	Não foi possível alterar o servidor
+Could not join the session	Não foi possível entrar na sessão
+Could not start the session	Não foi possível iniciar a sessão
+Decline	Recusar
+Display name	Nome de exibição
+Display name in the session	Nome de exibição na sessão
+Download and open	Baixar e abrir
+Download canceled.	Download cancelado.
+Downloaded to 	Baixado em 
+Downloading…	Baixando…
+Downloading… 	Baixando… 
+Drag: move the map's content	Arrastrar: mover o conteúdo do mapa
+Drag: the bottom edge	Arrastrar: a borda inferior
+Drag: the bottom left corner	Arrastrar: o canto inferior esquerdo
+Drag: the bottom right corner	Arrastrar: o canto inferior direito
+Drag: the left edge	Arrastrar: a borda esquerda
+Drag: the right edge	Arrastrar: a borda direita
+Drag: the top edge	Arrastrar: a borda superior
+Drag: the top left corner	Arrastrar: o canto superior esquerdo
+Drag: the top right corner	Arrastrar: o canto superior direito
+Edit > Resize map: drag the map's edges on the map itself (one undo step)	Editar > Redimensionar mapa: arraste as bordas do mapa no próprio mapa (uma etapa de desfazer)
+Editors can change terrain, units, doodads, sprites and locations. Each person keeps a local copy of the map, also after you remove them.	Os editores podem alterar o terreno, as unidades, os adornos, os sprites e os locais. Cada pessoa mantém uma cópia local do mapa, mesmo depois que você a remover.
+End session	Encerrar sessão
+End the session for all participants?	Encerrar a sessão para todos os participantes?
+Fog of war: %ls	Névoa de guerra: %ls
+Fog of war: %ls. Added fog to %d tiles.	Névoa de guerra: %ls. Névoa adicionada a %d blocos.
+Fog of war: %ls. Added fog to 1 tile.	Névoa de guerra: %ls. Névoa adicionada a 1 bloco.
+Fog of war: %ls. Removed fog from %d tiles.	Névoa de guerra: %ls. Névoa removida de %d blocos.
+Fog of war: %ls. Removed fog from 1 tile.	Névoa de guerra: %ls. Névoa removida de 1 bloco.
+Fog of war: %ls. These tiles have fog already.	Névoa de guerra: %ls. Estes blocos já têm névoa.
+Fog of war: %ls. These tiles have no fog.	Névoa de guerra: %ls. Estes blocos não têm névoa.
+Following 	Seguindo 
+For new sessions. The default value is collab.stardraft.app.	Para novas sessões. O valor padrão é collab.stardraft.app.
+Get the map	Receber o mapa
+Import &from SCMSCX…	Importar &do SCMSCX…
+Import from SCMSCX	Importar do SCMSCX
+Invite link	Link de convite
+Invite people to edit this map with you (collaborative editing, experimental)	Convidar pessoas para editar este mapa com você (edição colaborativa, experimental)
+Join a collaborative editing session with an invite link (experimental)	Entrar em uma sessão de edição colaborativa com um link de convite (experimental)
+Join request	Pedido de entrada
+Join session…	Entrar em uma sessão…
+Joined the session of 	Você entrou na sessão de 
+Joining the session	Entrando na sessão
+Leave session	Sair da sessão
+Let people in without asking	Deixar entrar sem perguntar
+Live · 	Ao vivo · 
+ people	 pessoas
+Editing 	Editando o mapa de 
+Viewing 	Vendo o mapa de 
+'s map	
+Make host	Tornar anfitrião
+Make host…	Tornar anfitrião…
+Make new links	Criar novos links
+New ground: 	Novo terreno: 
+No maps match the search.	Nenhum mapa corresponde à pesquisa.
+No messages yet. Write to the others in the session here.	Ainda não há mensagens. Escreva aqui para os outros na sessão.
+No session	Sem sessão
+Only a Terran SCV, a Zerg Drone or a Protoss Probe builds with this block. For other units, it does nothing	Somente um VCE terrano, um zangão zerg ou uma sonda protoss constrói com este bloco. Para outras unidades, não faz nada
+Only a Zerg Larva, a Zerg Egg or a Zerg Cocoon morphs with this block. For other units, it does nothing	Somente uma larva, um ovo ou um casulo zerg se transforma com este bloco. Para outras unidades, não faz nada
+Options…	Opções…
+P&si power	Energia p&siônica
+People	Pessoas
+Psi power is hidden	A energia psiônica está oculta
+Psi power shows the game's rule only: in Mod support mode other units give power too, so it shows nothing	A energia psiônica mostra só a regra do jogo: no modo de suporte a mods outras unidades também dão energia, então não mostra nada
+Psi power: light blue buildings have power from a Pylon of their owner, red buildings have no power	Energia psiônica: os edifícios azul-claros recebem energia de um pilão do seu dono, os edifícios vermelhos não têm energia
+Recent changes	Alterações recentes
+Reconnecting…	Reconectando…
+Reset invite links	Redefinir links de convite
+Reset links…	Redefinir links…
+Reset the invite links	Redefinir os links de convite
+Reset the invite links? The old links stop working. The people in the session stay.	Redefinir os links de convite? Os links antigos param de funcionar. As pessoas na sessão continuam.
+Resi&ze map	Redi&mensionar mapa
+Resize map	Redimensionar mapa
+Resize map: drag the edges or the corners; drag inside to move the map's content. Enter: change the size. Esc: cancel.	Redimensionar mapa: arraste as bordas ou os cantos; arraste dentro para mover o conteúdo do mapa. Enter: alterar o tamanho. Esc: cancelar.
+Resize map: the map keeps its size	Redimensionar mapa: o mapa mantém seu tamanho
+S&tars in space	Es&trelas no espaço
+Safety code: 	Código de segurança: 
+Say something	Escreva algo
+Search maps on scmscx.com	Pesquisar mapas no scmscx.com
+Session: connecting…	Sessão: conectando…
+Session: waiting for participants	Sessão: aguardando participantes
+Set edit	Permitir edição
+Set view	Somente visualização
+Show the collaborative editing session	Mostrar a sessão de edição colaborativa
+Show the place on the map	Mostrar o lugar no mapa
+Someone	Alguém
+Space platform	Space Platform
+Stop following	Parar de seguir
+Stop following 	Parar de seguir 
+Stopped following	Parou de seguir
+The download stopped before the end. Try again.	O download parou antes do fim. Tente novamente.
+The file from scmscx.com is not a StarCraft map.	O arquivo do scmscx.com não é um mapa de StarCraft.
+The host sees the same code. If the codes are not the same, cancel.	O anfitrião vê o mesmo código. Se os códigos não forem iguais, cancele.
+The invite links are not ready yet	Os links de convite ainda não estão prontos
+The map is protected: it cannot be copied from	O mapa está protegido: não é possível copiar dele
+The map is protected: it cannot be shared	O mapa está protegido: não é possível compartilhá-lo
+The map is protected: it is view only, and it cannot be saved, exported or copied from	O mapa está protegido: é somente para visualização e não pode ser salvo, exportado nem copiado
+The map is protected: its data and terrain cannot be copied	O mapa está protegido: seus dados e seu terreno não podem ser copiados
+The map is shared: its size cannot change while the session is open	O mapa está compartilhado: seu tamanho não pode mudar enquanto a sessão estiver aberta
+The map's tileset: a change goes into the map at once (one undo step)	O conjunto de blocos do mapa: uma alteração vai para o mapa na hora (uma etapa de desfazer)
+The name that the other people in a session see	O nome que as outras pessoas veem em uma sessão
+The newest maps on scmscx.com	Os mapas mais recentes do scmscx.com
+The same code shows on their computer. Compare the codes if you do not know who sent the request.	O mesmo código aparece no computador da pessoa. Compare os códigos se você não souber quem enviou o pedido.
+This program hosts a session, so it cannot join one. An invite link opens the StarDraft that runs first. To try a session on one computer, paste the link in the other program: File > Collaborative editing > Join session.	Este programa hospeda uma sessão, então não pode entrar em outra. Um link de convite abre o StarDraft que foi iniciado primeiro. Para testar uma sessão em um só computador, cole o link no outro programa: Arquivo > Edição colaborativa > Entrar em uma sessão.
+This version of StarDraft cannot join collaborative editing sessions	Esta versão do StarDraft não pode entrar em sessões de edição colaborativa
+Uploaded 	Enviado 
+Changed 	Alterado 
+Verification code: 	Código de verificação: 
+Wait for the host to let you in	Esperar o anfitrião deixar você entrar
+Waiting for people	Aguardando pessoas
+Waiting for the host…	Aguardando o anfitrião…
+scmscx.com does not have this map file ready. Try again later.	O scmscx.com ainda não tem este arquivo de mapa pronto. Tente novamente mais tarde.
+scmscx.com sent an answer that StarDraft cannot read.	O scmscx.com enviou uma resposta que o StarDraft não consegue ler.
+scmscx.com sent an error (HTTP 	O scmscx.com enviou um erro (HTTP 

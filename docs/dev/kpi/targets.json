@@ -184,5 +184,5 @@
    "target": 0
   }
  },
- "accepted": {"0.9.1": {"largest_file_lines": "the mod terrain mapper (apps/editor/core/views_isom_rules.inc) grew as one file; it is split after 0.9.1, not in the release"}, "0.9.1.1": {"largest_file_lines": "as 0.9.1: a fix release, the split comes after it"}}
+ "accepted": {"0.9.1": {"largest_file_lines": "the mod terrain mapper (apps/editor/core/views_isom_rules.inc) grew as one file; it is split after 0.9.1, not in the release"}, "0.9.1.1": {"largest_file_lines": "as 0.9.1: a fix release, the split comes after it"}, "0.9.2": {"first_frame_small_ms": "about 115 ms (0.9.1.1: 75 ms) with or without the stars, on D3D12 and Vulkan alike; the cause is not found yet (a bisect after the release), the map's open itself is 18 ms", "first_frame_large_ms": "about 115 ms (0.9.1.1: 75 ms) with or without the stars, on D3D12 and Vulkan alike; the cause is not found yet (a bisect after the release), the map's open itself is 18 ms", "largest_file_lines": "as 0.9.1: apps/editor/core/views_isom_rules.inc (the mod terrain mapper) is still one file; its split is not in this release"}}
 }

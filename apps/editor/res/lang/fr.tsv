@@ -3778,3 +3778,157 @@ Erase fog: remove the fog of war from the tiles that you paint, for the players 
 Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.	Joueurs : les joueurs dont l'outil change le brouillard de guerre. Cliquez pour sélectionner un ou plusieurs joueurs. Les touches 1 à 8 ajoutent ou retirent un joueur, et 9 sélectionne les 8.
 Resize on the map	Redimensionner sur la carte
 Enter: change the size. Esc: cancel.	Entrée : changer la taille. Échap : annuler.
+ (protected map, view only)	 (carte protégée, lecture seule)
+ (the map shows what they see)	 (la carte montre ce que cette personne voit)
+ (you)	 (vous)
+ You keep your copy of the map. Save it to keep the changes.	 Vous gardez votre copie de la carte. Enregistrez-la pour garder les modifications.
+ has this location selected too	 a aussi sélectionné cet emplacement
+ has this unit selected too	 a aussi sélectionné cette unité
+ min ago	 min auparavant
+ s ago	 s auparavant
+ requests edit access.	 demande l'accès en modification.
+ requests view access.	 demande l'accès en lecture.
+Make 	Faire de 
+ the host of the session? You leave the session. You keep your map, and the others stay in the session.	 l'hôte de la session ? Vous quittez la session. Vous gardez votre carte, et les autres restent dans la session.
+%u minerals (%d), %u gas (%d), %d tiles	%u minéraux (%d), %u gaz (%d), %d tuiles
+&Credits	&Crédits
+&Invite…	&Inviter…
+&Join session…	&Rejoindre une session…
+&Ping here	&Signaler ici
+(no file name)	(pas de nom de fichier)
+. Move the map to stop.	. Déplacez la carte pour arrêter.
+1 result	1 résultat
+ results	 résultats
+A session is open. Leave it first.	Une session est ouverte. Quittez-la d'abord.
+Canceling…	Annulation…
+Cannot connect to scmscx.com. Check the internet connection.	Impossible de se connecter à scmscx.com. Vérifiez la connexion Internet.
+Cannot write the map into 	Impossible d'écrire la carte dans 
+Co&llaborative editing (experimental)	Édition co&llaborative (expérimental)
+Colla&borators on the minimap	Colla&borateurs sur la minicarte
+Collaboration	Collaboration
+Collaborative editing	Édition collaborative
+Collaborative editing (experimental)	Édition collaborative (expérimental)
+Collaborative editing (experimental): Map layers are not shared	Édition collaborative (expérimental) : les calques de la carte ne sont pas partagés
+Collaborative editing (experimental): invited users edit the map only	Édition collaborative (expérimental) : les utilisateurs invités modifient uniquement la carte
+Collaborative editing is not available on this system yet.	L'édition collaborative n'est pas encore disponible sur ce système.
+Connect to the server	Se connecter au serveur
+Connecting to 	Connexion à 
+Connecting…	Connexion…
+Copied the edit invite link	Lien d'invitation en modification copié
+Copied the view invite link	Lien d'invitation en lecture copié
+Copy edit link	Copier le lien de modification
+Copy view link	Copier le lien de lecture
+Could not change the server	Impossible de changer de serveur
+Could not join the session	Impossible de rejoindre la session
+Could not start the session	Impossible de démarrer la session
+Decline	Refuser
+Display name	Nom d'affichage
+Display name in the session	Nom d'affichage dans la session
+Download and open	Télécharger et ouvrir
+Download canceled.	Téléchargement annulé.
+Downloaded to 	Téléchargé dans 
+Downloading…	Téléchargement…
+Downloading… 	Téléchargement… 
+Drag: move the map's content	Glisser : déplacer le contenu de la carte
+Drag: the bottom edge	Glisser : le bord inférieur
+Drag: the bottom left corner	Glisser : le coin inférieur gauche
+Drag: the bottom right corner	Glisser : le coin inférieur droit
+Drag: the left edge	Glisser : le bord gauche
+Drag: the right edge	Glisser : le bord droit
+Drag: the top edge	Glisser : le bord supérieur
+Drag: the top left corner	Glisser : le coin supérieur gauche
+Drag: the top right corner	Glisser : le coin supérieur droit
+Edit > Resize map: drag the map's edges on the map itself (one undo step)	Éditer > Redimensionner la carte : faites glisser les bords de la carte sur la carte elle-même (une seule étape d'annulation)
+Editors can change terrain, units, doodads, sprites and locations. Each person keeps a local copy of the map, also after you remove them.	Les éditeurs peuvent modifier le terrain, les unités, les décors, les sprites et les emplacements. Chaque personne garde une copie locale de la carte, même après que vous l'avez retirée.
+End session	Terminer la session
+End the session for all participants?	Terminer la session pour tous les participants ?
+Fog of war: %ls	Brouillard de guerre : %ls
+Fog of war: %ls. Added fog to %d tiles.	Brouillard de guerre : %ls. Brouillard ajouté sur %d tuiles.
+Fog of war: %ls. Added fog to 1 tile.	Brouillard de guerre : %ls. Brouillard ajouté sur 1 tuile.
+Fog of war: %ls. Removed fog from %d tiles.	Brouillard de guerre : %ls. Brouillard retiré de %d tuiles.
+Fog of war: %ls. Removed fog from 1 tile.	Brouillard de guerre : %ls. Brouillard retiré de 1 tuile.
+Fog of war: %ls. These tiles have fog already.	Brouillard de guerre : %ls. Ces tuiles ont déjà du brouillard.
+Fog of war: %ls. These tiles have no fog.	Brouillard de guerre : %ls. Ces tuiles n'ont pas de brouillard.
+Following 	Suivi de 
+For new sessions. The default value is collab.stardraft.app.	Pour les nouvelles sessions. La valeur par défaut est collab.stardraft.app.
+Get the map	Recevoir la carte
+Import &from SCMSCX…	Importer &depuis SCMSCX…
+Import from SCMSCX	Importer depuis SCMSCX
+Invite link	Lien d'invitation
+Invite people to edit this map with you (collaborative editing, experimental)	Inviter des personnes à modifier cette carte avec vous (édition collaborative, expérimental)
+Join a collaborative editing session with an invite link (experimental)	Rejoindre une session d'édition collaborative avec un lien d'invitation (expérimental)
+Join request	Demande d'accès
+Join session…	Rejoindre une session…
+Joined the session of 	Session rejointe : 
+Joining the session	Connexion à la session
+Leave session	Quitter la session
+Let people in without asking	Laisser entrer sans demander
+Live · 	En direct · 
+ people	 personnes
+Editing 	Modification de la carte de 
+Viewing 	Consultation de la carte de 
+'s map	
+Make host	Désigner comme hôte
+Make host…	Désigner comme hôte…
+Make new links	Créer de nouveaux liens
+New ground: 	Nouveau sol : 
+No maps match the search.	Aucune carte ne correspond à la recherche.
+No messages yet. Write to the others in the session here.	Pas encore de messages. Écrivez ici aux autres personnes de la session.
+No session	Aucune session
+Only a Terran SCV, a Zerg Drone or a Protoss Probe builds with this block. For other units, it does nothing	Seul un VCS terran, un drone zerg ou une sonde protoss construit avec ce bloc. Pour les autres unités, il ne fait rien
+Only a Zerg Larva, a Zerg Egg or a Zerg Cocoon morphs with this block. For other units, it does nothing	Seule une larve, un œuf ou un cocon zerg se transforme avec ce bloc. Pour les autres unités, il ne fait rien
+Options…	Options…
+P&si power	Énergie p&sionique
+People	Personnes
+Psi power is hidden	L'énergie psionique est masquée
+Psi power shows the game's rule only: in Mod support mode other units give power too, so it shows nothing	L'énergie psionique montre uniquement la règle du jeu : en mode prise en charge des mods, d'autres unités donnent aussi de l'énergie, donc elle n'affiche rien
+Psi power: light blue buildings have power from a Pylon of their owner, red buildings have no power	Énergie psionique : les bâtiments bleu clair sont alimentés par un pylône de leur propriétaire, les bâtiments rouges ne sont pas alimentés
+Recent changes	Modifications récentes
+Reconnecting…	Reconnexion…
+Reset invite links	Réinitialiser les liens d'invitation
+Reset links…	Réinitialiser les liens…
+Reset the invite links	Réinitialiser les liens d'invitation
+Reset the invite links? The old links stop working. The people in the session stay.	Réinitialiser les liens d'invitation ? Les anciens liens ne fonctionneront plus. Les personnes de la session restent.
+Resi&ze map	Redimensionner la &carte
+Resize map	Redimensionner la carte
+Resize map: drag the edges or the corners; drag inside to move the map's content. Enter: change the size. Esc: cancel.	Redimensionner la carte : faites glisser les bords ou les coins ; faites glisser à l'intérieur pour déplacer le contenu de la carte. Entrée : changer la taille. Échap : annuler.
+Resize map: the map keeps its size	Redimensionner la carte : la carte garde sa taille
+S&tars in space	É&toiles dans l'espace
+Safety code: 	Code de sécurité : 
+Say something	Écrivez quelque chose
+Search maps on scmscx.com	Rechercher des cartes sur scmscx.com
+Session: connecting…	Session : connexion…
+Session: waiting for participants	Session : en attente de participants
+Set edit	Autoriser la modification
+Set view	Lecture seule
+Show the collaborative editing session	Afficher la session d'édition collaborative
+Show the place on the map	Afficher l'endroit sur la carte
+Someone	Quelqu'un
+Space platform	Space Platform
+Stop following	Arrêter de suivre
+Stop following 	Arrêter de suivre 
+Stopped following	Suivi arrêté
+The download stopped before the end. Try again.	Le téléchargement s'est arrêté avant la fin. Réessayez.
+The file from scmscx.com is not a StarCraft map.	Le fichier de scmscx.com n'est pas une carte StarCraft.
+The host sees the same code. If the codes are not the same, cancel.	L'hôte voit le même code. Si les codes ne sont pas identiques, annulez.
+The invite links are not ready yet	Les liens d'invitation ne sont pas encore prêts
+The map is protected: it cannot be copied from	La carte est protégée : impossible de copier depuis elle
+The map is protected: it cannot be shared	La carte est protégée : impossible de la partager
+The map is protected: it is view only, and it cannot be saved, exported or copied from	La carte est protégée : elle est en lecture seule, et impossible de l'enregistrer, de l'exporter ou de copier depuis elle
+The map is protected: its data and terrain cannot be copied	La carte est protégée : ses données et son terrain ne peuvent pas être copiés
+The map is shared: its size cannot change while the session is open	La carte est partagée : sa taille ne peut pas changer tant que la session est ouverte
+The map's tileset: a change goes into the map at once (one undo step)	Le jeu de tuiles de la carte : une modification s'applique à la carte immédiatement (une seule étape d'annulation)
+The name that the other people in a session see	Le nom que voient les autres personnes d'une session
+The newest maps on scmscx.com	Les cartes les plus récentes sur scmscx.com
+The same code shows on their computer. Compare the codes if you do not know who sent the request.	Le même code s'affiche sur son ordinateur. Comparez les codes si vous ne savez pas qui a envoyé la demande.
+This program hosts a session, so it cannot join one. An invite link opens the StarDraft that runs first. To try a session on one computer, paste the link in the other program: File > Collaborative editing > Join session.	Ce programme héberge une session, il ne peut donc pas en rejoindre une. Un lien d'invitation ouvre le StarDraft lancé en premier. Pour essayer une session sur un seul ordinateur, collez le lien dans l'autre programme : Fichier > Édition collaborative > Rejoindre une session.
+This version of StarDraft cannot join collaborative editing sessions	Cette version de StarDraft ne peut pas rejoindre de sessions d'édition collaborative
+Uploaded 	Envoyé 
+Changed 	Modifié 
+Verification code: 	Code de vérification : 
+Wait for the host to let you in	Attendre que l'hôte vous laisse entrer
+Waiting for people	En attente de personnes
+Waiting for the host…	En attente de l'hôte…
+scmscx.com does not have this map file ready. Try again later.	scmscx.com n'a pas encore ce fichier de carte prêt. Réessayez plus tard.
+scmscx.com sent an answer that StarDraft cannot read.	scmscx.com a envoyé une réponse que StarDraft ne peut pas lire.
+scmscx.com sent an error (HTTP 	scmscx.com a envoyé une erreur (HTTP 

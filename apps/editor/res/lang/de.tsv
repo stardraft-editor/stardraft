@@ -3778,3 +3778,157 @@ Erase fog: remove the fog of war from the tiles that you paint, for the players 
 Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.	Spieler: Die Spieler, deren Kriegsnebel das Werkzeug ändert. Klicken, um einen oder mehrere Spieler auszuwählen. Die Tasten 1 bis 8 fügen einen Spieler hinzu oder entfernen ihn, 9 wählt alle 8.
 Resize on the map	Auf der Karte ändern
 Enter: change the size. Esc: cancel.	Enter: Größe ändern. Esc: abbrechen.
+ (protected map, view only)	 (geschützte Karte, nur Ansicht)
+ (the map shows what they see)	 (die Karte zeigt, was die Person sieht)
+ (you)	 (Sie)
+ You keep your copy of the map. Save it to keep the changes.	 Ihre Kopie der Karte bleibt. Speichern Sie sie, um die Änderungen zu behalten.
+ has this location selected too	 hat diesen Ort auch ausgewählt
+ has this unit selected too	 hat diese Einheit auch ausgewählt
+ min ago	 Min. her
+ s ago	 s her
+ requests edit access.	 bittet um Bearbeitungszugriff.
+ requests view access.	 bittet um Ansichtszugriff.
+Make 	Soll 
+ the host of the session? You leave the session. You keep your map, and the others stay in the session.	 Host der Sitzung werden? Sie verlassen die Sitzung. Ihre Karte bleibt, und die anderen bleiben in der Sitzung.
+%u minerals (%d), %u gas (%d), %d tiles	%u Mineralien (%d), %u Vespingas (%d), %d Felder
+&Credits	&Mitwirkende
+&Invite…	&Einladen…
+&Join session…	Sitzung &beitreten…
+&Ping here	Hier &pingen
+(no file name)	(kein Dateiname)
+. Move the map to stop.	. Karte verschieben, um aufzuhören.
+1 result	1 Ergebnis
+ results	 Ergebnisse
+A session is open. Leave it first.	Eine Sitzung ist offen. Verlassen Sie sie zuerst.
+Canceling…	Wird abgebrochen…
+Cannot connect to scmscx.com. Check the internet connection.	Keine Verbindung zu scmscx.com. Prüfen Sie die Internetverbindung.
+Cannot write the map into 	Die Karte kann nicht geschrieben werden in 
+Co&llaborative editing (experimental)	&Gemeinsames Bearbeiten (experimentell)
+Colla&borators on the minimap	&Mitarbeitende auf der Minikarte
+Collaboration	Zusammenarbeit
+Collaborative editing	Gemeinsames Bearbeiten
+Collaborative editing (experimental)	Gemeinsames Bearbeiten (experimentell)
+Collaborative editing (experimental): Map layers are not shared	Gemeinsames Bearbeiten (experimentell): Kartenebenen werden nicht geteilt
+Collaborative editing (experimental): invited users edit the map only	Gemeinsames Bearbeiten (experimentell): Eingeladene bearbeiten nur die Karte
+Collaborative editing is not available on this system yet.	Gemeinsames Bearbeiten ist auf diesem System noch nicht verfügbar.
+Connect to the server	Mit dem Server verbinden
+Connecting to 	Verbindung mit 
+Connecting…	Verbindung wird hergestellt…
+Copied the edit invite link	Einladungslink zum Bearbeiten kopiert
+Copied the view invite link	Einladungslink zum Ansehen kopiert
+Copy edit link	Bearbeitungslink kopieren
+Copy view link	Ansichtslink kopieren
+Could not change the server	Der Server konnte nicht geändert werden
+Could not join the session	Beitritt zur Sitzung nicht möglich
+Could not start the session	Die Sitzung konnte nicht gestartet werden
+Decline	Ablehnen
+Display name	Anzeigename
+Display name in the session	Anzeigename in der Sitzung
+Download and open	Herunterladen und öffnen
+Download canceled.	Download abgebrochen.
+Downloaded to 	Heruntergeladen nach 
+Downloading…	Wird heruntergeladen…
+Downloading… 	Wird heruntergeladen… 
+Drag: move the map's content	Ziehen: Karteninhalt verschieben
+Drag: the bottom edge	Ziehen: unterer Rand
+Drag: the bottom left corner	Ziehen: untere linke Ecke
+Drag: the bottom right corner	Ziehen: untere rechte Ecke
+Drag: the left edge	Ziehen: linker Rand
+Drag: the right edge	Ziehen: rechter Rand
+Drag: the top edge	Ziehen: oberer Rand
+Drag: the top left corner	Ziehen: obere linke Ecke
+Drag: the top right corner	Ziehen: obere rechte Ecke
+Edit > Resize map: drag the map's edges on the map itself (one undo step)	Bearbeiten > Kartengröße ändern: die Ränder der Karte direkt auf der Karte ziehen (ein Rückgängig-Schritt)
+Editors can change terrain, units, doodads, sprites and locations. Each person keeps a local copy of the map, also after you remove them.	Bearbeiter können Gelände, Einheiten, Doodads, Sprites und Orte ändern. Jede Person behält eine lokale Kopie der Karte, auch nachdem Sie sie entfernt haben.
+End session	Sitzung beenden
+End the session for all participants?	Die Sitzung für alle Teilnehmer beenden?
+Fog of war: %ls	Kriegsnebel: %ls
+Fog of war: %ls. Added fog to %d tiles.	Kriegsnebel: %ls. Nebel auf %d Felder gesetzt.
+Fog of war: %ls. Added fog to 1 tile.	Kriegsnebel: %ls. Nebel auf 1 Feld gesetzt.
+Fog of war: %ls. Removed fog from %d tiles.	Kriegsnebel: %ls. Nebel von %d Feldern entfernt.
+Fog of war: %ls. Removed fog from 1 tile.	Kriegsnebel: %ls. Nebel von 1 Feld entfernt.
+Fog of war: %ls. These tiles have fog already.	Kriegsnebel: %ls. Diese Felder haben schon Nebel.
+Fog of war: %ls. These tiles have no fog.	Kriegsnebel: %ls. Diese Felder haben keinen Nebel.
+Following 	Folge 
+For new sessions. The default value is collab.stardraft.app.	Für neue Sitzungen. Der Standardwert ist collab.stardraft.app.
+Get the map	Karte holen
+Import &from SCMSCX…	&Aus SCMSCX importieren…
+Import from SCMSCX	Aus SCMSCX importieren
+Invite link	Einladungslink
+Invite people to edit this map with you (collaborative editing, experimental)	Personen einladen, diese Karte mit Ihnen zu bearbeiten (gemeinsames Bearbeiten, experimentell)
+Join a collaborative editing session with an invite link (experimental)	Mit einem Einladungslink einer Sitzung für gemeinsames Bearbeiten beitreten (experimentell)
+Join request	Beitrittsanfrage
+Join session…	Sitzung beitreten…
+Joined the session of 	Der Sitzung beigetreten: 
+Joining the session	Sitzung wird beigetreten
+Leave session	Sitzung verlassen
+Let people in without asking	Ohne Nachfrage hereinlassen
+Live · 	Live · 
+ people	 Personen
+Editing 	Bearbeitung der Karte von 
+Viewing 	Ansicht der Karte von 
+'s map	
+Make host	Zum Host machen
+Make host…	Zum Host machen…
+Make new links	Neue Links erstellen
+New ground: 	Neuer Boden: 
+No maps match the search.	Keine Karte passt zur Suche.
+No messages yet. Write to the others in the session here.	Noch keine Nachrichten. Schreiben Sie hier den anderen in der Sitzung.
+No session	Keine Sitzung
+Only a Terran SCV, a Zerg Drone or a Protoss Probe builds with this block. For other units, it does nothing	Nur ein Terraner-WBF, eine Zerg-Drohne oder eine Protoss-Sonde baut mit diesem Block. Bei anderen Einheiten macht er nichts
+Only a Zerg Larva, a Zerg Egg or a Zerg Cocoon morphs with this block. For other units, it does nothing	Nur eine Zerg-Larve, ein Zerg-Ei oder ein Zerg-Kokon mutiert mit diesem Block. Bei anderen Einheiten macht er nichts
+Options…	Optionen…
+P&si power	P&si-Energie
+People	Personen
+Psi power is hidden	Psi-Energie ist ausgeblendet
+Psi power shows the game's rule only: in Mod support mode other units give power too, so it shows nothing	Psi-Energie zeigt nur die Regel des Spiels: Im Modus Mod-Unterstützung geben auch andere Einheiten Energie, darum zeigt sie nichts
+Psi power: light blue buildings have power from a Pylon of their owner, red buildings have no power	Psi-Energie: Hellblaue Gebäude haben Energie von einem Pylon ihres Besitzers, rote Gebäude haben keine Energie
+Recent changes	Letzte Änderungen
+Reconnecting…	Verbindung wird wiederhergestellt…
+Reset invite links	Einladungslinks zurücksetzen
+Reset links…	Links zurücksetzen…
+Reset the invite links	Die Einladungslinks zurücksetzen
+Reset the invite links? The old links stop working. The people in the session stay.	Die Einladungslinks zurücksetzen? Die alten Links funktionieren dann nicht mehr. Die Personen in der Sitzung bleiben.
+Resi&ze map	Karten&größe ändern
+Resize map	Kartengröße ändern
+Resize map: drag the edges or the corners; drag inside to move the map's content. Enter: change the size. Esc: cancel.	Kartengröße ändern: Ränder oder Ecken ziehen; innen ziehen verschiebt den Karteninhalt. Enter: Größe ändern. Esc: abbrechen.
+Resize map: the map keeps its size	Kartengröße ändern: Die Karte behält ihre Größe
+S&tars in space	&Sterne im Weltraum
+Safety code: 	Sicherheitscode: 
+Say something	Etwas schreiben
+Search maps on scmscx.com	Karten auf scmscx.com suchen
+Session: connecting…	Sitzung: Verbindung wird hergestellt…
+Session: waiting for participants	Sitzung: Warten auf Teilnehmer
+Set edit	Auf Bearbeiten setzen
+Set view	Auf Ansicht setzen
+Show the collaborative editing session	Sitzung für gemeinsames Bearbeiten anzeigen
+Show the place on the map	Die Stelle auf der Karte zeigen
+Someone	Jemand
+Space platform	Weltraumplattform
+Stop following	Nicht mehr folgen
+Stop following 	Nicht mehr folgen: 
+Stopped following	Folgen beendet
+The download stopped before the end. Try again.	Der Download hat vor dem Ende aufgehört. Versuchen Sie es erneut.
+The file from scmscx.com is not a StarCraft map.	Die Datei von scmscx.com ist keine StarCraft-Karte.
+The host sees the same code. If the codes are not the same, cancel.	Der Host sieht denselben Code. Wenn die Codes nicht gleich sind, brechen Sie ab.
+The invite links are not ready yet	Die Einladungslinks sind noch nicht bereit
+The map is protected: it cannot be copied from	Die Karte ist geschützt: Aus ihr kann nicht kopiert werden
+The map is protected: it cannot be shared	Die Karte ist geschützt: Sie kann nicht geteilt werden
+The map is protected: it is view only, and it cannot be saved, exported or copied from	Die Karte ist geschützt: nur Ansicht, sie kann nicht gespeichert, exportiert oder kopiert werden
+The map is protected: its data and terrain cannot be copied	Die Karte ist geschützt: Ihre Daten und ihr Gelände können nicht kopiert werden
+The map is shared: its size cannot change while the session is open	Die Karte ist geteilt: Ihre Größe kann sich nicht ändern, solange die Sitzung offen ist
+The map's tileset: a change goes into the map at once (one undo step)	Das Tileset der Karte: Eine Änderung kommt sofort in die Karte (ein Rückgängig-Schritt)
+The name that the other people in a session see	Der Name, den die anderen in einer Sitzung sehen
+The newest maps on scmscx.com	Die neuesten Karten auf scmscx.com
+The same code shows on their computer. Compare the codes if you do not know who sent the request.	Derselbe Code erscheint auf dem Computer der Person. Vergleichen Sie die Codes, wenn Sie nicht wissen, wer die Anfrage gesendet hat.
+This program hosts a session, so it cannot join one. An invite link opens the StarDraft that runs first. To try a session on one computer, paste the link in the other program: File > Collaborative editing > Join session.	Dieses Programm ist Host einer Sitzung und kann daher keiner beitreten. Ein Einladungslink öffnet das StarDraft, das zuerst läuft. Um eine Sitzung auf einem Computer zu testen, fügen Sie den Link im anderen Programm ein: Datei > Gemeinsames Bearbeiten > Sitzung beitreten.
+This version of StarDraft cannot join collaborative editing sessions	Diese Version von StarDraft kann Sitzungen für gemeinsames Bearbeiten nicht beitreten
+Uploaded 	Hochgeladen 
+Changed 	Geändert 
+Verification code: 	Bestätigungscode: 
+Wait for the host to let you in	Warten, bis der Host Sie hereinlässt
+Waiting for people	Warten auf Personen
+Waiting for the host…	Warten auf den Host…
+scmscx.com does not have this map file ready. Try again later.	scmscx.com hat diese Kartendatei noch nicht bereit. Versuchen Sie es später erneut.
+scmscx.com sent an answer that StarDraft cannot read.	scmscx.com hat eine Antwort gesendet, die StarDraft nicht lesen kann.
+scmscx.com sent an error (HTTP 	scmscx.com hat einen Fehler gesendet (HTTP 

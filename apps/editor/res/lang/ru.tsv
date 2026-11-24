@@ -3778,3 +3778,157 @@ Erase fog: remove the fog of war from the tiles that you paint, for the players 
 Players: the players whose fog of war the tool changes. Click to select one or more players. The keys 1 to 8 add or remove a player, and 9 selects all 8.	Игроки: игроки, туман войны которых меняет инструмент. Щелкните, чтобы выбрать одного или нескольких игроков. Клавиши 1–8 добавляют или убирают игрока, 9 выбирает всех 8.
 Resize on the map	Изменить на карте
 Enter: change the size. Esc: cancel.	Enter: изменить размер. Esc: отмена.
+ (protected map, view only)	 (защищённая карта, только просмотр)
+ (the map shows what they see)	 (карта показывает то, что видит этот участник)
+ (you)	 (вы)
+ You keep your copy of the map. Save it to keep the changes.	 Ваша копия карты остаётся у вас. Сохраните её, чтобы не потерять изменения.
+ has this location selected too	 тоже выбрал(а) эту локацию
+ has this unit selected too	 тоже выбрал(а) этот юнит
+ min ago	 мин назад
+ s ago	 с назад
+ requests edit access.	 запрашивает доступ на редактирование.
+ requests view access.	 запрашивает доступ на просмотр.
+Make 	Сделать 
+ the host of the session? You leave the session. You keep your map, and the others stay in the session.	 хостом сеанса? Вы выйдете из сеанса. Ваша карта остаётся у вас, а остальные остаются в сеансе.
+%u minerals (%d), %u gas (%d), %d tiles	%u минералов (%d), %u газа (%d), %d тайлов
+&Credits	&Благодарности
+&Invite…	&Пригласить…
+&Join session…	&Присоединиться к сеансу…
+&Ping here	Отметить &здесь
+(no file name)	(нет имени файла)
+. Move the map to stop.	. Сдвиньте карту, чтобы остановить.
+1 result	1 результат
+ results	 результатов
+A session is open. Leave it first.	Открыт сеанс. Сначала выйдите из него.
+Canceling…	Отмена…
+Cannot connect to scmscx.com. Check the internet connection.	Не удаётся подключиться к scmscx.com. Проверьте подключение к интернету.
+Cannot write the map into 	Не удаётся записать карту в 
+Co&llaborative editing (experimental)	&Совместное редактирование (экспериментально)
+Colla&borators on the minimap	Со&авторы на миникарте
+Collaboration	Совместная работа
+Collaborative editing	Совместное редактирование
+Collaborative editing (experimental)	Совместное редактирование (экспериментально)
+Collaborative editing (experimental): Map layers are not shared	Совместное редактирование (экспериментально): слои карты не передаются
+Collaborative editing (experimental): invited users edit the map only	Совместное редактирование (экспериментально): приглашённые пользователи редактируют только карту
+Collaborative editing is not available on this system yet.	Совместное редактирование пока недоступно в этой системе.
+Connect to the server	Подключиться к серверу
+Connecting to 	Подключение к 
+Connecting…	Подключение…
+Copied the edit invite link	Ссылка-приглашение на редактирование скопирована
+Copied the view invite link	Ссылка-приглашение на просмотр скопирована
+Copy edit link	Копировать ссылку на редактирование
+Copy view link	Копировать ссылку на просмотр
+Could not change the server	Не удалось сменить сервер
+Could not join the session	Не удалось присоединиться к сеансу
+Could not start the session	Не удалось начать сеанс
+Decline	Отклонить
+Display name	Отображаемое имя
+Display name in the session	Отображаемое имя в сеансе
+Download and open	Скачать и открыть
+Download canceled.	Скачивание отменено.
+Downloaded to 	Скачано в 
+Downloading…	Скачивание…
+Downloading… 	Скачивание… 
+Drag: move the map's content	Перетаскивание: сдвинуть содержимое карты
+Drag: the bottom edge	Перетаскивание: нижний край
+Drag: the bottom left corner	Перетаскивание: левый нижний угол
+Drag: the bottom right corner	Перетаскивание: правый нижний угол
+Drag: the left edge	Перетаскивание: левый край
+Drag: the right edge	Перетаскивание: правый край
+Drag: the top edge	Перетаскивание: верхний край
+Drag: the top left corner	Перетаскивание: левый верхний угол
+Drag: the top right corner	Перетаскивание: правый верхний угол
+Edit > Resize map: drag the map's edges on the map itself (one undo step)	Правка > Изменить размер карты: перетаскивайте края карты прямо на карте (один шаг отмены)
+Editors can change terrain, units, doodads, sprites and locations. Each person keeps a local copy of the map, also after you remove them.	Редакторы могут менять местность, юниты, декорации, спрайты и локации. У каждого участника остаётся локальная копия карты, даже после того как вы его удалите.
+End session	Завершить сеанс
+End the session for all participants?	Завершить сеанс для всех участников?
+Fog of war: %ls	Туман войны: %ls
+Fog of war: %ls. Added fog to %d tiles.	Туман войны: %ls. Туман добавлен на %d тайлов.
+Fog of war: %ls. Added fog to 1 tile.	Туман войны: %ls. Туман добавлен на 1 тайл.
+Fog of war: %ls. Removed fog from %d tiles.	Туман войны: %ls. Туман убран с %d тайлов.
+Fog of war: %ls. Removed fog from 1 tile.	Туман войны: %ls. Туман убран с 1 тайла.
+Fog of war: %ls. These tiles have fog already.	Туман войны: %ls. На этих тайлах уже есть туман.
+Fog of war: %ls. These tiles have no fog.	Туман войны: %ls. На этих тайлах нет тумана.
+Following 	Следование за 
+For new sessions. The default value is collab.stardraft.app.	Для новых сеансов. Значение по умолчанию: collab.stardraft.app.
+Get the map	Получить карту
+Import &from SCMSCX…	Импорт &из SCMSCX…
+Import from SCMSCX	Импорт из SCMSCX
+Invite link	Ссылка-приглашение
+Invite people to edit this map with you (collaborative editing, experimental)	Пригласить других редактировать эту карту вместе с вами (совместное редактирование, экспериментально)
+Join a collaborative editing session with an invite link (experimental)	Присоединиться к сеансу совместного редактирования по ссылке-приглашению (экспериментально)
+Join request	Запрос на присоединение
+Join session…	Присоединиться к сеансу…
+Joined the session of 	Вы присоединились к сеансу: 
+Joining the session	Присоединение к сеансу
+Leave session	Выйти из сеанса
+Let people in without asking	Впускать без запроса
+Live · 	Онлайн · 
+ people	 чел.
+Editing 	Редактирование карты: 
+Viewing 	Просмотр карты: 
+'s map	
+Make host	Сделать хостом
+Make host…	Сделать хостом…
+Make new links	Создать новые ссылки
+New ground: 	Новая земля: 
+No maps match the search.	Нет карт, подходящих под поиск.
+No messages yet. Write to the others in the session here.	Сообщений пока нет. Пишите здесь остальным участникам сеанса.
+No session	Нет сеанса
+Only a Terran SCV, a Zerg Drone or a Protoss Probe builds with this block. For other units, it does nothing	Строить этим блоком может только КСМ терранов, трутень зергов или зонд протоссов. Для других юнитов он ничего не делает
+Only a Zerg Larva, a Zerg Egg or a Zerg Cocoon morphs with this block. For other units, it does nothing	Превращаться этим блоком может только личинка, яйцо или кокон зергов. Для других юнитов он ничего не делает
+Options…	Параметры…
+P&si power	П&си-энергия
+People	Участники
+Psi power is hidden	Пси-энергия скрыта
+Psi power shows the game's rule only: in Mod support mode other units give power too, so it shows nothing	Пси-энергия показывает только правило игры: в режиме поддержки модов энергию дают и другие юниты, поэтому ничего не показывается
+Psi power: light blue buildings have power from a Pylon of their owner, red buildings have no power	Пси-энергия: светло-синие здания получают энергию от пилона своего владельца, у красных зданий энергии нет
+Recent changes	Последние изменения
+Reconnecting…	Переподключение…
+Reset invite links	Сбросить ссылки-приглашения
+Reset links…	Сбросить ссылки…
+Reset the invite links	Сбросить ссылки-приглашения
+Reset the invite links? The old links stop working. The people in the session stay.	Сбросить ссылки-приглашения? Старые ссылки перестанут работать. Участники сеанса останутся.
+Resi&ze map	Изменить &размер карты
+Resize map	Изменить размер карты
+Resize map: drag the edges or the corners; drag inside to move the map's content. Enter: change the size. Esc: cancel.	Изменить размер карты: перетаскивайте края или углы; перетаскивание внутри сдвигает содержимое карты. Enter: изменить размер. Esc: отмена.
+Resize map: the map keeps its size	Изменить размер карты: размер карты не изменился
+S&tars in space	&Звёзды в космосе
+Safety code: 	Код безопасности: 
+Say something	Напишите что-нибудь
+Search maps on scmscx.com	Поиск карт на scmscx.com
+Session: connecting…	Сеанс: подключение…
+Session: waiting for participants	Сеанс: ожидание участников
+Set edit	Дать редактирование
+Set view	Только просмотр
+Show the collaborative editing session	Показать сеанс совместного редактирования
+Show the place on the map	Показать место на карте
+Someone	Кто-то
+Space platform	Космическая платформа
+Stop following	Перестать следовать
+Stop following 	Перестать следовать за 
+Stopped following	Следование остановлено
+The download stopped before the end. Try again.	Скачивание прервалось до конца. Попробуйте ещё раз.
+The file from scmscx.com is not a StarCraft map.	Файл с scmscx.com не является картой StarCraft.
+The host sees the same code. If the codes are not the same, cancel.	Хост видит тот же код. Если коды не совпадают, отмените.
+The invite links are not ready yet	Ссылки-приглашения ещё не готовы
+The map is protected: it cannot be copied from	Карта защищена: из неё нельзя копировать
+The map is protected: it cannot be shared	Карта защищена: ею нельзя поделиться
+The map is protected: it is view only, and it cannot be saved, exported or copied from	Карта защищена: только просмотр, её нельзя сохранить, экспортировать или копировать из неё
+The map is protected: its data and terrain cannot be copied	Карта защищена: её данные и местность нельзя копировать
+The map is shared: its size cannot change while the session is open	Карта общая: её размер нельзя изменить, пока сеанс открыт
+The map's tileset: a change goes into the map at once (one undo step)	Тайлсет карты: изменение сразу попадает в карту (один шаг отмены)
+The name that the other people in a session see	Имя, которое видят другие участники сеанса
+The newest maps on scmscx.com	Новейшие карты на scmscx.com
+The same code shows on their computer. Compare the codes if you do not know who sent the request.	Тот же код показан на компьютере этого человека. Сравните коды, если не знаете, кто отправил запрос.
+This program hosts a session, so it cannot join one. An invite link opens the StarDraft that runs first. To try a session on one computer, paste the link in the other program: File > Collaborative editing > Join session.	Эта программа проводит сеанс, поэтому не может присоединиться к другому. Ссылка-приглашение открывает StarDraft, запущенный первым. Чтобы попробовать сеанс на одном компьютере, вставьте ссылку в другую программу: Файл > Совместное редактирование > Присоединиться к сеансу.
+This version of StarDraft cannot join collaborative editing sessions	Эта версия StarDraft не может присоединяться к сеансам совместного редактирования
+Uploaded 	Загружено 
+Changed 	Изменено 
+Verification code: 	Код проверки: 
+Wait for the host to let you in	Дождаться, пока хост впустит вас
+Waiting for people	Ожидание участников
+Waiting for the host…	Ожидание хоста…
+scmscx.com does not have this map file ready. Try again later.	На scmscx.com этот файл карты ещё не готов. Попробуйте позже.
+scmscx.com sent an answer that StarDraft cannot read.	scmscx.com прислал ответ, который StarDraft не может прочитать.
+scmscx.com sent an error (HTTP 	scmscx.com прислал ошибку (HTTP 
