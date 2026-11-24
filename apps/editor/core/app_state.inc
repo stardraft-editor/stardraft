@@ -34,6 +34,7 @@ struct AppState {
     double sprayHeld = 0, sprayCredit = 0;  // a held spray: the seconds it is held, and the sprays due
     int sprayPlaced = 0;                    // the units or doodads that the press and hold placed
     bool terrainRect = false;  // the Terrain tool strip's Rectangle: the tools work on tiles as they are (tiles_view.inc)
+    int rotateBrush = 7;  // Rotate brush, each tool's (bits: 1 Tile, 2 Custom, 4 Rectangle): turned copies of tiles turn (Editor::symmetryCells)
     bool hasTerrainSel = false;
     Rect terrainSel;
     // Rectangle and Stamps: a selection of tiles that need not be one rectangle (Shift adds tiles, Ctrl takes them out):

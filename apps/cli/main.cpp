@@ -1543,11 +1543,14 @@ Json cmdApply(Session& s) {
                 else if (n == "top_bottom") mirrors |= Mirror::TopBottom;
                 else if (n == "diagonal") mirrors |= Mirror::Diagonal;
                 else if (n == "anti_diagonal") mirrors |= Mirror::AntiDiagonal;
-                else fail("options.mirrors: left_right, top_bottom, diagonal or anti_diagonal");
+                else if (n == "iso_diagonal") mirrors |= Mirror::IsoDiagonal;
+                else if (n == "iso_anti_diagonal") mirrors |= Mirror::IsoAntiDiagonal;
+                else fail("options.mirrors: left_right, top_bottom, diagonal, anti_diagonal, iso_diagonal or iso_anti_diagonal");
             }
         }
         ed.setMirrors(mirrors);
         ed.setTurns(opt->integer("turns", 1));
+        ed.setIsoTurns(opt->boolean("iso_turns", false)), ed.setStableTurns(opt->boolean("stable_turns", false));  // (Isometric rotation, Stable rotation)
     }
     const Bytes before = ed.chk().serialize();
     std::vector<ClassicAiScript> ai;  // (only trigger operations need them)

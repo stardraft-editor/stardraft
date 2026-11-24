@@ -284,35 +284,37 @@ void tilesPasteAt(float wx, float wy, int& tx, int& ty) {
     ty = std::clamp(int(std::floor(wy / 32)), 1 - ed.tileClipboardHeight(), std::max(0, int(ed.height()) - 1));
 }
 
-// The tool strip's mirrors and turns in Rectangle mode, as Isometric's brush has them: each tile is placed at the images of
-// its middle too (the same tile: a tile is not turned). The tiles themselves first, then their images where no tile of
-// the stroke is.
+// Rotate brush (the tool strip, after the symmetry): each of Tile, Custom and Rectangle has its own.
+int rotateBrushBit() { return gTiles && gTiles->solid ? 4 : gTiles && gTiles->stamps ? 2 : 1; }
+bool rotateBrushOn() { return (appState().rotateBrush & rotateBrushBit()) != 0; }
+
+// The tool strip's mirrors and turns in the Tile and Custom tools: the tiles' copies round the symmetry
+// (Editor::symmetryCells: with Rotate brush, turned and mirrored with no holes; else moved). The tiles themselves first,
+// then their copies where no tile of the stroke is.
 std::vector<Editor::TileAt> tilesMirrored(const std::vector<Editor::TileAt>& cells) {
-    const Editor& ed = *appState().ed;
-    if (!ed.mirrors() && ed.turns() == 1) return cells;  // (the turns too: a tile is not turned, its images are)
-    std::vector<Editor::TileAt> out = cells;
-    std::set<std::pair<int, int>> taken;
-    for (const auto& c : cells) taken.insert({c.x, c.y});
-    for (const auto& c : cells)
-        for (auto [px, py] : ed.symmetricPoints(c.x * 32 + 16, c.y * 32 + 16)) {
-            const int x = int(std::floor(px / 32.0)), y = int(std::floor(py / 32.0));
-            if (x >= 0 && y >= 0 && x < ed.width() && y < ed.height() && taken.insert({x, y}).second) out.push_back({x, y, c.value});
-        }
-    return out;
-}
-// Solid's mirrors and turns: each rect at the images of its middle (the same two tiles, in their order), at the rect that
-// has the image's middle. The rects themselves first, then their images where no tile of the stroke is.
-std::vector<Editor::TileAt> solidMirrored(const std::vector<Editor::TileAt>& cells) {
     const Editor& ed = *appState().ed;
     if (!ed.mirrors() && ed.turns() == 1) return cells;
     std::vector<Editor::TileAt> out = cells;
-    std::set<std::pair<int, int>> taken;
-    for (const auto& c : cells) taken.insert({c.x, c.y});
-    for (const auto& c : cells)
-        for (auto [px, py] : ed.symmetricPoints((c.x & ~1) * 32 + 32, c.y * 32 + 16)) {
-            const int x = 2 * int(std::floor(px / 64.0)) + (c.x & 1), y = int(std::floor(py / 32.0));
-            if (x >= 0 && y >= 0 && x < ed.width() && y < ed.height() && taken.insert({x, y}).second) out.push_back({x, y, c.value});
-        }
+    const auto more = ed.symmetryCells(cells, 32, 32, ed.width(), ed.height(), rotateBrushOn(), Editor::SymmetryCell::Tile);
+    out.insert(out.end(), more.begin(), more.end());
+    return out;
+}
+// Rectangle's mirrors and turns: the same with rects of 2 x 1 tiles as the cells; a rect keeps its two tiles in their order.
+std::vector<Editor::TileAt> solidMirrored(const std::vector<Editor::TileAt>& cells) {
+    const Editor& ed = *appState().ed;
+    if (!ed.mirrors() && ed.turns() == 1) return cells;
+    std::map<std::pair<int, int>, size_t> at;
+    std::vector<std::array<int, 2>> pairValue;  // (each rect's left and right tile; -1: not in the stroke)
+    std::vector<Editor::TileAt> rects;
+    for (const auto& c : cells) {
+        const auto [it, added] = at.try_emplace({c.x >> 1, c.y}, pairValue.size());
+        if (added) pairValue.push_back({-1, -1}), rects.push_back({c.x >> 1, c.y, uint16_t(it->second)});
+        pairValue[it->second][size_t(c.x & 1)] = c.value;
+    }
+    std::vector<Editor::TileAt> out = cells;
+    for (const auto& r : ed.symmetryCells(rects, 64, 32, (ed.width() + 1) / 2, ed.height(), rotateBrushOn(), Editor::SymmetryCell::TilePair))
+        for (int b = 0; b < 2; ++b)
+            if (const int v = pairValue[r.value][size_t(b)]; v >= 0 && 2 * r.x + b < ed.width()) out.push_back({2 * r.x + b, r.y, uint16_t(v)});
     return out;
 }
 // (Rectangle with a game terrain: on a mod's tileset, the mod's own tiles of that terrain too, as the isometric brush puts

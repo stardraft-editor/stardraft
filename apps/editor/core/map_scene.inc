@@ -918,6 +918,17 @@ render::Scene buildScene() {
             if (mm & Mirror::TopBottom) hline();
             if (mm & Mirror::Diagonal) diag(false);
             if (mm & Mirror::AntiDiagonal) diag(true);
+            auto slope = [&](float k) {  // (a 2:1 line through the anchor: y - cy = k (x - cx), cut at the map's edges)
+                const float xt = cx - cy / k, xh = cx + (H - cy) / k;
+                const float xa = std::max(0.0f, std::min(xt, xh)), xb = std::min(W, std::max(xt, xh));
+                if (xa >= xb) return;
+                render::RectDraw l;
+                l.x0 = xa, l.y0 = cy + k * (xa - cx), l.x1 = xb, l.y1 = cy + k * (xb - cx);
+                l.rgba = c, l.thickness = 3, l.line = true;
+                s.rects.push_back(l);
+            };
+            if (mm & Mirror::IsoDiagonal) slope(0.5f);
+            if (mm & Mirror::IsoAntiDiagonal) slope(-0.5f);
             auto line = [&](float x0, float y0, float x1, float y1, uint32_t rgba) {
                 render::RectDraw l;
                 l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = rgba, l.thickness = 2, l.line = true;
@@ -1134,7 +1145,7 @@ render::Scene buildScene() {
     } else if (app.mode == Mode::Terrain && currentTool() == TSelect) {
         if (app.terrainPasting && ed.hasTerrainClipboard()) {
             Rect b = ed.terrainClipboardBox();
-            const auto pts = ed.symmetricPoints(int(wx), int(wy));
+            const auto pts = ed.symmetricPoints(int(wx), int(wy), Editor::SymmetryCell::Isom);
             const auto corners = ed.terrainPasteCorners(int(wx), int(wy));
             // (the pasted terrain itself, as the map would have it: the paste on a copy of the map, its changed tiles
             // over the terrain; made again only when the paste's place, the map or the copy changes; GitHub #238)

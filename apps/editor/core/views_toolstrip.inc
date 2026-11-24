@@ -323,6 +323,17 @@ std::wstring stripMaskText() {
     return tr(L"Mask: ") + t;
 }
 
+// The rotation buttons after the symmetry row's Brushes field (Isometric / Tile rotation, Stable / Precise rotation, and
+// Rotate brush for Tile, Custom and Rectangle): in that row when they fit in `width`, else in a row of their own.
+int stripRotationButtons() {
+    const AppState& a = appState();
+    return a.mode == Mode::Terrain && a.terrainRect ? 3 : 2;
+}
+bool stripRotationWraps(int width) {
+    const int mb = scale(28), og = scale(4), right = std::min(width, mb + scale(2) + scale(68));  // (the symmetry control's right edge, as paint has it)
+    return right + og + stripRotationButtons() * (mb + og) > width;
+}
+
 int toolStripHeight(int width, bool titled) {
     const AppState& app = appState();
     const int b = scale(30), gap = scale(4);
@@ -331,7 +342,7 @@ int toolStripHeight(int width, bool titled) {
     const int rows = (tools + perRow - 1) / perRow;  // (Terrain: the brush's shape is in its size field)
     // (the mirrors' row: Turns on it where it fits, as paint puts it; else a row of its own below)
     const bool turnsBeside = true;  // (the symmetry button and the Brushes field are one control on one row)
-    const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + (turnsBeside ? 0 : scale(26) + gap) : 0) +
+    const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + (turnsBeside ? 0 : scale(26) + gap) + (stripRotationWraps(width) ? scale(28) + gap : 0) : 0) +
                       (stripHasDensity() ? scale(26) + gap : 0) +
                       (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0) +  // Terrain: Isometric | Rectangle
                       (stripHasFog() ? 2 * (scale(26) + gap) : 0) +  // (the fog tools' rows)
@@ -393,6 +404,8 @@ void mirrorIcon(Canvas& c, Rect r, int kind, Color col, Color /*ground*/) {
     if (kind & Mirror::TopBottom) c.smoothLine(P{x0 - 1, y0 + s / 2}, P{x0 + s + 1, y0 + s / 2}, col, aw);
     if (kind & Mirror::Diagonal) c.smoothLine(P{x0, y0}, P{x0 + s, y0 + s}, col, aw);
     if (kind & Mirror::AntiDiagonal) c.smoothLine(P{x0 + s, y0}, P{x0, y0 + s}, col, aw);
+    if (kind & Mirror::IsoDiagonal) c.smoothLine(P{x0, y0 + s / 4}, P{x0 + s, y0 + s * 3 / 4}, col, aw);
+    if (kind & Mirror::IsoAntiDiagonal) c.smoothLine(P{x0, y0 + s * 3 / 4}, P{x0 + s, y0 + s / 4}, col, aw);
 }
 // The brushes' number as dots (Brushes: the brushes go round the symmetry center): n dots in a ring round the
 // middle of `r` (1: one dot in the middle), the first at the top.
@@ -491,7 +504,7 @@ void stripGroupPopout(StripItem it, draw::View& from, draw::Rect button) {
     host->openWindow(from, gToolPopout, draw::WindowSpec{draw::WindowKind::Popup, at, L""}, [] { gToolPopout.open = false, gToolPopout.hot = -1; });
 }
 
-// The symmetry button's pop-out (stripMirrorPopout): No symmetry, then the four mirrors. A mirror is on or off at a
+// The symmetry button's pop-out (stripMirrorPopout): No symmetry, then the six mirrors. A mirror is on or off at a
 // click (they combine) and the row stays open; No symmetry turns them all off (and the brushes to 1) and closes it.
 struct MirrorKind {
     int flag;
@@ -501,7 +514,9 @@ constexpr MirrorKind kMirrorKinds[] = {{0, L"No symmetry"},
                                        {Mirror::LeftRight, L"Mirror left and right"},
                                        {Mirror::TopBottom, L"Mirror top and bottom"},
                                        {Mirror::Diagonal, L"Mirror across the line from top left to bottom right"},
-                                       {Mirror::AntiDiagonal, L"Mirror across the line from top right to bottom left"}};
+                                       {Mirror::AntiDiagonal, L"Mirror across the line from top right to bottom left"},
+                                       {Mirror::IsoDiagonal, L"Mirror across the 2:1 line from top left to bottom right (the edges of the diamonds)"},
+                                       {Mirror::IsoAntiDiagonal, L"Mirror across the 2:1 line from bottom left to top right (the edges of the diamonds)"}};
 void setMirrorKind(int flag) {  // (a click on a mirror, or on No symmetry: 0)
     AppState& a = appState();
     if (!a.ed) return;
@@ -929,8 +944,70 @@ public:
             }
             c.fill({br.right, br.top + 1, br.right + 1, br.bottom - 1}, kBorder);  // (the line between the two)
             mirrorIcon(c, square(br), mask, on ? kAccentBright : over2 ? kText : kDim, on ? kSel : over2 ? kCtlHot : kCtl);
-            addHit(br, [this, br] { stripMirrorPopout(*this, br); }, tr(L"Symmetry: click to select the mirrors (Alt+0 to Alt+4)"));
+            addHit(br, [this, br] { stripMirrorPopout(*this, br); }, tr(L"Symmetry: click to select the mirrors (Alt+0 to Alt+6)"));
             spinner(kNumTurns, {br.right + 1, y, joined.right, y + mb}, L"Brushes", L"", kTurnsTip, false);
+            // Isometric / Tile rotation, Stable / Precise rotation, and Rotate brush (Tile, Custom, Rectangle): square
+            // buttons after the brushes, in the row when there is space, else in the next row
+            // (docs/superpowers/specs/2026-11-23-symmetry-rotation-design.md).
+            {
+                using P = Canvas::PointF;
+                const bool brushOpt = stripRotationButtons() == 3;
+                const int og = scale(4);
+                int ox = joined.right + og, oy = y;
+                if (stripRotationWraps(W)) ox = 0, oy = y + mb + gap;
+                const float lw = float(std::max(1, scale(2))) * 0.75f;
+                auto button = [&](int i, bool on, const auto& icon, const wchar_t* tip, void (*act)()) {
+                    const draw::Rect r{ox + i * (mb + og), oy, ox + i * (mb + og) + mb, oy + mb};
+                    const bool over = hot(r);
+                    c.roundBox(r, on ? kSel : over ? kCtlHot : kCtl, on ? kAccentLine : kBorder, float(scale(kModeBoxRadius)));
+                    const float s = float(scale(14)), x0 = (r.left + r.right - s) / 2.0f, y0 = (r.top + r.bottom - s) / 2.0f;
+                    icon(x0, y0, s, on ? kAccentBright : over ? kText : kDim);
+                    addHit(r, [act] {
+                        act();
+                        shellToolsChanged();
+                        appState().dirty = true;
+                    }, tip);
+                };
+                auto diamond = [&](float x0, float y0, float s, float h, auto col) {  // (h: its height, s its width)
+                    const P l{x0, y0 + s / 2}, t{x0 + s / 2, y0 + s / 2 - h / 2}, r{x0 + s, y0 + s / 2}, b{x0 + s / 2, y0 + s / 2 + h / 2};
+                    c.smoothLine(l, t, col, lw), c.smoothLine(t, r, col, lw), c.smoothLine(r, b, col, lw), c.smoothLine(b, l, col, lw);
+                };
+                auto cellBox = [&](float x0, float y0, float s, auto col) { c.smoothFrame(P{x0 + s / 8, y0 + s / 8}, s * 3 / 4, s * 3 / 4, col, 1.0f, 110); };
+                const bool iso = app.ed->isoTurns(), stable = app.ed->stableTurns();
+                button(0, false, [&](float x0, float y0, float s, auto col) { iso ? diamond(x0, y0, s, s / 2, col) : cellBox(x0, y0, s, col); },
+                       tr(iso ? L"Isometric rotation: the copies turn as the diamonds do (2:1). Click for Tile rotation."
+                              : L"Tile rotation: the copies turn in the proportions of the map. Click for Isometric rotation."),
+                       [] {
+                           Editor& e = *appState().ed;
+                           e.setIsoTurns(!e.isoTurns());
+                           setMessage(e.isoTurns() ? L"Isometric rotation" : L"Tile rotation");
+                       });
+                button(1, false, [&](float x0, float y0, float s, auto col) {
+                    if (stable) {  // a cell with a dot in its middle
+                        cellBox(x0, y0, s, col);
+                        c.smoothEllipse(P{x0 + s / 2 - s / 8, y0 + s / 2 - s / 8}, s / 4, s / 4, col);
+                    } else {  // the pointer's cross
+                        c.smoothLine(P{x0 + s / 2, y0}, P{x0 + s / 2, y0 + s}, col, lw), c.smoothLine(P{x0, y0 + s / 2}, P{x0 + s, y0 + s / 2}, col, lw);
+                    }
+                }, tr(stable ? L"Stable rotation: the middle of the cell under the pointer turns. Click for Precise rotation."
+                             : L"Precise rotation: the exact position of the pointer turns. Click for Stable rotation."),
+                       [] {
+                           Editor& e = *appState().ed;
+                           e.setStableTurns(!e.stableTurns());
+                           setMessage(e.stableTurns() ? L"Stable rotation" : L"Precise rotation");
+                       });
+                if (brushOpt) {
+                    const bool rot = rotateBrushOn();
+                    button(2, rot, [&](float x0, float y0, float s, auto col) { rot ? diamond(x0, y0, s, s, col) : cellBox(x0, y0, s, col); },
+                           tr(rot ? L"Rotate brush: on. The turned copies turn their tiles. Click to keep the tiles as they are."
+                                  : L"Rotate brush: off. The turned copies move and keep their tiles as they are. Click to turn them."),
+                           [] {
+                               appState().rotateBrush ^= rotateBrushBit();
+                               setMessage(rotateBrushOn() ? L"Rotate brush: on" : L"Rotate brush: off");
+                           });
+                }
+                if (oy != y) y += mb + gap;  // (the buttons' own row)
+            }
             y += mb + gap;
         }
         // More: a fold (a chevron and its name, then a line), and its rows when it is open.
