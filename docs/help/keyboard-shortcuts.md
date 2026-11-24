@@ -62,6 +62,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Shift | Line and Polygon: lock the angle to horizontal, vertical, 45 degrees or the isometric diagonal (2:1) |
 | Esc | Polygon: stop the polygon (no change to the map) |
 | Ctrl+Alt+1 to Ctrl+Alt+4 | Terrain mode with Isometric, Rectangle, Tile or Custom (Mode > Terrain tools) |
+| Alt+0 to Alt+6 | Symmetry: no symmetry, or a mirror on or off (left and right, top and bottom, the two diagonals, the two 2:1 lines) |
 | Ctrl+Alt+T | Terrain mode: Isometric, Rectangle, Tile and Custom, each in turn |
 | Ctrl+click, Shift+click in the palette | Select more terrains (Shift: the ones between). Spray and Fill put them at random; Fill in patches (Mix) |
 | Alt+click in the palette | Add a terrain (Tile: a tile) to the mask, or remove it. It gets an outline. Painting then changes only the terrains (or tiles) in the mask |

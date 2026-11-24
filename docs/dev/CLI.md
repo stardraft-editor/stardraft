@@ -178,7 +178,9 @@ add-ons or a Nydus pair. `save` and `project-build` refuse a map that StarCraft 
 ## Symmetry
 
 The options of `apply` set the symmetry of the edits that follow in the same `apply`: `"mirrors": ["left_right",
-"top_bottom", "diagonal", "anti_diagonal"]` and `"turns": n` (1: none, 2: a half turn, 4: quarter turns). Each apply
+"top_bottom", "diagonal", "anti_diagonal", "iso_diagonal", "iso_anti_diagonal"]` (the last two: the 2:1 lines), `"turns": n`
+(1: none, 2: a half turn, 4: quarter turns), `"iso_turns": true` (Isometric rotation) and `"stable_turns": true`
+(Stable rotation). Each apply
 starts with no symmetry. `"resource_distance": false` takes away the rule that keeps town halls and resources 3 tiles
 apart (default: kept).
 

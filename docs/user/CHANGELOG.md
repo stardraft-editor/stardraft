@@ -24,6 +24,12 @@ StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, f
 - The arrow keys move the selected sprites and doodads.
 - Town areas show the total minerals and gas of each town.
 - Terrain select: Isometric shows the diamonds that each shape copies.
+- Symmetry: Isometric rotation turns the copies as the diamonds do (2:1), and Tile rotation turns them as before.
+- Symmetry: Stable rotation turns the middle of the cell under the pointer. Precise rotation turns the exact pointer
+  position.
+- Symmetry: Rotate brush (Tile, Custom and Rectangle) turns the tiles of each turned copy, with no holes. When it is
+  off, the copies keep their tiles as they are.
+- Symmetry: two new mirrors across the 2:1 lines of the diamonds (Alt+5, Alt+6).
 
 ### Triggers
 
